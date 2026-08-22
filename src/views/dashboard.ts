@@ -555,7 +555,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     /* RTL / Hebrew / Arabic Typography & Alignment */
-    .reader-body[dir="rtl"], .reader-content-wrap.is-rtl .reader-body {
+    .reader-body[dir="rtl"], .reader-content-wrap.is-rtl 
+    .reader-body .mobileView,
+    .reader-body span.mobileView,
+    .reader-body div.mobileView,
+    .reader-body .gallery-indication {
+      display: none !important;
+    }
+
+    .reader-body {
       direction: rtl;
       text-align: right;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Alef", "Assistant", "Rubik", "David Libre", sans-serif;
@@ -1164,6 +1172,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <script>
+    function isRtlText(text) {
+      return /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text || '');
+    }
+
     let allEntries = [];
     let currentFilter = 'unread';
     let currentReaderFontSize = 18;

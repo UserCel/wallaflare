@@ -121,6 +121,10 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
 
   const lang = document.documentElement.getAttribute('lang') || 'en';
 
+
+  // Clean duplicate mobile/gallery overlays (e.g. Ynet .mobileView duplicates)
+  document.querySelectorAll('.mobileView, span.mobileView, div.mobileView, .gallery-indication').forEach((el: any) => el.remove());
+
   const reader = new Readability(document, {
     charThreshold: 0,
     keepClasses: true,

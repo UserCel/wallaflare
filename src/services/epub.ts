@@ -151,7 +151,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
 
   // Clean KOReader/Crengine incompatible wrappers around images
   // Remove mobile duplicates, gallery overlays, and unwrap convoluted tags
-  document.querySelectorAll('.gallery-indication, .mobileView, span.mobileView').forEach((el: any) => el.remove());
+  document.querySelectorAll('.gallery-indication, .mobileView, span.mobileView, div.mobileView').forEach((el: any) => el.remove());
   document.querySelectorAll('[contenteditable]').forEach((el: any) => el.removeAttribute('contenteditable'));
   document.querySelectorAll('a.gelleryOpener').forEach((a: any) => {
     // If a.gelleryOpener only wraps an image, unwrap it so Crengine renders standard image
