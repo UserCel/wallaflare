@@ -4,6 +4,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="generator" content="wallabag">
+  <meta name="wallabag:version" content="2.6.9">
+  <meta name="application-name" content="wallabag">
   <title>${appName} - Read-it-Later &amp; E-ink Sync</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -612,6 +615,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </style>
 </head>
 <body>
+
+  <!-- Wallabag App Compatibility Form & Signatures -->
+  <form id="login_form" action="/login_check" method="post" style="display:none;">
+    <input type="text" id="username" name="_username" value="" />
+    <input type="password" id="password" name="_password" value="" />
+    <input type="hidden" name="_csrf_token" value="wallaflare_token" />
+  </form>
 
   <!-- Auth Required Screen -->
   <div class="auth-overlay" id="authOverlay">

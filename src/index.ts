@@ -6,12 +6,18 @@ import { webRouter } from './routes/web';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable CORS for Wallabag mobile apps, browser extensions & e-readers
+// Enable CORS and Wallabag identification headers
+app.use('*', async (c, next) => {
+  c.header('X-Wallabag-Version', '2.6.9');
+  c.header('X-Powered-By', 'wallabag');
+  return next();
+});
+
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposeHeaders: ['Content-Length', 'Content-Disposition'],
+  exposeHeaders: ['Content-Length', 'Content-Disposition', 'X-Wallabag-Version', 'X-Powered-By'],
   maxAge: 86400,
 }));
 
