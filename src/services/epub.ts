@@ -19,6 +19,20 @@ const MAX_INLINE_IMAGES = 30;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB per image
 const IMAGE_FETCH_TIMEOUT_MS = 4500; // 4.5s per image
 
+export function isRtlLanguage(lang?: string | null, textSample?: string | null): boolean {
+  if (lang) {
+    const l = lang.toLowerCase().split('-')[0];
+    if (['he', 'iw', 'ar', 'fa', 'ur', 'yi', 'ji'].includes(l)) {
+      return true;
+    }
+  }
+  if (textSample) {
+    const rtlRegex = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+    return rtlRegex.test(textSample.slice(0, 800));
+  }
+  return false;
+}
+
 function escapeXml(unsafe: string): string {
   return (unsafe || '')
     .replace(/&/g, '&amp;')
@@ -67,7 +81,8 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   const uid = `urn:wallabag:${article.id || Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const title = article.title || 'Untitled Article';
   const escapedTitle = escapeXml(title);
-  const lang = article.language || 'en';
+  const isRtl = isRtlLanguage(article.language, (article.title || '') + ' ' + (article.content || ''));
+  const lang = article.language || (isRtl ? 'he' : 'en');
   const domain = article.domain_name || (article.url ? new URL(article.url).hostname : 'wallabag');
   const escapedDomain = escapeXml(domain);
   const readingTime = article.reading_time || 1;
@@ -91,6 +106,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          ...(article.url ? { 'Referer': article.url } : {}),
         },
         signal: controller.signal,
       });
@@ -132,30 +148,30 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
     document.querySelectorAll(sel).forEach((el: any) => el.remove());
   });
 
-  // Extract inline images (up to MAX_INLINE_IMAGES)
-  const imgElements: any[] = Array.from(document.querySelectorAll('img')).slice(0, MAX_INLINE_IMAGES);
-  let inlineCounter = 0;
+  // Extract unique image targets
+  const allImgs: any[] = Array.from(document.querySelectorAll('img'));
+  const uniqueUrls: string[] = [];
 
-  const inlineFetchTasks = imgElements.map(async (img) => {
+  for (const img of allImgs) {
     const targetUrl = getBestImageUrl(img);
-    if (!targetUrl) {
-      if (!img.getAttribute('alt')) img.setAttribute('alt', '');
-      return;
+    if (targetUrl) {
+      img.setAttribute('data-target-url', targetUrl);
+      if (!uniqueUrls.includes(targetUrl) && uniqueUrls.length < MAX_INLINE_IMAGES) {
+        uniqueUrls.push(targetUrl);
+      }
     }
-
-    // Clean responsive attributes so e-readers only see the local src
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
     img.removeAttribute('data-src');
     img.removeAttribute('data-srcset');
     img.removeAttribute('loading');
+    if (!img.getAttribute('alt')) img.setAttribute('alt', '');
+  }
 
-    // Deduplicate if we already fetched this URL
-    if (urlToBundledImage.has(targetUrl)) {
-      const existing = urlToBundledImage.get(targetUrl)!;
-      img.setAttribute('src', existing.href);
-      return;
-    }
+  // Fetch unique images in parallel
+  let inlineCounter = 0;
+  const inlineFetchTasks = uniqueUrls.map(async (targetUrl) => {
+    if (urlToBundledImage.has(targetUrl)) return;
 
     try {
       inlineCounter++;
@@ -166,6 +182,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          ...(article.url ? { 'Referer': article.url } : {}),
         },
         signal: controller.signal,
       });
@@ -193,19 +210,24 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
           };
           bundledImages.push(bundled);
           urlToBundledImage.set(targetUrl, bundled);
-
-          // Update HTML to point to local bundled asset
-          img.setAttribute('src', `images/${imgFilename}`);
         }
       }
     } catch (e) {
       console.warn(`Inline image ${targetUrl} fetch skipped:`, e);
     }
-
-    if (!img.getAttribute('alt')) img.setAttribute('alt', '');
   });
 
   await Promise.allSettled(inlineFetchTasks);
+
+  // Update all img elements to point to their bundled local URLs
+  for (const img of allImgs) {
+    const targetUrl = img.getAttribute('data-target-url');
+    img.removeAttribute('data-target-url');
+    if (targetUrl && urlToBundledImage.has(targetUrl)) {
+      const bundled = urlToBundledImage.get(targetUrl)!;
+      img.setAttribute('src', bundled.href);
+    }
+  }
 
   const cleanBodyHtml = document.body.innerHTML;
 
@@ -238,6 +260,10 @@ body {
   margin: 0;
   padding: 0;
 }
+body[dir="rtl"], html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
+}
 dl dt {
   font-weight: bold;
   margin-top: 0.8em;
@@ -247,27 +273,39 @@ dl dd {
   margin-bottom: 0.25em;
   word-break: break-all;
 }
+[dir="rtl"] dl dd {
+  margin-right: 0;
+}
 img {
   max-width: 100%;
   height: auto;
+}
+blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid #ccc;
+}
+[dir="rtl"] blockquote {
+  border-left: none;
+  border-right: 3px solid #ccc;
 }
 `;
 
   // 6. Navigation document (EPUB3)
   const navXhtml = `<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${lang}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${lang}" dir="${isRtl ? 'rtl' : 'ltr'}">
 <head>
   <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
   <title>${escapedTitle}</title>
 </head>
-<body epub:type="frontmatter toc">
+<body epub:type="frontmatter toc" dir="${isRtl ? 'rtl' : 'ltr'}">
   <header>
-    <h1>Table of Contents</h1>
+    <h1>${isRtl ? 'תוכן עניינים' : 'Table of Contents'}</h1>
   </header>
   <nav epub:type="toc" id="toc">
     <ol>
-      ${coverFilename ? '<li><a href="CoverPage.xhtml">Cover</a></li>' : ''}
-      <li><a href="summary.xhtml">Summary</a></li>
+      ${coverFilename ? `<li><a href="CoverPage.xhtml">${isRtl ? 'עטיפה' : 'Cover'}</a></li>` : ''}
+      <li><a href="summary.xhtml">${isRtl ? 'תקציר' : 'Summary'}</a></li>
       <li><a href="content.xhtml">${escapedTitle}</a></li>
     </ol>
   </nav>
@@ -297,9 +335,9 @@ img {
     <text>${escapedDomain}</text>
   </docAuthor>
   <navMap>
-    ${coverFilename ? `<navPoint id="cover-nav" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="CoverPage.xhtml"/></navPoint>` : ''}
+    ${coverFilename ? `<navPoint id="cover-nav" playOrder="1"><navLabel><text>${isRtl ? 'עטיפה' : 'Cover'}</text></navLabel><content src="CoverPage.xhtml"/></navPoint>` : ''}
     <navPoint id="summary-nav" playOrder="${coverFilename ? 2 : 1}">
-      <navLabel><text>Summary</text></navLabel>
+      <navLabel><text>${isRtl ? 'תקציר' : 'Summary'}</text></navLabel>
       <content src="summary.xhtml"/>
     </navPoint>
     <navPoint id="content-nav" playOrder="${coverFilename ? 3 : 2}">
@@ -326,28 +364,28 @@ img {
 
   // 9. Page 2: summary.xhtml
   const summaryXhtml = `<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${lang}" dir="${isRtl ? 'rtl' : 'ltr'}">
 <head>
   <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
   <title>wallabag articles book</title>
   <link type="text/css" rel="stylesheet" href="Styles/style.css"/>
 </head>
-<body>
+<body dir="${isRtl ? 'rtl' : 'ltr'}">
   <h1>${escapedTitle}</h1>
   <dl>
-    <dt>Published by</dt>
+    <dt>${isRtl ? 'פורסם על ידי' : 'Published by'}</dt>
     <dd>${escapedAuthors !== 'Unknown' ? escapedAuthors : escapedDomain}</dd>
 
-    <dt>Published on</dt>
+    <dt>${isRtl ? 'פורסם בתאריך' : 'Published on'}</dt>
     <dd>${publishedOnStr}</dd>
 
-    <dt>Estimated reading time</dt>
-    <dd>${readingTime} min</dd>
+    <dt>${isRtl ? 'זמן קריאה משוער' : 'Estimated reading time'}</dt>
+    <dd>${readingTime} ${isRtl ? 'דקות' : 'min'}</dd>
 
-    <dt>Added on</dt>
+    <dt>${isRtl ? 'נוסף בתאריך' : 'Added on'}</dt>
     <dd>${addedOnStr}</dd>
 
-    <dt>Address</dt>
+    <dt>${isRtl ? 'כתובת מקור' : 'Address'}</dt>
     <dd>
       <a href="${originalUrl}">${originalUrl || '-'}</a>
     </dd>
@@ -357,12 +395,13 @@ img {
 
   // 10. Page 3: content.xhtml (Exact Wallabag structure, raw body with no style link or artificial whitespace)
   const contentXhtml = `<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${lang}" dir="${isRtl ? 'rtl' : 'ltr'}">
   <head>
     <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
     <title>wallabag articles book</title>
+    ${isRtl ? '<link type="text/css" rel="stylesheet" href="Styles/style.css"/>' : ''}
   </head>
-  <body>${cleanBodyHtml}</body>
+  <body dir="${isRtl ? 'rtl' : 'ltr'}">${cleanBodyHtml}</body>
 </html>`;
 
   // 11. OPF Package file with all manifest items
@@ -399,7 +438,7 @@ img {
     ${coverFilename ? '<item id="CoverPage" href="CoverPage.xhtml" media-type="application/xhtml+xml"/>' : ''}
     ${imagesManifest}
   </manifest>
-  <spine toc="ncxtoc">
+  <spine toc="ncxtoc"${isRtl ? ' page-progression-direction="rtl"' : ''}>
     ${coverFilename ? '<itemref idref="CoverPage"/>' : ''}
     <itemref idref="summary"/>
     <itemref idref="content"/>

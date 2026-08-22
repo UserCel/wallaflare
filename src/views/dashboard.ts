@@ -514,6 +514,32 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       border-radius: var(--radius);
     }
 
+
+    /* RTL / Hebrew / Arabic Typography & Alignment */
+    .reader-body[dir="rtl"], .reader-content-wrap.is-rtl .reader-body {
+      direction: rtl;
+      text-align: right;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Alef", "Assistant", "Rubik", "David Libre", sans-serif;
+    }
+    .reader-content-wrap.is-rtl #readerTitle {
+      text-align: right;
+      direction: rtl;
+    }
+    .reader-content-wrap.is-rtl #readerMeta {
+      text-align: right;
+      direction: rtl;
+    }
+    .reader-body[dir="rtl"] blockquote {
+      border-left: none;
+      border-right: 3px solid var(--accent);
+      padding-left: 0;
+      padding-right: 1.25rem;
+    }
+    .reader-body[dir="rtl"] ul, .reader-body[dir="rtl"] ol {
+      padding-left: 0;
+      padding-right: 1.5rem;
+    }
+
     .reader-body {
       font-family: var(--font-reader-serif);
       font-size: 1.15rem;
