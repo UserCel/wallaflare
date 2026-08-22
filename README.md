@@ -118,6 +118,13 @@ Your instance is now live worldwide! 🎉
 
 ---
 
+
+---
+
+## 🤖 Development Note
+
+Wallaflare was designed and developed through human-directed, LLM-assisted pair programming. Community contributions, pull requests, and bug reports are warmly welcome!
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE) — matching the Wallabag project license.
