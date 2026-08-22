@@ -15,6 +15,10 @@ export interface EpubArticleInput {
   language?: string;
 }
 
+const MAX_INLINE_IMAGES = 30;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB per image
+const IMAGE_FETCH_TIMEOUT_MS = 4500; // 4.5s per image
+
 function escapeXml(unsafe: string): string {
   return (unsafe || '')
     .replace(/&/g, '&amp;')
@@ -82,7 +86,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   if (article.preview_picture && (article.preview_picture.startsWith('http://') || article.preview_picture.startsWith('https://'))) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
       const imgRes = await fetch(article.preview_picture, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -101,7 +105,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
         else if (ct.includes('gif')) { ext = 'gif'; mime = 'image/gif'; }
 
         const buf = await imgRes.arrayBuffer();
-        if (buf.byteLength > 0 && buf.byteLength < 15 * 1024 * 1024) {
+        if (buf.byteLength > 0 && buf.byteLength <= MAX_IMAGE_BYTES) {
           coverFilename = `cover.${ext}`;
           const coverImage: BundledImage = {
             id: 'cover-image',
@@ -128,8 +132,8 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
     document.querySelectorAll(sel).forEach((el: any) => el.remove());
   });
 
-  // Extract inline images (up to 35 images)
-  const imgElements: any[] = Array.from(document.querySelectorAll('img')).slice(0, 35);
+  // Extract inline images (up to MAX_INLINE_IMAGES)
+  const imgElements: any[] = Array.from(document.querySelectorAll('img')).slice(0, MAX_INLINE_IMAGES);
   let inlineCounter = 0;
 
   const inlineFetchTasks = imgElements.map(async (img) => {
@@ -157,7 +161,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
       inlineCounter++;
       const currentIdx = inlineCounter;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
       const res = await fetch(targetUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -177,7 +181,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
         else if (ct.includes('svg')) { ext = 'svg'; mime = 'image/svg+xml'; }
 
         const buf = await res.arrayBuffer();
-        if (buf.byteLength > 0 && buf.byteLength < 40 * 1024 * 1024) {
+        if (buf.byteLength > 0 && buf.byteLength <= MAX_IMAGE_BYTES) {
           const imgFilename = `inline_${currentIdx}.${ext}`;
           const imgId = `inline-img-${currentIdx}`;
           const bundled: BundledImage = {
