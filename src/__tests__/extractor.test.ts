@@ -84,6 +84,34 @@ describe('Article Extractor Service', () => {
   });
 
 
+
+  it('correctly extracts author from twitter:creator/meta tag and ignores author-note headers', () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Chapter 313: How did we get Here? - The Legend of William Oh</title>
+        <meta name="twitter:creator" content="Macronomicon">
+      </head>
+      <body>
+        <div class="portlet solid author-note-portlet">
+          <div class="portlet-title">
+            <div class="caption">
+              <span class="caption-subject">A note from Macronomicon</span>
+            </div>
+          </div>
+          <div class="portlet-body author-note"><p>Enjoy!</p></div>
+        </div>
+        <article>
+          <p>They Say the Key Site Ghost shows up when you least expect it...</p>
+        </article>
+      </body>
+      </html>
+    `;
+    const res = extractArticleFromHtml(html, 'https://www.royalroad.com/fiction/92144/the-legend-of-william-oh/chapter/3843436/chapter-313');
+    expect(res.byline).toBe('Macronomicon');
+  });
+
   it('correctly extracts author from profile link while rejecting Follow Author button', () => {
     const html = `
       <!DOCTYPE html>

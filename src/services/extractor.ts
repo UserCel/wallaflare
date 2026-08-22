@@ -149,6 +149,13 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     }
   });
 
+  // Clean author-note portlets from header search
+  document.querySelectorAll('.author-note-portlet .caption, .portlet-title .caption').forEach((el: any) => {
+    if (el.textContent && el.textContent.toLowerCase().includes('a note from')) {
+      el.removeAttribute('class');
+    }
+  });
+
   // Clean duplicate mobile/gallery overlays
   document.querySelectorAll('.mobileView, span.mobileView, div.mobileView, .gallery-indication').forEach((el: any) => el.remove());
 
@@ -181,7 +188,7 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     content,
     textContent,
     excerpt,
-    byline: (parsed?.byline && !parsed.byline.toLowerCase().includes('follow') ? parsed.byline : null) || extractedAuthor || null,
+    byline: extractedAuthor || (parsed?.byline && !parsed.byline.toLowerCase().includes('follow') && !parsed.byline.toLowerCase().includes('a note from') && !parsed.byline.toLowerCase().includes('note') ? parsed.byline : null) || null,
     domainName,
     previewPicture,
     readingTime,
