@@ -82,7 +82,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   if (article.preview_picture && (article.preview_picture.startsWith('http://') || article.preview_picture.startsWith('https://'))) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const imgRes = await fetch(article.preview_picture, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -177,7 +177,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
         else if (ct.includes('svg')) { ext = 'svg'; mime = 'image/svg+xml'; }
 
         const buf = await res.arrayBuffer();
-        if (buf.byteLength > 0 && buf.byteLength < 25 * 1024 * 1024) {
+        if (buf.byteLength > 0 && buf.byteLength < 40 * 1024 * 1024) {
           const imgFilename = `inline_${currentIdx}.${ext}`;
           const imgId = `inline-img-${currentIdx}`;
           const bundled: BundledImage = {
