@@ -148,6 +148,19 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
     document.querySelectorAll(sel).forEach((el: any) => el.remove());
   });
 
+
+  // Clean KOReader/Crengine incompatible wrappers around images
+  // Remove mobile duplicates, gallery overlays, and unwrap convoluted tags
+  document.querySelectorAll('.gallery-indication, .mobileView, span.mobileView').forEach((el: any) => el.remove());
+  document.querySelectorAll('[contenteditable]').forEach((el: any) => el.removeAttribute('contenteditable'));
+  document.querySelectorAll('a.gelleryOpener').forEach((a: any) => {
+    // If a.gelleryOpener only wraps an image, unwrap it so Crengine renders standard image
+    const img = a.querySelector('img');
+    if (img) {
+      a.replaceWith(img);
+    }
+  });
+
   // Extract unique image targets
   const allImgs: any[] = Array.from(document.querySelectorAll('img'));
   const uniqueUrls: string[] = [];

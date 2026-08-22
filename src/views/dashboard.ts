@@ -348,6 +348,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     .card-title {
+      text-align: start;
       font-size: 1.05rem;
       font-weight: 600;
       line-height: 1.35;
@@ -364,6 +365,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     .card-excerpt {
+      text-align: start;
       font-size: 0.825rem;
       color: var(--text-secondary);
       line-height: 1.45;
@@ -1364,15 +1366,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="action-btn" title="Open original link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>'
           : '';
 
-        return '<div class="article-card" id="entry-card-' + item.id + '">' +
+const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
+        const titleDir = isRtlText(item.title) ? 'rtl' : 'ltr';
+        const excerptDir = isRtlText(excerpt) ? 'rtl' : 'ltr';
+        return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
           '<div>' +
             imgHtml +
             '<div class="card-meta">' +
               '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
               '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
             '</div>' +
-            '<h2 class="card-title" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
-            '<p class="card-excerpt" dir="auto">' + escapeHtml(excerpt) + '</p>' +
+            '<h2 class="card-title" dir="' + titleDir + '" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
+            '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
           '</div>' +
           '<div class="card-footer">' +
             '<span>' + date + '</span>' +
