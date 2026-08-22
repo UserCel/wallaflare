@@ -106,6 +106,53 @@ function renderWallabagDeveloperPage(env: Env): string {
 </html>`;
 }
 
+
+// -----------------------------------------------------------------
+// PWA Web App Manifest & Web Share Target API
+// -----------------------------------------------------------------
+const PWA_MANIFEST = {
+  name: 'Wallaflare',
+  short_name: 'Wallaflare',
+  description: 'Serverless read-it-later & Wallabag client',
+  start_url: '/',
+  scope: '/',
+  display: 'standalone',
+  orientation: 'any',
+  background_color: '#0f172a',
+  theme_color: '#f97316',
+  icons: [
+    {
+      src: '/img/logo-wallabag.svg',
+      sizes: '192x192 512x512',
+      type: 'image/svg+xml',
+      purpose: 'any maskable'
+    }
+  ],
+  share_target: {
+    action: '/share-target',
+    method: 'GET',
+    params: {
+      title: 'title',
+      text: 'text',
+      url: 'url'
+    }
+  }
+};
+
+webRouter.get('/manifest.webmanifest', (c) => {
+  c.header('Content-Type', 'application/manifest+json');
+  return c.json(PWA_MANIFEST);
+});
+
+webRouter.get('/manifest.json', (c) => {
+  c.header('Content-Type', 'application/manifest+json');
+  return c.json(PWA_MANIFEST);
+});
+
+webRouter.get('/share-target', (c) => {
+  return c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare'));
+});
+
 // Direct article & filter sub-URLs
 webRouter.get('/read/:id', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
 webRouter.get('/view/:id', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
