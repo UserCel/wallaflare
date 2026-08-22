@@ -242,6 +242,43 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
     }
   }
 
+
+  // Normalize figure and image structures for flawless rendering across all e-readers (KOReader, Kindle, Kobo)
+  document.querySelectorAll('figure').forEach((fig: any) => {
+    fig.removeAttribute('data-block');
+    fig.removeAttribute('data-editor');
+    fig.removeAttribute('data-offset-key');
+    fig.removeAttribute('contenteditable');
+
+    const img = fig.querySelector('img');
+    const captionEl = fig.querySelector('.ImageDetails, figcaption, .caption');
+    const captionText = captionEl ? captionEl.textContent?.trim() : '';
+
+    if (img) {
+      img.removeAttribute('id');
+      img.removeAttribute('aria-hidden');
+      img.removeAttribute('data-no-id');
+      img.removeAttribute('loading');
+
+      const src = img.getAttribute('src') || '';
+      const alt = img.getAttribute('alt') || '';
+      const targetUrl = img.getAttribute('data-target-url') || '';
+
+      const targetAttr = targetUrl ? ` data-target-url="${targetUrl}"` : '';
+      if (captionText) {
+        fig.innerHTML = `<img src="${src}" alt="${escapeXml(alt)}"${targetAttr} /><figcaption>${escapeXml(captionText)}</figcaption>`;
+      } else {
+        fig.innerHTML = `<img src="${src}" alt="${escapeXml(alt)}"${targetAttr} />`;
+      }
+    }
+  });
+
+  // Strip all non-semantic site container classes from root elements
+  document.querySelectorAll('.dynamicHeightItemsColumn, .RelativeElementsContainer, .site_page_root, .no-print').forEach((el: any) => {
+    el.removeAttribute('class');
+    el.removeAttribute('style');
+  });
+
   const cleanBodyHtml = document.body.innerHTML;
 
   // 3. Container XML
@@ -292,6 +329,27 @@ dl dd {
 img {
   max-width: 100%;
   height: auto;
+  display: block;
+  margin: 0.8em auto;
+}
+figure {
+  margin: 1.2em 0;
+  padding: 0;
+  text-align: center;
+  display: block;
+}
+figure img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+figcaption {
+  font-size: 0.85em;
+  font-style: italic;
+  margin-top: 0.4em;
+  text-align: center;
+  display: block;
 }
 blockquote {
   margin: 1em 0;
