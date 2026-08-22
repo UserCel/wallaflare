@@ -298,6 +298,7 @@ apiRouter.get('/api/entries/:id/export.epub', authMiddleware, async (c) => {
     content: entry.content,
     url: entry.url,
     domain_name: entry.domain_name,
+    preview_picture: entry.preview_picture,
     created_at: entry.created_at,
     language: entry.language,
   });

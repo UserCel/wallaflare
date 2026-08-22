@@ -2,6 +2,7 @@ import { zipSync, strToU8 } from 'fflate';
 import { parseHTML } from 'linkedom';
 
 export interface EpubArticleInput {
+  preview_picture?: string | null;
   id?: number | string;
   title: string;
   content: string;
@@ -139,6 +140,16 @@ hr {
   color: #555;
   text-decoration: none;
 }
+.cover-image-wrap {
+  text-align: center;
+  margin-bottom: 2em;
+}
+.cover-image {
+  max-width: 100%;
+  max-height: 480px;
+  margin: 0 auto;
+  display: block;
+}
 `;
 
   // 3. Navigation document (EPUB3)
@@ -185,6 +196,10 @@ hr {
 </ncx>`;
 
   // 5. Article Content XHTML
+  const coverHtml = article.preview_picture
+    ? `<div class="cover-image-wrap"><img src="${escapeXml(article.preview_picture)}" alt="Cover" class="cover-image"/></div>`
+    : '';
+
   const contentXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}">
@@ -203,6 +218,7 @@ hr {
       </p>
     </div>
   </div>
+  ${coverHtml}
   <div class="article-body">
     ${cleanBodyHtml}
   </div>
