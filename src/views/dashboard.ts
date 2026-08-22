@@ -3,7 +3,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="generator" content="wallabag">
   <meta name="wallabag:version" content="2.6.9">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
@@ -16,7 +16,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       --bg-primary: #0f172a;
       --bg-secondary: #1e293b;
       --bg-tertiary: #334155;
-      --bg-card: rgba(30, 41, 59, 0.7);
+      --bg-card: rgba(30, 41, 59, 0.75);
       --border-color: rgba(255, 255, 255, 0.1);
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
@@ -32,8 +32,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       --font-reader-sans: 'Inter', sans-serif;
       --font-reader-mono: 'JetBrains Mono', monospace;
       --radius: 12px;
-      --radius-sm: 6px;
-      --radius-lg: 16px;
+      --radius-sm: 8px;
+      --radius-lg: 18px;
       --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
       --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     }
@@ -42,7 +42,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       --bg-primary: #f8fafc;
       --bg-secondary: #ffffff;
       --bg-tertiary: #f1f5f9;
-      --bg-card: rgba(255, 255, 255, 0.85);
+      --bg-card: rgba(255, 255, 255, 0.9);
       --border-color: rgba(0, 0, 0, 0.08);
       --text-primary: #0f172a;
       --text-secondary: #475569;
@@ -55,7 +55,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       --bg-primary: #f4ecd8;
       --bg-secondary: #ebe2cd;
       --bg-tertiary: #dfd5be;
-      --bg-card: rgba(235, 226, 205, 0.9);
+      --bg-card: rgba(235, 226, 205, 0.92);
       --border-color: rgba(92, 77, 60, 0.15);
       --text-primary: #433422;
       --text-secondary: #6e5c46;
@@ -89,13 +89,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       top: 0;
       z-index: 40;
       backdrop-filter: blur(12px);
-      background-color: rgba(15, 23, 42, 0.8);
+      -webkit-backdrop-filter: blur(12px);
+      background-color: rgba(15, 23, 42, 0.82);
       border-bottom: 1px solid var(--border-color);
-      padding: 0.75rem 1.5rem;
+      padding: 0.75rem 1.25rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 0.85rem;
     }
     html.light header { background-color: rgba(248, 250, 252, 0.85); }
     html.sepia header { background-color: rgba(244, 236, 216, 0.9); }
@@ -107,9 +108,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       text-decoration: none;
       color: var(--text-primary);
       font-weight: 700;
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       letter-spacing: -0.02em;
       cursor: pointer;
+      flex-shrink: 0;
     }
     .brand-icon {
       width: 32px;
@@ -166,7 +168,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
+      flex-shrink: 0;
     }
 
     button, .btn {
@@ -175,14 +178,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       justify-content: center;
       gap: 0.4rem;
       font-family: inherit;
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       font-weight: 500;
-      padding: 0.5rem 0.875rem;
+      padding: 0.45rem 0.8rem;
       border-radius: var(--radius-sm);
       border: 1px solid transparent;
       cursor: pointer;
       transition: all 0.18s ease;
       text-decoration: none;
+      white-space: nowrap;
     }
     .btn-primary {
       background: var(--accent);
@@ -218,7 +222,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       max-width: 1200px;
       width: 100%;
       margin: 0 auto;
-      padding: 1.5rem 1rem 4rem 1rem;
+      padding: 1.25rem 1rem 4rem 1rem;
     }
 
     /* Filter Bar */
@@ -226,8 +230,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 1.5rem;
-      gap: 1rem;
+      margin-bottom: 1.25rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
     }
     .tab-group {
@@ -237,10 +241,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       border-radius: var(--radius-sm);
       border: 1px solid var(--border-color);
       gap: 0.2rem;
+      overflow-x: auto;
+      max-width: 100%;
     }
     .tab-btn {
-      padding: 0.35rem 0.85rem;
-      font-size: 0.825rem;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
       font-weight: 500;
       color: var(--text-secondary);
       background: transparent;
@@ -249,8 +255,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
       transition: all 0.15s;
+      white-space: nowrap;
     }
     .tab-btn.active {
       background: var(--bg-tertiary);
@@ -272,19 +279,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     /* Grid of Cards */
     .articles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.15rem;
     }
 
     .article-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: var(--radius);
-      padding: 1.25rem;
+      padding: 1.15rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       box-shadow: var(--shadow-sm);
       transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
       position: relative;
@@ -297,9 +305,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     .card-image-wrap {
-      width: calc(100% + 2.5rem);
-      margin: -1.25rem -1.25rem 0.85rem -1.25rem;
-      height: 160px;
+      width: calc(100% + 2.3rem);
+      margin: -1.15rem -1.15rem 0.85rem -1.15rem;
+      height: 155px;
       overflow: hidden;
       background: var(--bg-tertiary);
       cursor: pointer;
@@ -322,7 +330,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       justify-content: space-between;
       font-size: 0.75rem;
       color: var(--text-muted);
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.5rem;
     }
     .card-domain {
       font-weight: 600;
@@ -344,7 +352,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       font-weight: 600;
       line-height: 1.35;
       color: var(--text-primary);
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.5rem;
       cursor: pointer;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -359,7 +367,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       font-size: 0.825rem;
       color: var(--text-secondary);
       line-height: 1.45;
-      margin-bottom: 1.2rem;
+      margin-bottom: 1.1rem;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
@@ -370,7 +378,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-top: 0.75rem;
+      padding-top: 0.65rem;
       border-top: 1px solid var(--border-color);
       font-size: 0.75rem;
       color: var(--text-muted);
@@ -379,7 +387,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     .card-actions {
       display: flex;
       align-items: center;
-      gap: 0.3rem;
+      gap: 0.25rem;
     }
     .action-btn {
       background: transparent;
@@ -404,12 +412,169 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       color: var(--danger);
     }
 
+    /* -------------------------------------------------------------
+       READER VIEW: Full-Height Sidebar Layout (Maximizes Vertical Space)
+       ------------------------------------------------------------- */
+    .reader-view {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: var(--bg-primary);
+      display: none;
+      flex-direction: row;
+      overflow: hidden;
+    }
+    .reader-view.open {
+      display: flex;
+    }
+
+    /* Reader Sidebar Dock */
+    .reader-sidebar {
+      width: 76px;
+      flex-shrink: 0;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 0.5rem;
+      z-index: 20;
+      gap: 1rem;
+    }
+
+    .reader-sidebar-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+    }
+
+    .reader-tool-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 0.65rem;
+      padding: 0;
+    }
+    .reader-tool-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+    .reader-tool-btn.btn-back-tool {
+      background: var(--accent);
+      color: white;
+    }
+    .reader-tool-btn.btn-back-tool:hover {
+      background: var(--accent-hover);
+    }
+
+    /* Reader Main Scroll Area */
+    .reader-main-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 2.5rem 1.5rem 6rem 1.5rem;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+
+    .reader-content-wrap {
+      max-width: 720px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .reader-cover {
+      margin-bottom: 2rem;
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-height: 420px;
+      display: flex;
+      justify-content: center;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+    }
+    .reader-cover-img {
+      max-width: 100%;
+      max-height: 420px;
+      object-fit: contain;
+      border-radius: var(--radius);
+    }
+
+    .reader-body {
+      font-family: var(--font-reader-serif);
+      font-size: 1.15rem;
+      line-height: 1.75;
+      color: var(--text-primary);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .reader-body p {
+      margin-bottom: 1.35rem;
+    }
+    .reader-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      margin: 1.5rem auto;
+      display: block;
+    }
+    .reader-body h1, .reader-body h2, .reader-body h3 {
+      font-family: var(--font-ui);
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      line-height: 1.3;
+    }
+    .reader-body pre {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--font-reader-mono);
+      font-size: 0.875rem;
+      margin: 1.5rem 0;
+    }
+    .reader-body blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 1.25rem;
+      margin: 1.5rem 0;
+      font-style: italic;
+      color: var(--text-secondary);
+    }
+
+    /* Reading Progress Bar */
+    .reading-progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent);
+      z-index: 250;
+      width: 0%;
+      transition: width 0.1s ease-out;
+    }
+
     /* Modals */
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(0, 0, 0, 0.68);
       backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       z-index: 100;
       display: none;
       align-items: center;
@@ -424,14 +589,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       width: 100%;
-      max-width: 580px;
+      max-width: 540px;
       max-height: 90vh;
       overflow-y: auto;
       box-shadow: var(--shadow);
       padding: 1.5rem;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: 1.15rem;
       animation: modalFadeIn 0.2s ease-out;
     }
     @keyframes modalFadeIn {
@@ -452,7 +617,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       border: none;
       color: var(--text-muted);
       cursor: pointer;
-      font-size: 1.2rem;
+      font-size: 1.25rem;
       padding: 0.25rem;
     }
     .close-btn:hover { color: var(--text-primary); }
@@ -514,89 +679,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       gap: 1.25rem;
     }
 
-    /* Reader Drawer */
-    .reader-view {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: var(--bg-primary);
-      display: none;
-      flex-direction: column;
-      overflow-y: auto;
-    }
-    .reader-view.open {
-      display: flex;
-    }
-    .reader-nav {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-      padding: 0.75rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .reader-content-wrap {
-      max-width: 720px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 3rem 1.5rem 6rem 1.5rem;
-    }
-    .reader-cover {
-      margin-bottom: 2rem;
-      border-radius: var(--radius);
-      overflow: hidden;
-      max-height: 400px;
-      display: flex;
-      justify-content: center;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-    }
-    .reader-cover-img {
-      max-width: 100%;
-      max-height: 400px;
-      object-fit: contain;
-      border-radius: var(--radius);
-    }
-    .reader-body {
-      font-family: var(--font-reader-serif);
-      font-size: 1.15rem;
-      line-height: 1.75;
-      color: var(--text-primary);
-    }
-    .reader-body p {
-      margin-bottom: 1.4rem;
-    }
-    .reader-body img {
-      max-width: 100%;
-      height: auto;
-      border-radius: var(--radius-sm);
-      margin: 1.5rem 0;
-    }
-    .reader-body h1, .reader-body h2, .reader-body h3 {
-      font-family: var(--font-ui);
-      margin-top: 2rem;
-      margin-bottom: 0.8rem;
-    }
-    .reader-body pre {
-      background: var(--bg-secondary);
-      padding: 1rem;
-      border-radius: var(--radius-sm);
-      overflow-x: auto;
-      font-family: var(--font-reader-mono);
-      font-size: 0.9rem;
-      margin: 1.5rem 0;
-    }
-    .reader-body blockquote {
-      border-left: 3px solid var(--accent);
-      padding-left: 1.25rem;
-      margin: 1.5rem 0;
-      font-style: italic;
-      color: var(--text-secondary);
-    }
-
     /* Empty state */
     .empty-state {
       text-align: center;
@@ -650,6 +732,81 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       user-select: all;
       word-break: break-all;
     }
+
+    /* -------------------------------------------------------------
+       MOBILE & TABLET RESPONSIVENESS
+       ------------------------------------------------------------- */
+    @media (max-width: 768px) {
+      header {
+        padding: 0.6rem 0.85rem;
+      }
+      .brand span:nth-child(2) {
+        font-size: 1.05rem;
+      }
+      .brand-tag {
+        display: none;
+      }
+      .nav-search {
+        max-width: 140px;
+      }
+      .nav-actions button span {
+        display: none;
+      }
+      .nav-actions button {
+        padding: 0.45rem;
+      }
+      main {
+        padding: 1rem 0.75rem 4rem 0.75rem;
+      }
+      .articles-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .card-image-wrap {
+        height: 140px;
+        width: calc(100% + 2rem);
+        margin: -1rem -1rem 0.75rem -1rem;
+      }
+      .article-card {
+        padding: 1rem;
+      }
+
+      /* Mobile Reader Layout: Bottom Action Bar for Max Screen Space */
+      .reader-view {
+        flex-direction: column-reverse;
+      }
+      .reader-sidebar {
+        width: 100%;
+        height: 56px;
+        flex-direction: row;
+        border-right: none;
+        border-top: 1px solid var(--border-color);
+        padding: 0 1rem;
+        justify-content: space-around;
+        background: rgba(30, 41, 59, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      html.light .reader-sidebar { background: rgba(255, 255, 255, 0.95); }
+      html.sepia .reader-sidebar { background: rgba(235, 226, 205, 0.95); }
+
+      .reader-sidebar-group {
+        flex-direction: row;
+        justify-content: space-around;
+        width: 100%;
+        gap: 0.5rem;
+      }
+      .reader-tool-btn {
+        width: 40px;
+        height: 40px;
+      }
+      .reader-main-scroll {
+        padding: 1.5rem 1rem 3rem 1rem;
+      }
+      #readerTitle {
+        font-size: 1.6rem !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -659,6 +816,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
     <a href="/logout">Logout</a>
   </div>
+
+  <!-- Reading Progress Bar -->
+  <div class="reading-progress-bar" id="readingProgress"></div>
 
   <!-- Auth Required Screen -->
   <div class="auth-overlay" id="authOverlay">
@@ -699,16 +859,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     <div class="nav-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" id="searchInput" placeholder="Search articles or press /..." oninput="filterArticles()">
+      <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="filterArticles()">
     </div>
 
     <div class="nav-actions">
-      <button class="btn btn-primary" onclick="openModal('addUrlModal')">
+      <button class="btn btn-primary" onclick="openModal('addUrlModal')" title="Add URL">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         <span>Add URL</span>
       </button>
 
-      <button class="btn btn-secondary" onclick="openModal('addTextModal')">
+      <button class="btn btn-secondary" onclick="openModal('addTextModal')" title="Add Text">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
         <span>Add Text</span>
       </button>
@@ -856,32 +1016,50 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  <!-- Reader View -->
+  <!-- -------------------------------------------------------------
+       READER VIEW: Full-Height Sidebar Layout (Maximizes Vertical Space)
+       ------------------------------------------------------------- -->
   <div class="reader-view" id="readerView">
-    <div class="reader-nav">
-      <button class="btn btn-secondary" onclick="handleReaderBack()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        <span>Back</span>
-      </button>
-
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <button class="btn-icon" title="Serif / Sans typography" onclick="toggleReaderFont()">
-          <span style="font-family: serif; font-weight: bold; font-size: 1rem;">Aa</span>
+    <!-- Sleek Vertical Sidebar -->
+    <aside class="reader-sidebar">
+      <div class="reader-sidebar-group">
+        <button class="reader-tool-btn btn-back-tool" onclick="handleReaderBack()" title="Back to Library (Esc)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         </button>
-        <button class="btn-icon" title="Decrease font size" onclick="adjustFontSize(-1)">A-</button>
-        <button class="btn-icon" title="Increase font size" onclick="adjustFontSize(1)">A+</button>
-        <button id="readerEpubBtn" type="button" class="btn btn-secondary" onclick="downloadActiveEpub()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span>EPUB</span>
+
+        <button class="reader-tool-btn" onclick="toggleReaderFont()" title="Toggle Serif / Sans">
+          <span style="font-family: serif; font-weight: bold; font-size: 1.1rem; line-height: 1;">Aa</span>
+        </button>
+
+        <button class="reader-tool-btn" onclick="adjustFontSize(-1)" title="Smaller text">
+          <span style="font-weight: 600; font-size: 0.95rem;">A-</span>
+        </button>
+
+        <button class="reader-tool-btn" onclick="adjustFontSize(1)" title="Larger text">
+          <span style="font-weight: 600; font-size: 0.95rem;">A+</span>
         </button>
       </div>
-    </div>
-    <div class="reader-content-wrap">
-      <h1 id="readerTitle" style="font-size: 2.2rem; font-weight: 700; line-height: 1.25; margin-bottom: 0.75rem;"></h1>
-      <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
-      <div id="readerCoverWrap"></div>
-      <div class="reader-body" id="readerBody"></div>
-    </div>
+
+      <div class="reader-sidebar-group">
+        <button class="reader-tool-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
+
+        <button class="reader-tool-btn" onclick="downloadActiveEpub()" title="Download EPUB">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Reader Scroll Area -->
+    <section class="reader-main-scroll" id="readerScrollContainer" onscroll="updateReadingProgress()">
+      <div class="reader-content-wrap">
+        <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin-bottom: 0.75rem;"></h1>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.8rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
+        <div id="readerCoverWrap"></div>
+        <article class="reader-body" id="readerBody"></article>
+      </div>
+    </section>
   </div>
 
   <!-- Toast -->
@@ -959,10 +1137,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function handleRouteState() {
       const path = window.location.pathname;
-      const readMatch = new RegExp('/(?:read|view)/(\\d+)').exec(path);
-      if (readMatch) {
-        const id = parseInt(readMatch[1], 10);
-        openReader(id, false);
+      let readId = null;
+      if (path.startsWith('/read/')) {
+        readId = parseInt(path.slice(6), 10);
+      } else if (path.startsWith('/view/')) {
+        readId = parseInt(path.slice(6), 10);
+      }
+      if (readId && !isNaN(readId)) {
+        openReader(readId, false);
         return;
       }
 
@@ -1069,8 +1251,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return;
       }
 
-      
-
       empty.style.display = 'none';
       grid.innerHTML = entries.map(item => {
         const domain = item.domain_name || 'direct-input';
@@ -1112,6 +1292,46 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+    function downloadActiveEpub() {
+      if (activeArticleId) {
+        downloadEpub(activeArticleId);
+      }
+    }
+
+    async function downloadEpub(id) {
+      const item = allEntries.find(e => e.id === id);
+      showToast('Preparing EPUB download...');
+      try {
+        const res = await authFetch('/api/entries/' + id + '/export.epub');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        let filename = item && item.title ? (item.title.replace(/[/\\:*?"<>|]/g, '').trim() + '.epub') : 'article.epub';
+        const disposition = res.headers.get('Content-Disposition');
+        if (disposition && disposition.includes("filename*=")) {
+          const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+          if (match) filename = decodeURIComponent(match[1]);
+        } else if (disposition && disposition.includes("filename=")) {
+          const match = disposition.match(/filename="?([^";]+)"?/i);
+          if (match) filename = match[1];
+        }
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+          a.remove();
+        }, 2000);
+      } catch (err) {
+        showToast('Failed to download EPUB: ' + err.message);
+      }
     }
 
     async function toggleStar(id, current) {
@@ -1160,54 +1380,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    
-    function downloadActiveEpub() {
-      if (activeArticleId) {
-        downloadEpub(activeArticleId);
-      }
-    }
-
-    async function downloadEpub(id) {
-      const item = allEntries.find(e => e.id === id);
-      showToast('Preparing EPUB download...');
-      try {
-        const res = await authFetch('/api/entries/' + id + '/export.epub');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-
-        let filename = item && item.title ? (item.title.replace(/[/\\:*?"<>|]/g, '').trim() + '.epub') : 'article.epub';
-        const disposition = res.headers.get('Content-Disposition');
-        if (disposition && disposition.includes("filename*=")) {
-          const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-          if (match) filename = decodeURIComponent(match[1]);
-        } else if (disposition && disposition.includes("filename=")) {
-          const match = disposition.match(/filename="?([^";]+)"?/i);
-          if (match) filename = match[1];
-        }
-
-        const blob = await res.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl);
-          a.remove();
-        }, 2000);
-      } catch (err) {
-        showToast('Failed to download EPUB: ' + err.message);
-      }
-    }
-
     function openReader(id, pushHistory = true) {
       const item = allEntries.find(e => e.id === id);
       if (!item) return;
 
       activeArticleId = id;
-      const tokenParam = getAuthToken() ? ('?access_token=' + encodeURIComponent(getAuthToken())) : '';
-
       document.getElementById('readerTitle').textContent = item.title;
       let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span> &bull; ' +
         '<span>' + (item.reading_time || 1) + ' min read</span> &bull; ' +
@@ -1225,9 +1402,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
 
       document.getElementById('readerBody').innerHTML = item.content;
-      
       document.getElementById('readerView').classList.add('open');
       document.body.style.overflow = 'hidden';
+
+      const scrollEl = document.getElementById('readerScrollContainer');
+      if (scrollEl) scrollEl.scrollTop = 0;
+      updateReadingProgress();
 
       if (pushHistory) {
         history.pushState({ readerId: id }, '', '/read/' + id);
@@ -1238,6 +1418,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       activeArticleId = null;
       document.getElementById('readerView').classList.remove('open');
       document.body.style.overflow = 'auto';
+      document.getElementById('readingProgress').style.width = '0%';
 
       if (updateHistory) {
         const newPath = currentFilter === 'unread' ? '/' : ('/' + currentFilter);
@@ -1263,6 +1444,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function adjustFontSize(delta) {
       currentReaderFontSize = Math.max(14, Math.min(28, currentReaderFontSize + delta * 2));
       document.getElementById('readerBody').style.fontSize = currentReaderFontSize + 'px';
+    }
+
+    function updateReadingProgress() {
+      const container = document.getElementById('readerScrollContainer');
+      if (!container) return;
+      const total = container.scrollHeight - container.clientHeight;
+      const progress = total > 0 ? Math.min(100, Math.max(0, (container.scrollTop / total) * 100)) : 0;
+      document.getElementById('readingProgress').style.width = progress + '%';
     }
 
     async function handleIngestUrl(e) {
