@@ -24,26 +24,12 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function sanitizeToXhtml(htmlContent: string): string {
-  try {
-    const { document } = parseHTML(`<!DOCTYPE html><html><body>${htmlContent}</body></html>`);
-    // Remove unsafe or redundant elements
-    const removeSelectors = ['script', 'style', 'iframe', 'noscript', 'object', 'embed'];
-    removeSelectors.forEach(sel => {
-      document.querySelectorAll(sel).forEach((el: any) => el.remove());
-    });
-
-    // Ensure all images have alt tags
-    document.querySelectorAll('img').forEach((img: any) => {
-      if (!img.getAttribute('alt')) {
-        img.setAttribute('alt', '');
-      }
-    });
-
-    return document.body.innerHTML;
-  } catch {
-    return `<div>${escapeXml(htmlContent)}</div>`;
-  }
+interface BundledImage {
+  id: string;
+  href: string;
+  zipPath: string;
+  mime: string;
+  data: Uint8Array;
 }
 
 export async function generateEpub(article: EpubArticleInput): Promise<Uint8Array> {
@@ -61,20 +47,18 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   const publishedOnStr = article.published_at ? new Date(article.published_at).toISOString().split('T')[0] : 'Unknown';
   const originalUrl = article.url ? escapeXml(article.url) : '';
 
-  const cleanBodyHtml = sanitizeToXhtml(article.content);
+  const bundledImages: BundledImage[] = [];
+  let coverImageId: string | null = null;
+  let coverFilename: string | null = null;
 
-  // Fetch cover picture if available
-  let coverBytes: Uint8Array | null = null;
-  let coverFilename = 'cover.jpg';
-  let coverMime = 'image/jpeg';
-
+  // 1. Fetch Cover Image if present
   if (article.preview_picture && (article.preview_picture.startsWith('http://') || article.preview_picture.startsWith('https://'))) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       const imgRes = await fetch(article.preview_picture, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         },
         signal: controller.signal,
@@ -83,31 +67,97 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
 
       if (imgRes.ok) {
         const ct = (imgRes.headers.get('content-type') || '').toLowerCase();
-        if (ct.includes('png')) {
-          coverFilename = 'cover.png';
-          coverMime = 'image/png';
-        } else if (ct.includes('webp')) {
-          coverFilename = 'cover.webp';
-          coverMime = 'image/webp';
-        } else if (ct.includes('gif')) {
-          coverFilename = 'cover.gif';
-          coverMime = 'image/gif';
-        } else {
-          coverFilename = 'cover.jpg';
-          coverMime = 'image/jpeg';
-        }
+        let ext = 'jpg';
+        let mime = 'image/jpeg';
+        if (ct.includes('png')) { ext = 'png'; mime = 'image/png'; }
+        else if (ct.includes('webp')) { ext = 'webp'; mime = 'image/webp'; }
+        else if (ct.includes('gif')) { ext = 'gif'; mime = 'image/gif'; }
 
         const buf = await imgRes.arrayBuffer();
-        if (buf.byteLength > 0) {
-          coverBytes = new Uint8Array(buf);
+        if (buf.byteLength > 0 && buf.byteLength < 5 * 1024 * 1024) {
+          coverFilename = `cover.${ext}`;
+          coverImageId = 'cover-image';
+          bundledImages.push({
+            id: coverImageId,
+            href: `images/${coverFilename}`,
+            zipPath: `OEBPS/images/${coverFilename}`,
+            mime,
+            data: new Uint8Array(buf),
+          });
         }
       }
     } catch (e) {
-      console.warn('Failed to fetch EPUB cover image:', e);
+      console.warn('Cover image fetch failed:', e);
     }
   }
 
-  // 1. Container XML
+  // 2. Parse & sanitize content HTML, fetching inline images
+  const { document } = parseHTML(`<!DOCTYPE html><html><body>${article.content || ''}</body></html>`);
+
+  // Remove unsafe elements
+  const removeSelectors = ['script', 'style', 'iframe', 'noscript', 'object', 'embed'];
+  removeSelectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach((el: any) => el.remove());
+  });
+
+  // Extract inline images (limit to max 20 images to stay well within Worker limits)
+  const imgElements: any[] = Array.from(document.querySelectorAll('img')).slice(0, 20);
+  const inlineFetchTasks = imgElements.map(async (img, index) => {
+    const rawSrc = img.getAttribute('src')?.trim();
+    if (!rawSrc || (!rawSrc.startsWith('http://') && !rawSrc.startsWith('https://'))) {
+      if (!img.getAttribute('alt')) img.setAttribute('alt', '');
+      return;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(rawSrc, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        let ext = 'jpg';
+        let mime = 'image/jpeg';
+        if (ct.includes('png')) { ext = 'png'; mime = 'image/png'; }
+        else if (ct.includes('webp')) { ext = 'webp'; mime = 'image/webp'; }
+        else if (ct.includes('gif')) { ext = 'gif'; mime = 'image/gif'; }
+        else if (ct.includes('svg')) { ext = 'svg'; mime = 'image/svg+xml'; }
+
+        const buf = await res.arrayBuffer();
+        if (buf.byteLength > 0 && buf.byteLength < 4 * 1024 * 1024) {
+          const imgFilename = `inline_${index + 1}.${ext}`;
+          const imgId = `inline-img-${index + 1}`;
+          bundledImages.push({
+            id: imgId,
+            href: `images/${imgFilename}`,
+            zipPath: `OEBPS/images/${imgFilename}`,
+            mime,
+            data: new Uint8Array(buf),
+          });
+
+          // Update HTML to point to local bundled asset
+          img.setAttribute('src', `images/${imgFilename}`);
+        }
+      }
+    } catch (e) {
+      console.warn(`Inline image ${rawSrc} fetch skipped:`, e);
+    }
+
+    if (!img.getAttribute('alt')) img.setAttribute('alt', '');
+  });
+
+  await Promise.allSettled(inlineFetchTasks);
+
+  const cleanBodyHtml = document.body.innerHTML;
+
+  // 3. Container XML
   const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
@@ -115,7 +165,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   </rootfiles>
 </container>`;
 
-  // 2. CoverPage CSS
+  // 4. CoverPage CSS
   const coverCss = `@page, body, div, img {
 	padding: 0pt;
 	margin: 0pt;
@@ -130,7 +180,7 @@ img.cover-img {
 	object-fit: contain;
 }`;
 
-    // 3. Article Content CSS (clean, unforced spacing so e-reader controls paragraphs)
+  // 5. Article Content CSS
   const styleCss = `@charset "utf-8";
 body {
   margin: 0;
@@ -151,7 +201,7 @@ img {
 }
 `;
 
-  // 4. Navigation document (EPUB3)
+  // 6. Navigation document (EPUB3)
   const navXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${lang}">
 <head>
@@ -164,7 +214,7 @@ img {
   </header>
   <nav epub:type="toc" id="toc">
     <ol>
-      ${coverBytes ? '<li><a href="CoverPage.xhtml">Cover</a></li>' : ''}
+      ${coverFilename ? '<li><a href="CoverPage.xhtml">Cover</a></li>' : ''}
       <li><a href="summary.xhtml">Summary</a></li>
       <li><a href="content.xhtml">${escapedTitle}</a></li>
     </ol>
@@ -172,14 +222,14 @@ img {
   <nav epub:type="landmarks">
     <h2>Guide</h2>
     <ol>
-      ${coverBytes ? '<li><a epub:type="cover" href="CoverPage.xhtml">CoverPage</a></li>' : ''}
+      ${coverFilename ? '<li><a epub:type="cover" href="CoverPage.xhtml">CoverPage</a></li>' : ''}
       <li><a epub:type="text" href="content.xhtml">${escapedTitle}</a></li>
     </ol>
   </nav>
 </body>
 </html>`;
 
-  // 5. NCX TOC (EPUB2 / KOReader)
+  // 7. NCX TOC (EPUB2 / KOReader)
   const tocNcx = `<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="${lang}">
   <head>
@@ -195,20 +245,20 @@ img {
     <text>${escapedDomain}</text>
   </docAuthor>
   <navMap>
-    ${coverBytes ? `<navPoint id="cover-nav" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="CoverPage.xhtml"/></navPoint>` : ''}
-    <navPoint id="summary-nav" playOrder="${coverBytes ? 2 : 1}">
+    ${coverFilename ? `<navPoint id="cover-nav" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="CoverPage.xhtml"/></navPoint>` : ''}
+    <navPoint id="summary-nav" playOrder="${coverFilename ? 2 : 1}">
       <navLabel><text>Summary</text></navLabel>
       <content src="summary.xhtml"/>
     </navPoint>
-    <navPoint id="content-nav" playOrder="${coverBytes ? 3 : 2}">
+    <navPoint id="content-nav" playOrder="${coverFilename ? 3 : 2}">
       <navLabel><text>${escapedTitle}</text></navLabel>
       <content src="content.xhtml"/>
     </navPoint>
   </navMap>
 </ncx>`;
 
-  // 6. Page 1: CoverPage.xhtml (matches Wallabag)
-  const coverXhtml = coverBytes ? `<?xml version="1.0" encoding="utf-8"?>
+  // 8. Page 1: CoverPage.xhtml
+  const coverXhtml = coverFilename ? `<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
   <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
@@ -222,7 +272,7 @@ img {
 </body>
 </html>` : '';
 
-    // 7. Page 2: summary.xhtml (Wallabag exact structure)
+  // 9. Page 2: summary.xhtml
   const summaryXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
@@ -235,12 +285,16 @@ img {
   <dl>
     <dt>Published by</dt>
     <dd>${escapedAuthors !== 'Unknown' ? escapedAuthors : escapedDomain}</dd>
+
     <dt>Published on</dt>
     <dd>${publishedOnStr}</dd>
+
     <dt>Estimated reading time</dt>
     <dd>${readingTime} min</dd>
+
     <dt>Added on</dt>
     <dd>${addedOnStr}</dd>
+
     <dt>Address</dt>
     <dd>
       <a href="${originalUrl}">${originalUrl || '-'}</a>
@@ -249,25 +303,23 @@ img {
 </body>
 </html>`;
 
-    // 8. Page 3: content.xhtml (Wallabag starts directly with article body, no title repetition)
+  // 10. Page 3: content.xhtml (Exact Wallabag structure, raw body with no style link or artificial whitespace)
   const contentXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head>
-  <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
-  <title>wallabag articles book</title>
-</head>
-<body>
-${cleanBodyHtml}
-</body>
+  <head>
+    <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
+    <title>wallabag articles book</title>
+  </head>
+  <body>${cleanBodyHtml}</body>
 </html>`;
 
-  // 9. OPF Package file (matches Wallabag OPF structure)
-  const coverManifestItem = coverBytes
-    ? `<item id="cover-image" href="images/${coverFilename}" media-type="${coverMime}" properties="cover-image"/>\n    <item id="CoverPage" href="CoverPage.xhtml" media-type="application/xhtml+xml"/>`
-    : '';
-  const coverMetaItem = coverBytes
-    ? `<meta name="cover" content="cover-image"/>`
-    : '';
+  // 11. OPF Package file with all manifest items
+  const imagesManifest = bundledImages.map(img => {
+    const isCoverProp = img.id === 'cover-image' ? ' properties="cover-image"' : '';
+    return `<item id="${img.id}" href="${img.href}" media-type="${img.mime}"${isCoverProp}/>`;
+  }).join('\n    ');
+
+  const coverMetaItem = coverFilename ? '<meta name="cover" content="cover-image"/>' : '';
 
   const contentOpf = `<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf"
@@ -292,20 +344,21 @@ ${cleanBodyHtml}
     <item id="style.css" href="Styles/style.css" media-type="text/css"/>
     <item id="summary" href="summary.xhtml" media-type="application/xhtml+xml"/>
     <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
-    ${coverManifestItem}
+    ${coverFilename ? '<item id="CoverPage" href="CoverPage.xhtml" media-type="application/xhtml+xml"/>' : ''}
+    ${imagesManifest}
   </manifest>
   <spine toc="ncxtoc">
-    ${coverBytes ? '<itemref idref="CoverPage"/>' : ''}
+    ${coverFilename ? '<itemref idref="CoverPage"/>' : ''}
     <itemref idref="summary"/>
     <itemref idref="content"/>
   </spine>
   <guide>
-    ${coverBytes ? '<reference type="cover" title="CoverPage" href="CoverPage.xhtml"/>' : ''}
+    ${coverFilename ? '<reference type="cover" title="CoverPage" href="CoverPage.xhtml"/>' : ''}
     <reference type="text" title="Entry 1 of 1" href="content.xhtml"/>
   </guide>
 </package>`;
 
-  // Build ZIP structure using fflate
+  // 12. Build ZIP structure using fflate
   const zipEntries: Record<string, any> = {
     'mimetype': [strToU8('application/epub+zip'), { level: 0 }],
     'META-INF/container.xml': strToU8(containerXml),
@@ -318,9 +371,13 @@ ${cleanBodyHtml}
     'OEBPS/content.xhtml': strToU8(contentXhtml),
   };
 
-  if (coverBytes) {
+  if (coverFilename) {
     zipEntries['OEBPS/CoverPage.xhtml'] = strToU8(coverXhtml);
-    zipEntries['OEBPS/images/' + coverFilename] = coverBytes;
+  }
+
+  // Add all bundled images to ZIP
+  for (const img of bundledImages) {
+    zipEntries[img.zipPath] = img.data;
   }
 
   return zipSync(zipEntries);
