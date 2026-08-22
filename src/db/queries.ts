@@ -1,53 +1,45 @@
 import { EntryRow, WallabagEntry } from '../types';
 
+function formatDate(d?: string | null): string {
+  if (!d) return new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  return date.toISOString().replace(/\.\d{3}Z$/, '+00:00');
+}
+
 export function entryRowToWallabag(row: EntryRow): WallabagEntry {
-  if (!row) {
-    return {
-      id: 0,
-      title: 'Untitled',
-      url: '',
-      content: '',
-      is_archived: 0,
-      is_starred: 0,
-      user_name: 'wallaflare',
-      user_email: 'user@wallaflare.local',
-      user_id: 1,
-      tags: [],
-      is_public: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      published_at: new Date().toISOString(),
-      published_by: [],
-      reading_time: 1,
-      domain_name: '',
-      preview_picture: null,
-      language: 'en',
-      starred_at: null,
-      archived_at: null,
-    };
-  }
+  const createdAt = formatDate(row?.created_at);
+  const updatedAt = formatDate(row?.updated_at);
+  const publishedAt = formatDate(row?.published_at || row?.created_at);
+  const plainText = (row?.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
   return {
-    id: row.id,
-    title: row.title || 'Untitled',
-    url: row.url || '',
-    content: row.content || '',
-    is_archived: row.is_archived || 0,
-    is_starred: row.is_starred || 0,
+    id: row?.id || 0,
+    title: row?.title || 'Untitled',
+    url: row?.url || '',
+    content: row?.content || '',
+    is_archived: row?.is_archived ? 1 : 0,
+    is_starred: row?.is_starred ? 1 : 0,
     user_name: 'wallaflare',
     user_email: 'user@wallaflare.local',
     user_id: 1,
     tags: [],
     is_public: 0,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    published_at: row.published_at || row.created_at,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    published_at: publishedAt,
     published_by: [],
-    reading_time: row.reading_time || 1,
-    domain_name: row.domain_name || '',
-    preview_picture: row.preview_picture || null,
-    language: row.language || 'en',
-    starred_at: null,
-    archived_at: null,
+    reading_time: row?.reading_time || 1,
+    domain_name: row?.domain_name || '',
+    preview_picture: row?.preview_picture || null,
+    language: row?.language || 'en',
+    starred_at: row?.is_starred ? updatedAt : null,
+    archived_at: row?.is_archived ? updatedAt : null,
+    mimetype: 'text/html',
+    text: plainText,
+    annotations: [],
+    origin_url: row?.url || null,
+    given_url: row?.url || null,
   };
 }
 
@@ -60,7 +52,7 @@ export interface GetEntriesFilter {
   sort?: 'created' | 'updated' | 'archived';
   search?: string;
   domain_name?: string;
-  since?: string;
+  since?: string | number;
 }
 
 export async function getEntries(
@@ -85,9 +77,16 @@ export async function getEntries(
     params.push(filter.domain_name);
   }
 
-  if (filter.since) {
+  // Handle since parameter: ignore 0 / empty, handle numeric unix timestamps
+  if (filter.since !== undefined && filter.since !== '' && filter.since !== '0' && filter.since !== 0) {
+    let sinceIso = String(filter.since);
+    const num = Number(filter.since);
+    if (!isNaN(num) && num > 0) {
+      const ms = num < 10000000000 ? num * 1000 : num;
+      sinceIso = new Date(ms).toISOString();
+    }
     conditions.push('updated_at >= ?');
-    params.push(filter.since);
+    params.push(sinceIso);
   }
 
   if (filter.search) {
