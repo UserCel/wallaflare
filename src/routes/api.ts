@@ -4,6 +4,7 @@ import { generateToken, authMiddleware } from '../services/auth';
 import {
   getEntries,
   getEntryById,
+  getEntryByUrl,
   createEntry,
   updateEntry,
   deleteEntry,
@@ -88,29 +89,35 @@ const versionHandler = (c: any) => {
 };
 apiRouter.get('/api/version', versionHandler);
 apiRouter.get('/api/version.json', versionHandler);
-apiRouter.get('/version', versionHandler);
-apiRouter.get('/version.json', versionHandler);
 
 const infoHandler = (c: any) => {
   return c.json({
-    appname: 'wallabag',
+    appname: c.env.APP_NAME || 'Wallaflare',
     version: '2.6.9',
     allowed_registration: false,
   });
 };
 apiRouter.get('/api/info', infoHandler);
 apiRouter.get('/api/info.json', infoHandler);
-apiRouter.get('/info', infoHandler);
-apiRouter.get('/info.json', infoHandler);
 
-// User Profile Endpoint
+// -------------------------------------------------------------
+// User Profile (KOReader / Wallabag API v2)
+// -------------------------------------------------------------
 const userHandler = (c: any) => {
   return c.json({
     id: 1,
     username: 'wallaflare',
     email: 'user@wallaflare.local',
-    created_at: '2024-01-01T00:00:00+0000',
-    updated_at: '2024-01-01T00:00:00+0000',
+    name: 'Wallaflare User',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    config: {
+      items_per_page: 30,
+      feed_token: 'feed_token_mock',
+      language: 'en',
+      reading_speed: 200,
+      action_mark_as_read: 0,
+    },
   });
 };
 apiRouter.get('/api/user', authMiddleware, userHandler);
@@ -119,45 +126,83 @@ apiRouter.get('/api/users/current', authMiddleware, userHandler);
 apiRouter.get('/api/users/current.json', authMiddleware, userHandler);
 
 // -------------------------------------------------------------
-// Tags Compatibility Endpoints
+// Tags
 // -------------------------------------------------------------
-const tagsHandler = (c: any) => c.json([]);
+const tagsHandler = (c: any) => {
+  return c.json([]);
+};
 apiRouter.get('/api/tags', authMiddleware, tagsHandler);
 apiRouter.get('/api/tags.json', authMiddleware, tagsHandler);
-apiRouter.get('/api/tagging/tags', authMiddleware, tagsHandler);
-apiRouter.get('/api/tagging/tags.json', authMiddleware, tagsHandler);
 
 // -------------------------------------------------------------
-// Entries List: GET /api/entries(.json)
+// Article Exists Endpoint: GET /api/entries/exists(.json)
+// Used by Wallabag Android App (TestApiAccessTask / articleExistsByUrl)
+// -------------------------------------------------------------
+const existsHandler = async (c: any) => {
+  const url = c.req.query('url');
+  const urls = c.req.queries('urls[]') || [];
+
+  if (urls.length > 0) {
+    const results: Record<string, boolean> = {};
+    for (const u of urls) {
+      const entry = await getEntryByUrl(c.env.DB, u);
+      results[u] = entry !== null;
+    }
+    return c.json(results);
+  }
+
+  if (url) {
+    const entry = await getEntryByUrl(c.env.DB, url);
+    return c.json({ exists: entry !== null, id: entry?.id });
+  }
+
+  return c.json({ exists: false });
+};
+
+apiRouter.get('/api/entries/exists', authMiddleware, existsHandler);
+apiRouter.get('/api/entries/exists.json', authMiddleware, existsHandler);
+
+// -------------------------------------------------------------
+// Articles List: GET /api/entries(.json)
 // -------------------------------------------------------------
 const getEntriesHandler = async (c: any) => {
   const query = c.req.query();
-  const archive = query.archive !== undefined ? Number(query.archive) : undefined;
-  const starred = query.starred !== undefined ? Number(query.starred) : undefined;
-  const page = query.page ? Number(query.page) : 1;
-  const perPage = query.perPage || query.limit ? Number(query.perPage || query.limit) : 30;
-  const sort = query.sort || 'created';
-  const order = query.order || 'desc';
-  const since = query.since ? Number(query.since) || query.since : undefined;
+  
+  const filter: any = {};
+  if (query.archive !== undefined) filter.is_archived = Number(query.archive);
+  if (query.starred !== undefined) filter.is_starred = Number(query.starred);
+  if (query.page !== undefined) filter.page = Number(query.page);
+  if (query.perPage !== undefined) filter.perPage = Number(query.perPage);
+  if (query.order !== undefined) filter.order = query.order;
+  if (query.sort !== undefined) filter.sort = query.sort;
+  if (query.domain_name) filter.domain_name = query.domain_name;
+  if (query.since) filter.since = query.since;
+  if (query.search) filter.search = query.search;
 
-  const result = await getEntries(c.env.DB, {
-    archive,
-    starred,
-    page,
-    perPage,
-    sort,
-    order,
-    since,
+  const result = await getEntries(c.env.DB, filter);
+
+  // Return Wallabag v2 pagination structure
+  return c.json({
+    page: result.page,
+    limit: result.limit,
+    pages: result.pages,
+    total: result.total,
+    _links: {
+      self: { href: `/api/entries.json?page=${result.page}&perPage=${result.limit}` },
+      first: { href: `/api/entries.json?page=1&perPage=${result.limit}` },
+      last: { href: `/api/entries.json?page=${result.pages}&perPage=${result.limit}` },
+    },
+    _embedded: {
+      items: result.entries.map(entryRowToWallabag),
+    },
   });
-
-  return c.json(result);
 };
 
 apiRouter.get('/api/entries', authMiddleware, getEntriesHandler);
 apiRouter.get('/api/entries.json', authMiddleware, getEntriesHandler);
 
 // -------------------------------------------------------------
-// Ingest New Entry: POST /api/entries(.json)
+// Ingest Article: POST /api/entries(.json)
 // -------------------------------------------------------------
 const postEntryHandler = async (c: any) => {
   let body: any = {};
@@ -169,54 +214,31 @@ const postEntryHandler = async (c: any) => {
     body = await c.req.parseBody().catch(() => ({}));
   }
 
-  const url = body.url ? String(body.url).trim() : null;
-  const title = body.title ? String(body.title).trim() : null;
-  const content = body.content ? String(body.content) : null;
-  const is_archived = body.archive === 1 || body.archive === '1' || body.is_archived === 1 ? 1 : 0;
-  const is_starred = body.starred === 1 || body.starred === '1' || body.is_starred === 1 ? 1 : 0;
+  const url = body.url ? String(body.url).trim() : '';
+  const title = body.title ? String(body.title).trim() : '';
+  const content = body.content ? String(body.content).trim() : '';
+  const is_archived = body.archive ? Number(body.archive) : 0;
+  const is_starred = body.starred ? Number(body.starred) : 0;
 
-  let entryData: {
-    url?: string | null;
-    title: string;
-    content: string;
-    preview_picture?: string | null;
-    domain_name?: string | null;
-    reading_time?: number;
-    language?: string;
-    is_archived?: number;
-    is_starred?: number;
-  };
+  let entryData: any;
 
   if (url) {
-    try {
-      const extracted = await extractArticleFromUrl(url);
-      entryData = {
-        url,
-        title: title || extracted.title,
-        content: content || extracted.content,
-        preview_picture: extracted.previewPicture,
-        domain_name: extracted.domainName,
-        reading_time: extracted.readingTime,
-        language: extracted.language,
-        is_archived,
-        is_starred,
-      };
-    } catch (err: any) {
-      entryData = {
-        url,
-        title: title || url,
-        content: content || `<p>Could not fetch article contents from <a href="${url}">${url}</a>: ${err.message}</p>`,
-        domain_name: new URL(url).hostname.replace(/^www\./, ''),
-        reading_time: 1,
-        language: 'en',
-        is_archived,
-        is_starred,
-      };
-    }
-  } else if (title && content) {
-    const extracted = extractArticleFromHtml(content);
+    const extracted = await extractArticleFromUrl(url);
     entryData = {
-      url: null,
+      url,
+      title: title || extracted.title,
+      content: content || extracted.content,
+      domain_name: extracted.domainName,
+      reading_time: extracted.readingTime,
+      preview_picture: extracted.previewPicture,
+      language: extracted.language || 'en',
+      is_archived,
+      is_starred,
+    };
+  } else if (title || content) {
+    const extracted = extractArticleFromHtml(content, title);
+    entryData = {
+      url: body.url || null,
       title,
       content,
       domain_name: 'direct-input',

@@ -25,46 +25,20 @@ function createMockD1Database() {
             }
             return { total: filtered.length } as T;
           }
-          if (query.includes('SELECT * FROM entries WHERE id = ?')) {
+          if (query.includes('WHERE id = ?')) {
             const id = boundParams[0];
             const found = entries.find(e => e.id === id);
             return (found || null) as T;
           }
-          if (query.includes('INSERT INTO entries')) {
-            const [url, title, content, preview_picture, domain_name, reading_time, language, is_archived, is_starred, created_at, updated_at] = boundParams;
-            const newEntry: EntryRow = {
-              id: autoId++,
-              url,
-              title,
-              content,
-              preview_picture,
-              domain_name,
-              reading_time,
-              language,
-              is_archived,
-              is_starred,
-              created_at,
-              updated_at,
-            };
-            entries.push(newEntry);
-            return newEntry as T;
+          if (query.includes('WHERE url = ?')) {
+            const url = boundParams[0];
+            const found = entries.find(e => e.url === url);
+            return (found || null) as T;
           }
-          if (query.includes('UPDATE entries')) {
-            const id = boundParams[boundParams.length - 1];
-            const found = entries.find(e => e.id === id);
-            if (!found) return null as T;
-
-            let paramIdx = 1;
-            if (query.includes('is_starred = ?')) {
-              found.is_starred = boundParams[paramIdx++];
-            }
-            if (query.includes('is_archived = ?')) {
-              found.is_archived = boundParams[paramIdx++];
-            }
-            found.updated_at = boundParams[0];
-            return found as T;
+          if (query.includes('SELECT MAX(id)')) {
+            return entries[entries.length - 1] as T;
           }
-          return null as T;
+          return (entries[0] || null) as T;
         },
         async all<T = any>() {
           if (query.includes('SELECT * FROM entries')) {
@@ -80,6 +54,41 @@ function createMockD1Database() {
           return { results: [] as T[] };
         },
         async run() {
+          if (query.includes('INSERT INTO entries')) {
+            const [url, title, content, preview_picture, domain_name, reading_time, language, is_archived, is_starred, created_at, updated_at, published_at] = boundParams;
+            const newEntry: EntryRow = {
+              id: autoId++,
+              url,
+              title,
+              content,
+              preview_picture,
+              domain_name,
+              reading_time,
+              language,
+              is_archived,
+              is_starred,
+              created_at,
+              updated_at,
+              published_at,
+            };
+            entries.push(newEntry);
+            return { meta: { last_row_id: newEntry.id, changes: 1 } };
+          }
+          if (query.includes('UPDATE entries')) {
+            const id = boundParams[boundParams.length - 1];
+            const found = entries.find(e => e.id === id);
+            if (found) {
+              let paramIdx = 1;
+              if (query.includes('is_starred = ?')) {
+                found.is_starred = boundParams[paramIdx++];
+              }
+              if (query.includes('is_archived = ?')) {
+                found.is_archived = boundParams[paramIdx++];
+              }
+              found.updated_at = boundParams[0];
+            }
+            return { meta: { changes: 1 } };
+          }
           if (query.includes('DELETE FROM entries WHERE id = ?')) {
             const id = boundParams[0];
             const initialLen = entries.length;
@@ -131,6 +140,13 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     const info = await infoRes.json<any>();
     expect(info.appname).toBeDefined();
     expect(info.version).toBe('2.6.9');
+  });
+
+  it('checks article existence via /api/entries/exists.json', async () => {
+    const existsRes = await app.request('/api/entries/exists.json?url=https://example.com/notfound', {}, { DB: mockDb });
+    expect(existsRes.status).toBe(200);
+    const existsData = await existsRes.json<any>();
+    expect(existsData.exists).toBe(false);
   });
 
   it('creates, retrieves, updates, and deletes articles', async () => {
