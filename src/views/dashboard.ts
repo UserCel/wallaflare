@@ -556,6 +556,42 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     /* RTL / Hebrew / Arabic Typography & Alignment */
     .reader-body[dir="rtl"], .reader-content-wrap.is-rtl 
+
+    /* Universal Reader Content Visibility & Reset */
+    .reader-body * {
+      position: static !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      color: inherit;
+    }
+    .reader-body p,
+    .reader-body span,
+    .reader-body div,
+    .reader-body h1,
+    .reader-body h2,
+    .reader-body h3,
+    .reader-body h4,
+    .reader-body li {
+      color: var(--text-primary);
+    }
+    .reader-body img {
+      max-width: 100% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 1.5rem auto !important;
+      border-radius: var(--radius-sm);
+    }
+    .reader-body .mobileView,
+    .reader-body span.mobileView,
+    .reader-body div.mobileView,
+    .reader-body .gallery-indication {
+      display: none !important;
+    }
+
+    /* Duplicate cleaner */
     .reader-body .mobileView,
     .reader-body span.mobileView,
     .reader-body div.mobileView,

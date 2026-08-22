@@ -122,6 +122,13 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const lang = document.documentElement.getAttribute('lang') || 'en';
 
 
+
+  // Clean intrusive proprietary site containers (e.g. Ynet/Haaretz layout wrappers)
+  document.querySelectorAll('.dynamicHeightItemsColumn, .RelativeElementsContainer, .site_page_root, .no-print').forEach((el: any) => {
+    el.removeAttribute('class');
+    el.removeAttribute('style');
+  });
+
   // Clean duplicate mobile/gallery overlays (e.g. Ynet .mobileView duplicates)
   document.querySelectorAll('.mobileView, span.mobileView, div.mobileView, .gallery-indication').forEach((el: any) => el.remove());
 
