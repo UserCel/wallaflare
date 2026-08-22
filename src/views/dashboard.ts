@@ -959,7 +959,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function handleRouteState() {
       const path = window.location.pathname;
-      const readMatch = path.match(/\/(?:read|view)\/(\d+)/);
+      const readMatch = new RegExp('/(?:read|view)/(\\d+)').exec(path);
       if (readMatch) {
         const id = parseInt(readMatch[1], 10);
         openReader(id, false);
