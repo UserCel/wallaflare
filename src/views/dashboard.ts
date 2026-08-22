@@ -1,6 +1,4 @@
-export function renderDashboardHtml(appName: string = 'Wallaflare', env?: any): string {
-  const secret = env?.AUTH_TOKEN || env?.CLIENT_SECRET || 'wallaflare';
-
+export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -8,8 +6,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare', env?: any): 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="wallabag">
   <meta name="wallabag:version" content="2.6.9">
-  <meta name="application-name" content="wallabag">
-  <title>Welcome to wallabag! – ${appName}</title>
+  <title>${appName} - Read-it-Later &amp; E-ink Sync</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -617,23 +614,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare', env?: any): 
   </style>
 </head>
 <body>
-
-  <!-- Exact Wallabag Regex Handshake Compatibility Layer -->
-  <div style="display:none;" aria-hidden="true">
-    <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
-    <form action="/login_check" method="post" name="loginform">
-      <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
-      <input type="text" id="username" name="_username" value="" />
-      <input type="password" id="password" name="_password" value="" />
-      <button type="submit">Log in</button>
-    </form>
-    <div id="developer-clients">
-      <h3>Client: Android app - #1</h3>
-      <p>Name: Android app</p>
-      <p>Client ID: <span>wallaflare</span></p>
-      <p>Client secret: <span>${secret}</span></p>
-    </div>
-  </div>
 
   <!-- Auth Required Screen -->
   <div class="auth-overlay" id="authOverlay">

@@ -8,7 +8,7 @@ export const webRouter = new Hono<{ Bindings: Env }>();
 // Wallabag Android App Auto-Discovery & Web Login Compatibility
 // -----------------------------------------------------------------
 
-function renderWallabagLoginPage(secret: string = 'wallaflare'): string {
+function renderWallabagLoginPage(): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,22 +25,16 @@ function renderWallabagLoginPage(secret: string = 'wallaflare'): string {
       </div>
       <form action="/login_check" method="post" name="loginform">
         <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
-        <div class="input-field">
+        <div class="input-field col s12">
           <input type="text" id="username" name="_username" value="" autofocus />
           <label for="username">Username</label>
         </div>
-        <div class="input-field">
+        <div class="input-field col s12">
           <input type="password" id="password" name="_password" />
           <label for="password">Password</label>
         </div>
         <button type="submit" class="btn">Log in</button>
       </form>
-      <div style="display:none;">
-        <h3>Client: Android app - #1</h3>
-        <p>Name: Android app</p>
-        <p>Client ID: <span>wallaflare</span></p>
-        <p>Client secret: <span>${secret}</span></p>
-      </div>
     </main>
   </div>
 </body>
@@ -61,13 +55,13 @@ function renderWallabagDeveloperPage(env: Env): string {
     <h2>API clients management</h2>
     <div class="card-panel">
       <div class="client-item">
-        <h3>Client: Android app - #1</h3>
+        <h3>Client: Android app - #38185</h3>
         <p><strong>Name:</strong> Android app</p>
         <p><strong>Client ID:</strong> <span>wallaflare</span></p>
         <p><strong>Client secret:</strong> <span>${secret}</span></p>
       </div>
       <div class="client-item">
-        <h3>Client: koreader - #2</h3>
+        <h3>Client: koreader - #36204</h3>
         <p><strong>Name:</strong> koreader</p>
         <p><strong>Client ID:</strong> <span>wallaflare</span></p>
         <p><strong>Client secret:</strong> <span>${secret}</span></p>
@@ -78,25 +72,32 @@ function renderWallabagDeveloperPage(env: Env): string {
 </html>`;
 }
 
-// Root page
+// Root page: serve dashboard for browser, or login page if Android app requests /
 webRouter.get('/', (c) => {
+  const userAgent = c.req.header('User-Agent') || '';
+  const acceptHeader = c.req.header('Accept') || '';
   const appName = c.env.APP_NAME || 'Wallaflare';
-  return c.html(renderDashboardHtml(appName, c.env));
+
+  // If requested by InThePoche or client expecting HTML login
+  if (userAgent.includes('InThePoche') || userAgent.includes('wallabag')) {
+    return c.html(renderWallabagLoginPage());
+  }
+
+  return c.html(renderDashboardHtml(appName));
 });
 
 // Login page
 webRouter.get('/login', (c) => {
-  const secret = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET || 'wallaflare';
-  return c.html(renderWallabagLoginPage(secret));
+  return c.html(renderWallabagLoginPage());
 });
 
-// Login submission by Android app
+// Login submission by Android app (MUST redirect to /developer, without returning login form!)
 webRouter.post('/login_check', (c) => {
-  c.header('Set-Cookie', 'PHPSESSID=wallaflare_session_ok; Path=/; HttpOnly; SameSite=Lax');
+  c.header('Set-Cookie', 'PHPSESSID=wallaflare_session_authenticated; Path=/; HttpOnly; SameSite=Lax');
   return c.redirect('/developer', 302);
 });
 
-// Developer page (used by Android app to auto-fetch Client ID / Secret)
+// Developer page: renders API clients list (does NOT contain login form, so isLoginPage(body) is FALSE)
 webRouter.get('/developer', (c) => {
   return c.html(renderWallabagDeveloperPage(c.env));
 });
