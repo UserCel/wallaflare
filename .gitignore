@@ -5,7 +5,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Cloudflare Wrangler & D1 Local State
+# Cloudflare Configuration & Local State
+wrangler.toml
 .wrangler/
 .mf/
 .dev.vars
@@ -14,6 +15,8 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+!.dev.vars.example
+!wrangler.toml.example
 
 # Build & Test outputs
 dist/
