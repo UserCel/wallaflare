@@ -2,8 +2,9 @@ name = "wallaflare"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
+account_id = "b8a91b447b8ddc6247d64c54be6ebac0"
 
-# Custom domain configuration for example.com
+# Custom Domain
 routes = [
   { pattern = "wallaflare.example.com", custom_domain = true }
 ]
@@ -12,10 +13,8 @@ routes = [
 [[d1_databases]]
 binding = "DB"
 database_name = "wallaflare-db"
-database_id = "local-wallaflare-db"
+database_id = "41eabbe2-5c28-4f35-af2f-27f9bf5492f4"
 migrations_dir = "migrations"
 
 [vars]
 APP_NAME = "Wallaflare"
-# Optional: Set a secret token for API access if desired
-# AUTH_TOKEN = "your-secret-token"
