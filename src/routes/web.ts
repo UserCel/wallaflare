@@ -5,54 +5,36 @@ import { renderDashboardHtml } from '../views/dashboard';
 export const webRouter = new Hono<{ Bindings: Env }>();
 
 // -----------------------------------------------------------------
-// Wallabag Android App Auto-Discovery & Web Login Compatibility
+// Wallabag Android App Exact Regex Handshake
 // -----------------------------------------------------------------
 
 function renderWallabagLoginPage(): string {
   return `<!DOCTYPE html>
-<!--[if lte IE 6]><html class="no-js ie6 ie67 ie678" lang="en"><![endif]-->
-<!--[if lte IE 7]><html class="no-js ie7 ie678" lang="en"><![endif]-->
-<!--[if IE 8]><html class="no-js ie8 ie678" lang="en"><![endif]-->
-<!--[if gt IE 8]><html class="no-js" lang="en"><![endif]-->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="initial-scale=1.0">
   <meta name="generator" content="wallabag">
-  <meta name="wallabag:version" content="2.6.9">
   <title>Welcome to wallabag! – wallabag</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-    .card { background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2rem; width: 100%; max-width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; }
-    .input-field { margin: 1rem 0; text-align: left; }
-    label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.3rem; }
-    input { width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 0.6rem; color: #fff; outline: none; }
-    .btn { width: 100%; background: #f97316; color: #fff; border: none; border-radius: 6px; padding: 0.7rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
-    .link-web { display: inline-block; margin-top: 1.25rem; color: #f97316; font-size: 0.85rem; text-decoration: none; }
-  </style>
 </head>
 <body class="login">
   <div id="main">
     <main>
-      <div class="card">
-        <div class="center">
-          <img src="/img/logo-wallabag.svg" alt="wallabag logo" style="width: 48px; height: 48px; margin-bottom: 1rem;" />
-        </div>
-        <h2 style="margin: 0 0 0.5rem 0; font-size: 1.25rem;">Wallaflare Login</h2>
-        <form action="/login_check" method="post" name="loginform">
-          <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
-          <div class="input-field col s12">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="_username" value="" autofocus />
-          </div>
-          <div class="input-field col s12">
-            <label for="password">Password / Token</label>
-            <input type="password" id="password" name="_password" placeholder="AUTH_TOKEN" />
-          </div>
-          <button type="submit" class="btn">Log in</button>
-        </form>
-        <a href="/?view=dashboard" class="link-web">Open Web Reader Dashboard &rarr;</a>
+      <div class="center">
+        <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
       </div>
+      <form action="/login_check" method="post" name="loginform">
+        <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
+        <div class="input-field">
+          <input type="text" id="username" name="_username" value="" autofocus />
+          <label for="username">Username</label>
+        </div>
+        <div class="input-field">
+          <input type="password" id="password" name="_password" />
+          <label for="password">Password</label>
+        </div>
+        <button type="submit" class="btn">Log in</button>
+      </form>
     </main>
   </div>
 </body>
@@ -71,21 +53,36 @@ function renderWallabagDeveloperPage(env: Env): string {
 <body class="developer">
   <div id="main">
     <main>
-      <h2>API clients management</h2>
-      <div class="card-panel">
-        <div class="client-item">
-          <h3>Client: Android app - #38185</h3>
-          <p><strong>Name:</strong> Android app</p>
-          <p><strong>Client ID:</strong> <span>wallaflare</span></p>
-          <p><strong>Client secret:</strong> <span>${secret}</span></p>
-        </div>
-        <div class="client-item">
-          <h3>Client: koreader - #36204</h3>
-          <p><strong>Name:</strong> koreader</p>
-          <p><strong>Client ID:</strong> <span>wallaflare</span></p>
-          <p><strong>Client secret:</strong> <span>${secret}</span></p>
-        </div>
+      <div class="center">
+        <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
       </div>
+      <a href="/logout">Logout</a>
+      <h2>API clients management</h2>
+      <ul class="collapsible">
+        <li>
+          <div class="collapsible-header">Android app - #38185</div>
+          <div class="collapsible-body">
+            <p><strong><code>wallaflare</code></strong></p>
+            <p><strong><code>${secret}</code></strong></p>
+            <p><strong><code>https://wallaflare.example.com</code></strong></p>
+            <p><strong><code>token,password</code></strong></p>
+            <a href="/developer/client/delete/38185">Delete</a>
+          </div>
+        </li>
+        <li>
+          <div class="collapsible-header">koreader - #36204</div>
+          <div class="collapsible-body">
+            <p><strong><code>wallaflare</code></strong></p>
+            <p><strong><code>${secret}</code></strong></p>
+            <p><strong><code>https://wallaflare.example.com</code></strong></p>
+            <p><strong><code>token,password</code></strong></p>
+            <a href="/developer/client/delete/36204">Delete</a>
+          </div>
+        </li>
+      </ul>
+      <form action="/developer/client/create" method="post">
+        <input type="hidden" id="client__token" name="client[_token]" value="wallaflare_client_token_999" />
+      </form>
     </main>
   </div>
 </body>
@@ -94,16 +91,17 @@ function renderWallabagDeveloperPage(env: Env): string {
 
 // Root page
 webRouter.get('/', (c) => {
-  const viewParam = c.req.query('view');
+  const cookie = c.req.header('Cookie') || '';
   const appName = c.env.APP_NAME || 'Wallaflare';
 
-  // If explicit dashboard view
-  if (viewParam === 'dashboard') {
-    return c.html(renderDashboardHtml(appName));
+  // If authenticated via cookie (from login_check), render Wallabag regular page (with /logout and logo)
+  // so WallabagWebService.testConnection() immediately verifies isRegularPage() == true
+  if (cookie.includes('PHPSESSID')) {
+    return c.html(renderWallabagDeveloperPage(c.env));
   }
 
-  // By default, serve the Wallabag login page so TestConnectionTask and Android App succeed immediately
-  return c.html(renderWallabagLoginPage());
+  // Dashboard for browser / default root
+  return c.html(renderDashboardHtml(appName));
 });
 
 // Login page
@@ -137,6 +135,7 @@ webRouter.post('/developer/client/create', (c) => {
   return c.redirect(`${origin}/developer`, 302);
 });
 
-webRouter.get('/unread/list', (c) => {
-  return c.html(renderWallabagDeveloperPage(c.env));
+webRouter.get('/logout', (c) => {
+  c.header('Set-Cookie', 'PHPSESSID=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+  return c.redirect('/login', 302);
 });

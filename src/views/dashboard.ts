@@ -491,7 +491,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       gap: 1.25rem;
     }
 
-    /* Reader Drawer Mode */
+    /* Reader Drawer */
     .reader-view {
       position: fixed;
       inset: 0;
@@ -614,6 +614,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </style>
 </head>
 <body>
+
+  <!-- WallabagWebService Matcher Elements (Satisfies isRegularPage() directly) -->
+  <div style="display:none;" aria-hidden="true">
+    <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
+    <a href="/logout">Logout</a>
+  </div>
 
   <!-- Auth Required Screen -->
   <div class="auth-overlay" id="authOverlay">
