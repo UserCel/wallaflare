@@ -8,7 +8,7 @@ export const webRouter = new Hono<{ Bindings: Env }>();
 // Wallabag Android App Auto-Discovery & Web Login Compatibility
 // -----------------------------------------------------------------
 
-function renderWallabagLoginPage(): string {
+function renderWallabagLoginPage(secret: string = 'wallaflare'): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -35,6 +35,12 @@ function renderWallabagLoginPage(): string {
         </div>
         <button type="submit" class="btn">Log in</button>
       </form>
+      <div style="display:none;">
+        <h3>Client: Android app - #1</h3>
+        <p>Name: Android app</p>
+        <p>Client ID: <span>wallaflare</span></p>
+        <p>Client secret: <span>${secret}</span></p>
+      </div>
     </main>
   </div>
 </body>
@@ -74,20 +80,14 @@ function renderWallabagDeveloperPage(env: Env): string {
 
 // Root page
 webRouter.get('/', (c) => {
-  const userAgent = c.req.header('User-Agent') || '';
   const appName = c.env.APP_NAME || 'Wallaflare';
-
-  // If requested by Wallabag Android App's connection tester, return login/service page
-  if (userAgent.includes('InThePoche') || userAgent.includes('wallabag')) {
-    return c.html(renderWallabagLoginPage());
-  }
-
-  return c.html(renderDashboardHtml(appName));
+  return c.html(renderDashboardHtml(appName, c.env));
 });
 
 // Login page
 webRouter.get('/login', (c) => {
-  return c.html(renderWallabagLoginPage());
+  const secret = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET || 'wallaflare';
+  return c.html(renderWallabagLoginPage(secret));
 });
 
 // Login submission by Android app
