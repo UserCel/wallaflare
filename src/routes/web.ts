@@ -4,6 +4,23 @@ import { renderDashboardHtml } from '../views/dashboard';
 
 export const webRouter = new Hono<{ Bindings: Env }>();
 
+const WALLABAG_SVG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40">
+  <rect width="100" height="100" rx="20" fill="#f97316"/>
+  <path d="M30 25 L70 25 C75 25 80 30 80 35 L80 75 C80 80 75 85 70 85 L30 85 C25 85 20 80 20 75 L20 35 C20 30 25 25 30 25 Z" fill="#ffffff" opacity="0.9"/>
+  <path d="M35 40 L65 40 M35 52 L65 52 M35 64 L55 64" stroke="#f97316" stroke-width="4" stroke-linecap="round"/>
+</svg>`;
+
+webRouter.get('/img/logo-wallabag.svg', (c) => {
+  c.header('Content-Type', 'image/svg+xml');
+  return c.body(WALLABAG_SVG_LOGO);
+});
+
+webRouter.get('/favicon.ico', (c) => {
+  c.header('Content-Type', 'image/svg+xml');
+  return c.body(WALLABAG_SVG_LOGO);
+});
+
+
 // -----------------------------------------------------------------
 // Wallabag Android App Exact Regex Handshake
 // -----------------------------------------------------------------
