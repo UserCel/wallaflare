@@ -1,3 +1,4 @@
+import { ICON_192_B64, ICON_512_B64 } from './icons-b64';
 import { Hono } from 'hono';
 import { Env } from '../types';
 import { renderDashboardHtml } from '../views/dashboard';
@@ -9,6 +10,41 @@ const WALLABAG_SVG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
   <path d="M30 25 L70 25 C75 25 80 30 80 35 L80 75 C80 80 75 85 70 85 L30 85 C25 85 20 80 20 75 L20 35 C20 30 25 25 30 25 Z" fill="#ffffff" opacity="0.9"/>
   <path d="M35 40 L65 40 M35 52 L65 52 M35 64 L55 64" stroke="#f97316" stroke-width="4" stroke-linecap="round"/>
 </svg>`;
+
+
+webRouter.get('/img/icon-192.png', (c) => {
+  c.header('Content-Type', 'image/png');
+  c.header('Cache-Control', 'public, max-age=31536000');
+  const bin = Uint8Array.from(atob(ICON_192_B64), ch => ch.charCodeAt(0));
+  return c.body(bin);
+});
+
+webRouter.get('/img/icon-512.png', (c) => {
+  c.header('Content-Type', 'image/png');
+  c.header('Cache-Control', 'public, max-age=31536000');
+  const bin = Uint8Array.from(atob(ICON_512_B64), ch => ch.charCodeAt(0));
+  return c.body(bin);
+});
+
+webRouter.get('/img/icon-maskable-192.png', (c) => {
+  c.header('Content-Type', 'image/png');
+  c.header('Cache-Control', 'public, max-age=31536000');
+  const bin = Uint8Array.from(atob(ICON_192_B64), ch => ch.charCodeAt(0));
+  return c.body(bin);
+});
+
+webRouter.get('/img/icon-maskable-512.png', (c) => {
+  c.header('Content-Type', 'image/png');
+  c.header('Cache-Control', 'public, max-age=31536000');
+  const bin = Uint8Array.from(atob(ICON_512_B64), ch => ch.charCodeAt(0));
+  return c.body(bin);
+});
+
+webRouter.get('/sw.js', (c) => {
+  c.header('Content-Type', 'application/javascript');
+  c.header('Service-Worker-Allowed', '/');
+  return c.text("\nself.addEventListener('install', (event) => {\n  self.skipWaiting();\n});\n\nself.addEventListener('activate', (event) => {\n  event.waitUntil(self.clients.claim());\n});\n\nself.addEventListener('fetch', (event) => {\n  // Let network handle all requests normally\n  event.respondWith(fetch(event.request));\n});\n");
+});
 
 webRouter.get('/img/logo-wallabag.svg', (c) => {
   c.header('Content-Type', 'image/svg+xml');
@@ -114,6 +150,7 @@ const PWA_MANIFEST = {
   name: 'Wallaflare',
   short_name: 'Wallaflare',
   description: 'Serverless read-it-later & Wallabag client',
+  id: '/',
   start_url: '/',
   scope: '/',
   display: 'standalone',
@@ -122,10 +159,28 @@ const PWA_MANIFEST = {
   theme_color: '#f97316',
   icons: [
     {
-      src: '/img/logo-wallabag.svg',
-      sizes: '192x192 512x512',
-      type: 'image/svg+xml',
-      purpose: 'any maskable'
+      src: '/img/icon-192.png',
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'any'
+    },
+    {
+      src: '/img/icon-512.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'any'
+    },
+    {
+      src: '/img/icon-maskable-192.png',
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'maskable'
+    },
+    {
+      src: '/img/icon-maskable-512.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'maskable'
     }
   ],
   share_target: {
