@@ -366,13 +366,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       opacity: 1;
     }
 
-    /* Tag Modal */
+    /* Tag Modal (z-index 400 to show above reader-view) */
     .tag-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(0, 0, 0, 0.68);
       backdrop-filter: blur(4px);
-      z-index: 50;
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 400;
       display: none;
       align-items: center;
       justify-content: center;
@@ -497,65 +498,126 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       display: flex;
     }
 
-    /* Reader Sidebar Dock */
+    /* -------------------------------------------------------------
+       READER VIEW: Full-Height Sidebar (Desktop Default)
+       ------------------------------------------------------------- */
+    .reader-mobile-bar {
+      display: none !important;
+    }
+    .reader-sidebar-backdrop {
+      display: none !important;
+    }
+
     .reader-sidebar {
-      width: 76px;
-      flex-shrink: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 60px;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.25rem 0.5rem;
-      z-index: 20;
-      gap: 1rem;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 1rem 0.4rem;
+      z-index: 60;
+      gap: 0.35rem;
+      transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .reader-sidebar:hover {
+      width: 175px;
+      box-shadow: 6px 0 28px rgba(0, 0, 0, 0.45);
     }
 
     .reader-sidebar-group {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 0.75rem;
+      align-items: flex-start;
+      gap: 0.35rem;
       width: 100%;
+    }
+    .reader-sidebar-divider {
+      width: 100%;
+      height: 1px;
+      background: var(--border-color);
+      margin: 0.35rem 0;
     }
 
     .reader-tool-btn {
-      width: 44px;
-      height: 44px;
+      width: 100%;
+      height: 38px;
+      min-height: 38px;
       border-radius: var(--radius-sm);
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
-      justify-content: center;
-      gap: 2px;
+      justify-content: flex-start;
+      padding: 0 0.65rem;
+      gap: 0.75rem;
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-secondary);
       cursor: pointer;
       transition: all 0.15s ease;
-      font-size: 0.65rem;
-      padding: 0;
+      text-align: left;
+      white-space: nowrap;
     }
     .reader-tool-btn:hover {
       background: var(--bg-tertiary);
       color: var(--text-primary);
       border-color: var(--border-color);
     }
+    .reader-tool-btn svg, .reader-tool-btn .btn-icon-symbol {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .reader-tool-btn .btn-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      pointer-events: none;
+    }
+    .reader-sidebar:hover .reader-tool-btn .btn-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
     .reader-tool-btn.btn-back-tool {
-      background: var(--accent);
-      color: white;
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: transparent;
     }
     .reader-tool-btn.btn-back-tool:hover {
-      background: var(--accent-hover);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
     }
+    .reader-tool-btn.btn-delete-tool {
+      color: #ef4444;
+    }
+    .reader-tool-btn.btn-delete-tool:hover {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+
+
 
     /* Reader Main Scroll Area */
     .reader-main-scroll {
       flex: 1;
+      width: 100%;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 2.5rem 1.5rem 6rem 1.5rem;
+      padding: 2.5rem 1.5rem 6rem calc(60px + 1.5rem);
       -webkit-overflow-scrolling: touch;
       position: relative;
     }
@@ -754,14 +816,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       transition: width 0.1s ease-out;
     }
 
-    /* Modals */
+    /* Modals (Higher than reader-view and mobile drawers) */
     .modal-backdrop {
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.68);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
-      z-index: 100;
+      z-index: 400;
       display: none;
       align-items: center;
       justify-content: center;
@@ -919,6 +981,98 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       word-break: break-all;
     }
 
+    
+    /* Mobile Header Drawer & Items */
+    .mobile-menu-btn {
+      display: none;
+    }
+    .mobile-nav-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      z-index: 340;
+    }
+    .mobile-nav-backdrop.open {
+      display: block;
+    }
+    .mobile-nav-dropdown {
+      display: flex;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 260px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
+      padding: 1.25rem 0.75rem;
+      z-index: 350;
+      flex-direction: column;
+      gap: 0.35rem;
+      transform: translateX(-100%);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mobile-nav-dropdown.open {
+      transform: translateX(0);
+    }
+    .mobile-nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.75rem;
+      padding: 0.7rem 0.85rem;
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      background: transparent;
+      border: 1px solid transparent;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      box-sizing: border-box;
+      transition: all 0.15s ease;
+    }
+    .mobile-nav-item svg {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+    }
+    .mobile-nav-item span {
+      text-align: left;
+      flex: 1;
+      white-space: nowrap;
+    }
+    .mobile-nav-item:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-color);
+    }
+    .mobile-nav-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 0.4rem 0;
+    }
+
+    @media (max-width: 768px) {
+      .desktop-nav-btn {
+        display: none !important;
+      }
+      .mobile-menu-btn {
+        display: flex !important;
+      }
+      header .brand {
+        display: none !important;
+      }
+      .nav-search {
+        max-width: none !important;
+        flex: 1 !important;
+        margin: 0 0.5rem !important;
+      }
+    }
+
     /* -------------------------------------------------------------
        MOBILE & TABLET RESPONSIVENESS
        ------------------------------------------------------------- */
@@ -957,37 +1111,90 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         padding: 1rem;
       }
 
-      /* Mobile Reader Layout: Bottom Action Bar for Max Screen Space */
+      /* Mobile Reader Layout: Top Navigation Bar & Left Slide-out Drawer */
       .reader-view {
-        flex-direction: column-reverse;
+        flex-direction: column !important;
+      }
+      .reader-mobile-bar {
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 48px !important;
+        background: var(--bg-secondary) !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        padding: 0 0.75rem !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        z-index: 150 !important;
+      }
+      .reader-mobile-bar-group {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+      }
+      .reader-mobile-bar-group.right-actions {
+        margin-left: auto !important;
+      }
+      .reader-sidebar-backdrop {
+        position: fixed !important;
+        inset: 0 !important;
+        background: rgba(0, 0, 0, 0.6) !important;
+        backdrop-filter: blur(3px) !important;
+        -webkit-backdrop-filter: blur(3px) !important;
+        z-index: 240 !important;
+        display: none !important;
+      }
+      .reader-sidebar-backdrop.open {
+        display: block !important;
       }
       .reader-sidebar {
-        width: 100%;
-        height: 56px;
-        flex-direction: row;
-        border-right: none;
-        border-top: 1px solid var(--border-color);
-        padding: 0 1rem;
-        justify-content: space-around;
-        background: rgba(30, 41, 59, 0.95);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: 250px !important;
+        height: 100vh !important;
+        transform: translateX(-100%) !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        z-index: 250 !important;
+        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
+        padding: 1.25rem 0.75rem !important;
+        background: var(--bg-secondary) !important;
+        border-right: 1px solid var(--border-color) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
       }
-      html.light .reader-sidebar { background: rgba(255, 255, 255, 0.95); }
-      html.sepia .reader-sidebar { background: rgba(235, 226, 205, 0.95); }
-
-      .reader-sidebar-group {
-        flex-direction: row;
-        justify-content: space-around;
-        width: 100%;
-        gap: 0.5rem;
+      .reader-sidebar.drawer-open {
+        transform: translateX(0) !important;
       }
-      .reader-tool-btn {
-        width: 40px;
-        height: 40px;
+      .reader-sidebar .reader-tool-btn {
+        width: 100% !important;
+        height: 44px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding: 0 0.85rem !important;
+        gap: 0.85rem !important;
+      }
+      .reader-sidebar .reader-tool-btn .btn-label {
+        opacity: 1 !important;
+        transform: translateX(0) !important;
+        font-size: 0.9rem !important;
+        color: var(--text-primary) !important;
+        pointer-events: auto !important;
+        display: inline-block !important;
+        white-space: nowrap !important;
+      }
+      .reader-sidebar .btn-back-tool {
+        display: none !important;
       }
       .reader-main-scroll {
-        padding: 1.5rem 1rem 3rem 1rem;
+        padding: 4rem 1rem 3rem 1rem !important;
       }
       #readerTitle {
         font-size: 1.6rem !important;
@@ -1032,15 +1239,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Top Header -->
   <header>
-    <div class="brand" onclick="navigateTo('/')">
-      <div class="brand-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-        </svg>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <!-- Mobile Left Menu Trigger Button (3 lines / hamburger) -->
+      <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+
+      <div class="brand" onclick="navigateTo('/')">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </div>
+        <span>${appName}</span>
+        <span class="brand-tag">Edge E-ink</span>
       </div>
-      <span>${appName}</span>
-      <span class="brand-tag">Edge E-ink</span>
     </div>
 
     <div class="nav-search">
@@ -1054,30 +1268,69 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <span>Add URL</span>
       </button>
 
-      <button class="btn btn-secondary" onclick="openModal('addTextModal')" title="Add Text">
+      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
         <span>Add Text</span>
       </button>
 
-      
-      <button class="btn btn-secondary" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
+      <button class="btn btn-secondary desktop-nav-btn" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
         <span>Tags</span>
       </button>
-      <button class="btn btn-secondary" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
+
+      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
         <span>KOReader</span>
       </button>
 
-      <button class="btn-icon" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
+      <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </button>
 
-      <button class="btn-icon" onclick="promptAuthKey()" title="Configure Access Token">
+      <button class="btn-icon desktop-nav-btn" onclick="promptAuthKey()" title="Configure Access Token">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
       </button>
     </div>
   </header>
+
+  <!-- Mobile Nav Backdrop & Slide-out Drawer -->
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileNavMenu()"></div>
+  <div class="mobile-nav-dropdown" id="mobileNavDropdown">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0.25rem 1rem 0.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.75rem;">
+      <div class="brand" style="cursor: pointer;" onclick="navigateTo('/'); closeMobileNavMenu();">
+        <div class="brand-icon" style="width: 32px; height: 32px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </div>
+        <span style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">${appName}</span>
+        <span class="brand-tag" style="display: inline-block;">Edge E-ink</span>
+      </div>
+      <button class="action-btn" onclick="closeMobileNavMenu()" style="font-size: 1.25rem;">&times;</button>
+    </div>
+    <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+      <span>Manage Tags</span>
+    </button>
+    <button class="mobile-nav-item" onclick="openModal('addTextModal'); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      <span>Add Custom Text</span>
+    </button>
+    <button class="mobile-nav-item" onclick="openModal('syncModal'); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+      <span>KOReader Sync</span>
+    </button>
+    <div class="mobile-nav-divider"></div>
+    <button class="mobile-nav-item" onclick="toggleTheme(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      <span>Toggle Theme</span>
+    </button>
+    <button class="mobile-nav-item" onclick="promptAuthKey(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      <span>Access Token / Logout</span>
+    </button>
+  </div>
 
   <!-- Main Content -->
   <main>
@@ -1221,20 +1474,44 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <!-- -------------------------------------------------------------
-       READER VIEW: Full-Height Sidebar Layout (Maximizes Vertical Space)
+       READER VIEW: Top Bar for Mobile & Full-Height Sidebar for Desktop
        ------------------------------------------------------------- -->
   <div class="reader-view" id="readerView">
-    <!-- Expandable Reader Action Sidebar -->
-    <aside class="reader-sidebar">
+    <!-- Mobile Top Action Bar -->
+    <div class="reader-mobile-bar">
+      <div class="reader-mobile-bar-group">
+        <button class="btn-icon" id="readerMobileDrawerBtn" onclick="toggleMobileReaderDrawer(event)" title="More options">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <button class="btn-icon" onclick="handleReaderBack()" title="Back to Library (Esc)">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+      </div>
+
+      <div class="reader-mobile-bar-group right-actions">
+        <button class="btn-icon" id="readerMobileArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive / Finished">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </button>
+        <button class="btn-icon" id="readerMobileStarBtn" onclick="toggleActiveStar()" title="Toggle Star">
+          <svg width="19" height="19" id="readerMobileStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Drawer Backdrop -->
+    <div class="reader-sidebar-backdrop" id="readerDrawerBackdrop" onclick="closeMobileReaderDrawer()"></div>
+
+    <!-- Expandable Reader Action Sidebar (Slide-out drawer on Mobile) -->
+    <aside class="reader-sidebar" id="readerSidebar">
       <div class="reader-sidebar-group">
         <button class="reader-tool-btn btn-back-tool" onclick="handleReaderBack()" title="Back to Library (Esc)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
           <span class="btn-label">Back</span>
         </button>
 
-        <button class="reader-tool-btn" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Favorite">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-          <span class="btn-label" id="readerStarLabel">Favorite</span>
+        <button class="reader-tool-btn" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Star">
+          <svg width="17" height="17" id="readerStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span class="btn-label" id="readerStarLabel">Star</span>
         </button>
 
         <button class="reader-tool-btn" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive">
@@ -1242,12 +1519,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label" id="readerArchiveLabel">Archive</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="openTagModal(activeArticleId)" title="Edit Tags">
+        <button class="reader-tool-btn" onclick="openTagModal(activeArticleId); closeMobileReaderDrawer();" title="Edit Tags">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
           <span class="btn-label">Tags</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="downloadActiveEpub()" title="Download EPUB">
+        <button class="reader-tool-btn" onclick="downloadActiveEpub(); closeMobileReaderDrawer();" title="Download EPUB">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span class="btn-label">EPUB</span>
         </button>
@@ -1272,6 +1549,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <button class="reader-tool-btn" onclick="toggleTheme()" title="Toggle Theme">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
           <span class="btn-label">Theme</span>
+        </button>
+
+        <div class="reader-sidebar-divider"></div>
+
+        <button class="reader-tool-btn btn-delete-tool" onclick="deleteActiveArticle()" title="Delete Article">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          <span class="btn-label" style="color: #ef4444;">Delete</span>
         </button>
       </div>
     </aside>
@@ -1373,6 +1657,35 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       return fetch(url, Object.assign({}, options, { headers }));
     }
+
+    
+    function toggleMobileNavMenu(e) {
+      if (e) e.stopPropagation();
+      const dropdown = document.getElementById('mobileNavDropdown');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      if (dropdown && backdrop) {
+        dropdown.classList.toggle('open');
+        backdrop.classList.toggle('open');
+      }
+    }
+
+    function closeMobileNavMenu() {
+      const dropdown = document.getElementById('mobileNavDropdown');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      if (dropdown && backdrop) {
+        dropdown.classList.remove('open');
+        backdrop.classList.remove('open');
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('mobileNavDropdown');
+      if (dropdown && dropdown.classList.contains('open')) {
+        if (!e.target.closest('#mobileNavDropdown') && !e.target.closest('#mobileNavMenuBtn')) {
+          closeMobileNavMenu();
+        }
+      }
+    });
 
     function promptAuthKey() {
       const current = getAuthToken();
@@ -1955,29 +2268,39 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const readerBodyEl = document.getElementById('readerBody');
       readerBodyEl.innerHTML = item.content || '<p>No content available.</p>';
 
-      // Update active reader star and archive buttons
+      // Update active reader star and archive buttons (Desktop & Mobile)
       const starBtn = document.getElementById('readerStarBtn');
       const starLabel = document.getElementById('readerStarLabel');
-      if (starBtn && starLabel) {
-        if (item.is_starred) {
-          starBtn.classList.add('active-star');
-          starLabel.textContent = 'Starred';
-        } else {
-          starBtn.classList.remove('active-star');
-          starLabel.textContent = 'Favorite';
-        }
+      const starIcon = document.getElementById('readerStarIcon');
+      const mobileStarBtn = document.getElementById('readerMobileStarBtn');
+      const mobileStarIcon = document.getElementById('readerMobileStarIcon');
+
+      if (item.is_starred) {
+        if (starBtn) starBtn.classList.add('active-star');
+        if (starLabel) starLabel.textContent = 'Starred';
+        if (starIcon) starIcon.setAttribute('fill', 'currentColor');
+        if (mobileStarBtn) mobileStarBtn.classList.add('active-star');
+        if (mobileStarIcon) mobileStarIcon.setAttribute('fill', 'currentColor');
+      } else {
+        if (starBtn) starBtn.classList.remove('active-star');
+        if (starLabel) starLabel.textContent = 'Star';
+        if (starIcon) starIcon.setAttribute('fill', 'none');
+        if (mobileStarBtn) mobileStarBtn.classList.remove('active-star');
+        if (mobileStarIcon) mobileStarIcon.setAttribute('fill', 'none');
       }
 
       const archiveBtn = document.getElementById('readerArchiveBtn');
       const archiveLabel = document.getElementById('readerArchiveLabel');
-      if (archiveBtn && archiveLabel) {
-        if (item.is_archived) {
-          archiveBtn.classList.add('active-archive');
-          archiveLabel.textContent = 'Archived';
-        } else {
-          archiveBtn.classList.remove('active-archive');
-          archiveLabel.textContent = 'Archive';
-        }
+      const mobileArchiveBtn = document.getElementById('readerMobileArchiveBtn');
+
+      if (item.is_archived) {
+        if (archiveBtn) archiveBtn.classList.add('active-archive');
+        if (archiveLabel) archiveLabel.textContent = 'Archived';
+        if (mobileArchiveBtn) mobileArchiveBtn.classList.add('active-archive');
+      } else {
+        if (archiveBtn) archiveBtn.classList.remove('active-archive');
+        if (archiveLabel) archiveLabel.textContent = 'Archive';
+        if (mobileArchiveBtn) mobileArchiveBtn.classList.remove('active-archive');
       }
 
       // Force RTL / LTR layout and typography
@@ -2009,6 +2332,44 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    
+    function toggleMobileReaderDrawer(e) {
+      if (e) e.stopPropagation();
+      const sidebar = document.getElementById('readerSidebar');
+      const backdrop = document.getElementById('readerDrawerBackdrop');
+      if (sidebar && backdrop) {
+        sidebar.classList.toggle('drawer-open');
+        backdrop.classList.toggle('open');
+      }
+    }
+
+    // Close mobile drawer when tapping anywhere outside
+    document.addEventListener('click', (e) => {
+      const sidebar = document.getElementById('readerSidebar');
+      if (sidebar && sidebar.classList.contains('drawer-open')) {
+        const trigger = e.target.closest('#readerMobileDrawerBtn');
+        const insideSidebar = e.target.closest('#readerSidebar');
+        if (!trigger && !insideSidebar) {
+          closeMobileReaderDrawer();
+        }
+      }
+    });
+
+    function closeMobileReaderDrawer() {
+      const sidebar = document.getElementById('readerSidebar');
+      const backdrop = document.getElementById('readerDrawerBackdrop');
+      if (sidebar && backdrop) {
+        sidebar.classList.remove('drawer-open');
+        backdrop.classList.remove('open');
+      }
+    }
+
+    async function deleteActiveArticle() {
+      if (!activeArticleId) return;
+      closeMobileReaderDrawer();
+      await deleteEntryAction(activeArticleId);
+    }
+
     async function toggleActiveStar() {
       if (!activeArticleId) return;
       const item = allEntries.find(e => e.id === activeArticleId);
@@ -2029,6 +2390,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
 
     function closeReader(updateHistory = true) {
+      closeMobileReaderDrawer();
       activeArticleId = null;
       document.getElementById('readerView').classList.remove('open');
       document.body.style.overflow = 'auto';
