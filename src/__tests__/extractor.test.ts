@@ -83,6 +83,29 @@ describe('Article Extractor Service', () => {
     expect(result.content).toContain('target="_blank"');
   });
 
+
+  it('correctly extracts author from profile link while rejecting Follow Author button', () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>Chapter 208 - Void Herald</title></head>
+      <body>
+        <h1 class="font-blue bold">
+          <a href="/profile/107213" class="font-blue-dark">Maxime J. Durand (Void Herald)</a>
+          <form class="inline-block follow-author-form">
+            <button type="submit">Follow Author</button>
+          </form>
+        </h1>
+        <article>
+          <p>The chapter begins...</p>
+        </article>
+      </body>
+      </html>
+    `;
+    const res = extractArticleFromHtml(html, 'https://www.royalroad.com/fiction/139212/the-hundred-reigns/chapter/3843984/chapter-208');
+    expect(res.byline).toBe('Maxime J. Durand (Void Herald)');
+  });
+
   it('falls back to the first article image when og:image and twitter:image are absent', () => {
     const html = `
       <!DOCTYPE html>

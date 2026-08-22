@@ -298,6 +298,41 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     expect(afterDelete.tags).toHaveLength(2);
   });
 
+
+  it('prevents adding duplicate article URLs and returns existing entry with added date notification', async () => {
+    const mockDb = createMockD1Database();
+    
+    // First creation
+    const res1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/unique-article-test',
+        title: 'Unique Article',
+      })
+    }, { DB: mockDb });
+
+    expect(res1.status).toBe(200);
+    const entry1 = await res1.json<any>();
+    expect(entry1.already_exists).toBeUndefined();
+
+    // Duplicate creation
+    const res2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/unique-article-test',
+        title: 'Unique Article Duplicate Attempt',
+      })
+    }, { DB: mockDb });
+
+    expect(res2.status).toBe(200);
+    const entry2 = await res2.json<any>();
+    expect(entry2.id).toBe(entry1.id);
+    expect(entry2.already_exists).toBe(true);
+    expect(entry2.added_date_str).toBeDefined();
+  });
+
   it('serves the Web UI dashboard on GET / with browser headers', async () => {
     const res = await app.request('/?view=dashboard', {}, { DB: mockDb });
     expect(res.status).toBe(200);

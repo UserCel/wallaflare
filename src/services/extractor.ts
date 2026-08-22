@@ -85,17 +85,29 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const authorMeta = document.querySelector('meta[name="author"], meta[property="article:author"], meta[property="books:author"], meta[property="og:article:author"], meta[name="twitter:creator"]');
   if (authorMeta) {
     const contentVal = authorMeta.getAttribute('content')?.trim();
-    if (contentVal && !contentVal.startsWith('@') && contentVal.length < 100) {
+    if (contentVal && !contentVal.startsWith('@') && contentVal.length < 100 && !contentVal.toLowerCase().includes('follow')) {
       extractedAuthor = contentVal;
     } else if (contentVal && contentVal.startsWith('@') && contentVal.length > 1) {
       extractedAuthor = contentVal.slice(1);
     }
   }
+
   if (!extractedAuthor) {
-    const authorEl = document.querySelector('[rel="author"], [property="author"], .author-name, .author a, .byline a, .byline, .post-author');
+    // Check dedicated profile / author links (e.g. RoyalRoad <a href="/profile/107213">Author Name</a>)
+    const profileLink = document.querySelector('a[href^="/profile/"], a[href*="/profile/"], a[href*="/author/"], a[rel="author"], [property="author"]');
+    if (profileLink) {
+      const textVal = profileLink.textContent?.trim();
+      if (textVal && textVal.length > 1 && textVal.length < 80 && !textVal.toLowerCase().includes('follow') && !textVal.toLowerCase().includes('author dashboard')) {
+        extractedAuthor = textVal.replace(/^by\s+/i, '').trim();
+      }
+    }
+  }
+
+  if (!extractedAuthor) {
+    const authorEl = document.querySelector('.author-name, .author a, .byline a, .byline, .post-author');
     if (authorEl) {
       const textVal = authorEl.textContent?.trim();
-      if (textVal && textVal.length > 1 && textVal.length < 80) {
+      if (textVal && textVal.length > 1 && textVal.length < 80 && !textVal.toLowerCase().includes('follow')) {
         extractedAuthor = textVal.replace(/^by\s+/i, '').trim();
       }
     }
@@ -130,6 +142,13 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     el.removeAttribute('style');
   });
 
+  // Clean follow author forms/buttons and extraneous social widgets
+  document.querySelectorAll('.follow-author-form, form.follow-author, .follow-btn, button[type="submit"]').forEach((el: any) => {
+    if (el.textContent && el.textContent.toLowerCase().includes('follow')) {
+      el.remove();
+    }
+  });
+
   // Clean duplicate mobile/gallery overlays
   document.querySelectorAll('.mobileView, span.mobileView, div.mobileView, .gallery-indication').forEach((el: any) => el.remove());
 
@@ -162,7 +181,7 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     content,
     textContent,
     excerpt,
-    byline: parsed?.byline || extractedAuthor || null,
+    byline: (parsed?.byline && !parsed.byline.toLowerCase().includes('follow') ? parsed.byline : null) || extractedAuthor || null,
     domainName,
     previewPicture,
     readingTime,
