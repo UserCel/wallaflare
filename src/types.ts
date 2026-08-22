@@ -26,14 +26,20 @@ export interface WallabagEntry {
   id: number;
   title: string;
   url: string;
+  hashed_url: string | null;
+  given_url: string | null;
+  hashed_given_url: string | null;
   content: string;
   is_archived: number;
+  archived_at: string | null;
   is_starred: number;
+  starred_at: string | null;
   user_name: string;
   user_email: string;
   user_id: number;
   tags: Array<{ id: number; label: string; slug: string }>;
-  is_public: number;
+  is_public: boolean;
+  uid: string | null;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -42,11 +48,8 @@ export interface WallabagEntry {
   domain_name: string;
   preview_picture: string | null;
   language: string;
-  starred_at: string | null;
-  archived_at: string | null;
   mimetype?: string;
   text?: string;
   annotations?: any[];
   origin_url?: string | null;
-  given_url?: string | null;
 }

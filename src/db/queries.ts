@@ -29,7 +29,7 @@ export function entryRowToWallabag(row: EntryRow): WallabagEntry {
     user_email: 'user@wallaflare.local',
     user_id: 1,
     tags: [],
-    is_public: 0,
+    is_public: false,
     uid: null,
     created_at: createdAt,
     updated_at: updatedAt,
