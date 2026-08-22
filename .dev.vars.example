@@ -1,0 +1,2 @@
+# Local development environment secrets (do NOT commit .dev.vars to git)
+AUTH_TOKEN=your-super-secret-password

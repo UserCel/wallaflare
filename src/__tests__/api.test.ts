@@ -200,3 +200,38 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     expect(html).toContain('Add URL');
   });
 });
+
+describe('Wallaflare Protected Mode (AUTH_TOKEN enabled)', () => {
+  let mockDb: D1Database;
+  const SECRET = 'super-secret-key-123';
+
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('rejects unauthenticated requests with 401 when AUTH_TOKEN is set', async () => {
+    const res = await app.request('/api/entries.json', {}, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('permits authenticated requests with valid Bearer token', async () => {
+    const res = await app.request('/api/entries.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` },
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('permits authenticated requests with access_token query param for EPUB download', async () => {
+    const res = await app.request(`/api/entries.json?access_token=${SECRET}`, {}, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(200);
+  });
+});

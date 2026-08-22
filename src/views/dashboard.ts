@@ -464,6 +464,31 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       box-shadow: 0 0 0 2px var(--accent-glow);
     }
 
+    /* Auth Lock Overlay */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-primary);
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .auth-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
     /* Reader Drawer Mode */
     .reader-view {
       position: fixed;
@@ -588,6 +613,30 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 </head>
 <body>
 
+  <!-- Auth Required Screen -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-card">
+      <div style="display: flex; justify-content: center;">
+        <div class="brand-icon" style="width: 44px; height: 44px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+      </div>
+      <div>
+        <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.3rem;">Protected Library</h2>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Enter your Wallaflare Access Token or Password</p>
+      </div>
+      <form onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div class="form-group" style="text-align: left;">
+          <input type="password" id="authKeyInput" placeholder="Enter AUTH_TOKEN / Password" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Top Header -->
   <header>
     <a href="#" class="brand" onclick="setFilter('unread')">
@@ -622,6 +671,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </button>
       <button class="btn-icon" id="themeToggle" title="Toggle Theme" onclick="toggleTheme()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      </button>
+      <button class="btn-icon" id="logoutBtn" title="Set/Clear Access Key" onclick="promptAuthKey()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
       </button>
     </div>
   </header>
@@ -736,7 +788,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           </div>
           <div>
             <label style="font-weight: 600; color: var(--text-secondary);">Client Secret / Password</label>
-            <div class="code-box">(Leave empty or AUTH_TOKEN)</div>
+            <div class="code-box" id="syncClientSecretDisplay">Your AUTH_TOKEN / Password</div>
           </div>
         </div>
 
@@ -745,7 +797,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <ol style="margin-left: 1.25rem; margin-top: 0.4rem; line-height: 1.6; color: var(--text-secondary);">
             <li>Open KOReader on your Kindle/Kobo/Android device.</li>
             <li>Go to <strong>Search / Tools &gt; Wallabag</strong> plugin.</li>
-            <li>Enter the Server URL above and connect.</li>
+            <li>Enter the Server URL and credentials above.</li>
             <li>KOReader will automatically sync and download high-quality EPUBs!</li>
           </ol>
         </div>
@@ -796,6 +848,44 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     document.getElementById('syncServerUrl').textContent = window.location.origin;
 
+    function getAuthToken() {
+      return localStorage.getItem('wf_auth_token') || '';
+    }
+
+    function setAuthToken(token) {
+      if (token) {
+        localStorage.setItem('wf_auth_token', token.trim());
+      } else {
+        localStorage.removeItem('wf_auth_token');
+      }
+    }
+
+    function authFetch(url, options = {}) {
+      const headers = Object.assign({}, options.headers || {});
+      const token = getAuthToken();
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      return fetch(url, Object.assign({}, options, { headers }));
+    }
+
+    function promptAuthKey() {
+      const current = getAuthToken();
+      const next = prompt('Enter your Access Token / Password (or leave empty to clear):', current);
+      if (next !== null) {
+        setAuthToken(next);
+        loadArticles();
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const key = document.getElementById('authKeyInput').value.trim();
+      setAuthToken(key);
+      document.getElementById('authOverlay').style.display = 'none';
+      loadArticles();
+    }
+
     // Keyboard shortcut '/' to search
     window.addEventListener('keydown', (e) => {
       if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
@@ -813,7 +903,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function loadArticles() {
       document.getElementById('statusIndicator').textContent = 'Syncing...';
       try {
-        const res = await fetch('/api/entries.json?perPage=100');
+        const res = await authFetch('/api/entries.json?perPage=100');
+        if (res.status === 401) {
+          document.getElementById('authOverlay').style.display = 'flex';
+          document.getElementById('statusIndicator').textContent = 'Authentication required';
+          return;
+        }
+        document.getElementById('authOverlay').style.display = 'none';
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allEntries = data._embedded ? data._embedded.items : [];
@@ -879,6 +975,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return;
       }
 
+      const tokenParam = getAuthToken() ? ('?access_token=' + encodeURIComponent(getAuthToken())) : '';
+
       empty.style.display = 'none';
       grid.innerHTML = entries.map(item => {
         const domain = item.domain_name || 'direct-input';
@@ -905,7 +1003,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
                 <button class="action-btn \${item.is_archived ? 'active-archive' : ''}" title="Toggle Archive" onclick="toggleArchive(\${item.id}, \${item.is_archived})">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
                 </button>
-                <a href="/api/entries/\${item.id}/export.epub" class="action-btn" title="Download EPUB for KOReader" download>
+                <a href="/api/entries/\${item.id}/export.epub\${tokenParam}" class="action-btn" title="Download EPUB for KOReader" download>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 </a>
                 \${item.url ? \`
@@ -925,7 +1023,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function toggleStar(id, current) {
       const next = current ? 0 : 1;
-      const res = await fetch(\`/api/entries/\${id}.json\`, {
+      const res = await authFetch(\`/api/entries/\${id}.json\`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ starred: next })
@@ -941,7 +1039,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function toggleArchive(id, current) {
       const next = current ? 0 : 1;
-      const res = await fetch(\`/api/entries/\${id}.json\`, {
+      const res = await authFetch(\`/api/entries/\${id}.json\`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archive: next })
@@ -957,7 +1055,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function deleteEntryAction(id) {
       if (!confirm('Are you sure you want to delete this article?')) return;
-      const res = await fetch(\`/api/entries/\${id}.json\`, { method: 'DELETE' });
+      const res = await authFetch(\`/api/entries/\${id}.json\`, { method: 'DELETE' });
       if (res.ok) {
         allEntries = allEntries.filter(e => e.id !== id);
         updateCounts();
@@ -970,6 +1068,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const item = allEntries.find(e => e.id === id);
       if (!item) return;
 
+      const tokenParam = getAuthToken() ? ('?access_token=' + encodeURIComponent(getAuthToken())) : '';
+
       document.getElementById('readerTitle').textContent = item.title;
       document.getElementById('readerMeta').innerHTML = \`
         <span>\${escapeHtml(item.domain_name || '')}</span> &bull; 
@@ -978,7 +1078,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         \${item.url ? \` &bull; <a href="\${escapeHtml(item.url)}" target="_blank" style="color: var(--accent);">Original Link</a>\` : ''}
       \`;
       document.getElementById('readerBody').innerHTML = item.content;
-      document.getElementById('readerEpubBtn').href = \`/api/entries/\${item.id}/export.epub\`;
+      document.getElementById('readerEpubBtn').href = \`/api/entries/\${item.id}/export.epub\${tokenParam}\`;
       document.getElementById('readerView').classList.add('open');
       document.body.style.overflow = 'hidden';
     }
@@ -1009,7 +1109,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       btn.textContent = 'Extracting article...';
 
       try {
-        const res = await fetch('/api/entries.json', {
+        const res = await authFetch('/api/entries.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url })
@@ -1046,7 +1146,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       btn.textContent = 'Saving...';
 
       try {
-        const res = await fetch('/api/entries.json', {
+        const res = await authFetch('/api/entries.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, content, url: url || undefined })

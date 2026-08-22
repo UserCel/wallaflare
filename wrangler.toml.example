@@ -1,0 +1,19 @@
+name = "wallaflare"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Optional: Uncomment if deploying to a custom domain
+# routes = [
+#   { pattern = "your-subdomain.yourdomain.com", custom_domain = true }
+# ]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "wallaflare-db"
+database_id = "<your-d1-database-id>"
+migrations_dir = "migrations"
+
+[vars]
+APP_NAME = "Wallaflare"

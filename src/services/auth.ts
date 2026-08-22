@@ -1,9 +1,14 @@
 import { Context, Next } from 'hono';
+import { getCookie } from 'hono/cookie';
 import { Env, OAuthTokenResponse } from '../types';
 
+export function getExpectedSecret(env: Env): string | undefined {
+  return env.AUTH_TOKEN || env.CLIENT_SECRET;
+}
+
 export function generateToken(env: Env): OAuthTokenResponse {
-  // Generate edge-safe pseudo-random token or reuse configured AUTH_TOKEN
-  const token = env.AUTH_TOKEN || `wfl_${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`;
+  const secret = getExpectedSecret(env);
+  const token = secret || `wfl_${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`;
   return {
     access_token: token,
     expires_in: 31536000, // 1 year
@@ -13,24 +18,34 @@ export function generateToken(env: Env): OAuthTokenResponse {
   };
 }
 
-export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
-  const secret = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
+export function extractToken(c: Context<{ Bindings: Env }>): string | null {
+  const authHeader = c.req.header('Authorization');
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    return authHeader.substring(7).trim();
+  }
 
-  // If no auth token or secret is configured in environment, permit all requests
+  const tokenFromQuery = c.req.query('access_token') || c.req.query('token');
+  if (tokenFromQuery) {
+    return tokenFromQuery.trim();
+  }
+
+  const cookieToken = getCookie(c, 'wf_auth_token');
+  if (cookieToken) {
+    return cookieToken.trim();
+  }
+
+  return null;
+}
+
+export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
+  const secret = getExpectedSecret(c.env);
+
+  // If no auth token or secret is configured in environment, allow open access
   if (!secret) {
     return await next();
   }
 
-  const authHeader = c.req.header('Authorization');
-  const tokenFromQuery = c.req.query('access_token');
-
-  let providedToken: string | null = null;
-
-  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
-    providedToken = authHeader.substring(7).trim();
-  } else if (tokenFromQuery) {
-    providedToken = tokenFromQuery;
-  }
+  const providedToken = extractToken(c);
 
   if (!providedToken || providedToken !== secret) {
     return c.json(
