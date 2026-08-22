@@ -2,18 +2,21 @@ import { zipSync, strToU8 } from 'fflate';
 import { parseHTML } from 'linkedom';
 
 export interface EpubArticleInput {
-  preview_picture?: string | null;
   id?: number | string;
   title: string;
   content: string;
   url?: string | null;
   domain_name?: string | null;
+  preview_picture?: string | null;
+  reading_time?: number | null;
+  authors?: string[] | null;
   created_at?: string;
+  published_at?: string | null;
   language?: string;
 }
 
 function escapeXml(unsafe: string): string {
-  return unsafe
+  return (unsafe || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -50,7 +53,12 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   const lang = article.language || 'en';
   const domain = article.domain_name || (article.url ? new URL(article.url).hostname : 'Wallaflare');
   const escapedDomain = escapeXml(domain);
-  const dateStr = article.created_at ? new Date(article.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+  const readingTime = article.reading_time || 1;
+  const authorsStr = (article.authors && article.authors.length > 0) ? article.authors.join(', ') : '';
+  const escapedAuthors = escapeXml(authorsStr);
+
+  const addedOnStr = article.created_at ? new Date(article.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+  const publishedOnStr = article.published_at ? new Date(article.published_at).toISOString().split('T')[0] : '';
   const originalUrl = article.url ? escapeXml(article.url) : '';
 
   const cleanBodyHtml = sanitizeToXhtml(article.content);
@@ -133,7 +141,7 @@ p {
   margin: 0 0 1em 0;
   text-indent: 1em;
 }
-p.no-indent, .title-meta p {
+p.no-indent {
   text-indent: 0;
 }
 blockquote {
@@ -162,37 +170,50 @@ pre {
 }
 hr {
   border: none;
-  border-top: 1px solid #ccc;
-  margin: 2em 0;
+  border-top: 1px solid #aaa;
+  margin: 1.5em 0;
 }
-.title-header {
-  margin-bottom: 2em;
-  padding-bottom: 1.5em;
-  border-bottom: 1px solid #aaa;
-  text-align: left;
-}
-.title-header h1 {
-  font-size: 2em;
-  margin-bottom: 0.3em;
-}
-.title-meta {
-  font-size: 0.9em;
-  color: #555;
-  font-family: sans-serif;
-}
-.title-meta a {
-  color: #555;
-  text-decoration: none;
-}
-.cover-image-wrap {
+/* Cover Page */
+.cover-page {
   text-align: center;
-  margin-bottom: 2em;
+  margin: 0;
+  padding: 0;
 }
-.cover-image {
+.cover-img {
   max-width: 100%;
-  max-height: 480px;
+  max-height: 90vh;
   margin: 0 auto;
   display: block;
+}
+/* Summary Page */
+.summary-page {
+  font-family: sans-serif;
+  margin-top: 2em;
+}
+.summary-title {
+  font-size: 1.6em;
+  line-height: 1.3;
+  margin-bottom: 0.5em;
+}
+.summary-dl dt {
+  font-weight: bold;
+  margin-top: 1.2em;
+  color: #333;
+}
+.summary-dl dd {
+  margin-left: 0;
+  margin-bottom: 0.4em;
+  color: #555;
+  word-break: break-all;
+}
+.summary-dl a {
+  color: #0066cc;
+  text-decoration: none;
+}
+.article-header {
+  margin-bottom: 2em;
+  padding-bottom: 1em;
+  border-bottom: 1px solid #ccc;
 }
 `;
 
@@ -208,6 +229,8 @@ hr {
   <nav epub:type="toc" id="toc">
     <h1>Table of Contents</h1>
     <ol>
+      ${coverBytes ? '<li><a href="cover.xhtml">Cover</a></li>' : ''}
+      <li><a href="summary.xhtml">Summary</a></li>
       <li><a href="content.xhtml">${escapedTitle}</a></li>
     </ol>
   </nav>
@@ -230,20 +253,66 @@ hr {
     <text>${escapedDomain}</text>
   </docAuthor>
   <navMap>
-    <navPoint id="navPoint-1" playOrder="1">
-      <navLabel>
-        <text>${escapedTitle}</text>
-      </navLabel>
+    ${coverBytes ? `<navPoint id="navPoint-1" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="cover.xhtml"/></navPoint>` : ''}
+    <navPoint id="navPoint-2" playOrder="${coverBytes ? 2 : 1}">
+      <navLabel><text>Summary</text></navLabel>
+      <content src="summary.xhtml"/>
+    </navPoint>
+    <navPoint id="navPoint-3" playOrder="${coverBytes ? 3 : 2}">
+      <navLabel><text>${escapedTitle}</text></navLabel>
       <content src="content.xhtml"/>
     </navPoint>
   </navMap>
 </ncx>`;
 
-  // 5. Article Content XHTML
-  const coverHtml = coverBytes
-    ? `<div class="cover-image-wrap"><img src="images/${coverFilename}" alt="Cover" class="cover-image"/></div>`
-    : '';
+  // 5. Page 1: Cover XHTML (if cover image present)
+  const coverXhtml = coverBytes ? `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}">
+<head>
+  <title>Cover</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+  <div class="cover-page">
+    <img src="images/${coverFilename}" alt="Cover" class="cover-img"/>
+  </div>
+</body>
+</html>` : '';
 
+  // 6. Page 2: Summary XHTML (Wallabag style)
+  const summaryXhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}">
+<head>
+  <title>Summary - ${escapedTitle}</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+  <div class="summary-page">
+    <h1 class="summary-title">${escapedTitle}</h1>
+    <hr/>
+    <dl class="summary-dl">
+      <dt>Published by</dt>
+      <dd>${escapedAuthors || escapedDomain}</dd>
+
+      <dt>Published on</dt>
+      <dd>${publishedOnStr || '-'}</dd>
+
+      <dt>Estimated reading time</dt>
+      <dd>${readingTime} min</dd>
+
+      <dt>Added on</dt>
+      <dd>${addedOnStr}</dd>
+
+      <dt>Address</dt>
+      <dd><a href="${originalUrl}">${originalUrl || '-'}</a></dd>
+    </dl>
+  </div>
+</body>
+</html>`;
+
+  // 7. Page 3: Article Content XHTML
   const contentXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}">
@@ -252,26 +321,18 @@ hr {
   <link rel="stylesheet" type="text/css" href="style.css"/>
 </head>
 <body>
-  <div class="title-header">
+  <div class="article-header">
     <h1>${escapedTitle}</h1>
-    <div class="title-meta">
-      <p class="no-indent">
-        <strong>Source:</strong> ${escapedDomain} | 
-        <strong>Date:</strong> ${dateStr}
-        ${originalUrl ? `<br/><strong>URL:</strong> <a href="${originalUrl}">${originalUrl}</a>` : ''}
-      </p>
-    </div>
   </div>
-  ${coverHtml}
   <div class="article-body">
     ${cleanBodyHtml}
   </div>
 </body>
 </html>`;
 
-  // 6. OPF Package file
+  // 8. OPF Package file
   const coverManifestItem = coverBytes
-    ? `<item id="cover-image" href="images/${coverFilename}" media-type="${coverMime}" properties="cover-image"/>`
+    ? `<item id="cover-image" href="images/${coverFilename}" media-type="${coverMime}" properties="cover-image"/>\n    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>`
     : '';
   const coverMetaItem = coverBytes
     ? `<meta name="cover" content="cover-image"/>`
@@ -283,9 +344,9 @@ hr {
     <dc:identifier id="BookId">${uid}</dc:identifier>
     <dc:title>${escapedTitle}</dc:title>
     <dc:language>${lang}</dc:language>
-    <dc:creator>${escapedDomain}</dc:creator>
+    <dc:creator>${escapedAuthors || escapedDomain}</dc:creator>
     <dc:publisher>Wallaflare</dc:publisher>
-    <dc:date>${dateStr}</dc:date>
+    <dc:date>${addedOnStr}</dc:date>
     <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
     ${coverMetaItem}
   </metadata>
@@ -293,10 +354,13 @@ hr {
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="style" href="style.css" media-type="text/css"/>
+    <item id="summary" href="summary.xhtml" media-type="application/xhtml+xml"/>
     <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
     ${coverManifestItem}
   </manifest>
   <spine toc="ncx">
+    ${coverBytes ? '<itemref idref="cover"/>' : ''}
+    <itemref idref="summary"/>
     <itemref idref="content"/>
   </spine>
 </package>`;
@@ -309,10 +373,12 @@ hr {
     'OEBPS/toc.ncx': strToU8(tocNcx),
     'OEBPS/nav.xhtml': strToU8(navXhtml),
     'OEBPS/style.css': strToU8(styleCss),
+    'OEBPS/summary.xhtml': strToU8(summaryXhtml),
     'OEBPS/content.xhtml': strToU8(contentXhtml),
   };
 
   if (coverBytes) {
+    zipEntries['OEBPS/cover.xhtml'] = strToU8(coverXhtml);
     zipEntries['OEBPS/images/' + coverFilename] = coverBytes;
   }
 

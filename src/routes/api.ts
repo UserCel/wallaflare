@@ -299,21 +299,23 @@ apiRouter.get('/api/entries/:id/export.epub', authMiddleware, async (c) => {
     url: entry.url,
     domain_name: entry.domain_name,
     preview_picture: entry.preview_picture,
+    reading_time: entry.reading_time,
     created_at: entry.created_at,
     language: entry.language,
   });
 
-  const slug = (entry.title || 'article')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 50);
+  const safeFilename = (entry.title || 'article')
+    .replace(/[/\\:*?"<>|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const filename = `${safeFilename || 'article'}.epub`;
+  const safeAsciiFilename = safeFilename.replace(/[^\x20-\x7E]/g, '') || 'article';
 
   return new Response(epubBytes, {
     status: 200,
     headers: {
       'Content-Type': 'application/epub+zip',
-      'Content-Disposition': `attachment; filename="${slug || 'article'}.epub"`,
+      'Content-Disposition': `attachment; filename="${safeAsciiFilename}.epub"; filename*=UTF-8''${encodeURIComponent(filename)}`,
       'Content-Length': String(epubBytes.byteLength),
       'Cache-Control': 'public, max-age=3600',
     },
