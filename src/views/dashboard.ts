@@ -366,13 +366,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       opacity: 1;
     }
 
-    /* Tag Modal */
+    /* Tag Modal (z-index 400 to show above reader-view) */
     .tag-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(0, 0, 0, 0.68);
       backdrop-filter: blur(4px);
-      z-index: 50;
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 400;
       display: none;
       align-items: center;
       justify-content: center;
@@ -980,6 +981,78 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       word-break: break-all;
     }
 
+    
+    /* Mobile Header Drawer & Items */
+    .mobile-menu-btn {
+      display: none;
+    }
+    .mobile-nav-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      z-index: 340;
+    }
+    .mobile-nav-backdrop.open {
+      display: block;
+    }
+    .mobile-nav-dropdown {
+      display: flex;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 260px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
+      padding: 1.25rem 0.75rem;
+      z-index: 350;
+      flex-direction: column;
+      gap: 0.35rem;
+      transform: translateX(-100%);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mobile-nav-dropdown.open {
+      transform: translateX(0);
+    }
+    .mobile-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.7rem 0.85rem;
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      background: transparent;
+      border: 1px solid transparent;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      transition: all 0.15s ease;
+    }
+    .mobile-nav-item:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-color);
+    }
+    .mobile-nav-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 0.4rem 0;
+    }
+
+    @media (max-width: 768px) {
+      .desktop-nav-btn {
+        display: none !important;
+      }
+      .mobile-menu-btn {
+        display: flex !important;
+      }
+    }
+
     /* -------------------------------------------------------------
        MOBILE & TABLET RESPONSIVENESS
        ------------------------------------------------------------- */
@@ -1146,15 +1219,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Top Header -->
   <header>
-    <div class="brand" onclick="navigateTo('/')">
-      <div class="brand-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-        </svg>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <!-- Mobile Left Menu Trigger Button (3 lines / hamburger) -->
+      <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+
+      <div class="brand" onclick="navigateTo('/')">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </div>
+        <span>${appName}</span>
+        <span class="brand-tag">Edge E-ink</span>
       </div>
-      <span>${appName}</span>
-      <span class="brand-tag">Edge E-ink</span>
     </div>
 
     <div class="nav-search">
@@ -1190,38 +1270,40 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <button class="btn-icon desktop-nav-btn" onclick="promptAuthKey()" title="Configure Access Token">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
       </button>
-
-      <!-- Mobile More Menu Trigger Button -->
-      <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="More options">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="12" cy="19" r="1.25"></circle></svg>
-      </button>
-
-      <!-- Mobile Nav Dropdown -->
-      <div class="mobile-nav-dropdown" id="mobileNavDropdown">
-        <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-          <span>Manage Tags</span>
-        </button>
-        <button class="mobile-nav-item" onclick="openModal('addTextModal'); closeMobileNavMenu();">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-          <span>Add Custom Text</span>
-        </button>
-        <button class="mobile-nav-item" onclick="openModal('syncModal'); closeMobileNavMenu();">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-          <span>KOReader Sync</span>
-        </button>
-        <div class="mobile-nav-divider"></div>
-        <button class="mobile-nav-item" onclick="toggleTheme(); closeMobileNavMenu();">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-          <span>Toggle Theme</span>
-        </button>
-        <button class="mobile-nav-item" onclick="promptAuthKey(); closeMobileNavMenu();">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span>Access Token / Logout</span>
-        </button>
-      </div>
     </div>
   </header>
+
+  <!-- Mobile Nav Backdrop & Slide-out Drawer -->
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileNavMenu()"></div>
+  <div class="mobile-nav-dropdown" id="mobileNavDropdown">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.5rem 1rem 0.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem;">
+      <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span style="color: var(--accent);">☰</span> Menu
+      </div>
+      <button class="action-btn" onclick="closeMobileNavMenu()">&times;</button>
+    </div>
+    <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+      <span>Manage Tags</span>
+    </button>
+    <button class="mobile-nav-item" onclick="openModal('addTextModal'); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      <span>Add Custom Text</span>
+    </button>
+    <button class="mobile-nav-item" onclick="openModal('syncModal'); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+      <span>KOReader Sync</span>
+    </button>
+    <div class="mobile-nav-divider"></div>
+    <button class="mobile-nav-item" onclick="toggleTheme(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      <span>Toggle Theme</span>
+    </button>
+    <button class="mobile-nav-item" onclick="promptAuthKey(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      <span>Access Token / Logout</span>
+    </button>
+  </div>
 
   <!-- Main Content -->
   <main>
@@ -1553,12 +1635,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function toggleMobileNavMenu(e) {
       if (e) e.stopPropagation();
       const dropdown = document.getElementById('mobileNavDropdown');
-      if (dropdown) dropdown.classList.toggle('open');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      if (dropdown && backdrop) {
+        dropdown.classList.toggle('open');
+        backdrop.classList.toggle('open');
+      }
     }
 
     function closeMobileNavMenu() {
       const dropdown = document.getElementById('mobileNavDropdown');
-      if (dropdown) dropdown.classList.remove('open');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      if (dropdown && backdrop) {
+        dropdown.classList.remove('open');
+        backdrop.classList.remove('open');
+      }
     }
 
     document.addEventListener('click', (e) => {
