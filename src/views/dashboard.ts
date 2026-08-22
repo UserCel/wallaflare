@@ -515,6 +515,43 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
 
+
+    /* RTL / Hebrew / Arabic Typography & Force Right Alignment */
+    .reader-body[dir="rtl"],
+    .reader-content-wrap.is-rtl .reader-body,
+    .reader-body[dir="rtl"] p,
+    .reader-body[dir="rtl"] div,
+    .reader-body[dir="rtl"] span,
+    .reader-body[dir="rtl"] h1,
+    .reader-body[dir="rtl"] h2,
+    .reader-body[dir="rtl"] h3,
+    .reader-body[dir="rtl"] h4,
+    .reader-body[dir="rtl"] li,
+    .reader-body[dir="rtl"] section,
+    .reader-body[dir="rtl"] article {
+      direction: rtl !important;
+      text-align: right !important;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Alef", "Assistant", "Rubik", "David Libre", sans-serif;
+    }
+    .reader-content-wrap.is-rtl #readerTitle {
+      text-align: right !important;
+      direction: rtl !important;
+    }
+    .reader-content-wrap.is-rtl #readerMeta {
+      text-align: right !important;
+      direction: rtl !important;
+    }
+    .reader-body[dir="rtl"] blockquote {
+      border-left: none !important;
+      border-right: 3px solid var(--accent) !important;
+      padding-left: 0 !important;
+      padding-right: 1.25rem !important;
+    }
+    .reader-body[dir="rtl"] ul, .reader-body[dir="rtl"] ol {
+      padding-left: 0 !important;
+      padding-right: 1.5rem !important;
+    }
+
     /* RTL / Hebrew / Arabic Typography & Alignment */
     .reader-body[dir="rtl"], .reader-content-wrap.is-rtl .reader-body {
       direction: rtl;
@@ -1335,7 +1372,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
               '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
             '</div>' +
             '<h2 class="card-title" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
-            '<p class="card-excerpt">' + escapeHtml(excerpt) + '</p>' +
+            '<p class="card-excerpt" dir="auto">' + escapeHtml(excerpt) + '</p>' +
           '</div>' +
           '<div class="card-footer">' +
             '<span>' + date + '</span>' +
@@ -1459,6 +1496,25 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
 
       document.getElementById('readerBody').innerHTML = item.content;
+
+      // Force RTL / LTR layout and typography
+      const isRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
+      const contentWrap = document.querySelector('.reader-content-wrap');
+      const readerBodyEl = document.getElementById('readerBody');
+      const readerTitleEl = document.getElementById('readerTitle');
+      const readerMetaEl = document.getElementById('readerMeta');
+
+      if (isRtl) {
+        if (contentWrap) contentWrap.classList.add('is-rtl');
+        readerBodyEl.setAttribute('dir', 'rtl');
+        readerTitleEl.setAttribute('dir', 'rtl');
+        readerMetaEl.setAttribute('dir', 'rtl');
+      } else {
+        if (contentWrap) contentWrap.classList.remove('is-rtl');
+        readerBodyEl.setAttribute('dir', 'ltr');
+        readerTitleEl.setAttribute('dir', 'ltr');
+        readerMetaEl.setAttribute('dir', 'ltr');
+      }
       document.getElementById('readerView').classList.add('open');
       document.body.style.overflow = 'hidden';
 
