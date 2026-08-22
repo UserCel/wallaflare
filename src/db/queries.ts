@@ -146,8 +146,8 @@ export async function createEntry(
     INSERT INTO entries (
       url, title, content, preview_picture, domain_name, 
       reading_time, language, is_archived, is_starred, 
-      created_at, updated_at, published_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const res = await db.prepare(query).bind(
@@ -161,8 +161,7 @@ export async function createEntry(
     entry.is_archived ?? 0,
     entry.is_starred ?? 0,
     now,
-    now,
-    entry.published_at || now
+    now
   ).run();
 
   const id = res.meta?.last_row_id;
@@ -171,7 +170,7 @@ export async function createEntry(
     if (created) return created;
   }
 
-  const latest = await db.prepare('SELECT * FROM entries WHERE rowid = last_insert_rowid() OR id = (SELECT MAX(id) FROM entries)').first<EntryRow>();
+  const latest = await db.prepare('SELECT * FROM entries WHERE id = (SELECT MAX(id) FROM entries)').first<EntryRow>();
   if (latest) return latest;
 
   return {
@@ -187,7 +186,6 @@ export async function createEntry(
     is_starred: entry.is_starred ?? 0,
     created_at: now,
     updated_at: now,
-    published_at: entry.published_at || now,
   };
 }
 
