@@ -957,37 +957,39 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         padding: 1rem;
       }
 
-      /* Mobile Reader Layout: Bottom Action Bar for Max Screen Space */
+      /* Mobile Reader Layout: Top Navigation Bar & Left Slide-out Drawer */
       .reader-view {
-        flex-direction: column-reverse;
+        flex-direction: column;
+      }
+      .reader-mobile-bar {
+        display: flex;
+      }
+      .reader-sidebar-backdrop.open {
+        display: block;
       }
       .reader-sidebar {
-        width: 100%;
-        height: 56px;
-        flex-direction: row;
-        border-right: none;
-        border-top: 1px solid var(--border-color);
-        padding: 0 1rem;
-        justify-content: space-around;
-        background: rgba(30, 41, 59, 0.95);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 250px !important;
+        transform: translateX(-100%);
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 250;
+        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.4);
+        padding: 1.25rem 0.75rem;
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-color);
       }
-      html.light .reader-sidebar { background: rgba(255, 255, 255, 0.95); }
-      html.sepia .reader-sidebar { background: rgba(235, 226, 205, 0.95); }
-
-      .reader-sidebar-group {
-        flex-direction: row;
-        justify-content: space-around;
-        width: 100%;
-        gap: 0.5rem;
+      .reader-sidebar.drawer-open {
+        transform: translateX(0);
       }
-      .reader-tool-btn {
-        width: 40px;
-        height: 40px;
+      .reader-sidebar .btn-label {
+        opacity: 1 !important;
+        transform: translateX(0) !important;
       }
       .reader-main-scroll {
-        padding: 1.5rem 1rem 3rem 1rem;
+        padding: 4rem 1rem 3rem 1rem !important;
       }
       #readerTitle {
         font-size: 1.6rem !important;
@@ -1221,20 +1223,44 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <!-- -------------------------------------------------------------
-       READER VIEW: Full-Height Sidebar Layout (Maximizes Vertical Space)
+       READER VIEW: Top Bar for Mobile & Full-Height Sidebar for Desktop
        ------------------------------------------------------------- -->
   <div class="reader-view" id="readerView">
-    <!-- Expandable Reader Action Sidebar -->
-    <aside class="reader-sidebar">
+    <!-- Mobile Top Action Bar -->
+    <div class="reader-mobile-bar">
+      <div class="reader-mobile-bar-group">
+        <button class="btn-icon" onclick="toggleMobileReaderDrawer()" title="More options">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="12" cy="19" r="1.25"></circle></svg>
+        </button>
+        <button class="btn-icon" onclick="handleReaderBack()" title="Back to Library (Esc)">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+      </div>
+
+      <div class="reader-mobile-bar-group">
+        <button class="btn-icon" id="readerMobileArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive / Finished">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </button>
+        <button class="btn-icon" id="readerMobileStarBtn" onclick="toggleActiveStar()" title="Toggle Star">
+          <svg width="19" height="19" id="readerMobileStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Drawer Backdrop -->
+    <div class="reader-sidebar-backdrop" id="readerDrawerBackdrop" onclick="closeMobileReaderDrawer()"></div>
+
+    <!-- Expandable Reader Action Sidebar (Slide-out drawer on Mobile) -->
+    <aside class="reader-sidebar" id="readerSidebar">
       <div class="reader-sidebar-group">
         <button class="reader-tool-btn btn-back-tool" onclick="handleReaderBack()" title="Back to Library (Esc)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
           <span class="btn-label">Back</span>
         </button>
 
-        <button class="reader-tool-btn" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Favorite">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-          <span class="btn-label" id="readerStarLabel">Favorite</span>
+        <button class="reader-tool-btn" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Star">
+          <svg width="17" height="17" id="readerStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span class="btn-label" id="readerStarLabel">Star</span>
         </button>
 
         <button class="reader-tool-btn" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive">
@@ -1242,12 +1268,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label" id="readerArchiveLabel">Archive</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="openTagModal(activeArticleId)" title="Edit Tags">
+        <button class="reader-tool-btn" onclick="openTagModal(activeArticleId); closeMobileReaderDrawer();" title="Edit Tags">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
           <span class="btn-label">Tags</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="downloadActiveEpub()" title="Download EPUB">
+        <button class="reader-tool-btn" onclick="downloadActiveEpub(); closeMobileReaderDrawer();" title="Download EPUB">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span class="btn-label">EPUB</span>
         </button>
@@ -1272,6 +1298,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <button class="reader-tool-btn" onclick="toggleTheme()" title="Toggle Theme">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
           <span class="btn-label">Theme</span>
+        </button>
+
+        <div class="reader-sidebar-divider"></div>
+
+        <button class="reader-tool-btn btn-delete-tool" onclick="deleteActiveArticle()" title="Delete Article">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          <span class="btn-label" style="color: #ef4444;">Delete</span>
         </button>
       </div>
     </aside>
@@ -1955,29 +1988,39 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const readerBodyEl = document.getElementById('readerBody');
       readerBodyEl.innerHTML = item.content || '<p>No content available.</p>';
 
-      // Update active reader star and archive buttons
+      // Update active reader star and archive buttons (Desktop & Mobile)
       const starBtn = document.getElementById('readerStarBtn');
       const starLabel = document.getElementById('readerStarLabel');
-      if (starBtn && starLabel) {
-        if (item.is_starred) {
-          starBtn.classList.add('active-star');
-          starLabel.textContent = 'Starred';
-        } else {
-          starBtn.classList.remove('active-star');
-          starLabel.textContent = 'Favorite';
-        }
+      const starIcon = document.getElementById('readerStarIcon');
+      const mobileStarBtn = document.getElementById('readerMobileStarBtn');
+      const mobileStarIcon = document.getElementById('readerMobileStarIcon');
+
+      if (item.is_starred) {
+        if (starBtn) starBtn.classList.add('active-star');
+        if (starLabel) starLabel.textContent = 'Starred';
+        if (starIcon) starIcon.setAttribute('fill', 'currentColor');
+        if (mobileStarBtn) mobileStarBtn.classList.add('active-star');
+        if (mobileStarIcon) mobileStarIcon.setAttribute('fill', 'currentColor');
+      } else {
+        if (starBtn) starBtn.classList.remove('active-star');
+        if (starLabel) starLabel.textContent = 'Star';
+        if (starIcon) starIcon.setAttribute('fill', 'none');
+        if (mobileStarBtn) mobileStarBtn.classList.remove('active-star');
+        if (mobileStarIcon) mobileStarIcon.setAttribute('fill', 'none');
       }
 
       const archiveBtn = document.getElementById('readerArchiveBtn');
       const archiveLabel = document.getElementById('readerArchiveLabel');
-      if (archiveBtn && archiveLabel) {
-        if (item.is_archived) {
-          archiveBtn.classList.add('active-archive');
-          archiveLabel.textContent = 'Archived';
-        } else {
-          archiveBtn.classList.remove('active-archive');
-          archiveLabel.textContent = 'Archive';
-        }
+      const mobileArchiveBtn = document.getElementById('readerMobileArchiveBtn');
+
+      if (item.is_archived) {
+        if (archiveBtn) archiveBtn.classList.add('active-archive');
+        if (archiveLabel) archiveLabel.textContent = 'Archived';
+        if (mobileArchiveBtn) mobileArchiveBtn.classList.add('active-archive');
+      } else {
+        if (archiveBtn) archiveBtn.classList.remove('active-archive');
+        if (archiveLabel) archiveLabel.textContent = 'Archive';
+        if (mobileArchiveBtn) mobileArchiveBtn.classList.remove('active-archive');
       }
 
       // Force RTL / LTR layout and typography
@@ -2009,6 +2052,31 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    
+    function toggleMobileReaderDrawer() {
+      const sidebar = document.getElementById('readerSidebar');
+      const backdrop = document.getElementById('readerDrawerBackdrop');
+      if (sidebar && backdrop) {
+        sidebar.classList.toggle('drawer-open');
+        backdrop.classList.toggle('open');
+      }
+    }
+
+    function closeMobileReaderDrawer() {
+      const sidebar = document.getElementById('readerSidebar');
+      const backdrop = document.getElementById('readerDrawerBackdrop');
+      if (sidebar && backdrop) {
+        sidebar.classList.remove('drawer-open');
+        backdrop.classList.remove('open');
+      }
+    }
+
+    async function deleteActiveArticle() {
+      if (!activeArticleId) return;
+      closeMobileReaderDrawer();
+      await deleteEntryAction(activeArticleId);
+    }
+
     async function toggleActiveStar() {
       if (!activeArticleId) return;
       const item = allEntries.find(e => e.id === activeArticleId);
@@ -2029,6 +2097,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
 
     function closeReader(updateHistory = true) {
+      closeMobileReaderDrawer();
       activeArticleId = null;
       document.getElementById('readerView').classList.remove('open');
       document.body.style.overflow = 'auto';
