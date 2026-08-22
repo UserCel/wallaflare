@@ -62,3 +62,23 @@ describe('Article Extractor Service', () => {
     expect(result.content).toContain('Just a simple raw paragraph');
   });
 });
+
+  it('converts relative links and images to absolute URLs based on source URL', () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <body>
+        <article>
+          <h1>Wiki Article</h1>
+          <p>Read our <a href="/wiki/Special:Statistics">Statistics page</a> or <a href="help/faq.html">FAQ</a>.</p>
+          <img src="/images/diagram.png" alt="Diagram" />
+        </article>
+      </body>
+      </html>
+    `;
+    const result = extractArticleFromHtml(html, 'https://en.wikipedia.org/wiki/Main_Page');
+    expect(result.content).toContain('href="https://en.wikipedia.org/wiki/Special:Statistics"');
+    expect(result.content).toContain('href="https://en.wikipedia.org/wiki/help/faq.html"');
+    expect(result.content).toContain('src="https://en.wikipedia.org/images/diagram.png"');
+    expect(result.content).toContain('target="_blank"');
+  });

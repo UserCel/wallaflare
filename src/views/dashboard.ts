@@ -547,6 +547,37 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       font-size: 0.875rem;
       margin: 1.5rem 0;
     }
+    
+    .reader-body a {
+      color: #38bdf8;
+      text-decoration: underline;
+      text-decoration-color: rgba(56, 189, 248, 0.45);
+      text-underline-offset: 3px;
+      transition: all 0.15s ease;
+    }
+    .reader-body a:hover {
+      color: #7dd3fc;
+      text-decoration-color: #38bdf8;
+    }
+
+    html.light .reader-body a {
+      color: #0284c7;
+      text-decoration-color: rgba(2, 132, 199, 0.45);
+    }
+    html.light .reader-body a:hover {
+      color: #0369a1;
+      text-decoration-color: #0284c7;
+    }
+
+    html.sepia .reader-body a {
+      color: #b45309;
+      text-decoration-color: rgba(180, 83, 9, 0.45);
+    }
+    html.sepia .reader-body a:hover {
+      color: #78350f;
+      text-decoration-color: #b45309;
+    }
+
     .reader-body blockquote {
       border-left: 3px solid var(--accent);
       padding-left: 1.25rem;

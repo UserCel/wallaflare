@@ -16,6 +16,57 @@ export function extractDomain(urlStr: string): string {
   }
 }
 
+export function resolveRelativeUrls(document: any, baseUrl: string) {
+  if (!baseUrl) return;
+  try {
+    // Resolve all <a> hrefs
+    document.querySelectorAll('a[href]').forEach((a: any) => {
+      const rawHref = a.getAttribute('href')?.trim();
+      if (
+        rawHref &&
+        !rawHref.startsWith('mailto:') &&
+        !rawHref.startsWith('tel:') &&
+        !rawHref.startsWith('javascript:') &&
+        !rawHref.startsWith('#')
+      ) {
+        try {
+          const resolved = new URL(rawHref, baseUrl).href;
+          a.setAttribute('href', resolved);
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener noreferrer');
+        } catch {}
+      }
+    });
+
+    // Resolve all <img> src
+    document.querySelectorAll('img[src]').forEach((img: any) => {
+      const rawSrc = img.getAttribute('src')?.trim();
+      if (rawSrc && !rawSrc.startsWith('data:')) {
+        try {
+          img.setAttribute('src', new URL(rawSrc, baseUrl).href);
+        } catch {}
+      }
+    });
+
+    // Resolve <source srcset>
+    document.querySelectorAll('source[srcset]').forEach((srcEl: any) => {
+      const rawSrcset = srcEl.getAttribute('srcset')?.trim();
+      if (rawSrcset) {
+        try {
+          const parts = rawSrcset.split(',').map((part: string) => {
+            const [url, descriptor] = part.trim().split(/\s+/);
+            const resolved = new URL(url, baseUrl).href;
+            return descriptor ? `${resolved} ${descriptor}` : resolved;
+          });
+          srcEl.setAttribute('srcset', parts.join(', '));
+        } catch {}
+      }
+    });
+  } catch (e) {
+    console.warn('Error resolving relative URLs:', e);
+  }
+}
+
 export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
   const fullHtml = html.includes('<html')
     ? html
@@ -23,13 +74,28 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
 
   const { document } = parseHTML(fullHtml);
 
+  // If baseUrl provided, resolve relative links before parsing
+  if (originalUrl) {
+    resolveRelativeUrls(document, originalUrl);
+  }
+
   // Extract meta tags for fallback/preview
   const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
   const twitterTitle = document.querySelector('meta[name="twitter:title"]')?.getAttribute('content');
   const docTitle = document.querySelector('title')?.textContent?.trim();
 
-  const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
-  const twitterImage = document.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
+  let ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
+  let twitterImage = document.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
+
+  // Resolve preview picture URLs if relative
+  if (originalUrl) {
+    if (ogImage && !ogImage.startsWith('http://') && !ogImage.startsWith('https://') && !ogImage.startsWith('data:')) {
+      try { ogImage = new URL(ogImage, originalUrl).href; } catch {}
+    }
+    if (twitterImage && !twitterImage.startsWith('http://') && !twitterImage.startsWith('https://') && !twitterImage.startsWith('data:')) {
+      try { twitterImage = new URL(twitterImage, originalUrl).href; } catch {}
+    }
+  }
 
   const ogDescription = document.querySelector('meta[property="og:description"]')?.getAttribute('content');
   const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
