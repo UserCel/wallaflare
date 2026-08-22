@@ -520,35 +520,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       width: 100%;
     }
 
-    .reader-tool-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: var(--radius-sm);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      font-size: 0.65rem;
-      padding: 0;
-    }
-    .reader-tool-btn:hover {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border-color: var(--border-color);
-    }
-    .reader-tool-btn.btn-back-tool {
-      background: var(--accent);
-      color: white;
-    }
-    .reader-tool-btn.btn-back-tool:hover {
-      background: var(--accent-hover);
-    }
+
 
     /* Reader Main Scroll Area */
     .reader-main-scroll {
@@ -959,34 +931,85 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       /* Mobile Reader Layout: Top Navigation Bar & Left Slide-out Drawer */
       .reader-view {
-        flex-direction: column;
+        flex-direction: column !important;
       }
       .reader-mobile-bar {
-        display: flex;
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 48px !important;
+        background: var(--bg-secondary) !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        padding: 0 0.75rem !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        z-index: 150 !important;
+      }
+      .reader-mobile-bar-group {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+      }
+      .reader-mobile-bar-group.right-actions {
+        margin-left: auto !important;
+      }
+      .reader-sidebar-backdrop {
+        position: fixed !important;
+        inset: 0 !important;
+        background: rgba(0, 0, 0, 0.6) !important;
+        backdrop-filter: blur(3px) !important;
+        -webkit-backdrop-filter: blur(3px) !important;
+        z-index: 240 !important;
+        display: none !important;
       }
       .reader-sidebar-backdrop.open {
-        display: block;
+        display: block !important;
       }
       .reader-sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
         width: 250px !important;
-        transform: translateX(-100%);
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 250;
-        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.4);
-        padding: 1.25rem 0.75rem;
-        background: var(--bg-secondary);
-        border-right: 1px solid var(--border-color);
+        height: 100vh !important;
+        transform: translateX(-100%) !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        z-index: 250 !important;
+        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
+        padding: 1.25rem 0.75rem !important;
+        background: var(--bg-secondary) !important;
+        border-right: 1px solid var(--border-color) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
       }
       .reader-sidebar.drawer-open {
-        transform: translateX(0);
+        transform: translateX(0) !important;
       }
-      .reader-sidebar .btn-label {
+      .reader-sidebar .reader-tool-btn {
+        width: 100% !important;
+        height: 44px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding: 0 0.85rem !important;
+        gap: 0.85rem !important;
+      }
+      .reader-sidebar .reader-tool-btn .btn-label {
         opacity: 1 !important;
         transform: translateX(0) !important;
+        font-size: 0.9rem !important;
+        color: var(--text-primary) !important;
+        pointer-events: auto !important;
+        display: inline-block !important;
+        white-space: nowrap !important;
+      }
+      .reader-sidebar .btn-back-tool {
+        display: none !important;
       }
       .reader-main-scroll {
         padding: 4rem 1rem 3rem 1rem !important;
@@ -1229,15 +1252,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <!-- Mobile Top Action Bar -->
     <div class="reader-mobile-bar">
       <div class="reader-mobile-bar-group">
-        <button class="btn-icon" onclick="toggleMobileReaderDrawer()" title="More options">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="12" cy="19" r="1.25"></circle></svg>
+        <button class="btn-icon" id="readerMobileDrawerBtn" onclick="toggleMobileReaderDrawer(event)" title="More options">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
         <button class="btn-icon" onclick="handleReaderBack()" title="Back to Library (Esc)">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         </button>
       </div>
 
-      <div class="reader-mobile-bar-group">
+      <div class="reader-mobile-bar-group right-actions">
         <button class="btn-icon" id="readerMobileArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive / Finished">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </button>
@@ -2053,7 +2076,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     
-    function toggleMobileReaderDrawer() {
+    function toggleMobileReaderDrawer(e) {
+      if (e) e.stopPropagation();
       const sidebar = document.getElementById('readerSidebar');
       const backdrop = document.getElementById('readerDrawerBackdrop');
       if (sidebar && backdrop) {
@@ -2061,6 +2085,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         backdrop.classList.toggle('open');
       }
     }
+
+    // Close mobile drawer when tapping anywhere outside
+    document.addEventListener('click', (e) => {
+      const sidebar = document.getElementById('readerSidebar');
+      if (sidebar && sidebar.classList.contains('drawer-open')) {
+        const trigger = e.target.closest('#readerMobileDrawerBtn');
+        const insideSidebar = e.target.closest('#readerSidebar');
+        if (!trigger && !insideSidebar) {
+          closeMobileReaderDrawer();
+        }
+      }
+    });
 
     function closeMobileReaderDrawer() {
       const sidebar = document.getElementById('readerSidebar');
