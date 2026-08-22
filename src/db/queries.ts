@@ -1,30 +1,36 @@
 import { EntryRow, WallabagEntry } from '../types';
 
-function formatDate(d?: string | null): string {
-  if (!d) return new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+function formatRfc3339(d?: string | null): string {
+  if (!d) return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const date = new Date(d);
-  if (isNaN(date.getTime())) return new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
-  return date.toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  if (isNaN(date.getTime())) return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 export function entryRowToWallabag(row: EntryRow): WallabagEntry {
-  const createdAt = formatDate(row?.created_at);
-  const updatedAt = formatDate(row?.updated_at);
-  const publishedAt = formatDate(row?.published_at || row?.created_at);
+  const createdAt = formatRfc3339(row?.created_at);
+  const updatedAt = formatRfc3339(row?.updated_at);
+  const publishedAt = row?.published_at ? formatRfc3339(row.published_at) : null;
   const plainText = (row?.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
   return {
     id: row?.id || 0,
     title: row?.title || 'Untitled',
     url: row?.url || '',
+    hashed_url: null,
+    given_url: row?.url || null,
+    hashed_given_url: null,
     content: row?.content || '',
     is_archived: row?.is_archived ? 1 : 0,
+    archived_at: row?.is_archived ? updatedAt : null,
     is_starred: row?.is_starred ? 1 : 0,
+    starred_at: row?.is_starred ? updatedAt : null,
     user_name: 'wallaflare',
     user_email: 'user@wallaflare.local',
     user_id: 1,
     tags: [],
     is_public: 0,
+    uid: null,
     created_at: createdAt,
     updated_at: updatedAt,
     published_at: publishedAt,
@@ -33,13 +39,10 @@ export function entryRowToWallabag(row: EntryRow): WallabagEntry {
     domain_name: row?.domain_name || '',
     preview_picture: row?.preview_picture || null,
     language: row?.language || 'en',
-    starred_at: row?.is_starred ? updatedAt : null,
-    archived_at: row?.is_archived ? updatedAt : null,
     mimetype: 'text/html',
     text: plainText,
     annotations: [],
     origin_url: row?.url || null,
-    given_url: row?.url || null,
   };
 }
 
