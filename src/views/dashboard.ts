@@ -286,11 +286,32 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       box-shadow: var(--shadow-sm);
       transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
       position: relative;
+      overflow: hidden;
     }
     .article-card:hover {
       transform: translateY(-2px);
       border-color: rgba(249, 115, 22, 0.4);
       box-shadow: var(--shadow);
+    }
+
+    .card-image-wrap {
+      width: calc(100% + 2.5rem);
+      margin: -1.25rem -1.25rem 0.85rem -1.25rem;
+      height: 160px;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+      cursor: pointer;
+      position: relative;
+    }
+    .card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+      display: block;
+    }
+    .article-card:hover .card-image {
+      transform: scale(1.04);
     }
 
     .card-meta {
@@ -521,6 +542,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       margin: 0 auto;
       padding: 3rem 1.5rem 6rem 1.5rem;
     }
+    .reader-cover {
+      margin-bottom: 2rem;
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-height: 400px;
+      display: flex;
+      justify-content: center;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+    }
+    .reader-cover-img {
+      max-width: 100%;
+      max-height: 400px;
+      object-fit: contain;
+      border-radius: var(--radius);
+    }
     .reader-body {
       font-family: var(--font-reader-serif);
       font-size: 1.15rem;
@@ -649,44 +686,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <header>
     <a href="#" class="brand" onclick="setFilter('unread')">
       <div class="brand-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
         </svg>
       </div>
       <span>${appName}</span>
-      <span class="brand-tag">Edge D1</span>
+      <span class="brand-tag">Edge E-ink</span>
     </a>
 
     <div class="nav-search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="11" cy="11" r="8"></circle>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-      </svg>
-      <input type="text" id="searchInput" placeholder="Search saved articles... (/)" oninput="filterArticles()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" id="searchInput" placeholder="Search articles or press /..." oninput="filterArticles()">
     </div>
 
     <div class="nav-actions">
       <button class="btn btn-primary" onclick="openModal('addUrlModal')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         <span>Add URL</span>
       </button>
+
       <button class="btn btn-secondary" onclick="openModal('addTextModal')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        <span>Paste Text</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        <span>Add Text</span>
       </button>
-      <button class="btn-icon" title="KOReader &amp; Wallabag Sync Settings" onclick="openModal('syncModal')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+
+      <button class="btn btn-secondary" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+        <span>KOReader</span>
       </button>
-      <button class="btn-icon" id="themeToggle" title="Toggle Theme" onclick="toggleTheme()">
+
+      <button class="btn-icon" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </button>
-      <button class="btn-icon" id="logoutBtn" title="Set/Clear Access Key" onclick="promptAuthKey()">
+
+      <button class="btn-icon" onclick="promptAuthKey()" title="Configure Access Token">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
       </button>
     </div>
   </header>
 
-  <!-- Main View -->
+  <!-- Main Content -->
   <main>
     <div class="filter-bar">
       <div class="tab-group">
@@ -707,22 +747,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="badge-count" id="countAll">0</span>
         </button>
       </div>
-      <div>
-        <span style="font-size: 0.8rem; color: var(--text-muted);" id="statusIndicator">Loading library...</span>
+
+      <div style="font-size: 0.8rem; color: var(--text-muted);" id="statusIndicator">
+        Syncing...
       </div>
     </div>
 
-    <!-- Articles Grid -->
+    <!-- Article Grid -->
     <div class="articles-grid" id="articlesGrid"></div>
 
     <!-- Empty State -->
     <div class="empty-state" id="emptyState" style="display: none;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-      </svg>
-      <h3 id="emptyTitle">No articles found</h3>
-      <p id="emptyDesc">Add an article via URL or paste custom text to get started.</p>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+      <h3>No articles found</h3>
+      <p>Add a URL or text using the buttons in the top navbar.</p>
     </div>
   </main>
 
@@ -730,15 +768,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <div class="modal-backdrop" id="addUrlModal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Ingest Article by URL</h3>
+        <h3 class="modal-title">Save Article from Web</h3>
         <button class="close-btn" onclick="closeModal('addUrlModal')">&times;</button>
       </div>
       <form onsubmit="handleIngestUrl(event)">
         <div class="form-group">
-          <label for="urlInput">Web Article URL</label>
+          <label for="urlInput">Article URL</label>
           <input type="url" id="urlInput" placeholder="https://example.com/article" required autofocus>
         </div>
-        <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; justify-content: flex-end;">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('addUrlModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="ingestUrlBtn">Fetch &amp; Save</button>
         </div>
@@ -746,27 +784,27 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  <!-- Modal: Add Text / Markdown / Chapter -->
+  <!-- Modal: Add Text -->
   <div class="modal-backdrop" id="addTextModal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Direct Text / Markdown Ingestion</h3>
+        <h3 class="modal-title">Add Custom Text / Markdown</h3>
         <button class="close-btn" onclick="closeModal('addTextModal')">&times;</button>
       </div>
       <form onsubmit="handleIngestText(event)">
         <div class="form-group">
-          <label for="textTitle">Article / Chapter Title</label>
-          <input type="text" id="textTitle" placeholder="My Notes or Chapter Title" required>
+          <label for="textTitle">Title</label>
+          <input type="text" id="textTitle" placeholder="Article Title" required>
         </div>
-        <div class="form-group" style="margin-top: 0.75rem;">
-          <label for="textUrl">Optional Source / Reference URL</label>
-          <input type="text" id="textUrl" placeholder="Optional source attribution">
+        <div class="form-group">
+          <label for="textUrl">Source URL (Optional)</label>
+          <input type="url" id="textUrl" placeholder="https://...">
         </div>
-        <div class="form-group" style="margin-top: 0.75rem;">
-          <label for="textContent">Content (Raw Text, Markdown, or HTML)</label>
-          <textarea id="textContent" placeholder="Paste your text, markdown chapters, or HTML here..." required></textarea>
+        <div class="form-group">
+          <label for="textContent">Content (HTML or Markdown)</label>
+          <textarea id="textContent" placeholder="Paste your text or markdown here..." required></textarea>
         </div>
-        <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; justify-content: flex-end;">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('addTextModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="ingestTextBtn">Save Entry</button>
         </div>
@@ -774,9 +812,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  <!-- Modal: Sync Settings (KOReader & Wallabag Guide) -->
+  <!-- Modal: KOReader / Wallabag Sync -->
   <div class="modal-backdrop" id="syncModal">
-    <div class="modal" style="max-width: 640px;">
+    <div class="modal">
       <div class="modal-header">
         <h3 class="modal-title">Sync with KOReader &amp; Wallabag Apps</h3>
         <button class="close-btn" onclick="closeModal('syncModal')">&times;</button>
@@ -839,6 +877,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <div class="reader-content-wrap">
       <h1 id="readerTitle" style="font-size: 2.2rem; font-weight: 700; line-height: 1.25; margin-bottom: 0.75rem;"></h1>
       <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
+      <div id="readerCoverWrap"></div>
       <div class="reader-body" id="readerBody"></div>
     </div>
   </div>
@@ -923,7 +962,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         allEntries = data._embedded ? data._embedded.items : [];
         updateCounts();
         filterArticles();
-        document.getElementById('statusIndicator').textContent = \`\${allEntries.length} articles\`;
+        document.getElementById('statusIndicator').textContent = allEntries.length + ' articles';
       } catch (err) {
         document.getElementById('statusIndicator').textContent = 'Error loading library';
         showToast('Failed to load articles: ' + err.message);
@@ -990,48 +1029,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const domain = item.domain_name || 'direct-input';
         const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
         const excerpt = item.text ? item.text.slice(0, 160) + '...' : 'No preview available';
+        const previewPicture = item.preview_picture;
 
-        return \`
-          <div class="article-card" id="entry-card-\${item.id}">
-            <div>
-              <div class="card-meta">
-                <span class="card-domain">\${escapeHtml(domain)}</span>
-                <span class="card-reading-time">\${item.reading_time || 1} min read</span>
-              </div>
-              <h2 class="card-title" onclick="openReader(\${item.id})">\${escapeHtml(item.title)}</h2>
-              <p class="card-excerpt">\${escapeHtml(excerpt)}</p>
-            </div>
-            
-            <div class="card-footer">
-              <span>\${date}</span>
-              <div class="card-actions">
-                <button class="action-btn \${item.is_starred ? 'active-star' : ''}" title="Star / Favorite" onclick="toggleStar(\${item.id}, \${item.is_starred})">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="\${item.is_starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                </button>
-                <button class="action-btn \${item.is_archived ? 'active-archive' : ''}" title="Toggle Archive" onclick="toggleArchive(\${item.id}, \${item.is_archived})">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-                </button>
-                <a href="/api/entries/\${item.id}/export.epub\${tokenParam}" class="action-btn" title="Download EPUB for KOReader" download>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                </a>
-                \${item.url ? \`
-                  <a href="\${escapeHtml(item.url)}" target="_blank" rel="noopener" class="action-btn" title="Open original link">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                  </a>
-                \` : ''}
-                <button class="action-btn btn-delete" title="Delete" onclick="deleteEntryAction(\${item.id})">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        \`;
+        const imgHtml = previewPicture
+          ? '<div class="card-image-wrap" onclick="openReader(' + item.id + ')"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.style.display=\'none\'" /></div>'
+          : '';
+
+        const starSvg = item.is_starred
+          ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>'
+          : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
+
+        const originalLinkHtml = item.url
+          ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="action-btn" title="Open original link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>'
+          : '';
+
+        return '<div class="article-card" id="entry-card-' + item.id + '">' +
+          '<div>' +
+            imgHtml +
+            '<div class="card-meta">' +
+              '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
+              '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
+            '</div>' +
+            '<h2 class="card-title" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
+            '<p class="card-excerpt">' + escapeHtml(excerpt) + '</p>' +
+          '</div>' +
+          '<div class="card-footer">' +
+            '<span>' + date + '</span>' +
+            '<div class="card-actions">' +
+              '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
+              '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
+              '<a href="/api/entries/' + item.id + '/export.epub' + tokenParam + '" class="action-btn" title="Download EPUB for KOReader" download><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a>' +
+              originalLinkHtml +
+              '<button class="action-btn btn-delete" title="Delete" onclick="deleteEntryAction(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
       }).join('');
     }
 
     async function toggleStar(id, current) {
       const next = current ? 0 : 1;
-      const res = await authFetch(\`/api/entries/\${id}.json\`, {
+      const res = await authFetch('/api/entries/' + id + '.json', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ starred: next })
@@ -1047,7 +1085,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function toggleArchive(id, current) {
       const next = current ? 0 : 1;
-      const res = await authFetch(\`/api/entries/\${id}.json\`, {
+      const res = await authFetch('/api/entries/' + id + '.json', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archive: next })
@@ -1063,7 +1101,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function deleteEntryAction(id) {
       if (!confirm('Are you sure you want to delete this article?')) return;
-      const res = await authFetch(\`/api/entries/\${id}.json\`, { method: 'DELETE' });
+      const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
       if (res.ok) {
         allEntries = allEntries.filter(e => e.id !== id);
         updateCounts();
@@ -1079,14 +1117,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const tokenParam = getAuthToken() ? ('?access_token=' + encodeURIComponent(getAuthToken())) : '';
 
       document.getElementById('readerTitle').textContent = item.title;
-      document.getElementById('readerMeta').innerHTML = \`
-        <span>\${escapeHtml(item.domain_name || '')}</span> &bull; 
-        <span>\${item.reading_time || 1} min read</span> &bull; 
-        <span>\${item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</span>
-        \${item.url ? \` &bull; <a href="\${escapeHtml(item.url)}" target="_blank" style="color: var(--accent);">Original Link</a>\` : ''}
-      \`;
+      let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span> &bull; ' +
+        '<span>' + (item.reading_time || 1) + ' min read</span> &bull; ' +
+        '<span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
+      if (item.url) {
+        metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" style="color: var(--accent);">Original Link</a>';
+      }
+      document.getElementById('readerMeta').innerHTML = metaHtml;
+      
+      const coverWrap = document.getElementById('readerCoverWrap');
+      if (item.preview_picture) {
+        coverWrap.innerHTML = '<div class="reader-cover"><img src="' + escapeHtml(item.preview_picture) + '" alt="Cover" class="reader-cover-img" onerror="this.parentElement.style.display=\'none\'" /></div>';
+      } else {
+        coverWrap.innerHTML = '';
+      }
+
       document.getElementById('readerBody').innerHTML = item.content;
-      document.getElementById('readerEpubBtn').href = \`/api/entries/\${item.id}/export.epub\${tokenParam}\`;
+      document.getElementById('readerEpubBtn').href = '/api/entries/' + item.id + '/export.epub' + tokenParam;
       document.getElementById('readerView').classList.add('open');
       document.body.style.overflow = 'hidden';
     }
