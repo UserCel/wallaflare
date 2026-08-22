@@ -256,7 +256,7 @@ pre {
 </body>
 </html>` : '';
 
-  // 7. Page 2: summary.xhtml (Wallabag exact structure)
+    // 7. Page 2: summary.xhtml (Wallabag exact structure)
   const summaryXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
@@ -269,16 +269,12 @@ pre {
   <dl>
     <dt>Published by</dt>
     <dd>${escapedAuthors !== 'Unknown' ? escapedAuthors : escapedDomain}</dd>
-
     <dt>Published on</dt>
     <dd>${publishedOnStr}</dd>
-
     <dt>Estimated reading time</dt>
     <dd>${readingTime} min</dd>
-
     <dt>Added on</dt>
     <dd>${addedOnStr}</dd>
-
     <dt>Address</dt>
     <dd>
       <a href="${originalUrl}">${originalUrl || '-'}</a>
