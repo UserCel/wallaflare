@@ -150,42 +150,45 @@ const PWA_MANIFEST = {
   name: 'Wallaflare',
   short_name: 'Wallaflare',
   description: 'Serverless read-it-later & Wallabag client',
-  id: '/',
-  start_url: '/',
-  scope: '/',
+  id: 'https://wallaflare.example.com/',
+  start_url: 'https://wallaflare.example.com/',
+  scope: 'https://wallaflare.example.com/',
   display: 'standalone',
   orientation: 'any',
   background_color: '#0f172a',
   theme_color: '#f97316',
+  categories: ['news', 'productivity', 'utilities'],
+  prefer_related_applications: false,
   icons: [
     {
-      src: '/img/icon-192.png',
+      src: 'https://wallaflare.example.com/img/icon-192.png',
       sizes: '192x192',
       type: 'image/png',
       purpose: 'any'
     },
     {
-      src: '/img/icon-512.png',
+      src: 'https://wallaflare.example.com/img/icon-512.png',
       sizes: '512x512',
       type: 'image/png',
       purpose: 'any'
     },
     {
-      src: '/img/icon-maskable-192.png',
+      src: 'https://wallaflare.example.com/img/icon-maskable-192.png',
       sizes: '192x192',
       type: 'image/png',
       purpose: 'maskable'
     },
     {
-      src: '/img/icon-maskable-512.png',
+      src: 'https://wallaflare.example.com/img/icon-maskable-512.png',
       sizes: '512x512',
       type: 'image/png',
       purpose: 'maskable'
     }
   ],
   share_target: {
-    action: '/share-target',
+    action: 'https://wallaflare.example.com/share-target',
     method: 'GET',
+    enctype: 'application/x-www-form-urlencoded',
     params: {
       title: 'title',
       text: 'text',
