@@ -18,19 +18,48 @@ export const apiRouter = new Hono<{ Bindings: Env }>();
 // OAuth v2 Authentication (Mock / Validated for Wallabag Clients)
 // -------------------------------------------------------------
 const tokenHandler = async (c: any) => {
-  let body: any = {};
+  let body: Record<string, any> = {};
   const contentType = c.req.header('Content-Type') || '';
 
+  // 1. Try parsing JSON body
   if (contentType.includes('application/json')) {
     body = await c.req.json().catch(() => ({}));
   } else {
+    // 2. Try parsing form body (urlencoded / multipart)
     body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  // 3. Fallback to query params if body is empty
+  const query = c.req.query();
+  for (const key in query) {
+    if (body[key] === undefined) {
+      body[key] = query[key];
+    }
+  }
+
+  // 4. Check Basic Auth header (client_id : client_secret)
+  const authHeader = c.req.header('Authorization') || '';
+  let basicSecret = '';
+  if (authHeader.toLowerCase().startsWith('basic ')) {
+    try {
+      const decoded = atob(authHeader.substring(6).trim());
+      const [, secret] = decoded.split(':');
+      basicSecret = secret || '';
+    } catch {
+      // ignore decode error
+    }
   }
 
   const configuredSecret = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
 
   if (configuredSecret) {
-    const providedSecret = body.password || body.client_secret || body.refresh_token;
+    const providedSecret =
+      body.password ||
+      body.client_secret ||
+      basicSecret ||
+      body.refresh_token ||
+      body.access_token;
+
     if (providedSecret !== configuredSecret) {
       return c.json(
         {
@@ -47,29 +76,34 @@ const tokenHandler = async (c: any) => {
 };
 
 apiRouter.post('/oauth/v2/token', tokenHandler);
+apiRouter.get('/oauth/v2/token', tokenHandler);
 apiRouter.post('/api/oauth/v2/token', tokenHandler);
+apiRouter.get('/api/oauth/v2/token', tokenHandler);
 
 // -------------------------------------------------------------
 // Wallabag Version & Info Endpoints (Required for Client Handshake)
 // -------------------------------------------------------------
-// Wallabag Android app parses JSON for /api/version
 const versionHandler = (c: any) => {
-  // Return JSON string "2.6.9" with application/json header
   return c.json('2.6.9');
 };
 apiRouter.get('/api/version', versionHandler);
 apiRouter.get('/api/version.json', versionHandler);
+apiRouter.get('/version', versionHandler);
+apiRouter.get('/version.json', versionHandler);
 
 const infoHandler = (c: any) => {
   return c.json({
-    appname: c.env.APP_NAME || 'Wallaflare',
+    appname: 'wallabag',
     version: '2.6.9',
     allowed_registration: false,
   });
 };
 apiRouter.get('/api/info', infoHandler);
 apiRouter.get('/api/info.json', infoHandler);
+apiRouter.get('/info', infoHandler);
+apiRouter.get('/info.json', infoHandler);
 
+// User Profile Endpoint
 const userHandler = (c: any) => {
   return c.json({
     id: 1,
@@ -81,6 +115,8 @@ const userHandler = (c: any) => {
 };
 apiRouter.get('/api/user', authMiddleware, userHandler);
 apiRouter.get('/api/user.json', authMiddleware, userHandler);
+apiRouter.get('/api/users/current', authMiddleware, userHandler);
+apiRouter.get('/api/users/current.json', authMiddleware, userHandler);
 
 // -------------------------------------------------------------
 // Tags Compatibility Endpoints
