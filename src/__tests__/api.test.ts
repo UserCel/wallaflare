@@ -190,13 +190,21 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     expect(delRes.status).toBe(200);
   });
 
-  it('serves the Web UI dashboard on GET /', async () => {
-    const res = await app.request('/', {}, { DB: mockDb });
+  it('serves the Web UI dashboard on GET / with browser headers', async () => {
+    const res = await app.request('/?view=dashboard', {}, { DB: mockDb });
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain('Wallaflare');
     expect(html).toContain('KOReader');
     expect(html).toContain('Add URL');
+  });
+
+  it('serves Wallabag login page on GET /login', async () => {
+    const res = await app.request('/login', {}, { DB: mockDb });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('loginform');
+    expect(html).toContain('wallabag logo');
   });
 });
 
