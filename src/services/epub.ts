@@ -47,18 +47,18 @@ function sanitizeToXhtml(htmlContent: string): string {
 }
 
 export async function generateEpub(article: EpubArticleInput): Promise<Uint8Array> {
-  const uid = `urn:uuid:wallaflare-${article.id || Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  const uid = `urn:wallabag:${article.id || Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const title = article.title || 'Untitled Article';
   const escapedTitle = escapeXml(title);
   const lang = article.language || 'en';
-  const domain = article.domain_name || (article.url ? new URL(article.url).hostname : 'Wallaflare');
+  const domain = article.domain_name || (article.url ? new URL(article.url).hostname : 'wallabag');
   const escapedDomain = escapeXml(domain);
   const readingTime = article.reading_time || 1;
   const authorsStr = (article.authors && article.authors.length > 0) ? article.authors.join(', ') : '';
-  const escapedAuthors = escapeXml(authorsStr);
+  const escapedAuthors = escapeXml(authorsStr) || 'Unknown';
 
   const addedOnStr = article.created_at ? new Date(article.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-  const publishedOnStr = article.published_at ? new Date(article.published_at).toISOString().split('T')[0] : '';
+  const publishedOnStr = article.published_at ? new Date(article.published_at).toISOString().split('T')[0] : 'Unknown';
   const originalUrl = article.url ? escapeXml(article.url) : '';
 
   const cleanBodyHtml = sanitizeToXhtml(article.content);
@@ -115,46 +115,61 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   </rootfiles>
 </container>`;
 
-  // 2. CSS Stylesheet (tuned for e-ink readers like KOReader & Kindle)
-  const styleCss = `
-@charset "utf-8";
+  // 2. CoverPage CSS
+  const coverCss = `@page, body, div, img {
+	padding: 0pt;
+	margin: 0pt;
+}
 body {
-  font-family: serif;
-  line-height: 1.6;
-  margin: 5% 5%;
+	text-align: center;
+}
+img.cover-img {
+	height: 100%;
+	max-height: 100vh;
+	max-width: 100%;
+	object-fit: contain;
+}`;
+
+  // 3. Article Content CSS (clean, compact, matches Wallabag)
+  const styleCss = `@charset "utf-8";
+body {
+  margin: 0;
   padding: 0;
-  text-align: justify;
-  color: #111;
+  font-family: serif;
+  line-height: 1.4;
+}
+p {
+  margin: 0.5em 0;
 }
 h1, h2, h3, h4, h5, h6 {
   font-family: sans-serif;
   line-height: 1.25;
-  margin-top: 1.4em;
-  margin-bottom: 0.5em;
-  text-align: left;
-  page-break-after: avoid;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
 }
-h1 { font-size: 1.8em; }
-h2 { font-size: 1.4em; }
-h3 { font-size: 1.2em; }
-p {
-  margin: 0 0 1em 0;
-  text-indent: 1em;
+h1 { font-size: 1.6em; }
+h2 { font-size: 1.3em; }
+h3 { font-size: 1.15em; }
+dl dt {
+  font-weight: bold;
+  margin-top: 0.8em;
 }
-p.no-indent {
-  text-indent: 0;
+dl dd {
+  margin-left: 0;
+  margin-bottom: 0.25em;
+  word-break: break-all;
 }
 blockquote {
-  margin: 1.2em 0 1.2em 1.5em;
-  padding-left: 1em;
-  border-left: 3px solid #666;
+  margin: 0.8em 1em;
+  padding-left: 0.8em;
+  border-left: 2px solid #888;
   font-style: italic;
 }
 img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 1em auto;
+  margin: 0.5em auto;
 }
 pre, code {
   font-family: monospace;
@@ -164,85 +179,46 @@ pre, code {
   border-radius: 3px;
 }
 pre {
-  padding: 1em;
+  padding: 0.8em;
   overflow-x: auto;
   white-space: pre-wrap;
 }
-hr {
-  border: none;
-  border-top: 1px solid #aaa;
-  margin: 1.5em 0;
-}
-/* Cover Page */
-.cover-page {
-  text-align: center;
-  margin: 0;
-  padding: 0;
-}
-.cover-img {
-  max-width: 100%;
-  max-height: 90vh;
-  margin: 0 auto;
-  display: block;
-}
-/* Summary Page */
-.summary-page {
-  font-family: sans-serif;
-  margin-top: 2em;
-}
-.summary-title {
-  font-size: 1.6em;
-  line-height: 1.3;
-  margin-bottom: 0.5em;
-}
-.summary-dl dt {
-  font-weight: bold;
-  margin-top: 1.2em;
-  color: #333;
-}
-.summary-dl dd {
-  margin-left: 0;
-  margin-bottom: 0.4em;
-  color: #555;
-  word-break: break-all;
-}
-.summary-dl a {
-  color: #0066cc;
-  text-decoration: none;
-}
-.article-header {
-  margin-bottom: 2em;
-  padding-bottom: 1em;
-  border-bottom: 1px solid #ccc;
-}
 `;
 
-  // 3. Navigation document (EPUB3)
+  // 4. Navigation document (EPUB3)
   const navXhtml = `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${lang}">
 <head>
+  <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
   <title>${escapedTitle}</title>
-  <link rel="stylesheet" type="text/css" href="style.css"/>
 </head>
-<body>
-  <nav epub:type="toc" id="toc">
+<body epub:type="frontmatter toc">
+  <header>
     <h1>Table of Contents</h1>
+  </header>
+  <nav epub:type="toc" id="toc">
     <ol>
-      ${coverBytes ? '<li><a href="cover.xhtml">Cover</a></li>' : ''}
+      ${coverBytes ? '<li><a href="CoverPage.xhtml">Cover</a></li>' : ''}
       <li><a href="summary.xhtml">Summary</a></li>
       <li><a href="content.xhtml">${escapedTitle}</a></li>
+    </ol>
+  </nav>
+  <nav epub:type="landmarks">
+    <h2>Guide</h2>
+    <ol>
+      ${coverBytes ? '<li><a epub:type="cover" href="CoverPage.xhtml">CoverPage</a></li>' : ''}
+      <li><a epub:type="text" href="content.xhtml">${escapedTitle}</a></li>
     </ol>
   </nav>
 </body>
 </html>`;
 
-  // 4. NCX TOC (EPUB2 / KOReader)
+  // 5. NCX TOC (EPUB2 / KOReader)
   const tocNcx = `<?xml version="1.0" encoding="UTF-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="${lang}">
   <head>
     <meta name="dtb:uid" content="${uid}"/>
-    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:depth" content="2"/>
     <meta name="dtb:totalPageCount" content="0"/>
     <meta name="dtb:maxPageNumber" content="0"/>
   </head>
@@ -253,116 +229,119 @@ hr {
     <text>${escapedDomain}</text>
   </docAuthor>
   <navMap>
-    ${coverBytes ? `<navPoint id="navPoint-1" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="cover.xhtml"/></navPoint>` : ''}
-    <navPoint id="navPoint-2" playOrder="${coverBytes ? 2 : 1}">
+    ${coverBytes ? `<navPoint id="cover-nav" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="CoverPage.xhtml"/></navPoint>` : ''}
+    <navPoint id="summary-nav" playOrder="${coverBytes ? 2 : 1}">
       <navLabel><text>Summary</text></navLabel>
       <content src="summary.xhtml"/>
     </navPoint>
-    <navPoint id="navPoint-3" playOrder="${coverBytes ? 3 : 2}">
+    <navPoint id="content-nav" playOrder="${coverBytes ? 3 : 2}">
       <navLabel><text>${escapedTitle}</text></navLabel>
       <content src="content.xhtml"/>
     </navPoint>
   </navMap>
 </ncx>`;
 
-  // 5. Page 1: Cover XHTML (if cover image present)
+  // 6. Page 1: CoverPage.xhtml (matches Wallabag)
   const coverXhtml = coverBytes ? `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
-  <title>Cover</title>
-  <link rel="stylesheet" type="text/css" href="style.css"/>
+  <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
+  <title>Cover Image</title>
+  <link type="text/css" rel="stylesheet" href="Styles/CoverPage.css"/>
 </head>
 <body>
-  <div class="cover-page">
-    <img src="images/${coverFilename}" alt="Cover" class="cover-img"/>
-  </div>
+  <section epub:type="cover">
+    <img src="images/${coverFilename}" alt="Cover image" class="cover-img"/>
+  </section>
 </body>
 </html>` : '';
 
-  // 6. Page 2: Summary XHTML (Wallabag style)
+  // 7. Page 2: summary.xhtml (Wallabag exact structure)
   const summaryXhtml = `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
-  <title>Summary - ${escapedTitle}</title>
-  <link rel="stylesheet" type="text/css" href="style.css"/>
+  <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
+  <title>wallabag articles book</title>
+  <link type="text/css" rel="stylesheet" href="Styles/style.css"/>
 </head>
 <body>
-  <div class="summary-page">
-    <h1 class="summary-title">${escapedTitle}</h1>
-    <hr/>
-    <dl class="summary-dl">
-      <dt>Published by</dt>
-      <dd>${escapedAuthors || escapedDomain}</dd>
+  <h1>${escapedTitle}</h1>
+  <dl>
+    <dt>Published by</dt>
+    <dd>${escapedAuthors !== 'Unknown' ? escapedAuthors : escapedDomain}</dd>
 
-      <dt>Published on</dt>
-      <dd>${publishedOnStr || '-'}</dd>
+    <dt>Published on</dt>
+    <dd>${publishedOnStr}</dd>
 
-      <dt>Estimated reading time</dt>
-      <dd>${readingTime} min</dd>
+    <dt>Estimated reading time</dt>
+    <dd>${readingTime} min</dd>
 
-      <dt>Added on</dt>
-      <dd>${addedOnStr}</dd>
+    <dt>Added on</dt>
+    <dd>${addedOnStr}</dd>
 
-      <dt>Address</dt>
-      <dd><a href="${originalUrl}">${originalUrl || '-'}</a></dd>
-    </dl>
-  </div>
+    <dt>Address</dt>
+    <dd>
+      <a href="${originalUrl}">${originalUrl || '-'}</a>
+    </dd>
+  </dl>
 </body>
 </html>`;
 
-  // 7. Page 3: Article Content XHTML
+  // 8. Page 3: content.xhtml (Wallabag starts directly with article body, no title repetition)
   const contentXhtml = `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
-  <title>${escapedTitle}</title>
-  <link rel="stylesheet" type="text/css" href="style.css"/>
+  <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
+  <title>wallabag articles book</title>
+  <link type="text/css" rel="stylesheet" href="Styles/style.css"/>
 </head>
 <body>
-  <div class="article-header">
-    <h1>${escapedTitle}</h1>
-  </div>
-  <div class="article-body">
-    ${cleanBodyHtml}
-  </div>
+${cleanBodyHtml}
 </body>
 </html>`;
 
-  // 8. OPF Package file
+  // 9. OPF Package file (matches Wallabag OPF structure)
   const coverManifestItem = coverBytes
-    ? `<item id="cover-image" href="images/${coverFilename}" media-type="${coverMime}" properties="cover-image"/>\n    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>`
+    ? `<item id="cover-image" href="images/${coverFilename}" media-type="${coverMime}" properties="cover-image"/>\n    <item id="CoverPage" href="CoverPage.xhtml" media-type="application/xhtml+xml"/>`
     : '';
   const coverMetaItem = coverBytes
     ? `<meta name="cover" content="cover-image"/>`
     : '';
 
-  const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="3.0" xml:lang="${lang}">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+  const contentOpf = `<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:dcterms="http://purl.org/dc/terms/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	unique-identifier="BookId" version="3.0">
+  <metadata>
     <dc:identifier id="BookId">${uid}</dc:identifier>
     <dc:title>${escapedTitle}</dc:title>
     <dc:language>${lang}</dc:language>
-    <dc:creator>${escapedAuthors || escapedDomain}</dc:creator>
-    <dc:publisher>Wallaflare</dc:publisher>
+    <dc:creator>${escapedAuthors !== 'Unknown' ? escapedAuthors : escapedDomain}</dc:creator>
+    <dc:publisher>wallabag</dc:publisher>
     <dc:date>${addedOnStr}</dc:date>
     <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
     ${coverMetaItem}
   </metadata>
   <manifest>
-    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    <item id="style" href="style.css" media-type="text/css"/>
+    <item id="epub3toc" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="ncxtoc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="CoverPage.css" href="Styles/CoverPage.css" media-type="text/css"/>
+    <item id="style.css" href="Styles/style.css" media-type="text/css"/>
     <item id="summary" href="summary.xhtml" media-type="application/xhtml+xml"/>
     <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
     ${coverManifestItem}
   </manifest>
-  <spine toc="ncx">
-    ${coverBytes ? '<itemref idref="cover"/>' : ''}
+  <spine toc="ncxtoc">
+    ${coverBytes ? '<itemref idref="CoverPage"/>' : ''}
     <itemref idref="summary"/>
     <itemref idref="content"/>
   </spine>
+  <guide>
+    ${coverBytes ? '<reference type="cover" title="CoverPage" href="CoverPage.xhtml"/>' : ''}
+    <reference type="text" title="Entry 1 of 1" href="content.xhtml"/>
+  </guide>
 </package>`;
 
   // Build ZIP structure using fflate
@@ -372,13 +351,14 @@ hr {
     'OEBPS/content.opf': strToU8(contentOpf),
     'OEBPS/toc.ncx': strToU8(tocNcx),
     'OEBPS/nav.xhtml': strToU8(navXhtml),
-    'OEBPS/style.css': strToU8(styleCss),
+    'OEBPS/Styles/CoverPage.css': strToU8(coverCss),
+    'OEBPS/Styles/style.css': strToU8(styleCss),
     'OEBPS/summary.xhtml': strToU8(summaryXhtml),
     'OEBPS/content.xhtml': strToU8(contentXhtml),
   };
 
   if (coverBytes) {
-    zipEntries['OEBPS/cover.xhtml'] = strToU8(coverXhtml);
+    zipEntries['OEBPS/CoverPage.xhtml'] = strToU8(coverXhtml);
     zipEntries['OEBPS/images/' + coverFilename] = coverBytes;
   }
 
