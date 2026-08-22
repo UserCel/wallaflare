@@ -1,221 +1,419 @@
-import { EntryRow, WallabagEntry, WallabagEntriesResponse } from '../types';
+import { EntryRow, WallabagEntry } from '../types';
 
-export function entryRowToWallabag(row: EntryRow): WallabagEntry {
-  // Strip tags or use simple regex for text representation
-  const plainText = row.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+export interface TagItem {
+  id: number;
+  label: string;
+  slug: string;
+  entry_count?: number;
+}
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '') || 'tag';
+}
+
+function formatRfc3339(d?: string | null): string {
+  if (!d) return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): WallabagEntry {
+  const createdAt = formatRfc3339(row?.created_at);
+  const updatedAt = formatRfc3339(row?.updated_at);
+  const publishedAt = row?.published_at ? formatRfc3339(row.published_at) : null;
+  const plainText = (row?.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const rawTags = (row as any)?.tags || tags || [];
+  const entryTags = Array.isArray(rawTags)
+    ? rawTags.map((t: any) => ({
+        id: Number(t.id || 0),
+        label: String(t.label || ''),
+        slug: String(t.slug || '')
+      }))
+    : [];
 
   return {
-    id: row.id,
-    title: row.title,
-    url: row.url || '',
-    is_archived: row.is_archived,
-    is_starred: row.is_starred,
-    content: row.content,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    reading_time: row.reading_time || 1,
-    domain_name: row.domain_name || (row.url ? new URL(row.url).hostname : 'direct-input'),
-    preview_picture: row.preview_picture,
-    user_id: 1,
+    id: row?.id || 0,
+    title: row?.title || 'Untitled',
+    url: row?.url || '',
+    hashed_url: null,
+    given_url: row?.url || null,
+    hashed_given_url: null,
+    content: row?.content || '',
+    is_archived: row?.is_archived ? 1 : 0,
+    archived_at: row?.is_archived ? updatedAt : null,
+    is_starred: row?.is_starred ? 1 : 0,
+    starred_at: row?.is_starred ? updatedAt : null,
     user_name: 'wallaflare',
     user_email: 'user@wallaflare.local',
-    language: row.language || 'en',
-    tags: [],
+    user_id: 1,
+    tags: entryTags,
+    is_public: false,
+    uid: null,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    published_at: publishedAt,
+    published_by: [],
+    reading_time: row?.reading_time || 1,
+    domain_name: row?.domain_name || '',
+    preview_picture: row?.preview_picture || null,
+    language: row?.language || 'en',
     mimetype: 'text/html',
     text: plainText,
+    annotations: [],
+    origin_url: row?.url || null,
   };
 }
 
-export interface GetEntriesParams {
-  archive?: number; // 0 or 1
-  starred?: number; // 0 or 1
-  sort?: 'created' | 'updated' | 'archived' | string;
-  order?: 'asc' | 'desc' | string;
+export interface GetEntriesFilter {
+  is_archived?: number;
+  is_starred?: number;
   page?: number;
   perPage?: number;
-  since?: number | string;
+  order?: 'asc' | 'desc';
+  sort?: 'created' | 'updated' | 'archived';
+  search?: string;
+  domain_name?: string;
+  since?: string | number;
+  tags?: string | string[];
+  tag?: string;
+}
+
+export async function getTags(db: D1Database): Promise<TagItem[]> {
+  try {
+    const query = `
+      SELECT t.id, t.label, t.slug, COUNT(et.entry_id) as entry_count
+      FROM tags t
+      LEFT JOIN entry_tags et ON t.id = et.tag_id
+      GROUP BY t.id, t.label, t.slug
+      ORDER BY t.label ASC
+    `;
+    const { results } = await db.prepare(query).all<TagItem>();
+    return results || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getEntryTags(db: D1Database, entryId: number): Promise<TagItem[]> {
+  try {
+    const query = `
+      SELECT t.id, t.label, t.slug 
+      FROM tags t
+      JOIN entry_tags et ON t.id = et.tag_id
+      WHERE et.entry_id = ?
+      ORDER BY t.label ASC
+    `;
+    const { results } = await db.prepare(query).bind(entryId).all<TagItem>();
+    return results || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllEntryTagsBatch(db: D1Database, entryIds: number[]): Promise<Map<number, TagItem[]>> {
+  const map = new Map<number, TagItem[]>();
+  if (entryIds.length === 0) return map;
+
+  try {
+    const placeholders = entryIds.map(() => '?').join(',');
+    const query = `
+      SELECT et.entry_id, t.id, t.label, t.slug 
+      FROM tags t
+      JOIN entry_tags et ON t.id = et.tag_id
+      WHERE et.entry_id IN (${placeholders})
+      ORDER BY t.label ASC
+    `;
+    const { results } = await db.prepare(query).bind(...entryIds).all<{ entry_id: number; id: number; label: string; slug: string }>();
+    if (results) {
+      for (const r of results) {
+        if (!map.has(r.entry_id)) map.set(r.entry_id, []);
+        map.get(r.entry_id)!.push({ id: r.id, label: r.label, slug: r.slug });
+      }
+    }
+  } catch {}
+  return map;
+}
+
+export async function addTagsToEntry(db: D1Database, entryId: number, rawTags: string | string[]): Promise<TagItem[]> {
+  const tagsList = (Array.isArray(rawTags) ? rawTags : String(rawTags).split(','))
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  if (tagsList.length === 0) {
+    return await getEntryTags(db, entryId);
+  }
+
+  for (const label of tagsList) {
+    const slug = slugify(label);
+    try {
+      await db.prepare('INSERT OR IGNORE INTO tags (label, slug) VALUES (?, ?)').bind(label, slug).run();
+      const tag = await db.prepare('SELECT id, label, slug FROM tags WHERE slug = ? LIMIT 1').bind(slug).first<TagItem>();
+      if (tag) {
+        await db.prepare('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)').bind(entryId, tag.id).run();
+      }
+    } catch (e) {
+      console.warn('Error saving tag:', e);
+    }
+  }
+
+  await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+  return await getEntryTags(db, entryId);
+}
+
+export async function removeTagFromEntry(db: D1Database, entryId: number, tagIdOrSlug: number | string): Promise<TagItem[]> {
+  let tagId: number | null = null;
+  const num = Number(tagIdOrSlug);
+  if (!isNaN(num) && num > 0) {
+    tagId = num;
+  } else {
+    const tag = await db.prepare('SELECT id FROM tags WHERE slug = ? OR label = ? LIMIT 1').bind(String(tagIdOrSlug), String(tagIdOrSlug)).first<{ id: number }>();
+    if (tag) tagId = tag.id;
+  }
+
+  if (tagId) {
+    await db.prepare('DELETE FROM entry_tags WHERE entry_id = ? AND tag_id = ?').bind(entryId, tagId).run();
+    await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+  }
+
+  return await getEntryTags(db, entryId);
+}
+
+export async function deleteTag(db: D1Database, tagId: number): Promise<boolean> {
+  await db.prepare('DELETE FROM entry_tags WHERE tag_id = ?').bind(tagId).run();
+  const res = await db.prepare('DELETE FROM tags WHERE id = ?').bind(tagId).run();
+  return (res.meta?.changes ?? 0) > 0;
 }
 
 export async function getEntries(
   db: D1Database,
-  params: GetEntriesParams = {}
-): Promise<WallabagEntriesResponse> {
-  const page = Math.max(1, Number(params.page) || 1);
-  const limit = Math.max(1, Math.min(100, Number(params.perPage) || 30));
-  const offset = (page - 1) * limit;
-
+  filter: GetEntriesFilter = {}
+): Promise<{ entries: EntryRow[]; total: number; page: number; limit: number; pages: number }> {
   const conditions: string[] = [];
-  const bindings: any[] = [];
+  const params: any[] = [];
 
-  if (params.archive !== undefined && params.archive !== null && !isNaN(Number(params.archive))) {
+  if (filter.is_archived !== undefined) {
     conditions.push('is_archived = ?');
-    bindings.push(Number(params.archive));
+    params.push(filter.is_archived);
   }
 
-  if (params.starred !== undefined && params.starred !== null && !isNaN(Number(params.starred))) {
+  if (filter.is_starred !== undefined) {
     conditions.push('is_starred = ?');
-    bindings.push(Number(params.starred));
+    params.push(filter.is_starred);
   }
 
-  if (params.since) {
-    const sinceTimestamp = typeof params.since === 'number'
-      ? new Date(params.since * 1000).toISOString()
-      : isNaN(Number(params.since))
-        ? new Date(params.since).toISOString()
-        : new Date(Number(params.since) * 1000).toISOString();
+  if (filter.domain_name) {
+    conditions.push('domain_name = ?');
+    params.push(filter.domain_name);
+  }
 
+  // Filter by tags
+  const rawTagFilter = filter.tags || filter.tag;
+  if (rawTagFilter) {
+    const tagList = (Array.isArray(rawTagFilter) ? rawTagFilter : String(rawTagFilter).split(','))
+      .map(t => t.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (tagList.length > 0) {
+      const tagPlaceholders = tagList.map(() => '?').join(',');
+      conditions.push(`id IN (
+        SELECT et.entry_id 
+        FROM entry_tags et 
+        JOIN tags t ON et.tag_id = t.id 
+        WHERE t.slug IN (${tagPlaceholders}) OR t.label IN (${tagPlaceholders})
+      )`);
+      params.push(...tagList, ...tagList);
+    }
+  }
+
+  // Handle since parameter: ignore 0 / empty, handle numeric unix timestamps
+  if (filter.since !== undefined && filter.since !== '' && filter.since !== '0' && filter.since !== 0) {
+    let sinceIso = String(filter.since);
+    const num = Number(filter.since);
+    if (!isNaN(num) && num > 0) {
+      const ms = num < 10000000000 ? num * 1000 : num;
+      sinceIso = new Date(ms).toISOString();
+    }
     conditions.push('updated_at >= ?');
-    bindings.push(sinceTimestamp);
+    params.push(sinceIso);
+  }
+
+  if (filter.search) {
+    conditions.push('(title LIKE ? OR content LIKE ?)');
+    params.push(`%${filter.search}%`);
+    params.push(`%${filter.search}%`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  // Count total matching items
-  const countSql = `SELECT COUNT(*) as total FROM entries ${whereClause}`;
-  const countResult = await db.prepare(countSql).bind(...bindings).first<{ total: number }>();
+  // Total count
+  const countQuery = `SELECT COUNT(*) as total FROM entries ${whereClause}`;
+  const countResult = await db.prepare(countQuery).bind(...params).first<{ total: number }>();
   const total = countResult?.total || 0;
-  const pages = Math.ceil(total / limit) || 1;
 
-  // Sorting
-  const sortCol = params.sort === 'updated' ? 'updated_at' : 'created_at';
-  const sortDir = (params.order?.toUpperCase() === 'ASC') ? 'ASC' : 'DESC';
+  // Pagination & Sorting
+  const page = Math.max(1, filter.page || 1);
+  const limit = Math.max(1, Math.min(100, filter.perPage || 30));
+  const offset = (page - 1) * limit;
+  const sortCol = filter.sort === 'updated' ? 'updated_at' : 'created_at';
+  const sortOrder = (filter.order || 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-  const selectSql = `
-    SELECT * FROM entries
-    ${whereClause}
-    ORDER BY ${sortCol} ${sortDir}
+  const selectQuery = `
+    SELECT * FROM entries 
+    ${whereClause} 
+    ORDER BY ${sortCol} ${sortOrder} 
     LIMIT ? OFFSET ?
   `;
 
-  const queryBindings = [...bindings, limit, offset];
-  const { results } = await db.prepare(selectSql).bind(...queryBindings).all<EntryRow>();
+  const { results } = await db.prepare(selectQuery).bind(...params, limit, offset).all<EntryRow>();
+  const entries = results || [];
 
-  const items = (results || []).map(entryRowToWallabag);
+  // Batch populate tags
+  if (entries.length > 0) {
+    const entryIds = entries.map(e => e.id);
+    const tagsMap = await getAllEntryTagsBatch(db, entryIds);
+    for (const entry of entries) {
+      (entry as any).tags = tagsMap.get(entry.id) || [];
+    }
+  }
 
   return {
+    entries,
+    total,
     page,
     limit,
-    pages,
-    total,
-    _links: {
-      self: { href: `/api/entries.json?page=${page}&perPage=${limit}` },
-      first: { href: `/api/entries.json?page=1&perPage=${limit}` },
-      last: { href: `/api/entries.json?page=${pages}&perPage=${limit}` },
-      ...(page > 1 ? { prev: { href: `/api/entries.json?page=${page - 1}&perPage=${limit}` } } : {}),
-      ...(page < pages ? { next: { href: `/api/entries.json?page=${page + 1}&perPage=${limit}` } } : {}),
-    },
-    _embedded: {
-      items,
-    },
+    pages: Math.ceil(total / limit) || 1,
   };
 }
 
 export async function getEntryById(db: D1Database, id: number): Promise<EntryRow | null> {
-  const result = await db.prepare('SELECT * FROM entries WHERE id = ?').bind(id).first<EntryRow>();
-  return result || null;
+  const query = 'SELECT * FROM entries WHERE id = ? LIMIT 1';
+  const entry = await db.prepare(query).bind(id).first<EntryRow>();
+  if (entry) {
+    (entry as any).tags = await getEntryTags(db, entry.id);
+  }
+  return entry;
+}
+
+export async function getEntryByUrl(db: D1Database, url: string): Promise<EntryRow | null> {
+  const query = 'SELECT * FROM entries WHERE url = ? LIMIT 1';
+  const entry = await db.prepare(query).bind(url).first<EntryRow>();
+  if (entry) {
+    (entry as any).tags = await getEntryTags(db, entry.id);
+  }
+  return entry;
 }
 
 export async function createEntry(
   db: D1Database,
-  data: {
-    url?: string | null;
-    title: string;
-    content: string;
-    preview_picture?: string | null;
-    domain_name?: string | null;
-    reading_time?: number;
-    language?: string;
-    is_archived?: number;
-    is_starred?: number;
-  }
+  entry: Partial<EntryRow> & { tags?: string | string[] }
 ): Promise<EntryRow> {
   const now = new Date().toISOString();
-  const res = await db.prepare(`
+  const query = `
     INSERT INTO entries (
-      url, title, content, preview_picture, domain_name,
-      reading_time, language, is_archived, is_starred,
+      url, title, content, preview_picture, domain_name, 
+      reading_time, language, is_archived, is_starred, 
       created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    RETURNING *
-  `).bind(
-    data.url || null,
-    data.title,
-    data.content,
-    data.preview_picture || null,
-    data.domain_name || null,
-    data.reading_time || 1,
-    data.language || 'en',
-    data.is_archived ? 1 : 0,
-    data.is_starred ? 1 : 0,
+  `;
+
+  const res = await db.prepare(query).bind(
+    entry.url || null,
+    entry.title || 'Untitled',
+    entry.content || '',
+    entry.preview_picture || null,
+    entry.domain_name || null,
+    entry.reading_time || 1,
+    entry.language || 'en',
+    entry.is_archived ?? 0,
+    entry.is_starred ?? 0,
     now,
     now
-  ).first<EntryRow>();
+  ).run();
 
-  if (!res) {
-    throw new Error('Failed to insert entry into database');
+  const id = res.meta?.last_row_id;
+  let created: EntryRow | null = null;
+  if (id) {
+    created = await getEntryById(db, id);
   }
 
-  return res;
+  if (!created) {
+    const latest = await db.prepare('SELECT * FROM entries WHERE id = (SELECT MAX(id) FROM entries)').first<EntryRow>();
+    if (latest) created = latest;
+  }
+
+  const resultEntry: EntryRow = created || {
+    id: id || 1,
+    url: entry.url || null,
+    title: entry.title || 'Untitled',
+    content: entry.content || '',
+    preview_picture: entry.preview_picture || null,
+    domain_name: entry.domain_name || null,
+    reading_time: entry.reading_time || 1,
+    language: entry.language || 'en',
+    is_archived: entry.is_archived ?? 0,
+    is_starred: entry.is_starred ?? 0,
+    created_at: now,
+    updated_at: now,
+  };
+
+  if (entry.tags) {
+    (resultEntry as any).tags = await addTagsToEntry(db, resultEntry.id, entry.tags);
+  } else {
+    (resultEntry as any).tags = [];
+  }
+
+  return resultEntry;
 }
 
 export async function updateEntry(
   db: D1Database,
   id: number,
-  updates: {
-    title?: string;
-    content?: string;
-    is_archived?: number;
-    is_starred?: number;
-    preview_picture?: string | null;
-    reading_time?: number;
-  }
+  updates: Partial<EntryRow> & { tags?: string | string[] }
 ): Promise<EntryRow | null> {
   const existing = await getEntryById(db, id);
   if (!existing) return null;
 
-  const setClauses: string[] = ['updated_at = ?'];
   const now = new Date().toISOString();
-  const bindings: any[] = [now];
+  const setClauses: string[] = ['updated_at = ?'];
+  const params: any[] = [now];
 
   if (updates.title !== undefined) {
     setClauses.push('title = ?');
-    bindings.push(updates.title);
+    params.push(updates.title);
   }
   if (updates.content !== undefined) {
     setClauses.push('content = ?');
-    bindings.push(updates.content);
+    params.push(updates.content);
   }
   if (updates.is_archived !== undefined) {
     setClauses.push('is_archived = ?');
-    bindings.push(updates.is_archived ? 1 : 0);
+    params.push(updates.is_archived);
   }
   if (updates.is_starred !== undefined) {
     setClauses.push('is_starred = ?');
-    bindings.push(updates.is_starred ? 1 : 0);
-  }
-  if (updates.preview_picture !== undefined) {
-    setClauses.push('preview_picture = ?');
-    bindings.push(updates.preview_picture);
-  }
-  if (updates.reading_time !== undefined) {
-    setClauses.push('reading_time = ?');
-    bindings.push(updates.reading_time);
+    params.push(updates.is_starred);
   }
 
-  bindings.push(id);
+  params.push(id);
+  const query = `UPDATE entries SET ${setClauses.join(', ')} WHERE id = ?`;
+  await db.prepare(query).bind(...params).run();
 
-  const updateSql = `
-    UPDATE entries
-    SET ${setClauses.join(', ')}
-    WHERE id = ?
-    RETURNING *
-  `;
+  if (updates.tags !== undefined) {
+    await addTagsToEntry(db, id, updates.tags);
+  }
 
-  const res = await db.prepare(updateSql).bind(...bindings).first<EntryRow>();
-  return res || null;
+  return await getEntryById(db, id);
 }
 
 export async function deleteEntry(db: D1Database, id: number): Promise<boolean> {
-  const res = await db.prepare('DELETE FROM entries WHERE id = ?').bind(id).run();
-  return (res.meta.changes ?? 0) > 0;
+  await db.prepare('DELETE FROM entry_tags WHERE entry_id = ?').bind(id).run();
+  const query = 'DELETE FROM entries WHERE id = ?';
+  const res = await db.prepare(query).bind(id).run();
+  return (res.meta?.changes ?? 0) > 0;
 }

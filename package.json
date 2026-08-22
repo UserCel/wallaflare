@@ -1,7 +1,7 @@
 {
   "name": "wallaflare",
   "version": "1.0.0",
-  "description": "Lightweight, serverless read-it-later backend on Cloudflare Workers + D1 with Wallabag v2 API & EPUB export",
+  "description": "A lightweight, zero-cost serverless Wallabag v2 API replacement and read-it-later service for Cloudflare Workers, D1, and E-ink readers (KOReader).",
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
@@ -26,5 +26,20 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UserCel/wallaflare.git"
+  },
+  "keywords": [
+    "wallabag",
+    "cloudflare-workers",
+    "cloudflare-d1",
+    "koreader",
+    "read-it-later",
+    "epub",
+    "e-ink",
+    "serverless"
+  ]
 }
