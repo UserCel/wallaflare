@@ -109,6 +109,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       font-weight: 700;
       font-size: 1.25rem;
       letter-spacing: -0.02em;
+      cursor: pointer;
     }
     .brand-icon {
       width: 32px;
@@ -685,7 +686,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Top Header -->
   <header>
-    <a href="#" class="brand" onclick="setFilter('unread')">
+    <div class="brand" onclick="navigateTo('/')">
       <div class="brand-icon">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
@@ -694,7 +695,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
       <span>${appName}</span>
       <span class="brand-tag">Edge E-ink</span>
-    </a>
+    </div>
 
     <div class="nav-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -858,7 +859,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <!-- Reader View -->
   <div class="reader-view" id="readerView">
     <div class="reader-nav">
-      <button class="btn btn-secondary" onclick="closeReader()">
+      <button class="btn btn-secondary" onclick="handleReaderBack()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         <span>Back</span>
       </button>
@@ -893,6 +894,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     let currentFilter = 'unread';
     let currentReaderFontSize = 18;
     let readerFontFamily = 'serif';
+    let activeArticleId = null;
 
     document.getElementById('syncServerUrl').textContent = window.location.origin;
 
@@ -934,7 +936,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       loadArticles();
     }
 
-    // Keyboard shortcut '/' to search
+    // Keyboard shortcut '/' to search & Escape
     window.addEventListener('keydown', (e) => {
       if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
         e.preventDefault();
@@ -944,9 +946,43 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         closeModal('addUrlModal');
         closeModal('addTextModal');
         closeModal('syncModal');
-        closeReader();
+        if (activeArticleId) {
+          handleReaderBack();
+        }
       }
     });
+
+    // Browser History Popstate (Back/Forward navigation)
+    window.addEventListener('popstate', (e) => {
+      handleRouteState();
+    });
+
+    function handleRouteState() {
+      const path = window.location.pathname;
+      const readMatch = path.match(/\/(?:read|view)\/(\d+)/);
+      if (readMatch) {
+        const id = parseInt(readMatch[1], 10);
+        openReader(id, false);
+        return;
+      }
+
+      if (path === '/starred') {
+        setFilter('starred', false);
+      } else if (path === '/archive') {
+        setFilter('archive', false);
+      } else if (path === '/all') {
+        setFilter('all', false);
+      } else {
+        setFilter('unread', false);
+      }
+
+      closeReader(false);
+    }
+
+    function navigateTo(path) {
+      history.pushState({}, '', path);
+      handleRouteState();
+    }
 
     async function loadArticles() {
       document.getElementById('statusIndicator').textContent = 'Syncing...';
@@ -964,6 +1000,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         updateCounts();
         filterArticles();
         document.getElementById('statusIndicator').textContent = allEntries.length + ' articles';
+        
+        // Initial URL route check
+        handleRouteState();
       } catch (err) {
         document.getElementById('statusIndicator').textContent = 'Error loading library';
         showToast('Failed to load articles: ' + err.message);
@@ -982,12 +1021,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.getElementById('countAll').textContent = total;
     }
 
-    function setFilter(filter) {
+    function setFilter(filter, updateHistory = true) {
       currentFilter = filter;
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById('tab' + filter.charAt(0).toUpperCase() + filter.slice(1));
       if (activeBtn) activeBtn.classList.add('active');
       filterArticles();
+
+      if (updateHistory) {
+        const newPath = filter === 'unread' ? '/' : ('/' + filter);
+        if (window.location.pathname !== newPath) {
+          history.pushState({ filter }, '', newPath);
+        }
+      }
     }
 
     function filterArticles() {
@@ -1108,13 +1154,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         updateCounts();
         filterArticles();
         showToast('Article deleted');
+        if (activeArticleId === id) {
+          handleReaderBack();
+        }
       }
     }
 
-    function openReader(id) {
+    function openReader(id, pushHistory = true) {
       const item = allEntries.find(e => e.id === id);
       if (!item) return;
 
+      activeArticleId = id;
       const tokenParam = getAuthToken() ? ('?access_token=' + encodeURIComponent(getAuthToken())) : '';
 
       document.getElementById('readerTitle').textContent = item.title;
@@ -1122,7 +1172,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         '<span>' + (item.reading_time || 1) + ' min read</span> &bull; ' +
         '<span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
       if (item.url) {
-        metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" style="color: var(--accent);">Original Link</a>';
+        metaHtml += ' &bull; <a href="' + escapeHtml(item.url)}" target="_blank" style="color: var(--accent);">Original Link</a>';
       }
       document.getElementById('readerMeta').innerHTML = metaHtml;
       
@@ -1137,11 +1187,31 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.getElementById('readerEpubBtn').href = '/api/entries/' + item.id + '/export.epub' + tokenParam;
       document.getElementById('readerView').classList.add('open');
       document.body.style.overflow = 'hidden';
+
+      if (pushHistory) {
+        history.pushState({ readerId: id }, '', '/read/' + id);
+      }
     }
 
-    function closeReader() {
+    function closeReader(updateHistory = true) {
+      activeArticleId = null;
       document.getElementById('readerView').classList.remove('open');
       document.body.style.overflow = 'auto';
+
+      if (updateHistory) {
+        const newPath = currentFilter === 'unread' ? '/' : ('/' + currentFilter);
+        if (window.location.pathname !== newPath) {
+          history.pushState({}, '', newPath);
+        }
+      }
+    }
+
+    function handleReaderBack() {
+      if (window.history.length > 1) {
+        history.back();
+      } else {
+        closeReader(true);
+      }
     }
 
     function toggleReaderFont() {

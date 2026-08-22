@@ -89,6 +89,13 @@ function renderWallabagDeveloperPage(env: Env): string {
 </html>`;
 }
 
+// Direct article & filter sub-URLs
+webRouter.get('/read/:id', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
+webRouter.get('/view/:id', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
+webRouter.get('/unread', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
+webRouter.get('/starred', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
+webRouter.get('/archive', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
+
 // Root page
 webRouter.get('/', (c) => {
   const cookie = c.req.header('Cookie') || '';
