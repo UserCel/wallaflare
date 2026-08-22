@@ -130,26 +130,12 @@ img.cover-img {
 	object-fit: contain;
 }`;
 
-  // 3. Article Content CSS (clean, compact, matches Wallabag)
+    // 3. Article Content CSS (clean, unforced spacing so e-reader controls paragraphs)
   const styleCss = `@charset "utf-8";
 body {
   margin: 0;
   padding: 0;
-  font-family: serif;
-  line-height: 1.4;
 }
-p {
-  margin: 0.5em 0;
-}
-h1, h2, h3, h4, h5, h6 {
-  font-family: sans-serif;
-  line-height: 1.25;
-  margin-top: 1em;
-  margin-bottom: 0.4em;
-}
-h1 { font-size: 1.6em; }
-h2 { font-size: 1.3em; }
-h3 { font-size: 1.15em; }
 dl dt {
   font-weight: bold;
   margin-top: 0.8em;
@@ -159,29 +145,9 @@ dl dd {
   margin-bottom: 0.25em;
   word-break: break-all;
 }
-blockquote {
-  margin: 0.8em 1em;
-  padding-left: 0.8em;
-  border-left: 2px solid #888;
-  font-style: italic;
-}
 img {
   max-width: 100%;
   height: auto;
-  display: block;
-  margin: 0.5em auto;
-}
-pre, code {
-  font-family: monospace;
-  font-size: 0.9em;
-  background-color: #f4f4f4;
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-}
-pre {
-  padding: 0.8em;
-  overflow-x: auto;
-  white-space: pre-wrap;
 }
 `;
 
@@ -283,13 +249,12 @@ pre {
 </body>
 </html>`;
 
-  // 8. Page 3: content.xhtml (Wallabag starts directly with article body, no title repetition)
+    // 8. Page 3: content.xhtml (Wallabag starts directly with article body, no title repetition)
   const contentXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
   <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
   <title>wallabag articles book</title>
-  <link type="text/css" rel="stylesheet" href="Styles/style.css"/>
 </head>
 <body>
 ${cleanBodyHtml}
