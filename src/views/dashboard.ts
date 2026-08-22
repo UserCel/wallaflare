@@ -1767,7 +1767,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       empty.style.display = 'none';
       grid.innerHTML = entries.map(item => {
         const domain = item.domain_name || 'direct-input';
-        const author = item.author || (item.user_name ? item.user_name : '');
+        const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
+        const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
         const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
         const excerpt = item.text ? item.text.slice(0, 160) + '...' : 'No preview available';
         const previewPicture = item.preview_picture;
@@ -1930,9 +1931,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       activeArticleId = id;
       document.getElementById('readerTitle').textContent = item.title;
+      const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
+      const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
       let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span>';
-      if (item.author) {
-        metaHtml += ' &bull; <span style="font-weight: 500;">by ' + escapeHtml(item.author) + '</span>';
+      if (author) {
+        metaHtml += ' &bull; <span style="font-weight: 500;">by ' + escapeHtml(author) + '</span>';
       }
       metaHtml += ' &bull; <span>' + (item.reading_time || 1) + ' min read</span>' +
         ' &bull; <span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
@@ -2149,7 +2152,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     function openModal(id) {
-      document.getElementById(id).classList.add('open');
+      const modalEl = document.getElementById(id);
+      if (modalEl) {
+        modalEl.classList.add('open');
+        if (id === 'addUrlModal') {
+          setTimeout(() => {
+            const input = document.getElementById('urlInput');
+            if (input) {
+              input.focus();
+              input.select();
+            }
+          }, 60);
+        } else if (id === 'addTextModal') {
+          setTimeout(() => {
+            document.getElementById('textTitle')?.focus();
+          }, 60);
+        }
+      }
     }
     function closeModal(id) {
       document.getElementById(id).classList.remove('open');

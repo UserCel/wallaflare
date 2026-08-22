@@ -59,6 +59,7 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
     updated_at: updatedAt,
     published_at: publishedAt,
     published_by: row?.author ? [row.author] : [],
+    author: row?.author || null,
     reading_time: row?.reading_time || 1,
     domain_name: row?.domain_name || '',
     preview_picture: row?.preview_picture || null,
