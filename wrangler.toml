@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Custom Domain routing for Cloudflare
+# Custom domain configuration for example.com
 routes = [
   { pattern = "wallaflare.example.com", custom_domain = true }
 ]
@@ -16,7 +16,6 @@ database_id = "local-wallaflare-db"
 migrations_dir = "migrations"
 
 [vars]
-# Wallaflare instance configuration
 APP_NAME = "Wallaflare"
-# Optional: Set a shared access secret / password if you want to restrict API / Ingest access
+# Optional: Set a secret token for API access if desired
 # AUTH_TOKEN = "your-secret-token"
