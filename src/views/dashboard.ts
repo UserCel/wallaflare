@@ -1021,6 +1021,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     .mobile-nav-item {
       display: flex;
       align-items: center;
+      justify-content: flex-start;
       gap: 0.75rem;
       padding: 0.7rem 0.85rem;
       border-radius: var(--radius-sm);
@@ -1032,7 +1033,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       cursor: pointer;
       text-align: left;
       width: 100%;
+      box-sizing: border-box;
       transition: all 0.15s ease;
+    }
+    .mobile-nav-item svg {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+    }
+    .mobile-nav-item span {
+      text-align: left;
+      flex: 1;
+      white-space: nowrap;
     }
     .mobile-nav-item:hover {
       background: var(--bg-tertiary);
