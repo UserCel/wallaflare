@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS entries (
   domain_name TEXT,
   reading_time INTEGER DEFAULT 1,
   language TEXT DEFAULT 'en',
+  author TEXT,
+  published_at TEXT,
   is_archived INTEGER DEFAULT 0,
   is_starred INTEGER DEFAULT 0,
   created_at TEXT NOT NULL,

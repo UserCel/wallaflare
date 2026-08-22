@@ -1,80 +1,69 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
-import { ExtractedArticle } from '../types';
+
+export interface ExtractedArticle {
+  title: string;
+  content: string;
+  textContent: string;
+  excerpt: string;
+  byline: string | null;
+  domainName: string;
+  previewPicture: string | null;
+  readingTime: number;
+  language: string;
+  publishedAt?: string | null;
+}
 
 export function calculateReadingTime(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.ceil(words / 200));
+  const wordsPerMinute = 200;
+  return Math.max(1, Math.ceil(words / wordsPerMinute));
 }
 
-export function extractDomain(urlStr: string): string {
+export function extractDomain(url: string): string {
   try {
-    const parsed = new URL(urlStr);
+    const parsed = new URL(url);
     return parsed.hostname.replace(/^www\./, '');
   } catch {
     return 'direct-input';
   }
 }
 
-export function resolveRelativeUrls(document: any, baseUrl: string) {
-  if (!baseUrl) return;
+export function resolveRelativeUrls(document: any, baseUrl: string): void {
+  if (!baseUrl || !baseUrl.startsWith('http')) return;
+
   try {
-    // Resolve all <a> hrefs
-    document.querySelectorAll('a[href]').forEach((a: any) => {
-      const rawHref = a.getAttribute('href')?.trim();
-      if (
-        rawHref &&
-        !rawHref.startsWith('mailto:') &&
-        !rawHref.startsWith('tel:') &&
-        !rawHref.startsWith('javascript:') &&
-        !rawHref.startsWith('#')
-      ) {
+    const base = new URL(baseUrl);
+
+    // Resolve <img> src attributes
+    document.querySelectorAll('img').forEach((img: any) => {
+      const src = img.getAttribute('src');
+      if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:')) {
         try {
-          const resolved = new URL(rawHref, baseUrl).href;
-          a.setAttribute('href', resolved);
-          a.setAttribute('target', '_blank');
-          a.setAttribute('rel', 'noopener noreferrer');
+          img.setAttribute('src', new URL(src, base).toString());
         } catch {}
       }
     });
 
-    // Resolve all <img> src
-    document.querySelectorAll('img[src]').forEach((img: any) => {
-      const rawSrc = img.getAttribute('src')?.trim();
-      if (rawSrc && !rawSrc.startsWith('data:')) {
+    // Resolve <a> href attributes and ensure secure external targets
+    document.querySelectorAll('a').forEach((a: any) => {
+      const href = a.getAttribute('href');
+      if (href && !href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:') && !href.startsWith('#')) {
         try {
-          img.setAttribute('src', new URL(rawSrc, baseUrl).href);
+          a.setAttribute('href', new URL(href, base).toString());
         } catch {}
       }
-    });
-
-    // Resolve <source srcset>
-    document.querySelectorAll('source[srcset]').forEach((srcEl: any) => {
-      const rawSrcset = srcEl.getAttribute('srcset')?.trim();
-      if (rawSrcset) {
-        try {
-          const parts = rawSrcset.split(',').map((part: string) => {
-            const [url, descriptor] = part.trim().split(/\s+/);
-            const resolved = new URL(url, baseUrl).href;
-            return descriptor ? `${resolved} ${descriptor}` : resolved;
-          });
-          srcEl.setAttribute('srcset', parts.join(', '));
-        } catch {}
+      if (a.getAttribute('href')?.startsWith('http')) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
       }
     });
-  } catch (e) {
-    console.warn('Error resolving relative URLs:', e);
-  }
+  } catch {}
 }
 
 export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
-  const fullHtml = html.includes('<html')
-    ? html
-    : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`;
+  const { document } = parseHTML(html);
 
-  const { document } = parseHTML(fullHtml);
-
-  // If baseUrl provided, resolve relative links before parsing
   if (originalUrl) {
     resolveRelativeUrls(document, originalUrl);
   }
@@ -82,55 +71,102 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   // Extract meta tags for fallback/preview
   const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
   const twitterTitle = document.querySelector('meta[name="twitter:title"]')?.getAttribute('content');
-  const docTitle = document.querySelector('title')?.textContent?.trim();
-
-  let ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
-  let twitterImage = document.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
-
-  // Resolve preview picture URLs if relative
-  if (originalUrl) {
-    if (ogImage && !ogImage.startsWith('http://') && !ogImage.startsWith('https://') && !ogImage.startsWith('data:')) {
-      try { ogImage = new URL(ogImage, originalUrl).href; } catch {}
-    }
-    if (twitterImage && !twitterImage.startsWith('http://') && !twitterImage.startsWith('https://') && !twitterImage.startsWith('data:')) {
-      try { twitterImage = new URL(twitterImage, originalUrl).href; } catch {}
-    }
-  }
-
-
-  // If no meta og:image / twitter:image, find the first prominent image in the document as previewPicture
-  let firstArticleImg: string | null = null;
-  if (!ogImage && !twitterImage) {
-    const allImgs = Array.from(document.querySelectorAll('article img, main img, body img'));
-    for (const imgEl of allImgs as any[]) {
-      const src = imgEl.getAttribute('src')?.trim();
-      const className = (imgEl.getAttribute('class') || '').toLowerCase();
-      // Ignore tiny inline menu icons/badges
-      if (className.includes('inline') || className.includes('icon') || className.includes('badge')) {
-        continue;
-      }
-      if (src && !src.startsWith('data:') && !src.endsWith('.svg')) {
-        firstArticleImg = src;
-        break;
-      }
-    }
-  }
+  const docTitle = document.title;
 
   const ogDescription = document.querySelector('meta[property="og:description"]')?.getAttribute('content');
   const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
 
-  const lang = document.documentElement.getAttribute('lang') || 'en';
+  const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
+  const twitterImage = document.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
+  const firstArticleImg = document.querySelector('article img, main img, .content img, .post img, #content img, .article-body img')?.getAttribute('src') || null;
 
+  // Enhanced Author / Byline extraction
+  let extractedAuthor: string | null = null;
+  const authorMeta = document.querySelector('meta[name="author"], meta[property="article:author"], meta[property="books:author"], meta[property="og:article:author"], meta[name="twitter:creator"]');
+  if (authorMeta) {
+    const contentVal = authorMeta.getAttribute('content')?.trim();
+    if (contentVal && !contentVal.startsWith('@') && contentVal.length < 100 && !contentVal.toLowerCase().includes('follow')) {
+      extractedAuthor = contentVal;
+    } else if (contentVal && contentVal.startsWith('@') && contentVal.length > 1) {
+      extractedAuthor = contentVal.slice(1);
+    }
+  }
 
+  if (!extractedAuthor) {
+    // Check dedicated profile / author links (e.g. RoyalRoad <a href="/profile/107213">Author Name</a>)
+    const profileLink = document.querySelector('a[href^="/profile/"], a[href*="/profile/"], a[href*="/author/"], a[rel="author"], [property="author"]');
+    if (profileLink) {
+      const textVal = profileLink.textContent?.trim();
+      if (textVal && textVal.length > 1 && textVal.length < 80 && !textVal.toLowerCase().includes('follow') && !textVal.toLowerCase().includes('author dashboard')) {
+        extractedAuthor = textVal.replace(/^by\s+/i, '').trim();
+      }
+    }
+  }
 
-  // Clean intrusive proprietary site containers (e.g. Ynet/Haaretz layout wrappers)
+  if (!extractedAuthor) {
+    const authorEl = document.querySelector('.author-name, .author a, .byline a, .byline, .post-author');
+    if (authorEl) {
+      const textVal = authorEl.textContent?.trim();
+      if (textVal && textVal.length > 1 && textVal.length < 80 && !textVal.toLowerCase().includes('follow')) {
+        extractedAuthor = textVal.replace(/^by\s+/i, '').trim();
+      }
+    }
+  }
+
+  // Enhanced Published Date extraction
+  let extractedPublishDate: string | null = null;
+  const dateMeta = document.querySelector('meta[property="article:published_time"], meta[name="pubdate"], meta[name="publish-date"], meta[name="date"], meta[property="og:published_time"]');
+  if (dateMeta) {
+    const val = dateMeta.getAttribute('content')?.trim();
+    if (val && !isNaN(new Date(val).getTime())) {
+      extractedPublishDate = new Date(val).toISOString();
+    }
+  }
+  if (!extractedPublishDate) {
+    const timeEl = document.querySelector('time[datetime]');
+    if (timeEl) {
+      const val = timeEl.getAttribute('datetime')?.trim();
+      if (val && !isNaN(new Date(val).getTime())) {
+        extractedPublishDate = new Date(val).toISOString();
+      }
+    }
+  }
+
+  // Extract language
+  const htmlLang = document.documentElement?.getAttribute('lang') || document.querySelector('html')?.getAttribute('lang') || 'en';
+  const lang = htmlLang.split('-')[0].toLowerCase();
+
+  // Clean intrusive proprietary site containers
   document.querySelectorAll('.dynamicHeightItemsColumn, .RelativeElementsContainer, .site_page_root, .no-print').forEach((el: any) => {
     el.removeAttribute('class');
     el.removeAttribute('style');
   });
 
-  // Clean duplicate mobile/gallery overlays (e.g. Ynet .mobileView duplicates)
+  // Clean follow author forms/buttons and extraneous social widgets
+  document.querySelectorAll('.follow-author-form, form.follow-author, .follow-btn, button[type="submit"]').forEach((el: any) => {
+    if (el.textContent && el.textContent.toLowerCase().includes('follow')) {
+      el.remove();
+    }
+  });
+
+  // Clean author-note portlets from header search
+  document.querySelectorAll('.author-note-portlet .caption, .portlet-title .caption').forEach((el: any) => {
+    if (el.textContent && el.textContent.toLowerCase().includes('a note from')) {
+      el.removeAttribute('class');
+    }
+  });
+
+  // Clean duplicate mobile/gallery overlays
   document.querySelectorAll('.mobileView, span.mobileView, div.mobileView, .gallery-indication').forEach((el: any) => el.remove());
+
+  // Unwrap mobile gallery anchor wrappers
+  document.querySelectorAll('a.gelleryOpener').forEach((a: any) => {
+    const parent = a.parentNode;
+    while (a.firstChild) {
+      parent.insertBefore(a.firstChild, a);
+    }
+    a.remove();
+  });
 
   const reader = new Readability(document, {
     charThreshold: 0,
@@ -152,11 +188,12 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     content,
     textContent,
     excerpt,
-    byline: parsed?.byline || null,
+    byline: extractedAuthor || (parsed?.byline && !parsed.byline.toLowerCase().includes('follow') && !parsed.byline.toLowerCase().includes('a note from') && !parsed.byline.toLowerCase().includes('note') ? parsed.byline : null) || null,
     domainName,
     previewPicture,
     readingTime,
     language: lang,
+    publishedAt: extractedPublishDate || null,
   };
 }
 
@@ -173,7 +210,7 @@ export async function extractArticleFromUrl(url: string): Promise<ExtractedArtic
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch URL: HTTP ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to fetch article from ${url}: HTTP ${response.status}`);
   }
 
   const html = await response.text();

@@ -271,7 +271,20 @@ const postEntryHandler = async (c: any) => {
 
   let entryData: Partial<EntryRow> & { tags?: string | string[] } = {};
 
+
   if (url) {
+    // Check if article with this URL already exists in database
+    const existing = await getEntryByUrl(c.env.DB, url);
+    if (existing) {
+      const addedDate = existing.created_at 
+        ? new Date(existing.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : 'an earlier date';
+      const wallabagObj = entryRowToWallabag(existing);
+      (wallabagObj as any).already_exists = true;
+      (wallabagObj as any).added_date_str = addedDate;
+      return c.json(wallabagObj, 200);
+    }
+
     try {
       const extracted = await extractArticleFromUrl(url);
       entryData = {
@@ -282,6 +295,8 @@ const postEntryHandler = async (c: any) => {
         domain_name: extracted.domainName,
         reading_time: extracted.readingTime,
         language: extracted.language,
+        author: body.author || extracted.byline || null,
+        published_at: body.published_at || extracted.publishedAt || null,
         is_archived: body.archive ? Number(body.archive) : 0,
         is_starred: body.starred ? Number(body.starred) : 0,
         tags: rawTags,
@@ -429,6 +444,8 @@ const exportEpubHandler = async (c: any) => {
     preview_picture: entry.preview_picture,
     reading_time: entry.reading_time,
     created_at: entry.created_at,
+    published_at: entry.published_at || null,
+    author: entry.author || null,
     language: entry.language || 'en',
   });
 
