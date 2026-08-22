@@ -1767,6 +1767,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       empty.style.display = 'none';
       grid.innerHTML = entries.map(item => {
         const domain = item.domain_name || 'direct-input';
+        const author = item.author || (item.user_name ? item.user_name : '');
         const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
         const excerpt = item.text ? item.text.slice(0, 160) + '...' : 'No preview available';
         const previewPicture = item.preview_picture;
@@ -1783,6 +1784,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="action-btn" title="Open original link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>'
           : '';
 
+        const authorMetaHtml = author ? ' &bull; <span class="card-author" style="color: var(--text-secondary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">by ' + escapeHtml(author) + '</span>' : '';
 
         const tags = item.tags || [];
         const tagsHtml = tags.length > 0
@@ -1797,6 +1799,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             imgHtml +
             '<div class="card-meta">' +
               '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
+              authorMetaHtml +
               '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
             '</div>' +
             '<h2 class="card-title" dir="' + titleDir + '" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
@@ -1927,9 +1930,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       activeArticleId = id;
       document.getElementById('readerTitle').textContent = item.title;
-      let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span> &bull; ' +
-        '<span>' + (item.reading_time || 1) + ' min read</span> &bull; ' +
-        '<span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
+      let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span>';
+      if (item.author) {
+        metaHtml += ' &bull; <span style="font-weight: 500;">by ' + escapeHtml(item.author) + '</span>';
+      }
+      metaHtml += ' &bull; <span>' + (item.reading_time || 1) + ' min read</span>' +
+        ' &bull; <span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
       if (item.url) {
         metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" style="color: var(--accent);">Original Link</a>';
       }
@@ -2077,12 +2083,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const item = await res.json();
-        allEntries.unshift(item);
-        updateCounts();
-        filterArticles();
         closeModal('addUrlModal');
         input.value = '';
-        showToast('Article saved successfully!');
+
+        if (item.already_exists) {
+          const dateStr = item.added_date_str || (item.created_at ? new Date(item.created_at).toLocaleDateString() : '');
+          showToast('ℹ️ Article already in library! Added on ' + dateStr, 4500);
+          const card = document.getElementById('entry-card-' + item.id);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.boxShadow = '0 0 0 2px var(--accent)';
+            setTimeout(() => card.style.boxShadow = '', 3500);
+          }
+        } else {
+          allEntries.unshift(item);
+          updateCounts();
+          filterArticles();
+          showToast('✓ Article saved successfully!');
+        }
       } catch (err) {
         showToast('Failed to ingest URL: ' + err.message);
       } finally {
