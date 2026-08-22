@@ -1,0 +1,30 @@
+{
+  "name": "wallaflare",
+  "version": "1.0.0",
+  "description": "Lightweight, serverless read-it-later backend on Cloudflare Workers + D1 with Wallabag v2 API & EPUB export",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 execute wallaflare-db --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute wallaflare-db --remote --file=./schema.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "fflate": "^0.8.2",
+    "hono": "^4.7.2",
+    "linkedom": "^0.18.9"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7",
+    "wrangler": "^3.111.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
