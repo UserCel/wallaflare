@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
-import { generateToken, authMiddleware, getExpectedSecret } from '../services/auth';
+import { generateToken, authMiddleware } from '../services/auth';
 import {
   getEntries,
   getEntryById,
@@ -15,35 +15,9 @@ import { generateEpub } from '../services/epub';
 export const apiRouter = new Hono<{ Bindings: Env }>();
 
 // -------------------------------------------------------------
-// Auth Verification / Login for Web UI & Health
-// -------------------------------------------------------------
-apiRouter.get('/api/auth/status', (c) => {
-  const secret = getExpectedSecret(c.env);
-  return c.json({
-    auth_required: Boolean(secret),
-  });
-});
-
-apiRouter.post('/api/auth/verify', async (c) => {
-  const secret = getExpectedSecret(c.env);
-  if (!secret) {
-    return c.json({ valid: true, auth_required: false });
-  }
-
-  const body = await c.req.json().catch(() => ({}));
-  const token = body.token || body.password;
-
-  if (token === secret) {
-    return c.json({ valid: true, auth_required: true });
-  }
-
-  return c.json({ valid: false, error: 'Invalid password or token' }, 401);
-});
-
-// -------------------------------------------------------------
 // OAuth v2 Authentication (Mock / Validated for Wallabag Clients)
 // -------------------------------------------------------------
-apiRouter.post('/oauth/v2/token', async (c) => {
+const tokenHandler = async (c: any) => {
   let body: any = {};
   const contentType = c.req.header('Content-Type') || '';
 
@@ -53,7 +27,7 @@ apiRouter.post('/oauth/v2/token', async (c) => {
     body = await c.req.parseBody().catch(() => ({}));
   }
 
-  const configuredSecret = getExpectedSecret(c.env);
+  const configuredSecret = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
 
   if (configuredSecret) {
     const providedSecret = body.password || body.client_secret || body.refresh_token;
@@ -70,14 +44,21 @@ apiRouter.post('/oauth/v2/token', async (c) => {
 
   const tokenResp = generateToken(c.env);
   return c.json(tokenResp);
-});
+};
+
+apiRouter.post('/oauth/v2/token', tokenHandler);
+apiRouter.post('/api/oauth/v2/token', tokenHandler);
 
 // -------------------------------------------------------------
 // Wallabag Version & Info Endpoints (Required for Client Handshake)
 // -------------------------------------------------------------
-apiRouter.get('/api/version', (c) => {
-  return c.text('2.6.9');
-});
+// Wallabag Android app parses JSON for /api/version
+const versionHandler = (c: any) => {
+  // Return JSON string "2.6.9" with application/json header
+  return c.json('2.6.9');
+};
+apiRouter.get('/api/version', versionHandler);
+apiRouter.get('/api/version.json', versionHandler);
 
 const infoHandler = (c: any) => {
   return c.json({
@@ -275,7 +256,7 @@ apiRouter.get('/api/entries/:id/export.epub', authMiddleware, async (c) => {
       'Content-Type': 'application/epub+zip',
       'Content-Disposition': `attachment; filename="${slug || 'article'}.epub"`,
       'Content-Length': String(epubBytes.byteLength),
-      'Cache-Control': 'private, no-cache',
+      'Cache-Control': 'public, max-age=3600',
     },
   });
 });

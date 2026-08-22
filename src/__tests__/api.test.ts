@@ -54,8 +54,7 @@ function createMockD1Database() {
             const found = entries.find(e => e.id === id);
             if (!found) return null as T;
 
-            // Simple update handler for test queries
-            let paramIdx = 1; // 0 is updated_at
+            let paramIdx = 1;
             if (query.includes('is_starred = ?')) {
               found.is_starred = boundParams[paramIdx++];
             }
@@ -125,7 +124,7 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
   it('serves Wallabag version and info endpoints', async () => {
     const verRes = await app.request('/api/version', {}, { DB: mockDb });
     expect(verRes.status).toBe(200);
-    expect(await verRes.text()).toBe('2.6.9');
+    expect(await verRes.json()).toBe('2.6.9');
 
     const infoRes = await app.request('/api/info.json', {}, { DB: mockDb });
     expect(infoRes.status).toBe(200);
