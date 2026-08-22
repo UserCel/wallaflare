@@ -9,6 +9,11 @@
 [![Wallabag v2 API](https://img.shields.io/badge/API-Wallabag_v2_Compatible-green)](https://wallabag.org/)
 [![KOReader](https://img.shields.io/badge/Reader-KOReader_Ready-darkgreen)](https://koreader.rocks/)
 
+
+<p align="center">
+  <img src="assets/screenshot.png" alt="Wallaflare Dashboard & Reader Preview" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+</p>
+
 ---
 
 ## ✨ Features
