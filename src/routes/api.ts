@@ -292,7 +292,7 @@ apiRouter.get('/api/entries/:id/export.epub', authMiddleware, async (c) => {
     return c.json({ error: 'Entry not found' }, 404);
   }
 
-  const epubBytes = generateEpub({
+  const epubBytes = await generateEpub({
     id: entry.id,
     title: entry.title,
     content: entry.content,

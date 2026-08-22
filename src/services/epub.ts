@@ -30,7 +30,7 @@ function sanitizeToXhtml(htmlContent: string): string {
       document.querySelectorAll(sel).forEach((el: any) => el.remove());
     });
 
-    // Ensure all images have alt tags and clean src
+    // Ensure all images have alt tags
     document.querySelectorAll('img').forEach((img: any) => {
       if (!img.getAttribute('alt')) {
         img.setAttribute('alt', '');
@@ -43,7 +43,7 @@ function sanitizeToXhtml(htmlContent: string): string {
   }
 }
 
-export function generateEpub(article: EpubArticleInput): Uint8Array {
+export async function generateEpub(article: EpubArticleInput): Promise<Uint8Array> {
   const uid = `urn:uuid:wallaflare-${article.id || Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const title = article.title || 'Untitled Article';
   const escapedTitle = escapeXml(title);
@@ -54,6 +54,50 @@ export function generateEpub(article: EpubArticleInput): Uint8Array {
   const originalUrl = article.url ? escapeXml(article.url) : '';
 
   const cleanBodyHtml = sanitizeToXhtml(article.content);
+
+  // Fetch cover picture if available
+  let coverBytes: Uint8Array | null = null;
+  let coverFilename = 'cover.jpg';
+  let coverMime = 'image/jpeg';
+
+  if (article.preview_picture && (article.preview_picture.startsWith('http://') || article.preview_picture.startsWith('https://'))) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const imgRes = await fetch(article.preview_picture, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (imgRes.ok) {
+        const ct = (imgRes.headers.get('content-type') || '').toLowerCase();
+        if (ct.includes('png')) {
+          coverFilename = 'cover.png';
+          coverMime = 'image/png';
+        } else if (ct.includes('webp')) {
+          coverFilename = 'cover.webp';
+          coverMime = 'image/webp';
+        } else if (ct.includes('gif')) {
+          coverFilename = 'cover.gif';
+          coverMime = 'image/gif';
+        } else {
+          coverFilename = 'cover.jpg';
+          coverMime = 'image/jpeg';
+        }
+
+        const buf = await imgRes.arrayBuffer();
+        if (buf.byteLength > 0) {
+          coverBytes = new Uint8Array(buf);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch EPUB cover image:', e);
+    }
+  }
 
   // 1. Container XML
   const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -122,7 +166,7 @@ hr {
   margin: 2em 0;
 }
 .title-header {
-  margin-bottom: 2.5em;
+  margin-bottom: 2em;
   padding-bottom: 1.5em;
   border-bottom: 1px solid #aaa;
   text-align: left;
@@ -196,8 +240,8 @@ hr {
 </ncx>`;
 
   // 5. Article Content XHTML
-  const coverHtml = article.preview_picture
-    ? `<div class="cover-image-wrap"><img src="${escapeXml(article.preview_picture)}" alt="Cover" class="cover-image"/></div>`
+  const coverHtml = coverBytes
+    ? `<div class="cover-image-wrap"><img src="images/${coverFilename}" alt="Cover" class="cover-image"/></div>`
     : '';
 
   const contentXhtml = `<?xml version="1.0" encoding="utf-8"?>
@@ -226,6 +270,13 @@ hr {
 </html>`;
 
   // 6. OPF Package file
+  const coverManifestItem = coverBytes
+    ? `<item id="cover-image" href="images/${coverFilename}" media-type="${coverMime}" properties="cover-image"/>`
+    : '';
+  const coverMetaItem = coverBytes
+    ? `<meta name="cover" content="cover-image"/>`
+    : '';
+
   const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="3.0" xml:lang="${lang}">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -236,12 +287,14 @@ hr {
     <dc:publisher>Wallaflare</dc:publisher>
     <dc:date>${dateStr}</dc:date>
     <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
+    ${coverMetaItem}
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="style" href="style.css" media-type="text/css"/>
     <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
+    ${coverManifestItem}
   </manifest>
   <spine toc="ncx">
     <itemref idref="content"/>
@@ -249,8 +302,7 @@ hr {
 </package>`;
 
   // Build ZIP structure using fflate
-  // mimetype must be uncompressed (level 0)
-  const zipData = zipSync({
+  const zipEntries: Record<string, any> = {
     'mimetype': [strToU8('application/epub+zip'), { level: 0 }],
     'META-INF/container.xml': strToU8(containerXml),
     'OEBPS/content.opf': strToU8(contentOpf),
@@ -258,7 +310,11 @@ hr {
     'OEBPS/nav.xhtml': strToU8(navXhtml),
     'OEBPS/style.css': strToU8(styleCss),
     'OEBPS/content.xhtml': strToU8(contentXhtml),
-  });
+  };
 
-  return zipData;
+  if (coverBytes) {
+    zipEntries['OEBPS/images/' + coverFilename] = coverBytes;
+  }
+
+  return zipSync(zipEntries);
 }
