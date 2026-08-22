@@ -6,6 +6,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="wallabag">
   <meta name="wallabag:version" content="2.6.9">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
   <title>${appName} - Read-it-Later &amp; E-ink Sync</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1032,7 +1033,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const previewPicture = item.preview_picture;
 
         const imgHtml = previewPicture
-          ? '<div class="card-image-wrap" onclick="openReader(' + item.id + ')"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.style.display=\'none\'" /></div>'
+          ? '<div class="card-image-wrap" onclick="openReader(' + item.id + ')"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
           : '';
 
         const starSvg = item.is_starred
@@ -1127,7 +1128,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       
       const coverWrap = document.getElementById('readerCoverWrap');
       if (item.preview_picture) {
-        coverWrap.innerHTML = '<div class="reader-cover"><img src="' + escapeHtml(item.preview_picture) + '" alt="Cover" class="reader-cover-img" onerror="this.parentElement.style.display=\'none\'" /></div>';
+        coverWrap.innerHTML = '<div class="reader-cover"><img src="' + escapeHtml(item.preview_picture) + '" alt="Cover" class="reader-cover-img" onerror="this.parentElement.remove()" /></div>';
       } else {
         coverWrap.innerHTML = '';
       }
