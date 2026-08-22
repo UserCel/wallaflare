@@ -1063,6 +1063,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       .mobile-menu-btn {
         display: flex !important;
       }
+      header .brand {
+        display: none !important;
+      }
+      .nav-search {
+        max-width: none !important;
+        flex: 1 !important;
+        margin: 0 0.5rem !important;
+      }
     }
 
     /* -------------------------------------------------------------
@@ -1288,11 +1296,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <!-- Mobile Nav Backdrop & Slide-out Drawer -->
   <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileNavMenu()"></div>
   <div class="mobile-nav-dropdown" id="mobileNavDropdown">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.5rem 1rem 0.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem;">
-      <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-        <span style="color: var(--accent);">☰</span> Menu
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0.25rem 1rem 0.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.75rem;">
+      <div class="brand" style="cursor: pointer;" onclick="navigateTo('/'); closeMobileNavMenu();">
+        <div class="brand-icon" style="width: 32px; height: 32px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </div>
+        <span style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">${appName}</span>
+        <span class="brand-tag" style="display: inline-block;">Edge E-ink</span>
       </div>
-      <button class="action-btn" onclick="closeMobileNavMenu()">&times;</button>
+      <button class="action-btn" onclick="closeMobileNavMenu()" style="font-size: 1.25rem;">&times;</button>
     </div>
     <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
