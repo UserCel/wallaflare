@@ -497,27 +497,112 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       display: flex;
     }
 
-    /* Reader Sidebar Dock */
+    /* -------------------------------------------------------------
+       READER VIEW: Full-Height Sidebar (Desktop Default)
+       ------------------------------------------------------------- */
+    .reader-mobile-bar {
+      display: none !important;
+    }
+    .reader-sidebar-backdrop {
+      display: none !important;
+    }
+
     .reader-sidebar {
-      width: 76px;
+      width: 60px;
       flex-shrink: 0;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.25rem 0.5rem;
-      z-index: 20;
-      gap: 1rem;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 1rem 0.4rem;
+      z-index: 30;
+      gap: 0.35rem;
+      transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .reader-sidebar:hover {
+      width: 175px;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
     }
 
     .reader-sidebar-group {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 0.75rem;
+      align-items: flex-start;
+      gap: 0.35rem;
       width: 100%;
+    }
+    .reader-sidebar-divider {
+      width: 100%;
+      height: 1px;
+      background: var(--border-color);
+      margin: 0.35rem 0;
+    }
+
+    .reader-tool-btn {
+      width: 100%;
+      height: 38px;
+      min-height: 38px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 0.65rem;
+      gap: 0.75rem;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .reader-tool-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+    .reader-tool-btn svg, .reader-tool-btn .btn-icon-symbol {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .reader-tool-btn .btn-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      pointer-events: none;
+    }
+    .reader-sidebar:hover .reader-tool-btn .btn-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .reader-tool-btn.btn-back-tool {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: transparent;
+    }
+    .reader-tool-btn.btn-back-tool:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+    .reader-tool-btn.btn-delete-tool {
+      color: #ef4444;
+    }
+    .reader-tool-btn.btn-delete-tool:hover {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.25);
     }
 
 
