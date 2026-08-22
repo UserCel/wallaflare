@@ -3,16 +3,16 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Optional: Uncomment if deploying to a custom domain
+# (Optional) Custom Domain - comment out if using *.workers.dev
 # routes = [
-#   { pattern = "your-subdomain.yourdomain.com", custom_domain = true }
+#   { pattern = "wallaflare.yourdomain.com", custom_domain = true }
 # ]
 
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
 database_name = "wallaflare-db"
-database_id = "<your-d1-database-id>"
+database_id = "<YOUR_D1_DATABASE_ID>" # Paste the database_id from 'wrangler d1 create wallaflare-db'
 migrations_dir = "migrations"
 
 [vars]

@@ -37,7 +37,7 @@
 
 ### Prerequisites
 - Node.js 18+
-- Cloudflare Account (Free Tier)
+- A free [Cloudflare Account](https://dash.cloudflare.com/sign-up)
 
 ### 1. Clone & Install
 ```bash
@@ -47,26 +47,46 @@ npm install
 ```
 
 ### 2. Create Cloudflare D1 Database
+Run the following command to create your serverless SQLite database on Cloudflare:
 ```bash
 npx wrangler d1 create wallaflare-db
 ```
-Copy the generated `database_id` into your `wrangler.toml`.
+Wrangler will output your unique `database_id`:
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "wallaflare-db"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
 
-### 3. Initialize Database Schema
+### 3. Configure `wrangler.toml`
+If starting from scratch, copy the example config:
+```bash
+cp wrangler.toml.example wrangler.toml
+```
+Open `wrangler.toml` and update:
+1. `database_id`: Paste the ID from Step 2 into `database_id = "..."`.
+2. *(Optional)* `routes`: If using a custom domain (e.g. `wallaflare.yourdomain.com`), configure it under `routes`. Otherwise, comment it out to use your free `*.workers.dev` subdomain.
+
+### 4. Initialize Database Schema
+Run the database migrations on Cloudflare D1:
 ```bash
 npx wrangler d1 execute wallaflare-db --file=schema.sql --remote
 ```
 
-### 4. Configure Authentication Secret (Optional but Recommended)
-Set your secure master access token/password:
+### 5. Set Access Token Secret (Recommended)
+Set your secure master access token/password in Cloudflare's encrypted secrets:
 ```bash
 npx wrangler secret put AUTH_TOKEN
 ```
+*(When prompted, type your chosen password/token).*
 
-### 5. Deploy to Cloudflare Workers
+### 6. Deploy to Cloudflare Workers
+Deploy your serverless instance to the Cloudflare edge:
 ```bash
 npm run deploy
 ```
+Your instance is now live worldwide! 🎉
 
 ---
 
