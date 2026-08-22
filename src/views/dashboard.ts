@@ -1172,7 +1172,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         '<span>' + (item.reading_time || 1) + ' min read</span> &bull; ' +
         '<span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
       if (item.url) {
-        metaHtml += ' &bull; <a href="' + escapeHtml(item.url)}" target="_blank" style="color: var(--accent);">Original Link</a>';
+        metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" style="color: var(--accent);">Original Link</a>';
       }
       document.getElementById('readerMeta').innerHTML = metaHtml;
       
