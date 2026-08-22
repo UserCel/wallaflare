@@ -870,10 +870,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </button>
         <button class="btn-icon" title="Decrease font size" onclick="adjustFontSize(-1)">A-</button>
         <button class="btn-icon" title="Increase font size" onclick="adjustFontSize(1)">A+</button>
-        <a id="readerEpubBtn" href="#" class="btn btn-secondary" download>
+        <button id="readerEpubBtn" type="button" class="btn btn-secondary" onclick="downloadActiveEpub()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span>EPUB</span>
-        </a>
+        </button>
       </div>
     </div>
     <div class="reader-content-wrap">
@@ -1069,7 +1069,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return;
       }
 
-      const tokenParam = getAuthToken() ? ('?access_token=' + encodeURIComponent(getAuthToken())) : '';
+      
 
       empty.style.display = 'none';
       grid.innerHTML = entries.map(item => {
@@ -1105,7 +1105,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             '<div class="card-actions">' +
               '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
               '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
-              '<a href="/api/entries/' + item.id + '/export.epub' + tokenParam + '" class="action-btn" title="Download EPUB for KOReader" download><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a>' +
+              '<button type="button" class="action-btn" title="Download EPUB for KOReader" onclick="downloadEpub(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>' +
               originalLinkHtml +
               '<button class="action-btn btn-delete" title="Delete" onclick="deleteEntryAction(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
             '</div>' +
@@ -1160,6 +1160,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    
+    function downloadActiveEpub() {
+      if (activeArticleId) {
+        downloadEpub(activeArticleId);
+      }
+    }
+
+    async function downloadEpub(id) {
+      const item = allEntries.find(e => e.id === id);
+      showToast('Preparing EPUB download...');
+      try {
+        const res = await authFetch('/api/entries/' + id + '/export.epub');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        let filename = item && item.title ? (item.title.replace(/[/\\:*?"<>|]/g, '').trim() + '.epub') : 'article.epub';
+        const disposition = res.headers.get('Content-Disposition');
+        if (disposition && disposition.includes("filename*=")) {
+          const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+          if (match) filename = decodeURIComponent(match[1]);
+        } else if (disposition && disposition.includes("filename=")) {
+          const match = disposition.match(/filename="?([^";]+)"?/i);
+          if (match) filename = match[1];
+        }
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+          a.remove();
+        }, 2000);
+      } catch (err) {
+        showToast('Failed to download EPUB: ' + err.message);
+      }
+    }
+
     function openReader(id, pushHistory = true) {
       const item = allEntries.find(e => e.id === id);
       if (!item) return;
@@ -1184,7 +1225,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
 
       document.getElementById('readerBody').innerHTML = item.content;
-      document.getElementById('readerEpubBtn').href = '/api/entries/' + item.id + '/export.epub' + tokenParam;
+      
       document.getElementById('readerView').classList.add('open');
       document.body.style.overflow = 'hidden';
 
