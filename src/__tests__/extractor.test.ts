@@ -82,3 +82,21 @@ describe('Article Extractor Service', () => {
     expect(result.content).toContain('src="https://en.wikipedia.org/images/diagram.png"');
     expect(result.content).toContain('target="_blank"');
   });
+
+  it('falls back to the first article image when og:image and twitter:image are absent', () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>No OG Meta Guide</title></head>
+      <body>
+        <main>
+          <h1>Guide Title</h1>
+          <img src="pictures/medieval_hero.webp" alt="Hero" />
+          <p>Some text here.</p>
+        </main>
+      </body>
+      </html>
+    `;
+    const result = extractArticleFromHtml(html, 'https://koreader.rocks/user_guide/');
+    expect(result.previewPicture).toBe('https://koreader.rocks/user_guide/pictures/medieval_hero.webp');
+  });

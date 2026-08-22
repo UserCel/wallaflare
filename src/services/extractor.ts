@@ -97,6 +97,25 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     }
   }
 
+
+  // If no meta og:image / twitter:image, find the first prominent image in the document as previewPicture
+  let firstArticleImg: string | null = null;
+  if (!ogImage && !twitterImage) {
+    const allImgs = Array.from(document.querySelectorAll('article img, main img, body img'));
+    for (const imgEl of allImgs as any[]) {
+      const src = imgEl.getAttribute('src')?.trim();
+      const className = (imgEl.getAttribute('class') || '').toLowerCase();
+      // Ignore tiny inline menu icons/badges
+      if (className.includes('inline') || className.includes('icon') || className.includes('badge')) {
+        continue;
+      }
+      if (src && !src.startsWith('data:') && !src.endsWith('.svg')) {
+        firstArticleImg = src;
+        break;
+      }
+    }
+  }
+
   const ogDescription = document.querySelector('meta[property="og:description"]')?.getAttribute('content');
   const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
 
@@ -114,7 +133,7 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const title = parsed?.title || ogTitle || twitterTitle || docTitle || textContent.slice(0, 50) || 'Untitled Article';
   const content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
   const excerpt = parsed?.excerpt || ogDescription || metaDescription || textContent.slice(0, 200);
-  const previewPicture = ogImage || twitterImage || null;
+  const previewPicture = ogImage || twitterImage || firstArticleImg || null;
   const readingTime = calculateReadingTime(textContent);
 
   return {
