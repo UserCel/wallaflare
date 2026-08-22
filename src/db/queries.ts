@@ -1,5 +1,20 @@
 import { EntryRow, WallabagEntry } from '../types';
 
+export interface TagItem {
+  id: number;
+  label: string;
+  slug: string;
+  entry_count?: number;
+}
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '') || 'tag';
+}
+
 function formatRfc3339(d?: string | null): string {
   if (!d) return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const date = new Date(d);
@@ -7,11 +22,20 @@ function formatRfc3339(d?: string | null): string {
   return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
-export function entryRowToWallabag(row: EntryRow): WallabagEntry {
+export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): WallabagEntry {
   const createdAt = formatRfc3339(row?.created_at);
   const updatedAt = formatRfc3339(row?.updated_at);
   const publishedAt = row?.published_at ? formatRfc3339(row.published_at) : null;
   const plainText = (row?.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const rawTags = (row as any)?.tags || tags || [];
+  const entryTags = Array.isArray(rawTags)
+    ? rawTags.map((t: any) => ({
+        id: Number(t.id || 0),
+        label: String(t.label || ''),
+        slug: String(t.slug || '')
+      }))
+    : [];
 
   return {
     id: row?.id || 0,
@@ -28,7 +52,7 @@ export function entryRowToWallabag(row: EntryRow): WallabagEntry {
     user_name: 'wallaflare',
     user_email: 'user@wallaflare.local',
     user_id: 1,
-    tags: [],
+    tags: entryTags,
     is_public: false,
     uid: null,
     created_at: createdAt,
@@ -56,6 +80,114 @@ export interface GetEntriesFilter {
   search?: string;
   domain_name?: string;
   since?: string | number;
+  tags?: string | string[];
+  tag?: string;
+}
+
+export async function getTags(db: D1Database): Promise<TagItem[]> {
+  try {
+    const query = `
+      SELECT t.id, t.label, t.slug, COUNT(et.entry_id) as entry_count
+      FROM tags t
+      LEFT JOIN entry_tags et ON t.id = et.tag_id
+      GROUP BY t.id, t.label, t.slug
+      ORDER BY t.label ASC
+    `;
+    const { results } = await db.prepare(query).all<TagItem>();
+    return results || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getEntryTags(db: D1Database, entryId: number): Promise<TagItem[]> {
+  try {
+    const query = `
+      SELECT t.id, t.label, t.slug 
+      FROM tags t
+      JOIN entry_tags et ON t.id = et.tag_id
+      WHERE et.entry_id = ?
+      ORDER BY t.label ASC
+    `;
+    const { results } = await db.prepare(query).bind(entryId).all<TagItem>();
+    return results || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllEntryTagsBatch(db: D1Database, entryIds: number[]): Promise<Map<number, TagItem[]>> {
+  const map = new Map<number, TagItem[]>();
+  if (entryIds.length === 0) return map;
+
+  try {
+    const placeholders = entryIds.map(() => '?').join(',');
+    const query = `
+      SELECT et.entry_id, t.id, t.label, t.slug 
+      FROM tags t
+      JOIN entry_tags et ON t.id = et.tag_id
+      WHERE et.entry_id IN (${placeholders})
+      ORDER BY t.label ASC
+    `;
+    const { results } = await db.prepare(query).bind(...entryIds).all<{ entry_id: number; id: number; label: string; slug: string }>();
+    if (results) {
+      for (const r of results) {
+        if (!map.has(r.entry_id)) map.set(r.entry_id, []);
+        map.get(r.entry_id)!.push({ id: r.id, label: r.label, slug: r.slug });
+      }
+    }
+  } catch {}
+  return map;
+}
+
+export async function addTagsToEntry(db: D1Database, entryId: number, rawTags: string | string[]): Promise<TagItem[]> {
+  const tagsList = (Array.isArray(rawTags) ? rawTags : String(rawTags).split(','))
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  if (tagsList.length === 0) {
+    return await getEntryTags(db, entryId);
+  }
+
+  for (const label of tagsList) {
+    const slug = slugify(label);
+    try {
+      await db.prepare('INSERT OR IGNORE INTO tags (label, slug) VALUES (?, ?)').bind(label, slug).run();
+      const tag = await db.prepare('SELECT id, label, slug FROM tags WHERE slug = ? LIMIT 1').bind(slug).first<TagItem>();
+      if (tag) {
+        await db.prepare('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)').bind(entryId, tag.id).run();
+      }
+    } catch (e) {
+      console.warn('Error saving tag:', e);
+    }
+  }
+
+  await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+  return await getEntryTags(db, entryId);
+}
+
+export async function removeTagFromEntry(db: D1Database, entryId: number, tagIdOrSlug: number | string): Promise<TagItem[]> {
+  let tagId: number | null = null;
+  const num = Number(tagIdOrSlug);
+  if (!isNaN(num) && num > 0) {
+    tagId = num;
+  } else {
+    const tag = await db.prepare('SELECT id FROM tags WHERE slug = ? OR label = ? LIMIT 1').bind(String(tagIdOrSlug), String(tagIdOrSlug)).first<{ id: number }>();
+    if (tag) tagId = tag.id;
+  }
+
+  if (tagId) {
+    await db.prepare('DELETE FROM entry_tags WHERE entry_id = ? AND tag_id = ?').bind(entryId, tagId).run();
+    await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+  }
+
+  return await getEntryTags(db, entryId);
+}
+
+export async function deleteTag(db: D1Database, tagId: number): Promise<boolean> {
+  await db.prepare('DELETE FROM entry_tags WHERE tag_id = ?').bind(tagId).run();
+  const res = await db.prepare('DELETE FROM tags WHERE id = ?').bind(tagId).run();
+  return (res.meta?.changes ?? 0) > 0;
 }
 
 export async function getEntries(
@@ -78,6 +210,25 @@ export async function getEntries(
   if (filter.domain_name) {
     conditions.push('domain_name = ?');
     params.push(filter.domain_name);
+  }
+
+  // Filter by tags
+  const rawTagFilter = filter.tags || filter.tag;
+  if (rawTagFilter) {
+    const tagList = (Array.isArray(rawTagFilter) ? rawTagFilter : String(rawTagFilter).split(','))
+      .map(t => t.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (tagList.length > 0) {
+      const tagPlaceholders = tagList.map(() => '?').join(',');
+      conditions.push(`id IN (
+        SELECT et.entry_id 
+        FROM entry_tags et 
+        JOIN tags t ON et.tag_id = t.id 
+        WHERE t.slug IN (${tagPlaceholders}) OR t.label IN (${tagPlaceholders})
+      )`);
+      params.push(...tagList, ...tagList);
+    }
   }
 
   // Handle since parameter: ignore 0 / empty, handle numeric unix timestamps
@@ -120,9 +271,19 @@ export async function getEntries(
   `;
 
   const { results } = await db.prepare(selectQuery).bind(...params, limit, offset).all<EntryRow>();
+  const entries = results || [];
+
+  // Batch populate tags
+  if (entries.length > 0) {
+    const entryIds = entries.map(e => e.id);
+    const tagsMap = await getAllEntryTagsBatch(db, entryIds);
+    for (const entry of entries) {
+      (entry as any).tags = tagsMap.get(entry.id) || [];
+    }
+  }
 
   return {
-    entries: results || [],
+    entries,
     total,
     page,
     limit,
@@ -132,17 +293,25 @@ export async function getEntries(
 
 export async function getEntryById(db: D1Database, id: number): Promise<EntryRow | null> {
   const query = 'SELECT * FROM entries WHERE id = ? LIMIT 1';
-  return await db.prepare(query).bind(id).first<EntryRow>();
+  const entry = await db.prepare(query).bind(id).first<EntryRow>();
+  if (entry) {
+    (entry as any).tags = await getEntryTags(db, entry.id);
+  }
+  return entry;
 }
 
 export async function getEntryByUrl(db: D1Database, url: string): Promise<EntryRow | null> {
   const query = 'SELECT * FROM entries WHERE url = ? LIMIT 1';
-  return await db.prepare(query).bind(url).first<EntryRow>();
+  const entry = await db.prepare(query).bind(url).first<EntryRow>();
+  if (entry) {
+    (entry as any).tags = await getEntryTags(db, entry.id);
+  }
+  return entry;
 }
 
 export async function createEntry(
   db: D1Database,
-  entry: Partial<EntryRow>
+  entry: Partial<EntryRow> & { tags?: string | string[] }
 ): Promise<EntryRow> {
   const now = new Date().toISOString();
   const query = `
@@ -168,15 +337,17 @@ export async function createEntry(
   ).run();
 
   const id = res.meta?.last_row_id;
+  let created: EntryRow | null = null;
   if (id) {
-    const created = await getEntryById(db, id);
-    if (created) return created;
+    created = await getEntryById(db, id);
   }
 
-  const latest = await db.prepare('SELECT * FROM entries WHERE id = (SELECT MAX(id) FROM entries)').first<EntryRow>();
-  if (latest) return latest;
+  if (!created) {
+    const latest = await db.prepare('SELECT * FROM entries WHERE id = (SELECT MAX(id) FROM entries)').first<EntryRow>();
+    if (latest) created = latest;
+  }
 
-  return {
+  const resultEntry: EntryRow = created || {
     id: id || 1,
     url: entry.url || null,
     title: entry.title || 'Untitled',
@@ -190,12 +361,20 @@ export async function createEntry(
     created_at: now,
     updated_at: now,
   };
+
+  if (entry.tags) {
+    (resultEntry as any).tags = await addTagsToEntry(db, resultEntry.id, entry.tags);
+  } else {
+    (resultEntry as any).tags = [];
+  }
+
+  return resultEntry;
 }
 
 export async function updateEntry(
   db: D1Database,
   id: number,
-  updates: Partial<EntryRow>
+  updates: Partial<EntryRow> & { tags?: string | string[] }
 ): Promise<EntryRow | null> {
   const existing = await getEntryById(db, id);
   if (!existing) return null;
@@ -225,10 +404,15 @@ export async function updateEntry(
   const query = `UPDATE entries SET ${setClauses.join(', ')} WHERE id = ?`;
   await db.prepare(query).bind(...params).run();
 
+  if (updates.tags !== undefined) {
+    await addTagsToEntry(db, id, updates.tags);
+  }
+
   return await getEntryById(db, id);
 }
 
 export async function deleteEntry(db: D1Database, id: number): Promise<boolean> {
+  await db.prepare('DELETE FROM entry_tags WHERE entry_id = ?').bind(id).run();
   const query = 'DELETE FROM entries WHERE id = ?';
   const res = await db.prepare(query).bind(id).run();
   return (res.meta?.changes ?? 0) > 0;

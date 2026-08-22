@@ -324,6 +324,73 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       transform: scale(1.04);
     }
 
+    
+    /* Tag Badges & Filtering */
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+    .tag-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--bg-tertiary);
+      color: var(--accent);
+      border: 1px solid rgba(249, 115, 22, 0.25);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .tag-badge:hover {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+    .tag-badge.active-tag {
+      background: var(--accent);
+      color: #ffffff;
+    }
+    .tag-badge .tag-remove-btn {
+      cursor: pointer;
+      opacity: 0.7;
+      margin-left: 0.15rem;
+    }
+    .tag-badge .tag-remove-btn:hover {
+      opacity: 1;
+    }
+
+    /* Tag Modal */
+    .tag-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .tag-modal-overlay.open {
+      display: flex;
+    }
+    .tag-modal {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 440px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow-lg);
+    }
+
     .card-meta {
       display: flex;
       align-items: center;
@@ -992,6 +1059,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <span>Add Text</span>
       </button>
 
+      
+      <button class="btn btn-secondary" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+        <span>Tags</span>
+      </button>
       <button class="btn btn-secondary" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
         <span>KOReader</span>
@@ -1035,6 +1107,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
 
     <!-- Article Grid -->
+    
+    <!-- Active Tag Filter Banner -->
+    <div id="activeTagFilterBanner" style="display: none; align-items: center; justify-content: space-between; background: var(--bg-secondary); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 0.5rem 0.85rem; margin-bottom: 1.25rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Filtered by tag:</span>
+        <span class="tag-badge" id="activeTagName" style="font-size: 0.85rem;"></span>
+      </div>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="filterByTag(null)">Clear Filter</button>
+        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="openGlobalTagManager()">Manage Tags</button>
+      </div>
+    </div>
+
     <div class="articles-grid" id="articlesGrid"></div>
 
     <!-- Empty State -->
@@ -1139,33 +1224,54 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
        READER VIEW: Full-Height Sidebar Layout (Maximizes Vertical Space)
        ------------------------------------------------------------- -->
   <div class="reader-view" id="readerView">
-    <!-- Sleek Vertical Sidebar -->
+    <!-- Expandable Reader Action Sidebar -->
     <aside class="reader-sidebar">
       <div class="reader-sidebar-group">
         <button class="reader-tool-btn btn-back-tool" onclick="handleReaderBack()" title="Back to Library (Esc)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span class="btn-label">Back</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="toggleReaderFont()" title="Toggle Serif / Sans">
-          <span style="font-family: serif; font-weight: bold; font-size: 1.1rem; line-height: 1;">Aa</span>
+        <button class="reader-tool-btn" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Favorite">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span class="btn-label" id="readerStarLabel">Favorite</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="adjustFontSize(-1)" title="Smaller text">
-          <span style="font-weight: 600; font-size: 0.95rem;">A-</span>
+        <button class="reader-tool-btn" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+          <span class="btn-label" id="readerArchiveLabel">Archive</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="adjustFontSize(1)" title="Larger text">
-          <span style="font-weight: 600; font-size: 0.95rem;">A+</span>
-        </button>
-      </div>
-
-      <div class="reader-sidebar-group">
-        <button class="reader-tool-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <button class="reader-tool-btn" onclick="openTagModal(activeArticleId)" title="Edit Tags">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          <span class="btn-label">Tags</span>
         </button>
 
         <button class="reader-tool-btn" onclick="downloadActiveEpub()" title="Download EPUB">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span class="btn-label">EPUB</span>
+        </button>
+
+        <div class="reader-sidebar-divider"></div>
+
+        <button class="reader-tool-btn" onclick="toggleReaderFont()" title="Toggle Serif / Sans">
+          <span class="btn-icon-symbol" style="font-family: serif; font-weight: bold; font-size: 1.05rem;">Aa</span>
+          <span class="btn-label">Font Type</span>
+        </button>
+
+        <button class="reader-tool-btn" onclick="adjustFontSize(-1)" title="Smaller Text">
+          <span class="btn-icon-symbol" style="font-weight: 700; font-size: 0.9rem;">A-</span>
+          <span class="btn-label">Smaller</span>
+        </button>
+
+        <button class="reader-tool-btn" onclick="adjustFontSize(1)" title="Larger Text">
+          <span class="btn-icon-symbol" style="font-weight: 700; font-size: 0.9rem;">A+</span>
+          <span class="btn-label">Larger</span>
+        </button>
+
+        <button class="reader-tool-btn" onclick="toggleTheme()" title="Toggle Theme">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <span class="btn-label">Theme</span>
         </button>
       </div>
     </aside>
@@ -1180,6 +1286,54 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
     </section>
   </div>
+
+  
+  
+  <!-- Article Tag Management Modal -->
+  <div class="tag-modal-overlay" id="tagModal" onclick="if(event.target === this) closeTagModal()">
+    <div class="tag-modal">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 600; margin: 0;">Article Tags</h3>
+        <button class="action-btn" onclick="closeTagModal()">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="tagModalArticleTitle"></p>
+      
+      <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Current Tags:</div>
+      <div class="card-tags" id="tagModalCurrentTags" style="margin-bottom: 1.25rem;"></div>
+      
+      <form onsubmit="event.preventDefault(); submitAddTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+        <input type="text" id="newTagInput" class="input" placeholder="Type new tag(s) separated by commas..." style="flex: 1;" />
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+
+      <div id="quickTagsSection" style="display: none;">
+        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Add Existing Tags:</div>
+        <div class="card-tags" id="tagModalAvailableTags"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Tag Management Modal -->
+  <div class="tag-modal-overlay" id="globalTagModal" onclick="if(event.target === this) closeGlobalTagModal()">
+    <div class="tag-modal" style="max-width: 520px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin: 0;">Manage All Tags</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; margin-bottom: 0;">Overview of all tags in your library</p>
+        </div>
+        <button class="action-btn" onclick="closeGlobalTagModal()">&times;</button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <span id="globalTagCountLabel" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+        <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.3rem 0.65rem;" onclick="cleanupUnusedTags()">Delete Unused Tags</button>
+      </div>
+
+      <div id="globalTagListContainer" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.25rem;">
+      </div>
+    </div>
+  </div>
+
 
   <!-- Toast -->
   <div class="toast" id="toast">
@@ -1341,7 +1495,232 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    
+    
+    let selectedTagFilter = null;
+    let tagModalEntryId = null;
+    let cachedGlobalTags = [];
+
+    async function loadGlobalTags() {
+      try {
+        const res = await authFetch('/api/tags.json');
+        if (res.ok) {
+          cachedGlobalTags = await res.json();
+        }
+      } catch (e) {
+        console.error('Failed to load tags', e);
+      }
+      return cachedGlobalTags;
+    }
+
+    function filterByTag(slug) {
+      if (selectedTagFilter === slug) {
+        selectedTagFilter = null;
+      } else {
+        selectedTagFilter = slug;
+      }
+      filterArticles();
+    }
+
+    async function openTagModal(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) return;
+      tagModalEntryId = id;
+      document.getElementById('tagModalArticleTitle').textContent = item.title;
+      await loadGlobalTags();
+      renderModalTags(item.tags || []);
+      document.getElementById('tagModal').classList.add('open');
+      setTimeout(() => document.getElementById('newTagInput').focus(), 100);
+    }
+
+    function closeTagModal() {
+      tagModalEntryId = null;
+      document.getElementById('tagModal').classList.remove('open');
+      document.getElementById('newTagInput').value = '';
+    }
+
+    function renderModalTags(tags) {
+      const currentContainer = document.getElementById('tagModalCurrentTags');
+      if (!tags || tags.length === 0) {
+        currentContainer.innerHTML = '<span style="font-size: 0.82rem; color: var(--text-muted);">No tags attached to this article.</span>';
+      } else {
+        currentContainer.innerHTML = tags.map(t => 
+          '<span class="tag-badge">#' + escapeHtml(t.label) + 
+          '<span class="tag-remove-btn" title="Remove tag" onclick="removeTagAction(' + t.id + ')">&times;</span></span>'
+        ).join('');
+      }
+
+      // Quick add available tags
+      const currentTagIds = new Set((tags || []).map(t => t.id));
+      const currentTagSlugs = new Set((tags || []).map(t => t.slug.toLowerCase()));
+      const available = cachedGlobalTags.filter(t => !currentTagIds.has(t.id) && !currentTagSlugs.has(t.slug.toLowerCase()));
+
+      const availableSection = document.getElementById('quickTagsSection');
+      const availableContainer = document.getElementById('tagModalAvailableTags');
+
+      if (available.length > 0) {
+        availableSection.style.display = 'block';
+                availableContainer.innerHTML = available.map(t => 
+          '<span class="tag-badge" style="opacity: 0.85; border-style: dashed;" data-label="' + escapeHtml(t.label) + '" onclick="quickAddTag(this.dataset.label)">+ #' + escapeHtml(t.label) + '</span>'
+        ).join('');
+      } else {
+        availableSection.style.display = 'none';
+      }
+    }
+
+    async function quickAddTag(label) {
+      if (!tagModalEntryId) return;
+      await addTagsToCurrentArticle(label);
+    }
+
+    async function submitAddTag() {
+      if (!tagModalEntryId) return;
+      const input = document.getElementById('newTagInput');
+      const val = input.value.trim();
+      if (!val) return;
+      await addTagsToCurrentArticle(val);
+      input.value = '';
+    }
+
+    async function addTagsToCurrentArticle(tagString) {
+      const res = await authFetch('/api/entries/' + tagModalEntryId + '/tags.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: tagString })
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        const entry = allEntries.find(e => e.id === tagModalEntryId);
+        if (entry) {
+          entry.tags = updated.tags || [];
+        }
+        await loadGlobalTags();
+        renderModalTags(entry ? entry.tags : []);
+        renderArticles(allEntries);
+        showToast('Tag updated');
+      } else {
+        showToast('Failed to add tag');
+      }
+    }
+
+    async function removeTagAction(tagId) {
+      if (!tagModalEntryId) return;
+      const res = await authFetch('/api/entries/' + tagModalEntryId + '/tags/' + tagId + '.json', {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        const entry = allEntries.find(e => e.id === tagModalEntryId);
+        if (entry) {
+          entry.tags = updated.tags || [];
+        }
+        await loadGlobalTags();
+        renderModalTags(entry ? entry.tags : []);
+        renderArticles(allEntries);
+        showToast('Tag removed');
+      } else {
+        showToast('Failed to remove tag');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Global Tag Management
+    // -------------------------------------------------------------
+    function filterByTagFromModal(slug) {
+      closeGlobalTagModal();
+      filterByTag(slug);
+    }
+
+    async function openGlobalTagManager() {
+      await loadGlobalTags();
+      renderGlobalTagList();
+      document.getElementById('globalTagModal').classList.add('open');
+    }
+
+    function closeGlobalTagModal() {
+      document.getElementById('globalTagModal').classList.remove('open');
+    }
+
+    function renderGlobalTagList() {
+      const container = document.getElementById('globalTagListContainer');
+      const countLabel = document.getElementById('globalTagCountLabel');
+      
+      countLabel.textContent = cachedGlobalTags.length + ' tags total';
+
+      if (cachedGlobalTags.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem 0;">No tags created yet.</div>';
+        return;
+      }
+
+      container.innerHTML = cachedGlobalTags.map(t => {
+        const count = t.entry_count || 0;
+        const countText = count === 1 ? '1 article' : count + ' articles';
+        return '<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">' +
+          '<div style="display: flex; align-items: center; gap: 0.5rem;">' +
+            '<span class="tag-badge" style="cursor: pointer;" data-slug="' + escapeHtml(t.slug) + '" onclick="filterByTagFromModal(this.dataset.slug)" title="Filter articles by #' + escapeHtml(t.label) + '">#' + escapeHtml(t.label) + '</span>' +
+            '<span style="font-size: 0.8rem; color: var(--text-muted);">' + countText + '</span>' +
+          '</div>' +
+          '<button class="action-btn btn-delete" title="Delete tag globally" data-id="' + t.id + '" data-label="' + escapeHtml(t.label) + '" data-count="' + count + '" onclick="deleteGlobalTagAction(Number(this.dataset.id), this.dataset.label, Number(this.dataset.count))">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+          '</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    async function deleteGlobalTagAction(tagId, label, count) {
+      const msg = count > 0 ? ('Are you sure you want to delete tag "#' + label + '"?\\n\\nIt is currently used on ' + count + ' article' + (count === 1 ? '' : 's') + '. Deleting it will untag them.') : ('Delete unused tag "#' + label + '"?');
+
+      if (!confirm(msg)) return;
+
+      const res = await authFetch('/api/tags/' + tagId + '.json', { method: 'DELETE' });
+      if (res.ok) {
+        // Remove tag from local entries
+        for (const entry of allEntries) {
+          if (entry.tags) {
+            entry.tags = entry.tags.filter(t => t.id !== tagId);
+          }
+        }
+        await loadGlobalTags();
+        renderGlobalTagList();
+        renderArticles(allEntries);
+        showToast('Tag #' + label + ' deleted');
+      } else {
+        showToast('Failed to delete tag');
+      }
+    }
+
+    async function cleanupUnusedTags() {
+      const unused = cachedGlobalTags.filter(t => !t.entry_count || t.entry_count === 0);
+      if (unused.length === 0) {
+        showToast('No unused tags found');
+        return;
+      }
+
+      if (!confirm('Delete ' + unused.length + ' unused tag(s)?')) return;
+
+      for (const t of unused) {
+        await authFetch('/api/tags/' + t.id + '.json', { method: 'DELETE' });
+      }
+
+      await loadGlobalTags();
+      renderGlobalTagList();
+      showToast('Cleaned up unused tags');
+    }
+
+
     function filterArticles() {
+      const banner = document.getElementById('activeTagFilterBanner');
+      const activeTagName = document.getElementById('activeTagName');
+      if (banner) {
+        if (selectedTagFilter) {
+          banner.style.display = 'flex';
+          activeTagName.textContent = '#' + selectedTagFilter;
+        } else {
+          banner.style.display = 'none';
+        }
+      }
       const search = (document.getElementById('searchInput').value || '').toLowerCase();
       let filtered = allEntries;
 
@@ -1351,6 +1730,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         filtered = filtered.filter(e => e.is_starred);
       } else if (currentFilter === 'archive') {
         filtered = filtered.filter(e => e.is_archived);
+      }
+
+      if (selectedTagFilter) {
+        const filterLower = selectedTagFilter.toLowerCase().trim();
+        filtered = filtered.filter(e => {
+          const tags = Array.isArray(e.tags) ? e.tags : [];
+          return tags.some(t => 
+            (t.slug && t.slug.toLowerCase() === filterLower) || 
+            (t.label && t.label.toLowerCase() === filterLower)
+          );
+        });
       }
 
       if (search) {
@@ -1393,7 +1783,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="action-btn" title="Open original link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>'
           : '';
 
-const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
+
+        const tags = item.tags || [];
+        const tagsHtml = tags.length > 0
+          ? '<div class="card-tags">' + tags.map(t => '<span class="tag-badge" data-slug="' + escapeHtml(t.slug) + '" onclick="event.stopPropagation(); filterByTag(this.dataset.slug)">#' + escapeHtml(t.label) + '</span>').join('') + '</div>'
+          : '';
+
+        const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
         const titleDir = isRtlText(item.title) ? 'rtl' : 'ltr';
         const excerptDir = isRtlText(excerpt) ? 'rtl' : 'ltr';
         return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
@@ -1405,12 +1801,14 @@ const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].include
             '</div>' +
             '<h2 class="card-title" dir="' + titleDir + '" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
             '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
+            tagsHtml +
           '</div>' +
           '<div class="card-footer">' +
             '<span>' + date + '</span>' +
             '<div class="card-actions">' +
               '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
               '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
+              '<button class="action-btn" title="Manage Tags" onclick="openTagModal(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg></button>' +
               '<button type="button" class="action-btn" title="Download EPUB for KOReader" onclick="downloadEpub(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>' +
               originalLinkHtml +
               '<button class="action-btn btn-delete" title="Delete" onclick="deleteEntryAction(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
@@ -1506,8 +1904,25 @@ const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].include
       }
     }
 
-    function openReader(id, pushHistory = true) {
-      const item = allEntries.find(e => e.id === id);
+    
+    async function openReader(id, pushHistory = true) {
+      let item = allEntries.find(e => e.id === id);
+
+      if (!item || !item.content) {
+        try {
+          const res = await authFetch('/api/entries/' + id + '.json');
+          if (res.ok) {
+            const fetched = await res.json();
+            const idx = allEntries.findIndex(e => e.id === id);
+            if (idx >= 0) allEntries[idx] = fetched;
+            else allEntries.unshift(fetched);
+            item = fetched;
+          }
+        } catch (e) {
+          console.error('Failed to load entry content', e);
+        }
+      }
+
       if (!item) return;
 
       activeArticleId = id;
@@ -1527,12 +1942,38 @@ const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].include
         coverWrap.innerHTML = '';
       }
 
-      document.getElementById('readerBody').innerHTML = item.content;
+      // Populate content cleanly
+      const readerBodyEl = document.getElementById('readerBody');
+      readerBodyEl.innerHTML = item.content || '<p>No content available.</p>';
+
+      // Update active reader star and archive buttons
+      const starBtn = document.getElementById('readerStarBtn');
+      const starLabel = document.getElementById('readerStarLabel');
+      if (starBtn && starLabel) {
+        if (item.is_starred) {
+          starBtn.classList.add('active-star');
+          starLabel.textContent = 'Starred';
+        } else {
+          starBtn.classList.remove('active-star');
+          starLabel.textContent = 'Favorite';
+        }
+      }
+
+      const archiveBtn = document.getElementById('readerArchiveBtn');
+      const archiveLabel = document.getElementById('readerArchiveLabel');
+      if (archiveBtn && archiveLabel) {
+        if (item.is_archived) {
+          archiveBtn.classList.add('active-archive');
+          archiveLabel.textContent = 'Archived';
+        } else {
+          archiveBtn.classList.remove('active-archive');
+          archiveLabel.textContent = 'Archive';
+        }
+      }
 
       // Force RTL / LTR layout and typography
       const isRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
       const contentWrap = document.querySelector('.reader-content-wrap');
-      const readerBodyEl = document.getElementById('readerBody');
       const readerTitleEl = document.getElementById('readerTitle');
       const readerMetaEl = document.getElementById('readerMeta');
 
@@ -1558,6 +1999,25 @@ const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].include
         history.pushState({ readerId: id }, '', '/read/' + id);
       }
     }
+
+    async function toggleActiveStar() {
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (item) {
+        await toggleStar(activeArticleId, item.is_starred);
+        openReader(activeArticleId, false);
+      }
+    }
+
+    async function toggleActiveArchive() {
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (item) {
+        await toggleArchive(activeArticleId, item.is_archived);
+        openReader(activeArticleId, false);
+      }
+    }
+
 
     function closeReader(updateHistory = true) {
       activeArticleId = null;

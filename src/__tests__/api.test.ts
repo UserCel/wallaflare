@@ -5,7 +5,10 @@ import { EntryRow } from '../types';
 // In-memory mock for D1 Database
 function createMockD1Database() {
   let entries: EntryRow[] = [];
+  let tags: Array<{ id: number; label: string; slug: string }> = [];
+  let entryTags: Array<{ entry_id: number; tag_id: number }> = [];
   let autoId = 1;
+  let autoTagId = 1;
 
   return {
     _entries: entries,
@@ -25,7 +28,17 @@ function createMockD1Database() {
             }
             return { total: filtered.length } as T;
           }
-          if (query.includes('WHERE id = ?')) {
+          if (query.includes('FROM tags WHERE slug = ?')) {
+            const slug = boundParams[0];
+            const found = tags.find(t => t.slug === slug);
+            return (found || null) as T;
+          }
+          if (query.includes('FROM tags WHERE slug = ? OR label = ?')) {
+            const val = boundParams[0];
+            const found = tags.find(t => t.slug === val || t.label === val);
+            return (found || null) as T;
+          }
+          if (query.includes('SELECT * FROM entries WHERE id = ?') || (query.includes('WHERE id = ?') && !query.includes('tags'))) {
             const id = boundParams[0];
             const found = entries.find(e => e.id === id);
             return (found || null) as T;
@@ -38,64 +51,90 @@ function createMockD1Database() {
           if (query.includes('SELECT MAX(id)')) {
             return entries[entries.length - 1] as T;
           }
-          return (entries[0] || null) as T;
+          return null as T;
         },
         async all<T = any>() {
-          if (query.includes('SELECT * FROM entries')) {
-            let results = [...entries];
-            if (query.includes('is_archived = ?')) {
-              results = results.filter(e => e.is_archived === boundParams[0]);
-            }
-            if (query.includes('is_starred = ?')) {
-              results = results.filter(e => e.is_starred === boundParams[0]);
-            }
-            return { results: results as T[] };
+          if (query.includes('SELECT * FROM tags')) {
+            return { results: [...tags] as T[] };
           }
-          return { results: [] as T[] };
+          if (query.includes('FROM tags t') && query.includes('entry_tags et')) {
+            if (query.includes('WHERE et.entry_id = ?')) {
+              const entryId = boundParams[0];
+              const linkedTagIds = entryTags.filter(et => et.entry_id === entryId).map(et => et.tag_id);
+              const matchedTags = tags.filter(t => linkedTagIds.includes(t.id));
+              return { results: matchedTags as T[] };
+            }
+            if (query.includes('WHERE et.entry_id IN')) {
+              const results: any[] = [];
+              for (const et of entryTags) {
+                const tag = tags.find(t => t.id === et.tag_id);
+                if (tag) {
+                  results.push({ entry_id: et.entry_id, id: tag.id, label: tag.label, slug: tag.slug });
+                }
+              }
+              return { results: results as T[] };
+            }
+          }
+          if (query.includes('SELECT * FROM entries')) {
+            if (query.includes('WHERE t.slug IN') || query.includes('entry_tags et')) {
+              const tagVal = boundParams[0];
+              const matchedTagIds = tags.filter(t => t.slug === tagVal || t.label === tagVal).map(t => t.id);
+              const matchedEntryIds = entryTags.filter(et => matchedTagIds.includes(et.tag_id)).map(et => et.entry_id);
+              const matchedEntries = entries.filter(e => matchedEntryIds.includes(e.id));
+              return { results: matchedEntries as T[] };
+            }
+            return { results: [...entries] as T[] };
+          }
+          return { results: [...entries] as T[] };
         },
         async run() {
           if (query.includes('INSERT INTO entries')) {
-            const [url, title, content, preview_picture, domain_name, reading_time, language, is_archived, is_starred, created_at, updated_at, published_at] = boundParams;
             const newEntry: EntryRow = {
               id: autoId++,
-              url,
-              title,
-              content,
-              preview_picture,
-              domain_name,
-              reading_time,
-              language,
-              is_archived,
-              is_starred,
-              created_at,
-              updated_at,
-              published_at,
+              url: boundParams[0],
+              title: boundParams[1],
+              content: boundParams[2],
+              preview_picture: boundParams[3],
+              domain_name: boundParams[4],
+              reading_time: boundParams[5],
+              language: boundParams[6],
+              is_archived: boundParams[7],
+              is_starred: boundParams[8],
+              created_at: boundParams[9],
+              updated_at: boundParams[10],
             };
             entries.push(newEntry);
             return { meta: { last_row_id: newEntry.id, changes: 1 } };
           }
-          if (query.includes('UPDATE entries')) {
-            const id = boundParams[boundParams.length - 1];
-            const found = entries.find(e => e.id === id);
-            if (found) {
-              let paramIdx = 1;
-              if (query.includes('is_starred = ?')) {
-                found.is_starred = boundParams[paramIdx++];
-              }
-              if (query.includes('is_archived = ?')) {
-                found.is_archived = boundParams[paramIdx++];
-              }
-              found.updated_at = boundParams[0];
+          if (query.includes('INSERT OR IGNORE INTO tags')) {
+            const label = String(boundParams[0]);
+            const slug = String(boundParams[1]);
+            if (!tags.some(t => t.slug === slug)) {
+              tags.push({ id: autoTagId++, label, slug });
             }
             return { meta: { changes: 1 } };
           }
-          if (query.includes('DELETE FROM entries WHERE id = ?')) {
-            const id = boundParams[0];
-            const initialLen = entries.length;
-            entries = entries.filter(e => e.id !== id);
-            return { meta: { changes: initialLen - entries.length } };
+          if (query.includes('INSERT OR IGNORE INTO entry_tags')) {
+            const entryId = Number(boundParams[0]);
+            const tagId = Number(boundParams[1]);
+            if (!entryTags.some(et => et.entry_id === entryId && et.tag_id === tagId)) {
+              entryTags.push({ entry_id: entryId, tag_id: tagId });
+            }
+            return { meta: { changes: 1 } };
           }
-          return { meta: { changes: 0 } };
+          if (query.includes('DELETE FROM entry_tags WHERE entry_id = ? AND tag_id = ?')) {
+            const entryId = Number(boundParams[0]);
+            const tagId = Number(boundParams[1]);
+            entryTags = entryTags.filter(et => !(et.entry_id === entryId && et.tag_id === tagId));
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('DELETE FROM entries WHERE id = ?')) {
+            const id = Number(boundParams[0]);
+            entries = entries.filter(e => e.id !== id);
+            entryTags = entryTags.filter(et => et.entry_id !== id);
+            return { meta: { changes: 1 } };
+          }
+          return { meta: { changes: 1 } };
         }
       };
       return stmt;
@@ -204,6 +243,59 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
       method: 'DELETE',
     }, { DB: mockDb });
     expect(delRes.status).toBe(200);
+  });
+
+
+  it('supports full tag lifecycle: adding, listing, filtering, and removing tags', async () => {
+    
+
+    // 1. Create article with tags
+    const createRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/tagged-story',
+        title: 'Tagged Story',
+        content: '<p>Content</p>',
+        tags: 'tech, news'
+      })
+    }, { DB: mockDb });
+
+    expect(createRes.status).toBe(200);
+    const created = await createRes.json<any>();
+    expect(created.tags).toHaveLength(2);
+    expect(created.tags.map((t: any) => t.label)).toContain('tech');
+
+    // 2. Fetch tags for entry
+    const entryTagsRes = await app.request(`/api/entries/${created.id}/tags.json`, {}, { DB: mockDb });
+    expect(entryTagsRes.status).toBe(200);
+    const entryTags = await entryTagsRes.json<any>();
+    expect(entryTags).toHaveLength(2);
+
+    // 3. Add an additional tag
+    const addTagRes = await app.request(`/api/entries/${created.id}/tags.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: 'highlights' })
+    }, { DB: mockDb });
+    expect(addTagRes.status).toBe(200);
+    const updatedWithTag = await addTagRes.json<any>();
+    expect(updatedWithTag.tags).toHaveLength(3);
+
+    // 4. Filter entries by tag
+    const filterRes = await app.request('/api/entries.json?tags=tech', {}, { DB: mockDb });
+    expect(filterRes.status).toBe(200);
+    const filterData = await filterRes.json<any>();
+    expect(filterData._embedded.items).toHaveLength(1);
+
+    // 5. Remove a tag
+    const tagToRemove = updatedWithTag.tags[0].id;
+    const deleteTagRes = await app.request(`/api/entries/${created.id}/tags/${tagToRemove}.json`, {
+      method: 'DELETE'
+    }, { DB: mockDb });
+    expect(deleteTagRes.status).toBe(200);
+    const afterDelete = await deleteTagRes.json<any>();
+    expect(afterDelete.tags).toHaveLength(2);
   });
 
   it('serves the Web UI dashboard on GET / with browser headers', async () => {

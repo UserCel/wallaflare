@@ -9,7 +9,6 @@
 [![Wallabag v2 API](https://img.shields.io/badge/API-Wallabag_v2_Compatible-green)](https://wallabag.org/)
 [![KOReader](https://img.shields.io/badge/Reader-KOReader_Ready-darkgreen)](https://koreader.rocks/)
 
-
 <p align="center">
   <img src="assets/screenshot.png" alt="Wallaflare Dashboard & Reader Preview" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
 </p>
@@ -23,18 +22,27 @@
   - Full compatibility with the **Official Wallabag Android App** (connection test, OAuth token authentication, article fetching, incremental sync with `since`, and two-way deletion).
   - Compatible with **KOReader's Wallabag plugin** for automated article sync and offline reading on Kindle, Kobo, Boox, and Android e-ink devices.
   - Wallabag browser extensions and third-party clients work out of the box.
+- **🏷️ Full Tag Management System**:
+  - Categorize articles with tags (`#tech`, `#news`, `#novel`, `#litrpg`).
+  - **Quick-Add Tags**: Instantly attach existing library tags to articles in one click.
+  - **One-Click Tag Filtering**: Click any tag badge on article cards to filter your reading list.
+  - **Global Tag Manager**: View all tags with live article counts, delete unused/orphaned tags in 1 click, and safely untag articles with confirmation.
+  - Full Wallabag v2 Tag API compatibility (`/api/tags`, `/api/entries/:id/tags`, `/api/entries.json?tags=...`).
+- **🌐 Comprehensive RTL & Hebrew / Arabic Support**:
+  - Automatic language and Unicode script detection for Right-to-Left (RTL) articles (Hebrew, Arabic, Persian, Urdu, Yiddish).
+  - Web reader and card titles automatically align right with RTL blockquotes and typography.
+  - EPUB generator sets `page-progression-direction="rtl"`, Hebrew metadata labels, and semantic figures so KOReader renders RTL books natively.
 - **📚 Rich Multi-Page EPUB Generator**:
   - Automatically generates clean EPUB 3 / EPUB 2 files formatted to match Wallabag.
-  - Bundles high-resolution preview cover images (`cover.xhtml` + `cover.png/jpg`).
+  - Bundles high-resolution preview cover images (`cover.xhtml` + `cover.png/jpg`) and downloads all inline article photos.
+  - Cleans convoluted CMS wrappers into standard semantic HTML5 figures (`<figure><img><figcaption>`) for reliable rendering on KOReader (Crengine) and Kindle.
   - Generates Wallabag-style summary/metadata pages (Author, Published Date, Estimated Reading Time, Added Date, Source Link).
-  - Clean e-reader typography with no artificial forced paragraph margins, allowing KOReader / Kindle to control layout natively.
 - **🖥️ Responsive Web Dashboard & Distraction-Free Reader**:
-  - **Sidebar Dock Navigation**: Maximizes vertical reading space on desktop and collapses into a sleek bottom action bar on mobile.
+  - **Expandable Sidebar Dock**: Top-aligned toolbar that smoothly expands on hover with clear labels (`← Back`, `⭐ Favorite`, `📦 Archive`, `🏷️ Tags`, `📥 EPUB`, `Aa Font`, `🌓 Theme`).
   - **Responsive Sub-URLs**: `/read/:id`, `/starred`, `/archive` with native browser Back/Forward navigation.
-  - **Reading Progress Bar**: Live reading scroll progress indicator.
-  - **Themes & Typography**: Dark, Light, and Sepia modes with Serif / Sans-serif toggles and font size controls.
-  - **Image Previews**: Clean article cards with cover thumbnails and fallback handling.
-- **🔍 Smart Article Ingestion**: Powered by `@mozilla/readability` and `linkedom` for fast serverless content extraction.
+  - **Reading Progress Bar**: Live scroll progress indicator.
+  - **Themes & Typography**: Dark, Light, and Sepia modes with Serif / Sans-serif toggles and fine-tuned font sizing.
+- **🔍 Smart Article Ingestion**: Powered by `@mozilla/readability` and `linkedom` for fast serverless content extraction with relative URL canonicalization.
 
 ---
 
@@ -120,9 +128,7 @@ Your instance is now live worldwide! 🎉
 - **Stateless & Edge-Native**: No servers to manage, no Docker containers, no background database daemons.
 - **Zero Hardcoded Secrets**: Secrets and tokens are managed via Cloudflare Secrets (`wrangler secret put`).
 - **Authorization Header Support**: All web actions and EPUB downloads pass credentials securely in HTTP `Authorization: Bearer <token>` headers rather than exposing tokens in query URLs.
-
----
-
+- **Dynamic Origin Resolution**: All redirects, OAuth callbacks, and PWA manifest URLs resolve the client's host origin dynamically at runtime.
 
 ---
 
