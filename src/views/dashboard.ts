@@ -508,8 +508,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     .reader-sidebar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
       width: 60px;
-      flex-shrink: 0;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
       display: flex;
@@ -517,7 +520,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       align-items: flex-start;
       justify-content: flex-start;
       padding: 1rem 0.4rem;
-      z-index: 30;
+      z-index: 60;
       gap: 0.35rem;
       transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
       overflow-x: hidden;
@@ -525,7 +528,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
     .reader-sidebar:hover {
       width: 175px;
-      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+      box-shadow: 6px 0 28px rgba(0, 0, 0, 0.45);
     }
 
     .reader-sidebar-group {
@@ -610,9 +613,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     /* Reader Main Scroll Area */
     .reader-main-scroll {
       flex: 1;
+      width: 100%;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 2.5rem 1.5rem 6rem 1.5rem;
+      padding: 2.5rem 1.5rem 6rem calc(60px + 1.5rem);
       -webkit-overflow-scrolling: touch;
       position: relative;
     }
@@ -811,14 +815,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       transition: width 0.1s ease-out;
     }
 
-    /* Modals */
+    /* Modals (Higher than reader-view and mobile drawers) */
     .modal-backdrop {
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.68);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
-      z-index: 100;
+      z-index: 400;
       display: none;
       align-items: center;
       justify-content: center;
@@ -1164,28 +1168,58 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <span>Add URL</span>
       </button>
 
-      <button class="btn btn-secondary" onclick="openModal('addTextModal')" title="Add Text">
+      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
         <span>Add Text</span>
       </button>
 
-      
-      <button class="btn btn-secondary" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
+      <button class="btn btn-secondary desktop-nav-btn" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
         <span>Tags</span>
       </button>
-      <button class="btn btn-secondary" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
+
+      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
         <span>KOReader</span>
       </button>
 
-      <button class="btn-icon" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
+      <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </button>
 
-      <button class="btn-icon" onclick="promptAuthKey()" title="Configure Access Token">
+      <button class="btn-icon desktop-nav-btn" onclick="promptAuthKey()" title="Configure Access Token">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
       </button>
+
+      <!-- Mobile More Menu Trigger Button -->
+      <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="More options">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="12" cy="19" r="1.25"></circle></svg>
+      </button>
+
+      <!-- Mobile Nav Dropdown -->
+      <div class="mobile-nav-dropdown" id="mobileNavDropdown">
+        <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          <span>Manage Tags</span>
+        </button>
+        <button class="mobile-nav-item" onclick="openModal('addTextModal'); closeMobileNavMenu();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          <span>Add Custom Text</span>
+        </button>
+        <button class="mobile-nav-item" onclick="openModal('syncModal'); closeMobileNavMenu();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <span>KOReader Sync</span>
+        </button>
+        <div class="mobile-nav-divider"></div>
+        <button class="mobile-nav-item" onclick="toggleTheme(); closeMobileNavMenu();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <span>Toggle Theme</span>
+        </button>
+        <button class="mobile-nav-item" onclick="promptAuthKey(); closeMobileNavMenu();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>Access Token / Logout</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -1514,6 +1548,27 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       return fetch(url, Object.assign({}, options, { headers }));
     }
+
+    
+    function toggleMobileNavMenu(e) {
+      if (e) e.stopPropagation();
+      const dropdown = document.getElementById('mobileNavDropdown');
+      if (dropdown) dropdown.classList.toggle('open');
+    }
+
+    function closeMobileNavMenu() {
+      const dropdown = document.getElementById('mobileNavDropdown');
+      if (dropdown) dropdown.classList.remove('open');
+    }
+
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('mobileNavDropdown');
+      if (dropdown && dropdown.classList.contains('open')) {
+        if (!e.target.closest('#mobileNavDropdown') && !e.target.closest('#mobileNavMenuBtn')) {
+          closeMobileNavMenu();
+        }
+      }
+    });
 
     function promptAuthKey() {
       const current = getAuthToken();
