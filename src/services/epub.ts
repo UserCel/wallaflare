@@ -32,6 +32,33 @@ interface BundledImage {
   data: Uint8Array;
 }
 
+function getBestImageUrl(img: any): string | null {
+  const rawSrcset = img.getAttribute('srcset')?.trim();
+  if (rawSrcset) {
+    const candidates = rawSrcset
+      .split(',')
+      .map((item: string) => {
+        const parts = item.trim().split(/\s+/);
+        const url = parts[0];
+        const width = parts[1] && parts[1].endsWith('w') ? parseInt(parts[1].slice(0, -1), 10) : 1000;
+        return { url, width };
+      })
+      .filter((c: any) => c.url && (c.url.startsWith('http://') || c.url.startsWith('https://')));
+
+    if (candidates.length > 0) {
+      // Prioritize reasonable size (~800-1200px) for e-ink reading
+      candidates.sort((a: any, b: any) => Math.abs(a.width - 1000) - Math.abs(b.width - 1000));
+      return candidates[0].url;
+    }
+  }
+
+  const rawSrc = img.getAttribute('src')?.trim() || img.getAttribute('data-src')?.trim();
+  if (rawSrc && (rawSrc.startsWith('http://') || rawSrc.startsWith('https://'))) {
+    return rawSrc;
+  }
+  return null;
+}
+
 export async function generateEpub(article: EpubArticleInput): Promise<Uint8Array> {
   const uid = `urn:wallabag:${article.id || Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const title = article.title || 'Untitled Article';
@@ -48,14 +75,14 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   const originalUrl = article.url ? escapeXml(article.url) : '';
 
   const bundledImages: BundledImage[] = [];
-  let coverImageId: string | null = null;
+  const urlToBundledImage = new Map<string, BundledImage>();
   let coverFilename: string | null = null;
 
   // 1. Fetch Cover Image if present
   if (article.preview_picture && (article.preview_picture.startsWith('http://') || article.preview_picture.startsWith('https://'))) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const imgRes = await fetch(article.preview_picture, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -74,16 +101,17 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
         else if (ct.includes('gif')) { ext = 'gif'; mime = 'image/gif'; }
 
         const buf = await imgRes.arrayBuffer();
-        if (buf.byteLength > 0 && buf.byteLength < 5 * 1024 * 1024) {
+        if (buf.byteLength > 0 && buf.byteLength < 15 * 1024 * 1024) {
           coverFilename = `cover.${ext}`;
-          coverImageId = 'cover-image';
-          bundledImages.push({
-            id: coverImageId,
+          const coverImage: BundledImage = {
+            id: 'cover-image',
             href: `images/${coverFilename}`,
             zipPath: `OEBPS/images/${coverFilename}`,
             mime,
             data: new Uint8Array(buf),
-          });
+          };
+          bundledImages.push(coverImage);
+          urlToBundledImage.set(article.preview_picture, coverImage);
         }
       }
     } catch (e) {
@@ -100,19 +128,37 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
     document.querySelectorAll(sel).forEach((el: any) => el.remove());
   });
 
-  // Extract inline images (limit to max 20 images to stay well within Worker limits)
-  const imgElements: any[] = Array.from(document.querySelectorAll('img')).slice(0, 20);
-  const inlineFetchTasks = imgElements.map(async (img, index) => {
-    const rawSrc = img.getAttribute('src')?.trim();
-    if (!rawSrc || (!rawSrc.startsWith('http://') && !rawSrc.startsWith('https://'))) {
+  // Extract inline images (up to 35 images)
+  const imgElements: any[] = Array.from(document.querySelectorAll('img')).slice(0, 35);
+  let inlineCounter = 0;
+
+  const inlineFetchTasks = imgElements.map(async (img) => {
+    const targetUrl = getBestImageUrl(img);
+    if (!targetUrl) {
       if (!img.getAttribute('alt')) img.setAttribute('alt', '');
       return;
     }
 
+    // Clean responsive attributes so e-readers only see the local src
+    img.removeAttribute('srcset');
+    img.removeAttribute('sizes');
+    img.removeAttribute('data-src');
+    img.removeAttribute('data-srcset');
+    img.removeAttribute('loading');
+
+    // Deduplicate if we already fetched this URL
+    if (urlToBundledImage.has(targetUrl)) {
+      const existing = urlToBundledImage.get(targetUrl)!;
+      img.setAttribute('src', existing.href);
+      return;
+    }
+
     try {
+      inlineCounter++;
+      const currentIdx = inlineCounter;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch(rawSrc, {
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(targetUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
@@ -131,23 +177,25 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
         else if (ct.includes('svg')) { ext = 'svg'; mime = 'image/svg+xml'; }
 
         const buf = await res.arrayBuffer();
-        if (buf.byteLength > 0 && buf.byteLength < 4 * 1024 * 1024) {
-          const imgFilename = `inline_${index + 1}.${ext}`;
-          const imgId = `inline-img-${index + 1}`;
-          bundledImages.push({
+        if (buf.byteLength > 0 && buf.byteLength < 25 * 1024 * 1024) {
+          const imgFilename = `inline_${currentIdx}.${ext}`;
+          const imgId = `inline-img-${currentIdx}`;
+          const bundled: BundledImage = {
             id: imgId,
             href: `images/${imgFilename}`,
             zipPath: `OEBPS/images/${imgFilename}`,
             mime,
             data: new Uint8Array(buf),
-          });
+          };
+          bundledImages.push(bundled);
+          urlToBundledImage.set(targetUrl, bundled);
 
           // Update HTML to point to local bundled asset
           img.setAttribute('src', `images/${imgFilename}`);
         }
       }
     } catch (e) {
-      console.warn(`Inline image ${rawSrc} fetch skipped:`, e);
+      console.warn(`Inline image ${targetUrl} fetch skipped:`, e);
     }
 
     if (!img.getAttribute('alt')) img.setAttribute('alt', '');
