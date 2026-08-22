@@ -58,7 +58,7 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
     created_at: createdAt,
     updated_at: updatedAt,
     published_at: publishedAt,
-    published_by: [],
+    published_by: row?.author ? [row.author] : [],
     reading_time: row?.reading_time || 1,
     domain_name: row?.domain_name || '',
     preview_picture: row?.preview_picture || null,
@@ -318,8 +318,8 @@ export async function createEntry(
     INSERT INTO entries (
       url, title, content, preview_picture, domain_name, 
       reading_time, language, is_archived, is_starred, 
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      created_at, updated_at, author, published_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const res = await db.prepare(query).bind(
@@ -333,7 +333,9 @@ export async function createEntry(
     entry.is_archived ?? 0,
     entry.is_starred ?? 0,
     now,
-    now
+    now,
+    entry.author || null,
+    entry.published_at || null
   ).run();
 
   const id = res.meta?.last_row_id;
@@ -360,6 +362,8 @@ export async function createEntry(
     is_starred: entry.is_starred ?? 0,
     created_at: now,
     updated_at: now,
+    author: entry.author || null,
+    published_at: entry.published_at || null,
   };
 
   if (entry.tags) {

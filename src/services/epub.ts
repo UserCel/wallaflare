@@ -9,6 +9,7 @@ export interface EpubArticleInput {
   domain_name?: string | null;
   preview_picture?: string | null;
   reading_time?: number | null;
+  author?: string | null;
   authors?: string[] | null;
   created_at?: string;
   published_at?: string | null;
@@ -86,11 +87,11 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   const domain = article.domain_name || (article.url ? new URL(article.url).hostname : 'wallabag');
   const escapedDomain = escapeXml(domain);
   const readingTime = article.reading_time || 1;
-  const authorsStr = (article.authors && article.authors.length > 0) ? article.authors.join(', ') : '';
-  const escapedAuthors = escapeXml(authorsStr) || 'Unknown';
+  const authorName = article.author || (article.authors && article.authors.length > 0 ? article.authors.join(', ') : '');
+  const escapedAuthor = escapeXml(authorName);
 
   const addedOnStr = article.created_at ? new Date(article.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-  const publishedOnStr = article.published_at ? new Date(article.published_at).toISOString().split('T')[0] : 'Unknown';
+  const publishedOnStr = article.published_at ? new Date(article.published_at).toISOString().split('T')[0] : (escapedDomain !== 'wallabag' && escapedDomain !== 'direct-input' ? escapedDomain : 'Unknown');
   const originalUrl = article.url ? escapeXml(article.url) : '';
 
   const bundledImages: BundledImage[] = [];
@@ -445,7 +446,7 @@ blockquote {
   <h1>${escapedTitle}</h1>
   <dl>
     <dt>${isRtl ? 'פורסם על ידי' : 'Published by'}</dt>
-    <dd>${escapedAuthors !== 'Unknown' ? escapedAuthors : escapedDomain}</dd>
+    <dd>${escapedAuthor || escapedDomain}</dd>
 
     <dt>${isRtl ? 'פורסם בתאריך' : 'Published on'}</dt>
     <dd>${publishedOnStr}</dd>
@@ -493,7 +494,7 @@ blockquote {
     <dc:identifier id="BookId">${uid}</dc:identifier>
     <dc:title>${escapedTitle}</dc:title>
     <dc:language>${lang}</dc:language>
-    <dc:creator>${escapedAuthors !== 'Unknown' ? escapedAuthors : escapedDomain}</dc:creator>
+    <dc:creator>${escapedAuthor || escapedDomain}</dc:creator>
     <dc:publisher>wallabag</dc:publisher>
     <dc:date>${addedOnStr}</dc:date>
     <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>

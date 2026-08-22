@@ -15,6 +15,7 @@ export interface EntryRow {
   domain_name: string | null;
   reading_time: number | null;
   language: string | null;
+  author?: string | null;
   is_archived: number;
   is_starred: number;
   created_at: string;

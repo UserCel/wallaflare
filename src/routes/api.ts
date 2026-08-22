@@ -282,6 +282,8 @@ const postEntryHandler = async (c: any) => {
         domain_name: extracted.domainName,
         reading_time: extracted.readingTime,
         language: extracted.language,
+        author: body.author || extracted.byline || null,
+        published_at: body.published_at || extracted.publishedAt || null,
         is_archived: body.archive ? Number(body.archive) : 0,
         is_starred: body.starred ? Number(body.starred) : 0,
         tags: rawTags,
@@ -429,6 +431,8 @@ const exportEpubHandler = async (c: any) => {
     preview_picture: entry.preview_picture,
     reading_time: entry.reading_time,
     created_at: entry.created_at,
+    published_at: entry.published_at || null,
+    author: entry.author || null,
     language: entry.language || 'en',
   });
 
