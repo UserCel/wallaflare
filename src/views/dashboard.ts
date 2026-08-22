@@ -518,53 +518,34 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
 
 
-    /* RTL / Hebrew / Arabic Typography & Force Right Alignment */
-    .reader-body[dir="rtl"],
-    .reader-content-wrap.is-rtl .reader-body,
-    .reader-body[dir="rtl"] p,
-    .reader-body[dir="rtl"] div,
-    .reader-body[dir="rtl"] span,
-    .reader-body[dir="rtl"] h1,
-    .reader-body[dir="rtl"] h2,
-    .reader-body[dir="rtl"] h3,
-    .reader-body[dir="rtl"] h4,
-    .reader-body[dir="rtl"] li,
-    .reader-body[dir="rtl"] section,
-    .reader-body[dir="rtl"] article {
-      direction: rtl !important;
-      text-align: right !important;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Alef", "Assistant", "Rubik", "David Libre", sans-serif;
+    /* Standard LTR Reader Body (Default) */
+    .reader-body {
+      direction: ltr;
+      text-align: left;
+      font-family: var(--font-reader-serif);
+      font-size: 1.15rem;
+      line-height: 1.75;
+      color: var(--text-primary);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
-    .reader-content-wrap.is-rtl #readerTitle {
-      text-align: right !important;
-      direction: rtl !important;
+    #readerTitle {
+      text-align: left;
+      direction: ltr;
     }
-    .reader-content-wrap.is-rtl #readerMeta {
-      text-align: right !important;
-      direction: rtl !important;
-    }
-    .reader-body[dir="rtl"] blockquote {
-      border-left: none !important;
-      border-right: 3px solid var(--accent) !important;
-      padding-left: 0 !important;
-      padding-right: 1.25rem !important;
-    }
-    .reader-body[dir="rtl"] ul, .reader-body[dir="rtl"] ol {
-      padding-left: 0 !important;
-      padding-right: 1.5rem !important;
+    #readerMeta {
+      text-align: left;
+      direction: ltr;
     }
 
-    /* RTL / Hebrew / Arabic Typography & Alignment */
-    .reader-body[dir="rtl"], .reader-content-wrap.is-rtl 
-
-    /* Universal Reader Content Visibility & Reset */
+    /* Universal Content Resets */
     .reader-body * {
-      position: static !important;
-      height: auto !important;
-      max-height: none !important;
-      overflow: visible !important;
-      opacity: 1 !important;
-      visibility: visible !important;
+      position: static;
+      height: auto;
+      max-height: none;
+      overflow: visible;
+      opacity: 1;
+      visibility: visible;
       color: inherit;
     }
     .reader-body p,
@@ -591,45 +572,43 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       display: none !important;
     }
 
-    /* Duplicate cleaner */
-    .reader-body .mobileView,
-    .reader-body span.mobileView,
-    .reader-body div.mobileView,
-    .reader-body .gallery-indication {
-      display: none !important;
-    }
-
-    .reader-body {
-      direction: rtl;
-      text-align: right;
+    /* RTL / Hebrew / Arabic Typography & Alignment (Only when RTL) */
+    .reader-body[dir="rtl"],
+    .reader-content-wrap.is-rtl .reader-body {
+      direction: rtl !important;
+      text-align: right !important;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Alef", "Assistant", "Rubik", "David Libre", sans-serif;
     }
+    .reader-body[dir="rtl"] p,
+    .reader-body[dir="rtl"] div,
+    .reader-body[dir="rtl"] span,
+    .reader-body[dir="rtl"] h1,
+    .reader-body[dir="rtl"] h2,
+    .reader-body[dir="rtl"] h3,
+    .reader-body[dir="rtl"] h4,
+    .reader-body[dir="rtl"] li,
+    .reader-body[dir="rtl"] section,
+    .reader-body[dir="rtl"] article {
+      direction: rtl !important;
+      text-align: right !important;
+    }
     .reader-content-wrap.is-rtl #readerTitle {
-      text-align: right;
-      direction: rtl;
+      text-align: right !important;
+      direction: rtl !important;
     }
     .reader-content-wrap.is-rtl #readerMeta {
-      text-align: right;
-      direction: rtl;
+      text-align: right !important;
+      direction: rtl !important;
     }
     .reader-body[dir="rtl"] blockquote {
-      border-left: none;
-      border-right: 3px solid var(--accent);
-      padding-left: 0;
-      padding-right: 1.25rem;
+      border-left: none !important;
+      border-right: 3px solid var(--accent) !important;
+      padding-left: 0 !important;
+      padding-right: 1.25rem !important;
     }
     .reader-body[dir="rtl"] ul, .reader-body[dir="rtl"] ol {
-      padding-left: 0;
-      padding-right: 1.5rem;
-    }
-
-    .reader-body {
-      font-family: var(--font-reader-serif);
-      font-size: 1.15rem;
-      line-height: 1.75;
-      color: var(--text-primary);
-      word-wrap: break-word;
-      overflow-wrap: break-word;
+      padding-left: 0 !important;
+      padding-right: 1.5rem !important;
     }
     .reader-body p {
       margin-bottom: 1.35rem;
