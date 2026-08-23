@@ -1312,8 +1312,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </button>
 
-      <button class="btn-icon desktop-nav-btn" onclick="promptAuthKey()" title="Configure Access Token">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      <button class="btn-icon desktop-nav-btn" onclick="handleLogout()" title="Log Out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
       </button>
     </div>
   </header>
@@ -1351,9 +1351,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       <span>Toggle Theme</span>
     </button>
-    <button class="mobile-nav-item" onclick="promptAuthKey(); closeMobileNavMenu();">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-      <span>Access Token / Logout</span>
+    <button class="mobile-nav-item" onclick="handleLogout(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      <span>Log Out</span>
     </button>
   </div>
 
@@ -1712,12 +1712,29 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     });
 
-    function promptAuthKey() {
-      const current = getAuthToken();
-      const next = prompt('Enter your Access Token / Password (or leave empty to clear):', current);
-      if (next !== null) {
-        setAuthToken(next);
-        loadArticles();
+    function handleLogout() {
+      if (confirm('Are you sure you want to log out of Wallaflare?')) {
+        setAuthToken('');
+        const overlay = document.getElementById('authOverlay');
+        const input = document.getElementById('authKeyInput');
+        const submitBtn = document.getElementById('authSubmitBtn');
+        const errorBanner = document.getElementById('authErrorMsg');
+        if (input) {
+          input.value = '';
+          input.disabled = false;
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Unlock';
+        }
+        if (errorBanner) {
+          errorBanner.style.display = 'none';
+          errorBanner.className = 'auth-error-banner';
+        }
+        if (overlay) {
+          overlay.style.display = 'flex';
+        }
+        showToast('Logged out');
       }
     }
 

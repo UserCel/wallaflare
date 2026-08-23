@@ -47,6 +47,24 @@ export const authMiddleware = async (c: any, next: any) => {
     return next();
   }
 
+  const authHeader = c.req.header('Authorization');
+  let token = '';
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else {
+    token = c.req.query('access_token') || '';
+  }
+
+  // If no token was provided at all (e.g. unauthenticated guest / logged out visitor),
+  // reject immediately with 401 without consuming failed rate-limit attempts.
+  if (!token) {
+    return c.json({
+      error: 'Unauthorized',
+      message: 'Authentication required. Please log in.'
+    }, 401);
+  }
+
   const ip = getClientIp(c);
   const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
   if (!rateLimit.allowed) {
@@ -59,15 +77,6 @@ export const authMiddleware = async (c: any, next: any) => {
     }, 429);
   }
 
-  const authHeader = c.req.header('Authorization');
-  let token = '';
-
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7).trim();
-  } else {
-    token = c.req.query('access_token') || '';
-  }
-
   const isValid = timingSafeCompare(token, configuredToken) || timingSafeCompare(token, 'wallaflare_bearer_token_secret');
 
   if (isValid) {
@@ -75,6 +84,7 @@ export const authMiddleware = async (c: any, next: any) => {
     return next();
   }
 
+  // Only record failed attempts if a non-empty wrong token was actively submitted
   const failure = await recordFailedAuthAttempt(c.env.DB, ip);
   if (failure.locked) {
     return c.json({
@@ -88,7 +98,7 @@ export const authMiddleware = async (c: any, next: any) => {
 
   return c.json({
     error: 'Unauthorized',
-    message: `Invalid or missing authentication token. ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
+    message: `Invalid authentication token. ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
     attempts_left: failure.attempts_left
   }, 401);
 };
