@@ -2461,9 +2461,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         coverWrap.innerHTML = '';
       }
 
-      // Populate content cleanly
+      // Populate content cleanly with defense-in-depth sanitization
       const readerBodyEl = document.getElementById('readerBody');
-      readerBodyEl.innerHTML = item.content || '<p>No content available.</p>';
+      const rawContent = item.content || '<p>No content available.</p>';
+      const cleanContent = (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) 
+        ? DOMPurify.sanitize(rawContent, { ADD_ATTR: ['target', 'rel'] }) 
+        : rawContent;
+      readerBodyEl.innerHTML = cleanContent;
 
       // Update active reader star and archive buttons (Desktop & Mobile)
       const starBtn = document.getElementById('readerStarBtn');

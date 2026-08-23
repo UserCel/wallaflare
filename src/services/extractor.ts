@@ -29,6 +29,43 @@ export function extractDomain(url: string): string {
   }
 }
 
+
+export function sanitizeArticleDom(doc: any): void {
+  if (!doc) return;
+
+  // 1. Remove dangerous executable and embedding elements
+  const dangerousTags = [
+    'script', 'iframe', 'object', 'embed', 'applet', 'link', 
+    'meta', 'form', 'input', 'button', 'select', 'textarea', 
+    'frame', 'frameset', 'noscript', 'style'
+  ];
+  dangerousTags.forEach(tag => {
+    doc.querySelectorAll(tag).forEach((el: any) => el.remove());
+  });
+
+  // 2. Strip all inline JavaScript event handlers (on*) and dangerous URL schemes
+  const allElements = doc.querySelectorAll('*');
+  allElements.forEach((el: any) => {
+    // Strip on* attributes (e.g. onerror, onload, onclick)
+    const attrs = Array.from(el.attributes || []) as any[];
+    attrs.forEach(attr => {
+      if (attr && attr.name && attr.name.toLowerCase().startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+
+    // Strip javascript: / vbscript: / data:text/html from href and src
+    const href = el.getAttribute('href');
+    if (href && /^(javascript|vbscript|data:text\/html)/i.test(href.trim())) {
+      el.removeAttribute('href');
+    }
+    const src = el.getAttribute('src');
+    if (src && /^(javascript|vbscript|data:text\/html)/i.test(src.trim())) {
+      el.removeAttribute('src');
+    }
+  });
+}
+
 export function resolveRelativeUrls(document: any, baseUrl: string): void {
   if (!baseUrl || !baseUrl.startsWith('http')) return;
 
@@ -220,10 +257,13 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
   const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
   let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
-  if (originalUrl && content) {
+  if (content) {
     try {
       const { document: contentDoc } = parseHTML('<!DOCTYPE html><html><body>' + content + '</body></html>');
-      resolveRelativeUrls(contentDoc, originalUrl);
+      if (originalUrl) {
+        resolveRelativeUrls(contentDoc, originalUrl);
+      }
+      sanitizeArticleDom(contentDoc);
       content = contentDoc.body ? contentDoc.body.innerHTML : content;
     } catch {}
   }

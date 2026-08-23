@@ -165,3 +165,29 @@ describe('Image and Srcset URL Canonicalization', () => {
     expect(result.content).toContain('srcset="https://upload.wikimedia.org/500px.jpg 2x, https://en.wikipedia.org/local/1x.jpg 1x"');
   });
 });
+
+describe('Article Sanitization & XSS Defense', () => {
+  it('strips dangerous tags, inline event handlers, and javascript URIs', () => {
+    const dirtyHtml = `
+      <article>
+        <h1>Secure Title</h1>
+        <p>This is safe content.</p>
+        <script>alert("XSS payload")</script>
+        <iframe src="https://malicious.com"></iframe>
+        <object data="malicious.swf"></object>
+        <img src="https://example.com/image.jpg" onerror="alert('pwned')" alt="Photo">
+        <a href="javascript:alert(1)">Dangerous Link</a>
+        <a href="https://legit.com">Safe Link</a>
+      </article>
+    `;
+
+    const extracted = extractArticleFromHtml(dirtyHtml);
+    expect(extracted.content).not.toContain('<script');
+    expect(extracted.content).not.toContain('<iframe');
+    expect(extracted.content).not.toContain('<object');
+    expect(extracted.content).not.toContain('onerror=');
+    expect(extracted.content).not.toContain('javascript:');
+    expect(extracted.content).toContain('Safe Link');
+    expect(extracted.content).toContain('https://example.com/image.jpg');
+  });
+});
