@@ -18,7 +18,7 @@ import {
   resetAuthRateLimit,
   timingSafeCompare
 } from '../db/queries';
-import { extractArticleFromUrl, extractArticleFromHtml } from '../services/extractor';
+import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl } from '../services/extractor';
 import { generateEpub } from '../services/epub';
 
 
@@ -419,11 +419,18 @@ const postEntryHandler = async (c: any) => {
   if (title && content) {
     // Custom pasted / manual text entry
     const extracted = extractArticleFromHtml(content, url || undefined);
+    let previewPicture = body.preview_picture || extracted.previewPicture || null;
+    
+    // Auto-extract preview cover image from Source URL if not already provided
+    if (!previewPicture && url && (url.startsWith('http://') || url.startsWith('https://'))) {
+      previewPicture = await extractCoverImageFromUrl(url);
+    }
+
     entryData = {
       url: url || undefined,
       title,
       content: extracted.content,
-      preview_picture: body.preview_picture || extracted.previewPicture || null,
+      preview_picture: previewPicture,
       domain_name: 'direct-input',
       reading_time: extracted.readingTime,
       language: body.language || extracted.language || 'en',

@@ -1555,6 +1555,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </div>
 
         <div class="form-group">
+          <label for="textPreviewPicture">Preview / Cover Image URL (Optional)</label>
+          <input type="url" id="textPreviewPicture" placeholder="https://example.com/cover.jpg">
+        </div>
+
+        <div class="form-group">
           <label for="textContent">Content (HTML or Markdown) *</label>
           <textarea id="textContent" placeholder="Paste your text, chapter, or markdown here..." rows="7" required></textarea>
         </div>
@@ -3008,6 +3013,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const publishedAtInput = document.getElementById('textPublishedAt');
       const tagsInput = document.getElementById('textTags');
       const urlInput = document.getElementById('textUrl');
+      const previewPictureInput = document.getElementById('textPreviewPicture');
       const contentInput = document.getElementById('textContent');
       const btn = document.getElementById('ingestTextBtn');
 
@@ -3017,6 +3023,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const publishedAt = publishedAtInput && publishedAtInput.value ? publishedAtInput.value : '';
       const tags = tagsInput ? tagsInput.value.trim() : '';
       const url = urlInput ? urlInput.value.trim() : '';
+      const previewPicture = previewPictureInput ? previewPictureInput.value.trim() : '';
       if (!title || !content) return;
 
       btn.disabled = true;
@@ -3030,6 +3037,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             title,
             content,
             url: url || undefined,
+            preview_picture: previewPicture || undefined,
             author: author || undefined,
             published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
             tags: tags || undefined
@@ -3047,6 +3055,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (publishedAtInput) publishedAtInput.value = '';
         if (tagsInput) tagsInput.value = '';
         if (urlInput) urlInput.value = '';
+        if (previewPictureInput) previewPictureInput.value = '';
         showToast('✓ Custom entry saved successfully!');
       } catch (err) {
         showToast('Failed to save text entry: ' + err.message);

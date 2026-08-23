@@ -702,3 +702,27 @@ describe('Custom Text Ingestion (Plain text & Markdown)', () => {
     expect(data.content).toContain('This is a simple plain text entry');
   });
 });
+
+describe('Custom Text Preview Picture Support', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('persists manual preview_picture on custom text submission', async () => {
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Book Chapter with Custom Cover',
+        content: '<p>Chapter text goes here.</p>',
+        preview_picture: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c',
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.preview_picture).toBe('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c');
+    expect(data.domain_name).toBe('direct-input');
+  });
+});
