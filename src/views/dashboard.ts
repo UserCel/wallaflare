@@ -1775,10 +1775,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
         const m = Math.floor(sec / 60);
         const s = sec % 60;
-        const timeStr = m > 0 ? (m + 'm ' + (s < 10 ? '0' : '') + s + 's') : (s + 's');
+        const timeStr = m > 0 ? (m + 'm\u00A0' + (s < 10 ? '0' : '') + s + 's') : (s + 's');
 
         if (errorBanner) {
-          errorBanner.innerHTML = '🚫 <strong>Too many failed attempts!</strong><br>Your IP is locked out. Please try again in <strong>' + timeStr + '</strong>.';
+          errorBanner.innerHTML = '<div>🚫 <strong>Too many failed attempts!</strong></div><div style="margin-top: 0.3rem; line-height: 1.4;">Your IP is locked out.<br>Please try again in <strong style="white-space: nowrap; font-variant-numeric: tabular-nums; display: inline-block; color: #fecaca;">' + timeStr + '</strong>.</div>';
           errorBanner.className = 'auth-error-banner lockout show';
           errorBanner.style.display = 'block';
         }
