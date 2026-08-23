@@ -1738,6 +1738,57 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    let lockoutTimer = null;
+    function startLockoutCountdown(remainingSeconds) {
+      if (lockoutTimer) clearInterval(lockoutTimer);
+      const errorBanner = document.getElementById('authErrorMsg');
+      const input = document.getElementById('authKeyInput');
+      const submitBtn = document.getElementById('authSubmitBtn');
+
+      if (input) input.disabled = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Locked Out';
+      }
+
+      let sec = Math.max(1, Number(remainingSeconds) || 900);
+
+      function update() {
+        if (sec <= 0) {
+          clearInterval(lockoutTimer);
+          lockoutTimer = null;
+          if (errorBanner) {
+            errorBanner.className = 'auth-error-banner';
+            errorBanner.style.display = 'none';
+          }
+          if (input) {
+            input.disabled = false;
+            input.value = '';
+            input.focus();
+          }
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Unlock';
+          }
+          return;
+        }
+
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        const timeStr = m > 0 ? (m + 'm ' + (s < 10 ? '0' : '') + s + 's') : (s + 's');
+
+        if (errorBanner) {
+          errorBanner.innerHTML = '🚫 <strong>Too many failed attempts!</strong><br>Your IP is locked out. Please try again in <strong>' + timeStr + '</strong>.';
+          errorBanner.className = 'auth-error-banner lockout show';
+          errorBanner.style.display = 'block';
+        }
+        sec--;
+      }
+
+      update();
+      lockoutTimer = setInterval(update, 1000);
+    }
+
     async function handleLogin(e) {
       if (e) e.preventDefault();
       const input = document.getElementById('authKeyInput');
@@ -1769,6 +1820,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const data = await res.json().catch(() => ({}));
 
         if (res.ok && data.success) {
+          if (lockoutTimer) {
+            clearInterval(lockoutTimer);
+            lockoutTimer = null;
+          }
           setAuthToken(key);
           const overlay = document.getElementById('authOverlay');
           if (overlay) overlay.style.display = 'none';
@@ -1778,17 +1833,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
 
         if (res.status === 429 || data.locked) {
-          const mins = data.remaining_minutes || 15;
-          if (errorBanner) {
-            errorBanner.innerHTML = '🚫 <strong>Too many failed attempts!</strong><br>Your IP is locked out for <strong>' + mins + ' minute' + (mins === 1 ? '' : 's') + '</strong>. Please try again later.';
-            errorBanner.className = 'auth-error-banner lockout show';
-            errorBanner.style.display = 'block';
-          }
-          if (input) input.disabled = true;
-          if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Locked Out';
-          }
+          const secs = data.remaining_seconds || (data.remaining_minutes ? data.remaining_minutes * 60 : 900);
+          startLockoutCountdown(secs);
           return;
         }
 
