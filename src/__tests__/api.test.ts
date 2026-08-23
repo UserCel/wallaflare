@@ -677,3 +677,28 @@ describe('Re-fetch Article Content API', () => {
     expect(errData.error).toContain('Cannot re-fetch custom pasted text');
   });
 });
+
+describe('Custom Text Ingestion (Plain text & Markdown)', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('successfully saves plain text notes without HTML tags', async () => {
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Plain Text Note',
+        content: 'This is a simple plain text entry with no html tags.\n\nHere is paragraph two.',
+        author: 'Note Taker',
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.title).toBe('Plain Text Note');
+    expect(data.domain_name).toBe('direct-input');
+    expect(data.content).toContain('This is a simple plain text entry');
+  });
+});

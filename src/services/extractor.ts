@@ -133,7 +133,14 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
 }
 
 export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
-  const { document } = parseHTML(html);
+  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(html);
+  const formattedHtml = hasHtmlTags
+    ? html
+    : html.split(/\n\s*\n/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  const fullHtml = formattedHtml.includes('<html') || formattedHtml.includes('<!DOCTYPE')
+    ? formattedHtml
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${formattedHtml}</body></html>`;
+  const { document } = parseHTML(fullHtml);
 
   if (originalUrl) {
     resolveRelativeUrls(document, originalUrl);
