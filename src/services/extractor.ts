@@ -35,12 +35,42 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
   try {
     const base = new URL(baseUrl);
 
-    // Resolve <img> src attributes
-    document.querySelectorAll('img').forEach((img: any) => {
-      const src = img.getAttribute('src');
-      if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:')) {
+    // Resolve <img> and <source> src, srcset, and lazy-loaded attributes
+    document.querySelectorAll('img, source').forEach((el: any) => {
+      // Handle lazy load data-src fallback if src is missing or transparent placeholder
+      const dataSrc = el.getAttribute('data-src') || el.getAttribute('data-original') || el.getAttribute('data-lazy-src') || el.getAttribute('data-url');
+      const src = el.getAttribute('src');
+
+      if ((!src || src.startsWith('data:') || src.includes('placeholder')) && dataSrc) {
         try {
-          img.setAttribute('src', new URL(src, base).toString());
+          el.setAttribute('src', new URL(dataSrc, base).toString());
+        } catch {}
+      } else if (src) {
+        if (src.startsWith('//')) {
+          el.setAttribute('src', base.protocol + src);
+        } else if (!src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:')) {
+          try {
+            el.setAttribute('src', new URL(src, base).toString());
+          } catch {}
+        }
+      }
+
+      // Canonicalize protocol-relative and relative srcset (e.g. //upload.wikimedia.org/... 2x)
+      const srcset = el.getAttribute('srcset') || el.getAttribute('data-srcset');
+      if (srcset) {
+        try {
+          const cleanedSet = srcset.split(',').map((entry: string) => {
+            const parts = entry.trim().split(/\s+/);
+            if (parts[0]) {
+              if (parts[0].startsWith('//')) {
+                parts[0] = base.protocol + parts[0];
+              } else if (!parts[0].startsWith('http://') && !parts[0].startsWith('https://') && !parts[0].startsWith('data:')) {
+                parts[0] = new URL(parts[0], base).toString();
+              }
+            }
+            return parts.join(' ');
+          }).join(', ');
+          el.setAttribute('srcset', cleanedSet);
         } catch {}
       }
     });
@@ -48,10 +78,14 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
     // Resolve <a> href attributes and ensure secure external targets
     document.querySelectorAll('a').forEach((a: any) => {
       const href = a.getAttribute('href');
-      if (href && !href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:') && !href.startsWith('#')) {
-        try {
-          a.setAttribute('href', new URL(href, base).toString());
-        } catch {}
+      if (href) {
+        if (href.startsWith('//')) {
+          a.setAttribute('href', base.protocol + href);
+        } else if (!href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:') && !href.startsWith('#')) {
+          try {
+            a.setAttribute('href', new URL(href, base).toString());
+          } catch {}
+        }
       }
       if (a.getAttribute('href')?.startsWith('http')) {
         a.setAttribute('target', '_blank');
@@ -185,7 +219,14 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const domainName = originalUrl ? extractDomain(originalUrl) : 'direct-input';
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
   const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
-  const content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
+  let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
+  if (originalUrl && content) {
+    try {
+      const { document: contentDoc } = parseHTML('<!DOCTYPE html><html><body>' + content + '</body></html>');
+      resolveRelativeUrls(contentDoc, originalUrl);
+      content = contentDoc.body ? contentDoc.body.innerHTML : content;
+    } catch {}
+  }
   const excerpt = parsed?.excerpt || ogDescription || metaDescription || textContent.slice(0, 200);
   const previewPicture = ogImage || twitterImage || firstArticleImg || null;
   const readingTime = calculateReadingTime(textContent);

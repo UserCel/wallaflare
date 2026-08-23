@@ -151,3 +151,17 @@ describe('Article Extractor Service', () => {
     const result = extractArticleFromHtml(html, 'https://koreader.rocks/user_guide/');
     expect(result.previewPicture).toBe('https://koreader.rocks/user_guide/pictures/medieval_hero.webp');
   });
+
+describe('Image and Srcset URL Canonicalization', () => {
+  it('converts protocol-relative srcset and data-src attributes to absolute URLs', () => {
+    const html = `
+      <article>
+        <h1>Test Image Article</h1>
+        <img src="//upload.wikimedia.org/thumb.jpg" srcset="//upload.wikimedia.org/500px.jpg 2x, /local/1x.jpg 1x" alt="test" />
+      </article>
+    `;
+    const result = extractArticleFromHtml(html, 'https://en.wikipedia.org/wiki/Test');
+    expect(result.content).toContain('src="https://upload.wikimedia.org/thumb.jpg"');
+    expect(result.content).toContain('srcset="https://upload.wikimedia.org/500px.jpg 2x, https://en.wikipedia.org/local/1x.jpg 1x"');
+  });
+});
