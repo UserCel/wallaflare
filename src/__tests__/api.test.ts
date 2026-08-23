@@ -135,6 +135,22 @@ function createMockD1Database() {
             entryTags = entryTags.filter(et => !(et.entry_id === entryId && et.tag_id === tagId));
             return { meta: { changes: 1 } };
           }
+          if (query.includes('UPDATE entries SET')) {
+            const id = Number(boundParams[boundParams.length - 1]);
+            const entry = entries.find(e => e.id === id);
+            if (entry) {
+              const setPart = query.split('SET')[1].split('WHERE')[0];
+              const clauses = setPart.split(',').map(s => s.trim());
+              clauses.forEach((c, idx) => {
+                if (c.startsWith('title = ?')) entry.title = boundParams[idx];
+                if (c.startsWith('content = ?')) entry.content = boundParams[idx];
+                if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
+                if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+              });
+              entry.updated_at = new Date().toISOString();
+            }
+            return { meta: { changes: 1 } };
+          }
           if (query.includes('DELETE FROM entries WHERE id = ?')) {
             const id = Number(boundParams[0]);
             entries = entries.filter(e => e.id !== id);
@@ -592,5 +608,40 @@ describe('Custom Text Ingestion with Author & Tags', () => {
     expect(data.published_by).toEqual(['Brandon Sanderson']);
     expect(data.author).toBe('Brandon Sanderson');
     expect(data.tags).toHaveLength(2);
+  });
+});
+
+describe('Article Title Editing via API', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('updates article title via PATCH /api/entries/:id.json', async () => {
+    // 1. Create entry
+    const createRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Original Noisy Title | Blog Name',
+        content: '<p>Article content here.</p>',
+      })
+    }, { DB: mockDb });
+
+    const created = await createRes.json<any>();
+    expect(created.title).toBe('Original Noisy Title | Blog Name');
+
+    // 2. Patch title
+    const patchRes = await app.request(`/api/entries/${created.id}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Cleaned Article Title'
+      })
+    }, { DB: mockDb });
+
+    expect(patchRes.status).toBe(200);
+    const patched = await patchRes.json<any>();
+    expect(patched.title).toBe('Cleaned Article Title');
   });
 });

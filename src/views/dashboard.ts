@@ -87,7 +87,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     header {
       position: sticky;
       top: 0;
-      z-index: 40;
+      z-index: 150;
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       background-color: rgba(15, 23, 42, 0.82);
@@ -449,7 +449,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       align-items: center;
       justify-content: space-between;
       padding-top: 0.65rem;
-      border-top: 1px solid var(--border-color);
+      position: relative;
       font-size: 0.75rem;
       color: var(--text-muted);
     }
@@ -458,6 +458,78 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       display: flex;
       align-items: center;
       gap: 0.25rem;
+    }
+    .article-card.menu-open {
+      z-index: 98 !important;
+      position: relative;
+    }
+    .card-menu-wrap {
+      position: relative;
+    }
+    .article-card.menu-open .card-menu-wrap {
+      z-index: 101 !important;
+    }
+    .card-dropdown-menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+      min-width: 180px;
+      padding: 0.35rem 0;
+      z-index: 102 !important;
+      display: none;
+      flex-direction: column;
+      animation: menuFadeIn 0.15s ease-out;
+    }
+    .article-card[dir="rtl"] .card-dropdown-menu {
+      right: auto;
+      left: 0;
+    }
+    .card-dropdown-menu.open {
+      display: flex !important;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.825rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+      box-sizing: border-box;
+    }
+    .article-card[dir="rtl"] .menu-item {
+      text-align: right;
+    }
+    .menu-item:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    .menu-item-danger {
+      color: #ef4444;
+    }
+    .menu-item-danger:hover {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+    }
+    .menu-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 0.25rem 0;
+    }
+    @keyframes menuFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .action-btn {
       background: transparent;
@@ -1495,6 +1567,28 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
+  
+  <!-- Modal: Edit Title -->
+  <div class="modal-backdrop" id="editTitleModal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Article Title</h3>
+        <button class="close-btn" onclick="closeModal('editTitleModal')">&times;</button>
+      </div>
+      <form onsubmit="handleSaveTitle(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
+        <input type="hidden" id="editTitleEntryId" />
+        <div class="form-group">
+          <label for="editTitleInput">Title *</label>
+          <input type="text" id="editTitleInput" required autofocus />
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('editTitleModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveTitleBtn">Save Title</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal: KOReader / Wallabag Sync -->
   <div class="modal-backdrop" id="syncModal">
     <div class="modal">
@@ -1627,7 +1721,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <!-- Main Content Reader Scroll Area -->
     <section class="reader-main-scroll" id="readerScrollContainer" onscroll="updateReadingProgress()">
       <div class="reader-content-wrap">
-        <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin-bottom: 0.75rem;"></h1>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin: 0; flex: 1;"></h1>
+          <button class="action-btn" id="readerEditTitleBtn" onclick="openEditTitleModal(activeArticleId)" title="Edit Article Title" style="margin-top: 0.3rem; padding: 0.4rem; opacity: 0.75;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </button>
+        </div>
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.8rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
         <div id="readerCoverWrap"></div>
         <article class="reader-body" id="readerBody"></article>
@@ -1637,6 +1736,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   
   
+  <!-- Card Menu Click-Away Backdrop -->
+  <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 95; display: none;" onclick="closeAllCardMenus()"></div>
+
   <!-- Article Tag Management Modal -->
   <div class="tag-modal-overlay" id="tagModal" onclick="if(event.target === this) closeTagModal()">
     <div class="tag-modal">
@@ -2305,6 +2407,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
         const titleDir = isRtlText(item.title) ? 'rtl' : 'ltr';
         const excerptDir = isRtlText(excerpt) ? 'rtl' : 'ltr';
+        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
+        const progressPct = Math.round(savedRatio * 100);
+        const progressBadgeHtml = progressPct > 0
+          ? '<span class="card-progress-center" title="Reading progress saved on this browser" style="font-size: 0.72rem; color: var(--accent); font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + progressPct + '% read <span style="font-size: 0.65rem; opacity: 0.75;">(this browser)</span></span>'
+          : '<span style="flex: 1;"></span>';
+        const progressLineHtml = progressPct > 0
+          ? '<div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--border-color); overflow: hidden;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
+          : '<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--border-color);"></div>';
+
         return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
           '<div>' +
             imgHtml +
@@ -2317,15 +2428,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
             tagsHtml +
           '</div>' +
-          '<div class="card-footer">' +
-            '<span>' + date + '</span>' +
+          '<div class="card-footer" style="margin-top: 0.75rem;">' +
+            progressLineHtml +
+            '<span class="card-date">' + date + '</span>' +
+            progressBadgeHtml +
             '<div class="card-actions">' +
               '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
               '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
-              '<button class="action-btn" title="Manage Tags" onclick="openTagModal(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg></button>' +
-              '<button type="button" class="action-btn" title="Download EPUB for KOReader" onclick="downloadEpub(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>' +
-              originalLinkHtml +
-              '<button class="action-btn btn-delete" title="Delete" onclick="deleteEntryAction(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
+              '<div class="card-menu-wrap">' +
+                '<button class="action-btn card-more-btn" title="More Actions" onclick="event.stopPropagation(); toggleCardMenu(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>' +
+                '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
+                  '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
+                  '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
+                  '<button class="menu-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download EPUB</span></button>' +
+                  (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="menu-item" onclick="closeAllCardMenus()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></a>' : '') +
+                  '<div class="menu-divider"></div>' +
+                  '<button class="menu-item menu-item-danger" onclick="closeAllCardMenus(); deleteEntryAction(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article</span></button>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
           '</div>' +
         '</div>';
@@ -2525,7 +2645,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.body.style.overflow = 'hidden';
 
       const scrollEl = document.getElementById('readerScrollContainer');
-      if (scrollEl) scrollEl.scrollTop = 0;
+      if (scrollEl) {
+        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
+        if (savedRatio > 0.005) {
+          setTimeout(() => {
+            const total = scrollEl.scrollHeight - scrollEl.clientHeight;
+            if (total > 0) {
+              scrollEl.scrollTop = savedRatio * total;
+            }
+            updateReadingProgress();
+          }, 70);
+        } else {
+          scrollEl.scrollTop = 0;
+        }
+      }
       updateReadingProgress();
 
       if (pushHistory) {
@@ -2623,12 +2756,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.getElementById('readerBody').style.fontSize = currentReaderFontSize + 'px';
     }
 
+    let scrollSaveTimer = null;
     function updateReadingProgress() {
       const container = document.getElementById('readerScrollContainer');
       if (!container) return;
       const total = container.scrollHeight - container.clientHeight;
       const progress = total > 0 ? Math.min(100, Math.max(0, (container.scrollTop / total) * 100)) : 0;
       document.getElementById('readingProgress').style.width = progress + '%';
+
+      if (activeArticleId && total > 0) {
+        clearTimeout(scrollSaveTimer);
+        scrollSaveTimer = setTimeout(() => {
+          const ratio = Math.min(1, Math.max(0, container.scrollTop / total));
+          localStorage.setItem('wf_scroll_' + activeArticleId, ratio.toFixed(4));
+        }, 120);
+      }
     }
 
     async function handleIngestUrl(e) {
@@ -2722,6 +2864,89 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function syncAddTextTagChips() {
       renderAddTextTagChips();
+    }
+
+    
+    
+    document.addEventListener('click', () => closeAllCardMenus());
+
+    function closeAllCardMenus() {
+      const backdrop = document.getElementById('cardMenuBackdrop');
+      if (backdrop) backdrop.style.display = 'none';
+      document.querySelectorAll('.article-card.menu-open').forEach(el => el.classList.remove('menu-open'));
+      document.querySelectorAll('.card-dropdown-menu.open').forEach(el => el.classList.remove('open'));
+    }
+
+    function toggleCardMenu(id) {
+      const menu = document.getElementById('card-menu-' + id);
+      const card = document.getElementById('entry-card-' + id);
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      closeAllCardMenus();
+      if (!isOpen) {
+        menu.classList.add('open');
+        if (card) card.classList.add('menu-open');
+        const backdrop = document.getElementById('cardMenuBackdrop');
+        if (backdrop) backdrop.style.display = 'block';
+      }
+    }
+
+    function openEditTitleModal(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) return;
+      document.getElementById('editTitleEntryId').value = String(id);
+      const input = document.getElementById('editTitleInput');
+      input.value = item.title;
+      openModal('editTitleModal');
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 80);
+    }
+
+    async function handleSaveTitle(e) {
+      e.preventDefault();
+      const idStr = document.getElementById('editTitleEntryId').value;
+      const input = document.getElementById('editTitleInput');
+      const btn = document.getElementById('saveTitleBtn');
+      const id = Number(idStr);
+      const newTitle = input.value.trim();
+
+      if (!id || !newTitle) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      try {
+        const res = await authFetch('/api/entries/' + id + '.json', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const updated = await res.json();
+        
+        // Update local article data
+        const idx = allEntries.findIndex(e => e.id === id);
+        if (idx >= 0) {
+          allEntries[idx].title = updated.title || newTitle;
+        }
+
+        // Update reader header if currently open
+        if (activeArticleId === id) {
+          document.getElementById('readerTitle').textContent = updated.title || newTitle;
+          document.title = (updated.title || newTitle) + ' - Wallaflare';
+        }
+
+        filterArticles();
+        closeModal('editTitleModal');
+        showToast('✓ Title updated successfully!');
+      } catch (err) {
+        showToast('Failed to update title: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Title';
+      }
     }
 
     async function handleIngestText(e) {
