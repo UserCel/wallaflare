@@ -1726,6 +1726,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   
   
+  <!-- Card Menu Click-Away Backdrop -->
+  <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 95; display: none;" onclick="closeAllCardMenus()"></div>
+
   <!-- Article Tag Management Modal -->
   <div class="tag-modal-overlay" id="tagModal" onclick="if(event.target === this) closeTagModal()">
     <div class="tag-modal">
@@ -2825,6 +2828,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     document.addEventListener('click', () => closeAllCardMenus());
 
     function closeAllCardMenus() {
+      const backdrop = document.getElementById('cardMenuBackdrop');
+      if (backdrop) backdrop.style.display = 'none';
       document.querySelectorAll('.card-dropdown-menu.open').forEach(el => el.classList.remove('open'));
     }
 
@@ -2835,6 +2840,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       closeAllCardMenus();
       if (!isOpen) {
         menu.classList.add('open');
+        const backdrop = document.getElementById('cardMenuBackdrop');
+        if (backdrop) backdrop.style.display = 'block';
       }
     }
 
