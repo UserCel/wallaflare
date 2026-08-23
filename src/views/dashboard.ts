@@ -459,6 +459,68 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       align-items: center;
       gap: 0.25rem;
     }
+    .card-dropdown-menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+      min-width: 180px;
+      padding: 0.35rem 0;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      animation: menuFadeIn 0.15s ease-out;
+    }
+    .article-card[dir="rtl"] .card-dropdown-menu {
+      right: auto;
+      left: 0;
+    }
+    .card-dropdown-menu.open {
+      display: flex !important;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.825rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+      box-sizing: border-box;
+    }
+    .article-card[dir="rtl"] .menu-item {
+      text-align: right;
+    }
+    .menu-item:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    .menu-item-danger {
+      color: #ef4444;
+    }
+    .menu-item-danger:hover {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+    }
+    .menu-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 0.25rem 0;
+    }
+    @keyframes menuFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .action-btn {
       background: transparent;
       border: none;
