@@ -46,6 +46,10 @@
 - **🕵️ Complete Search Engine & Crawler Exclusion**:
   - Automatically emits `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` HTTP headers on every response.
   - Serves `/robots.txt` disallowing all web crawlers and injects `<meta name="robots">` into all pages to keep your personal reading list 100% private from Google, Bing, and web indexers.
+- **🛡️ Two-Tier Content Sanitization & XSS Defense**:
+  - **Server-Side Linkedom Sanitizer**: Automatically purges dangerous tags (`<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`), strips inline event handlers (`onload`, `onerror`, `onclick`), and neutralizes `javascript:` URIs before content is stored in D1.
+  - **Client-Side DOMPurify Pass**: Articles rendered in the web reader pass through DOMPurify for defense-in-depth XSS protection.
+  - **Strict Content Security Policy (CSP)**: Global HTTP headers restrict script execution and completely disallow plugin/object embedding (`object-src 'none'`).
 - **🛡️ Built-in Brute-Force & Rate-Limiting Protection**:
   - Native IP-based lockout protection across all Web & API authentication routes (`/oauth/v2/token`, `/api/auth/verify`, and protected `/api/*` endpoints).
   - Enforces a **5-attempt threshold** before triggering a **15-minute lockout** (`HTTP 429 Too Many Requests`).
@@ -136,6 +140,11 @@ Your instance is now live worldwide! 🎉
 
 - **Stateless & Edge-Native**: No servers to manage, no Docker containers, no background database daemons.
 - **Zero Hardcoded Secrets**: Secrets and tokens are managed via Cloudflare Secrets (`wrangler secret put AUTH_TOKEN`).
+- **Two-Tier Content Sanitization & Defense-in-Depth**:
+  - Follows Mozilla Readability's security specifications by actively sanitizing extracted HTML trees against Cross-Site Scripting (XSS).
+  - Server-side linkedom DOM parser cleans executable tags, inline event attributes, and dangerous URI protocols before saving to database.
+  - Client-side reader uses DOMPurify before innerHTML injection.
+  - Strict Content-Security-Policy (CSP) headers block unauthorized script sources and object/embed plugins.
 - **Native Rate-Limiting & Brute-Force Defense**:
   - Automatically tracks consecutive failed password/token attempts per client IP in Cloudflare D1.
   - Returns explicit attempt counts on failures and strictly locks out aggressive brute-force attempts for 15 minutes after 5 failures.
