@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mozilla/readability": "^0.5.0",
+    "@mozilla/readability": "^0.6.0",
     "fflate": "^0.8.2",
     "hono": "^4.7.2",
     "linkedom": "^0.18.9"
