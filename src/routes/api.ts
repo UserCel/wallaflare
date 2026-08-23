@@ -12,10 +12,24 @@ import {
   getEntryTags,
   addTagsToEntry,
   removeTagFromEntry,
-  deleteTag
+  deleteTag,
+  checkAuthRateLimit,
+  recordFailedAuthAttempt,
+  resetAuthRateLimit,
+  timingSafeCompare
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml } from '../services/extractor';
 import { generateEpub } from '../services/epub';
+
+
+export function getClientIp(c: any): string {
+  return (
+    c.req.header('cf-connecting-ip') ||
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
+    c.req.header('x-real-ip') ||
+    '127.0.0.1'
+  );
+}
 
 export const apiRouter = new Hono<{ Bindings: Env }>();
 
@@ -23,9 +37,26 @@ export const apiRouter = new Hono<{ Bindings: Env }>();
 // Authentication Middleware
 // -------------------------------------------------------------
 export const authMiddleware = async (c: any, next: any) => {
+  // Skip verify endpoint as it handles its own rate limiting & validation
+  if (c.req.path === '/api/auth/verify') {
+    return next();
+  }
+
   const configuredToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
   if (!configuredToken) {
     return next();
+  }
+
+  const ip = getClientIp(c);
+  const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
+  if (!rateLimit.allowed) {
+    return c.json({
+      error: 'rate_limited',
+      error_description: `Too many failed login attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.`,
+      locked: true,
+      remaining_minutes: rateLimit.remaining_minutes || 15,
+      remaining_seconds: rateLimit.remaining_seconds || 900
+    }, 429);
   }
 
   const authHeader = c.req.header('Authorization');
@@ -37,11 +68,29 @@ export const authMiddleware = async (c: any, next: any) => {
     token = c.req.query('access_token') || '';
   }
 
-  if (token === configuredToken || token === 'wallaflare_bearer_token_secret') {
+  const isValid = timingSafeCompare(token, configuredToken) || timingSafeCompare(token, 'wallaflare_bearer_token_secret');
+
+  if (isValid) {
+    await resetAuthRateLimit(c.env.DB, ip);
     return next();
   }
 
-  return c.json({ error: 'Unauthorized', message: 'Invalid or missing authentication token' }, 401);
+  const failure = await recordFailedAuthAttempt(c.env.DB, ip);
+  if (failure.locked) {
+    return c.json({
+      error: 'rate_limited',
+      error_description: 'Too many failed login attempts. You are locked out for 15 minutes.',
+      locked: true,
+      remaining_minutes: 15,
+      attempts_left: 0
+    }, 429);
+  }
+
+  return c.json({
+    error: 'Unauthorized',
+    message: `Invalid or missing authentication token. ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
+    attempts_left: failure.attempts_left
+  }, 401);
 };
 
 // -------------------------------------------------------------
@@ -71,6 +120,18 @@ apiRouter.get('/api/info.json', infoHandler);
 // OAuth2 Token Endpoints
 // -------------------------------------------------------------
 const oauthTokenHandler = async (c: any) => {
+  const ip = getClientIp(c);
+  const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
+  if (!rateLimit.allowed) {
+    return c.json({
+      error: 'rate_limited',
+      error_description: `Too many failed login attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.`,
+      locked: true,
+      remaining_minutes: rateLimit.remaining_minutes || 15,
+      remaining_seconds: rateLimit.remaining_seconds || 900
+    }, 429);
+  }
+
   let grantType = '';
   let clientId = '';
   let clientSecret = '';
@@ -98,13 +159,27 @@ const oauthTokenHandler = async (c: any) => {
 
   if (expectedToken) {
     const candidate = password || clientSecret || clientId;
-    if (candidate && candidate !== expectedToken && candidate !== 'wallaflare') {
+    const isMatch = candidate && (timingSafeCompare(candidate, expectedToken) || candidate === 'wallaflare');
+    if (!isMatch) {
+      const failure = await recordFailedAuthAttempt(c.env.DB, ip);
+      if (failure.locked) {
+        return c.json({
+          error: 'rate_limited',
+          error_description: 'Too many failed login attempts. Locked out for 15 minutes.',
+          locked: true,
+          remaining_minutes: 15,
+          attempts_left: 0
+        }, 429);
+      }
       return c.json({
         error: 'invalid_grant',
-        error_description: 'Invalid username and password combination'
+        error_description: `Invalid username and password combination. ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
+        attempts_left: failure.attempts_left
       }, 400);
     }
   }
+
+  await resetAuthRateLimit(c.env.DB, ip);
 
   const tokenValue = expectedToken || 'wallaflare_bearer_token_secret';
 
@@ -118,6 +193,65 @@ const oauthTokenHandler = async (c: any) => {
 };
 
 apiRouter.post('/oauth/v2/token', oauthTokenHandler);
+
+// -------------------------------------------------------------
+// Auth Verify Endpoint (with rate-limiting & attempts feedback)
+// -------------------------------------------------------------
+apiRouter.post('/api/auth/verify', async (c: any) => {
+  const ip = getClientIp(c);
+  const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
+  if (!rateLimit.allowed) {
+    return c.json({
+      success: false,
+      error: 'rate_limited',
+      message: `Too many failed login attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.`,
+      locked: true,
+      remaining_minutes: rateLimit.remaining_minutes || 15,
+      remaining_seconds: rateLimit.remaining_seconds || 900
+    }, 429);
+  }
+
+  const configuredToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
+  if (!configuredToken) {
+    return c.json({ success: true, attempts_left: 5 });
+  }
+
+  let token = '';
+  const authHeader = c.req.header('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else {
+    const body = await c.req.json().catch(() => ({}));
+    token = body.token || body.password || '';
+  }
+
+  const isValid = timingSafeCompare(token, configuredToken) || timingSafeCompare(token, 'wallaflare_bearer_token_secret');
+
+  if (isValid) {
+    await resetAuthRateLimit(c.env.DB, ip);
+    return c.json({ success: true, attempts_left: 5 });
+  }
+
+  const failure = await recordFailedAuthAttempt(c.env.DB, ip);
+  if (failure.locked) {
+    return c.json({
+      success: false,
+      error: 'rate_limited',
+      message: 'Too many failed login attempts. You are locked out for 15 minutes.',
+      locked: true,
+      remaining_minutes: 15,
+      attempts_left: 0
+    }, 429);
+  }
+
+  return c.json({
+    success: false,
+    error: 'invalid_token',
+    message: `Incorrect password! ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
+    attempts_left: failure.attempts_left
+  }, 400);
+});
+
 apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
 
 // -------------------------------------------------------------

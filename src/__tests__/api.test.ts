@@ -7,6 +7,7 @@ function createMockD1Database() {
   let entries: EntryRow[] = [];
   let tags: Array<{ id: number; label: string; slug: string }> = [];
   let entryTags: Array<{ entry_id: number; tag_id: number }> = [];
+  let rateLimits: Map<string, { failed_attempts: number; last_attempt_at: number; locked_until: number }> = new Map();
   let autoId = 1;
   let autoTagId = 1;
 
@@ -47,6 +48,10 @@ function createMockD1Database() {
             const url = boundParams[0];
             const found = entries.find(e => e.url === url);
             return (found || null) as T;
+          }
+          if (query.includes('FROM auth_rate_limits WHERE ip = ?')) {
+            const ip = boundParams[0];
+            return (rateLimits.get(ip) || null) as T;
           }
           if (query.includes('SELECT MAX(id)')) {
             return entries[entries.length - 1] as T;
@@ -132,6 +137,20 @@ function createMockD1Database() {
             const id = Number(boundParams[0]);
             entries = entries.filter(e => e.id !== id);
             entryTags = entryTags.filter(et => et.entry_id !== id);
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('auth_rate_limits') && query.includes('INSERT INTO')) {
+            const ip = boundParams[0];
+            rateLimits.set(ip, {
+              failed_attempts: boundParams[1],
+              last_attempt_at: boundParams[2],
+              locked_until: boundParams[3]
+            });
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('DELETE FROM auth_rate_limits WHERE ip = ?')) {
+            const ip = boundParams[0];
+            rateLimits.delete(ip);
             return { meta: { changes: 1 } };
           }
           return { meta: { changes: 1 } };
@@ -383,5 +402,148 @@ describe('Wallaflare Protected Mode (AUTH_TOKEN enabled)', () => {
       AUTH_TOKEN: SECRET,
     });
     expect(res.status).toBe(200);
+  });
+});
+
+describe('Wallaflare Brute Force & Rate Limiting Protection', () => {
+  const SECRET = 'ultra_secure_pass_123';
+
+  it('tracks consecutive failed login attempts and locks out after 5 failures', async () => {
+    const mockDb = createMockD1Database();
+
+
+    // 1st failed attempt -> 4 left
+    let res = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'wrong_1' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(res.status).toBe(400);
+    let data = await res.json<any>();
+    expect(data.attempts_left).toBe(4);
+    expect(data.message).toContain('4 attempts remaining');
+
+    // 2nd failed attempt -> 3 left
+    res = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'wrong_2' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(res.status).toBe(400);
+    data = await res.json<any>();
+    expect(data.attempts_left).toBe(3);
+
+    // 3rd failed attempt -> 2 left
+    res = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'wrong_3' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(res.status).toBe(400);
+    data = await res.json<any>();
+    expect(data.attempts_left).toBe(2);
+
+    // 4th failed attempt -> 1 left
+    res = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'wrong_4' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(res.status).toBe(400);
+    data = await res.json<any>();
+    expect(data.attempts_left).toBe(1);
+
+    // 5th failed attempt -> 429 Too Many Requests (Lockout for 15 mins)
+    res = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'wrong_5' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(res.status).toBe(429);
+    data = await res.json<any>();
+    expect(data.locked).toBe(true);
+    expect(data.remaining_minutes).toBe(15);
+    expect(data.message).toContain('locked out');
+
+    // Subsequent request while locked is immediately rejected with 429
+    res = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: SECRET })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(res.status).toBe(429);
+  });
+
+  it('resets the failed attempts counter upon a successful login before lockout', async () => {
+    const mockDb = createMockD1Database();
+
+
+    // 2 failed attempts
+    await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'bad_token' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'bad_token' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    // Correct login resets the counter
+    const successRes = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: SECRET })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(successRes.status).toBe(200);
+    const successData = await successRes.json<any>();
+    expect(successData.success).toBe(true);
+
+    // Next failure starts fresh with 4 attempts remaining
+    const nextRes = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'wrong_again' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(nextRes.status).toBe(400);
+    const nextData = await nextRes.json<any>();
+    expect(nextData.attempts_left).toBe(4);
+  });
+
+  it('automatically resets failed attempts if 15 minutes pass between attempts', async () => {
+    const mockDb = createMockD1Database();
+
+    // 3 failed attempts
+    for (let i = 0; i < 3; i++) {
+      await app.request('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: 'wrong_old' })
+      }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    }
+
+    // Advance last_attempt_at time in mock DB by 20 minutes (1200000 ms) in the past
+    const row = await mockDb.prepare('SELECT failed_attempts, last_attempt_at, locked_until FROM auth_rate_limits WHERE ip = ?').bind('127.0.0.1').first<any>();
+    if (row) {
+      await mockDb.prepare('INSERT INTO auth_rate_limits (ip, failed_attempts, last_attempt_at, locked_until) VALUES (?, ?, ?, ?)').bind(
+        '127.0.0.1',
+        row.failed_attempts,
+        Date.now() - (20 * 60 * 1000),
+        0
+      ).run();
+    }
+
+    // Next failure after 20 minutes should start fresh (4 attempts left, not 1)
+    const nextRes = await app.request('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'wrong_fresh' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(nextRes.status).toBe(400);
+    const nextData = await nextRes.json<any>();
+    expect(nextData.attempts_left).toBe(4);
   });
 });

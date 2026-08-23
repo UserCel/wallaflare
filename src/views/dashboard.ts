@@ -903,6 +903,28 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     /* Auth Lock Overlay */
+    
+    .auth-error-banner {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #f87171;
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      font-size: 0.825rem;
+      line-height: 1.4;
+      text-align: left;
+      display: none;
+    }
+    .auth-error-banner.show {
+      display: block;
+    }
+    .auth-error-banner.lockout {
+      background: rgba(220, 38, 38, 0.22);
+      border-color: #ef4444;
+      color: #fca5a5;
+      font-weight: 500;
+    }
+
     .auth-overlay {
       position: fixed;
       inset: 0;
@@ -1228,11 +1250,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.3rem;">Protected Library</h2>
         <p style="font-size: 0.85rem; color: var(--text-secondary);">Enter your Wallaflare Access Token or Password</p>
       </div>
-      <form onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+
+      <div class="auth-error-banner" id="authErrorMsg"></div>
+
+      <form id="authForm" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
         <div class="form-group" style="text-align: left;">
           <input type="password" id="authKeyInput" placeholder="Enter AUTH_TOKEN / Password" required autofocus>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
+        <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
       </form>
     </div>
   </div>
@@ -1696,12 +1721,82 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    function handleLogin(e) {
-      e.preventDefault();
-      const key = document.getElementById('authKeyInput').value.trim();
-      setAuthToken(key);
-      document.getElementById('authOverlay').style.display = 'none';
-      loadArticles();
+    async function handleLogin(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('authKeyInput');
+      const submitBtn = document.getElementById('authSubmitBtn');
+      const errorBanner = document.getElementById('authErrorMsg');
+      const key = input ? input.value.trim() : '';
+
+      if (!key) return;
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
+      }
+      if (errorBanner) {
+        errorBanner.className = 'auth-error-banner';
+        errorBanner.style.display = 'none';
+      }
+
+      try {
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + key
+          },
+          body: JSON.stringify({ token: key })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.success) {
+          setAuthToken(key);
+          const overlay = document.getElementById('authOverlay');
+          if (overlay) overlay.style.display = 'none';
+          showToast('Unlocked successfully');
+          loadArticles();
+          return;
+        }
+
+        if (res.status === 429 || data.locked) {
+          const mins = data.remaining_minutes || 15;
+          if (errorBanner) {
+            errorBanner.innerHTML = '🚫 <strong>Too many failed attempts!</strong><br>Your IP is locked out for <strong>' + mins + ' minute' + (mins === 1 ? '' : 's') + '</strong>. Please try again later.';
+            errorBanner.className = 'auth-error-banner lockout show';
+            errorBanner.style.display = 'block';
+          }
+          if (input) input.disabled = true;
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Locked Out';
+          }
+          return;
+        }
+
+        const left = typeof data.attempts_left === 'number' ? data.attempts_left : 4;
+        if (errorBanner) {
+          errorBanner.innerHTML = '⚠️ <strong>Incorrect password!</strong><br>' + left + ' attempt' + (left === 1 ? '' : 's') + ' remaining before a 15-minute lockout.';
+          errorBanner.className = 'auth-error-banner show';
+          errorBanner.style.display = 'block';
+        }
+        if (input) {
+          input.select();
+          input.focus();
+        }
+      } catch (err) {
+        if (errorBanner) {
+          errorBanner.textContent = 'Connection error. Please try again.';
+          errorBanner.className = 'auth-error-banner show';
+          errorBanner.style.display = 'block';
+        }
+      } finally {
+        if (input && !input.disabled && submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Unlock';
+        }
+      }
     }
 
     // Keyboard shortcut '/' to search & Escape
