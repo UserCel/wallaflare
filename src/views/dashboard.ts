@@ -2407,31 +2407,31 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
         const titleDir = isRtlText(item.title) ? 'rtl' : 'ltr';
         const excerptDir = isRtlText(excerpt) ? 'rtl' : 'ltr';
+        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
+        const progressPct = Math.round(savedRatio * 100);
+        const progressBadgeHtml = progressPct > 0
+          ? '<span class="card-progress-center" title="Reading progress saved on this browser" style="font-size: 0.72rem; color: var(--accent); font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + progressPct + '% read <span style="font-size: 0.65rem; opacity: 0.75;">(this browser)</span></span>'
+          : '<span style="flex: 1;"></span>';
+        const progressBarHtml = progressPct > 0
+          ? '<div style="height: 2.5px; background: var(--border-color); border-radius: 1px; overflow: hidden; margin: 0.75rem 0 0 0;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
+          : '';
+
         return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
           '<div>' +
             imgHtml +
-            (() => {
-          const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
-          const progressPct = Math.round(savedRatio * 100);
-          const progressBadgeHtml = progressPct > 0
-            ? ' &bull; <span class="card-progress-badge" title="Reading progress saved on this browser" style="color: var(--accent); font-weight: 500;">' + progressPct + '% read <span style="font-size: 0.7rem; opacity: 0.8;">(this browser)</span></span>'
-            : '';
-          const progressBarHtml = progressPct > 0
-            ? '<div style="height: 3px; background: var(--border-color); border-radius: 2px; overflow: hidden; margin: 0.4rem 0 0.2rem 0;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
-            : '';
-          return '<div class="card-meta">' +
-            '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
-            authorMetaHtml +
-            '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
-            progressBadgeHtml +
-          '</div>' + progressBarHtml;
-        })() +
+            '<div class="card-meta">' +
+              '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
+              authorMetaHtml +
+              '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
+            '</div>' +
             '<h2 class="card-title" dir="' + titleDir + '" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
             '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
             tagsHtml +
           '</div>' +
-          '<div class="card-footer">' +
-            '<span>' + date + '</span>' +
+          progressBarHtml +
+          '<div class="card-footer" style="display: flex; align-items: center; justify-content: space-between;">' +
+            '<span class="card-date">' + date + '</span>' +
+            progressBadgeHtml +
             '<div class="card-actions">' +
               '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
               '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
