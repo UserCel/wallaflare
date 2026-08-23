@@ -10,7 +10,14 @@ const app = new Hono<{ Bindings: Env }>();
 app.use('*', async (c, next) => {
   c.header('X-Wallabag-Version', '2.6.9');
   c.header('X-Powered-By', 'wallabag');
+  c.header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
   return next();
+});
+
+// Search Engine Crawlers Exclusion
+app.get('/robots.txt', (c) => {
+  c.header('Content-Type', 'text/plain');
+  return c.text('User-agent: *\nDisallow: /\n');
 });
 
 app.use('*', cors({

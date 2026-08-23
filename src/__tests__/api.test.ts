@@ -547,3 +547,18 @@ describe('Wallaflare Brute Force & Rate Limiting Protection', () => {
     expect(nextData.attempts_left).toBe(4);
   });
 });
+describe('Search Engine Privacy & Robots Exclusion', () => {
+  it('serves /robots.txt disallowing all crawlers', async () => {
+    const res = await app.request('/robots.txt');
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('User-agent: *');
+    expect(body).toContain('Disallow: /');
+  });
+
+  it('includes X-Robots-Tag: noindex, nofollow on all responses', async () => {
+    const res = await app.request('/api/version');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-Robots-Tag')).toBe('noindex, nofollow, noarchive, nosnippet');
+  });
+});

@@ -43,6 +43,9 @@
   - **Reading Progress Bar**: Live scroll progress indicator.
   - **Themes & Typography**: Dark, Light, and Sepia modes with Serif / Sans-serif toggles and fine-tuned font sizing.
 - **🔍 Smart Article Ingestion**: Powered by `@mozilla/readability` and `linkedom` for fast serverless content extraction with relative URL canonicalization.
+- **🕵️ Complete Search Engine & Crawler Exclusion**:
+  - Automatically emits `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` HTTP headers on every response.
+  - Serves `/robots.txt` disallowing all web crawlers and injects `<meta name="robots">` into all pages to keep your personal reading list 100% private from Google, Bing, and web indexers.
 - **🛡️ Built-in Brute-Force & Rate-Limiting Protection**:
   - Native IP-based lockout protection across all Web & API authentication routes (`/oauth/v2/token`, `/api/auth/verify`, and protected `/api/*` endpoints).
   - Enforces a **5-attempt threshold** before triggering a **15-minute lockout** (`HTTP 429 Too Many Requests`).
@@ -138,6 +141,7 @@ Your instance is now live worldwide! 🎉
   - Returns explicit attempt counts on failures and strictly locks out aggressive brute-force attempts for 15 minutes after 5 failures.
   - Constant-time cryptographic comparison (`timingSafeCompare`) protects against token timing attacks.
   - Unauthenticated guest visits and clean logouts never consume failure attempts.
+- **Search Engine & Crawler Disallow**: Built-in `X-Robots-Tag` headers, `/robots.txt`, and HTML meta tags prevent public indexing of private libraries.
 - **Authorization Header Support**: All web actions and EPUB downloads pass credentials securely in HTTP `Authorization: Bearer <token>` headers rather than exposing tokens in query URLs.
 - **Dynamic Origin Resolution**: All redirects, OAuth callbacks, and PWA manifest URLs resolve the client's host origin dynamically at runtime.
 
