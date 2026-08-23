@@ -2410,11 +2410,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
           '<div>' +
             imgHtml +
-            '<div class="card-meta">' +
-              '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
-              authorMetaHtml +
-              '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
-            '</div>' +
+            (() => {
+          const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
+          const progressPct = Math.round(savedRatio * 100);
+          const progressBadgeHtml = progressPct > 0
+            ? ' &bull; <span class="card-progress-badge" title="Reading progress saved on this browser" style="color: var(--accent); font-weight: 500;">' + progressPct + '% read <span style="font-size: 0.7rem; opacity: 0.8;">(this browser)</span></span>'
+            : '';
+          const progressBarHtml = progressPct > 0
+            ? '<div style="height: 3px; background: var(--border-color); border-radius: 2px; overflow: hidden; margin: 0.4rem 0 0.2rem 0;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
+            : '';
+          return '<div class="card-meta">' +
+            '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
+            authorMetaHtml +
+            '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
+            progressBadgeHtml +
+          '</div>' + progressBarHtml;
+        })() +
             '<h2 class="card-title" dir="' + titleDir + '" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
             '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
             tagsHtml +
@@ -2634,7 +2645,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.body.style.overflow = 'hidden';
 
       const scrollEl = document.getElementById('readerScrollContainer');
-      if (scrollEl) scrollEl.scrollTop = 0;
+      if (scrollEl) {
+        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
+        if (savedRatio > 0.005) {
+          setTimeout(() => {
+            const total = scrollEl.scrollHeight - scrollEl.clientHeight;
+            if (total > 0) {
+              scrollEl.scrollTop = savedRatio * total;
+            }
+            updateReadingProgress();
+          }, 70);
+        } else {
+          scrollEl.scrollTop = 0;
+        }
+      }
       updateReadingProgress();
 
       if (pushHistory) {
@@ -2732,12 +2756,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.getElementById('readerBody').style.fontSize = currentReaderFontSize + 'px';
     }
 
+    let scrollSaveTimer = null;
     function updateReadingProgress() {
       const container = document.getElementById('readerScrollContainer');
       if (!container) return;
       const total = container.scrollHeight - container.clientHeight;
       const progress = total > 0 ? Math.min(100, Math.max(0, (container.scrollTop / total) * 100)) : 0;
       document.getElementById('readingProgress').style.width = progress + '%';
+
+      if (activeArticleId && total > 0) {
+        clearTimeout(scrollSaveTimer);
+        scrollSaveTimer = setTimeout(() => {
+          const ratio = Math.min(1, Math.max(0, container.scrollTop / total));
+          localStorage.setItem('wf_scroll_' + activeArticleId, ratio.toFixed(4));
+        }, 120);
+      }
     }
 
     async function handleIngestUrl(e) {
