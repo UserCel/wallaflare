@@ -133,7 +133,14 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
 }
 
 export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
-  const { document } = parseHTML(html);
+  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(html);
+  const formattedHtml = hasHtmlTags
+    ? html
+    : html.split(/\n\s*\n/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  const fullHtml = formattedHtml.includes('<html') || formattedHtml.includes('<!DOCTYPE')
+    ? formattedHtml
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${formattedHtml}</body></html>`;
+  const { document } = parseHTML(fullHtml);
 
   if (originalUrl) {
     resolveRelativeUrls(document, originalUrl);
@@ -303,4 +310,34 @@ export async function extractArticleFromUrl(url: string): Promise<ExtractedArtic
 
   const html = await response.text();
   return extractArticleFromHtml(html, url);
+}
+
+
+export async function extractCoverImageFromUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      signal: AbortSignal.timeout(3500)
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+                    html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+    if (ogMatch && ogMatch[1]) {
+      const imgSrc = ogMatch[1].trim();
+      if (imgSrc.startsWith('http://') || imgSrc.startsWith('https://')) {
+        return imgSrc;
+      } else if (imgSrc.startsWith('//')) {
+        return new URL(url).protocol + imgSrc;
+      } else {
+        return new URL(imgSrc, url).toString();
+      }
+    }
+  } catch {}
+  return null;
 }

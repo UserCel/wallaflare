@@ -645,3 +645,84 @@ describe('Article Title Editing via API', () => {
     expect(patched.title).toBe('Cleaned Article Title');
   });
 });
+
+describe('Re-fetch Article Content API', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('rejects reload on direct-input manual entries to preserve hand-crafted text', async () => {
+    // 1. Create custom text entry with a URL
+    const createRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Custom Story Chapter',
+        content: '<p>My custom hand-crafted story text.</p>',
+        url: 'https://example.com/chapter-url',
+      })
+    }, { DB: mockDb });
+
+    const created = await createRes.json<any>();
+    expect(created.domain_name).toBe('direct-input');
+
+    // 2. Attempt to reload
+    const reloadRes = await app.request(`/api/entries/${created.id}/reload.json`, {
+      method: 'PATCH',
+    }, { DB: mockDb });
+
+    expect(reloadRes.status).toBe(400);
+    const errData = await reloadRes.json<any>();
+    expect(errData.error).toContain('Cannot re-fetch custom pasted text');
+  });
+});
+
+describe('Custom Text Ingestion (Plain text & Markdown)', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('successfully saves plain text notes without HTML tags', async () => {
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Plain Text Note',
+        content: 'This is a simple plain text entry with no html tags.\n\nHere is paragraph two.',
+        author: 'Note Taker',
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.title).toBe('Plain Text Note');
+    expect(data.domain_name).toBe('direct-input');
+    expect(data.content).toContain('This is a simple plain text entry');
+  });
+});
+
+describe('Custom Text Preview Picture Support', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('persists manual preview_picture on custom text submission', async () => {
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Book Chapter with Custom Cover',
+        content: '<p>Chapter text goes here.</p>',
+        preview_picture: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c',
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.preview_picture).toBe('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c');
+    expect(data.domain_name).toBe('direct-input');
+  });
+});
