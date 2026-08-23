@@ -1430,7 +1430,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Modal: Add Text -->
   <div class="modal-backdrop" id="addTextModal">
-    <div class="modal" style="max-width: 540px;">
+    <div class="modal" style="max-width: 560px;">
       <div class="modal-header">
         <h3 class="modal-title">Add Custom Text / Markdown</h3>
         <button class="close-btn" onclick="closeModal('addTextModal')">&times;</button>
@@ -1440,24 +1440,37 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <label for="textTitle">Title *</label>
           <input type="text" id="textTitle" placeholder="Article or Chapter Title" required autofocus>
         </div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div class="form-group">
-            <label for="textAuthor">Author / Published By</label>
+            <label for="textAuthor">Author / Published By (Optional)</label>
             <input type="text" id="textAuthor" placeholder="e.g. Brandon Sanderson">
           </div>
           <div class="form-group">
-            <label for="textTags">Tags (Comma-separated)</label>
-            <input type="text" id="textTags" placeholder="e.g. fantasy, novel">
+            <label for="textPublishedAt">Publication Date (Optional)</label>
+            <input type="date" id="textPublishedAt">
           </div>
         </div>
+
+        <div class="form-group">
+          <label for="textTags">Tags (Optional, comma-separated)</label>
+          <input type="text" id="textTags" placeholder="e.g. fantasy, novel" oninput="syncAddTextTagChips()">
+          <div id="addTextTagsContainer" style="display: none; margin-top: 0.45rem;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem;">Quick select from existing library tags:</div>
+            <div class="card-tags" id="addTextAvailableTags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;"></div>
+          </div>
+        </div>
+
         <div class="form-group">
           <label for="textUrl">Source URL (Optional)</label>
           <input type="url" id="textUrl" placeholder="https://original-source.com/article">
         </div>
+
         <div class="form-group">
           <label for="textContent">Content (HTML or Markdown) *</label>
-          <textarea id="textContent" placeholder="Paste your text, chapter, or markdown here..." rows="8" required></textarea>
+          <textarea id="textContent" placeholder="Paste your text, chapter, or markdown here..." rows="7" required></textarea>
         </div>
+
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('addTextModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="ingestTextBtn">Save Entry</button>
