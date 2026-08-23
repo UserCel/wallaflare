@@ -416,8 +416,25 @@ const postEntryHandler = async (c: any) => {
   let entryData: Partial<EntryRow> & { tags?: string | string[] } = {};
 
 
-  if (url) {
-    // Check if article with this URL already exists in database
+  if (title && content) {
+    // Custom pasted / manual text entry
+    const extracted = extractArticleFromHtml(content, url || undefined);
+    entryData = {
+      url: url || undefined,
+      title,
+      content: extracted.content,
+      preview_picture: body.preview_picture || extracted.previewPicture || null,
+      domain_name: 'direct-input',
+      reading_time: extracted.readingTime,
+      language: body.language || extracted.language || 'en',
+      author: body.author ? String(body.author).trim() : (extracted.byline || null),
+      published_at: body.published_at || extracted.publishedAt || null,
+      is_archived: body.archive ? Number(body.archive) : 0,
+      is_starred: body.starred ? Number(body.starred) : 0,
+      tags: rawTags,
+    };
+  } else if (url) {
+    // Automated web scraper
     const existing = await getEntryByUrl(c.env.DB, url);
     if (existing) {
       const addedDate = existing.created_at 
@@ -434,7 +451,7 @@ const postEntryHandler = async (c: any) => {
       entryData = {
         url,
         title: title || extracted.title,
-        content: content || extracted.content,
+        content: extracted.content,
         preview_picture: extracted.previewPicture,
         domain_name: extracted.domainName,
         reading_time: extracted.readingTime,
@@ -449,7 +466,7 @@ const postEntryHandler = async (c: any) => {
       entryData = {
         url,
         title: title || url,
-        content: content || `<p><a href="${url}">${url}</a></p>`,
+        content: `<p><a href="${url}">${url}</a></p>`,
         domain_name: new URL(url).hostname,
         reading_time: 1,
         language: 'en',
@@ -460,22 +477,6 @@ const postEntryHandler = async (c: any) => {
         tags: rawTags,
       };
     }
-  } else if (title && content) {
-    const extracted = extractArticleFromHtml(content, url || undefined);
-    entryData = {
-      url: url || undefined,
-      title,
-      content: extracted.content,
-      preview_picture: body.preview_picture || extracted.previewPicture || null,
-      domain_name: url ? extractDomain(url) : 'direct-input',
-      reading_time: extracted.readingTime,
-      language: body.language || extracted.language || 'en',
-      author: body.author ? String(body.author).trim() : (extracted.byline || null),
-      published_at: body.published_at || extracted.publishedAt || null,
-      is_archived: body.archive ? Number(body.archive) : 0,
-      is_starred: body.starred ? Number(body.starred) : 0,
-      tags: rawTags,
-    };
   } else {
     return c.json({ error: 'Missing required field: url or (title and content)' }, 400);
   }
@@ -544,6 +545,52 @@ const patchEntryHandler = async (c: any) => {
 
 apiRouter.patch('/api/entries/:id', authMiddleware, patchEntryHandler);
 apiRouter.patch('/api/entries/:id.json', authMiddleware, patchEntryHandler);
+
+// -------------------------------------------------------------
+// Re-fetch / Reload Article: PATCH /api/entries/:id/reload(.json)
+// -------------------------------------------------------------
+const reloadEntryHandler = async (c: any) => {
+  const id = Number(c.req.param('id').replace(/\.json$/, ''));
+  if (isNaN(id)) {
+    return c.json({ error: 'Invalid ID' }, 400);
+  }
+
+  const entry = await getEntryById(c.env.DB, id);
+  if (!entry) {
+    return c.json({ error: 'Entry not found' }, 404);
+  }
+
+  if (!entry.url || entry.domain_name === 'direct-input') {
+    return c.json({ error: 'Cannot re-fetch custom pasted text or URL-less entry' }, 400);
+  }
+
+  try {
+    const extracted = await extractArticleFromUrl(entry.url);
+    if (!extracted.content || extracted.content.length < 50) {
+      return c.json({ error: 'Extracted content was empty or invalid' }, 422);
+    }
+
+    const updates: Partial<EntryRow> = {
+      title: extracted.title || entry.title,
+      content: extracted.content,
+      preview_picture: extracted.previewPicture || entry.preview_picture,
+      domain_name: extracted.domainName || entry.domain_name,
+      reading_time: extracted.readingTime || entry.reading_time,
+      language: extracted.language || entry.language,
+    };
+    if (extracted.byline) updates.author = extracted.byline;
+    if (extracted.publishedAt) updates.published_at = extracted.publishedAt;
+
+    const updated = await updateEntry(c.env.DB, id, updates);
+    return c.json(entryRowToWallabag(updated || entry), 200);
+  } catch (err: any) {
+    return c.json({ error: `Failed to re-fetch: ${err.message || 'Network error'}` }, 500);
+  }
+};
+
+apiRouter.patch('/api/entries/:id/reload', authMiddleware, reloadEntryHandler);
+apiRouter.patch('/api/entries/:id/reload.json', authMiddleware, reloadEntryHandler);
+
 
 // -------------------------------------------------------------
 // Delete Article: DELETE /api/entries/:id(.json)

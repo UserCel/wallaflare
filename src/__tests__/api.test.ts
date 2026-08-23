@@ -645,3 +645,35 @@ describe('Article Title Editing via API', () => {
     expect(patched.title).toBe('Cleaned Article Title');
   });
 });
+
+describe('Re-fetch Article Content API', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('rejects reload on direct-input manual entries to preserve hand-crafted text', async () => {
+    // 1. Create custom text entry with a URL
+    const createRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Custom Story Chapter',
+        content: '<p>My custom hand-crafted story text.</p>',
+        url: 'https://example.com/chapter-url',
+      })
+    }, { DB: mockDb });
+
+    const created = await createRes.json<any>();
+    expect(created.domain_name).toBe('direct-input');
+
+    // 2. Attempt to reload
+    const reloadRes = await app.request(`/api/entries/${created.id}/reload.json`, {
+      method: 'PATCH',
+    }, { DB: mockDb });
+
+    expect(reloadRes.status).toBe(400);
+    const errData = await reloadRes.json<any>();
+    expect(errData.error).toContain('Cannot re-fetch custom pasted text');
+  });
+});

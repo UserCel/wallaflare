@@ -1687,6 +1687,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label">EPUB</span>
         </button>
 
+        <button class="reader-tool-btn" id="readerRefetchBtn" onclick="refetchActiveArticleContent(); closeMobileReaderDrawer();" title="Re-fetch Content from Source URL">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          <span class="btn-label">Re-fetch</span>
+        </button>
+
         <div class="reader-sidebar-divider"></div>
 
         <button class="reader-tool-btn" onclick="toggleReaderFont()" title="Toggle Serif / Sans">
@@ -2441,6 +2446,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
                   '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download EPUB</span></button>' +
+                  (item.url && item.domain_name !== 'direct-input' ? '<button class="menu-item" onclick="closeAllCardMenus(); refetchArticleContent(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>' : '') +
                   (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="menu-item" onclick="closeAllCardMenus()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></a>' : '') +
                   '<div class="menu-divider"></div>' +
                   '<button class="menu-item menu-item-danger" onclick="closeAllCardMenus(); deleteEntryAction(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article</span></button>' +
@@ -2573,6 +2579,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" style="color: var(--accent);">Original Link</a>';
       }
       document.getElementById('readerMeta').innerHTML = metaHtml;
+      const refetchBtn = document.getElementById('readerRefetchBtn');
+      if (refetchBtn) {
+        refetchBtn.style.display = (item.url && item.domain_name !== 'direct-input') ? 'flex' : 'none';
+      }
       
       const coverWrap = document.getElementById('readerCoverWrap');
       if (item.preview_picture) {
@@ -2888,6 +2898,48 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (card) card.classList.add('menu-open');
         const backdrop = document.getElementById('cardMenuBackdrop');
         if (backdrop) backdrop.style.display = 'block';
+      }
+    }
+
+    
+    function refetchActiveArticleContent() {
+      if (activeArticleId) {
+        refetchArticleContent(activeArticleId);
+      }
+    }
+
+    async function refetchArticleContent(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item || !item.url || item.domain_name === 'direct-input') return;
+
+      if (!confirm('Re-fetch article from original source URL?\\n\\nThis will download the latest content from ' + (item.domain_name || item.url) + ' and update the article text.')) {
+        return;
+      }
+
+      showToast('Re-fetching article from source...');
+      try {
+        const res = await authFetch('/api/entries/' + id + '/reload.json', {
+          method: 'PATCH',
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || ('HTTP ' + res.status));
+        }
+        const updated = await res.json();
+        
+        const idx = allEntries.findIndex(e => e.id === id);
+        if (idx >= 0) {
+          allEntries[idx] = updated;
+        }
+
+        if (activeArticleId === id) {
+          openReader(id, false);
+        }
+
+        filterArticles();
+        showToast('✓ Article content re-fetched successfully!');
+      } catch (err) {
+        showToast('Failed to re-fetch: ' + err.message + ' (Original text preserved)');
       }
     }
 
