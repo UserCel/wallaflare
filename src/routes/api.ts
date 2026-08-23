@@ -453,20 +453,25 @@ const postEntryHandler = async (c: any) => {
         domain_name: new URL(url).hostname,
         reading_time: 1,
         language: 'en',
+        author: body.author ? String(body.author).trim() : null,
+        published_at: body.published_at || null,
         is_archived: body.archive ? Number(body.archive) : 0,
         is_starred: body.starred ? Number(body.starred) : 0,
         tags: rawTags,
       };
     }
   } else if (title && content) {
-    const extracted = extractArticleFromHtml(content);
+    const extracted = extractArticleFromHtml(content, url || undefined);
     entryData = {
+      url: url || undefined,
       title,
       content: extracted.content,
-      preview_picture: extracted.previewPicture,
-      domain_name: 'direct-input',
+      preview_picture: body.preview_picture || extracted.previewPicture || null,
+      domain_name: url ? extractDomain(url) : 'direct-input',
       reading_time: extracted.readingTime,
-      language: extracted.language,
+      language: body.language || extracted.language || 'en',
+      author: body.author ? String(body.author).trim() : (extracted.byline || null),
+      published_at: body.published_at || extracted.publishedAt || null,
       is_archived: body.archive ? Number(body.archive) : 0,
       is_starred: body.starred ? Number(body.starred) : 0,
       tags: rawTags,

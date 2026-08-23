@@ -1430,23 +1430,33 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Modal: Add Text -->
   <div class="modal-backdrop" id="addTextModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 540px;">
       <div class="modal-header">
         <h3 class="modal-title">Add Custom Text / Markdown</h3>
         <button class="close-btn" onclick="closeModal('addTextModal')">&times;</button>
       </div>
       <form onsubmit="handleIngestText(event)">
         <div class="form-group">
-          <label for="textTitle">Title</label>
-          <input type="text" id="textTitle" placeholder="Article Title" required>
+          <label for="textTitle">Title *</label>
+          <input type="text" id="textTitle" placeholder="Article or Chapter Title" required autofocus>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label for="textAuthor">Author / Published By</label>
+            <input type="text" id="textAuthor" placeholder="e.g. Brandon Sanderson">
+          </div>
+          <div class="form-group">
+            <label for="textTags">Tags (Comma-separated)</label>
+            <input type="text" id="textTags" placeholder="e.g. fantasy, novel">
+          </div>
         </div>
         <div class="form-group">
           <label for="textUrl">Source URL (Optional)</label>
-          <input type="url" id="textUrl" placeholder="https://...">
+          <input type="url" id="textUrl" placeholder="https://original-source.com/article">
         </div>
         <div class="form-group">
-          <label for="textContent">Content (HTML or Markdown)</label>
-          <textarea id="textContent" placeholder="Paste your text or markdown here..." required></textarea>
+          <label for="textContent">Content (HTML or Markdown) *</label>
+          <textarea id="textContent" placeholder="Paste your text, chapter, or markdown here..." rows="8" required></textarea>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('addTextModal')">Cancel</button>

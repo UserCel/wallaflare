@@ -107,6 +107,8 @@ function createMockD1Database() {
               is_starred: boundParams[8],
               created_at: boundParams[9],
               updated_at: boundParams[10],
+              author: boundParams[11] || null,
+              published_at: boundParams[12] || null,
             };
             entries.push(newEntry);
             return { meta: { last_row_id: newEntry.id, changes: 1 } };
@@ -560,5 +562,35 @@ describe('Search Engine Privacy & Robots Exclusion', () => {
     const res = await app.request('/api/version');
     expect(res.status).toBe(200);
     expect(res.headers.get('X-Robots-Tag')).toBe('noindex, nofollow, noarchive, nosnippet');
+  });
+});
+
+describe('Custom Text Ingestion with Author & Tags', () => {
+  let mockDb: any;
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('saves custom text with author, tags, and source URL', async () => {
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: 'Custom Chapter 1',
+        content: '<p>This is a custom pasted story chapter.</p>',
+        author: 'Brandon Sanderson',
+        tags: 'fantasy, cosmere',
+        url: 'https://brandonsanderson.com/chapter1'
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.title).toBe('Custom Chapter 1');
+    expect(data.published_by).toEqual(['Brandon Sanderson']);
+    expect(data.author).toBe('Brandon Sanderson');
+    expect(data.tags).toHaveLength(2);
   });
 });
