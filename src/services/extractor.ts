@@ -119,7 +119,7 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const authorMeta = document.querySelector('meta[name="author"], meta[property="article:author"], meta[property="books:author"], meta[property="og:article:author"], meta[name="twitter:creator"]');
   if (authorMeta) {
     const contentVal = authorMeta.getAttribute('content')?.trim();
-    if (contentVal && !contentVal.startsWith('@') && contentVal.length < 100 && !contentVal.toLowerCase().includes('follow')) {
+    if (contentVal && !contentVal.startsWith('http') && !contentVal.startsWith('@') && contentVal.length < 100 && !contentVal.toLowerCase().includes('follow')) {
       extractedAuthor = contentVal;
     } else if (contentVal && contentVal.startsWith('@') && contentVal.length > 1) {
       extractedAuthor = contentVal.slice(1);
