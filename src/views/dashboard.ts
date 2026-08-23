@@ -1495,6 +1495,28 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
+  
+  <!-- Modal: Edit Title -->
+  <div class="modal-backdrop" id="editTitleModal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Article Title</h3>
+        <button class="close-btn" onclick="closeModal('editTitleModal')">&times;</button>
+      </div>
+      <form onsubmit="handleSaveTitle(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
+        <input type="hidden" id="editTitleEntryId" />
+        <div class="form-group">
+          <label for="editTitleInput">Title *</label>
+          <input type="text" id="editTitleInput" required autofocus />
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('editTitleModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveTitleBtn">Save Title</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal: KOReader / Wallabag Sync -->
   <div class="modal-backdrop" id="syncModal">
     <div class="modal">
@@ -1627,7 +1649,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <!-- Main Content Reader Scroll Area -->
     <section class="reader-main-scroll" id="readerScrollContainer" onscroll="updateReadingProgress()">
       <div class="reader-content-wrap">
-        <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin-bottom: 0.75rem;"></h1>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin: 0; flex: 1;"></h1>
+          <button class="action-btn" id="readerEditTitleBtn" onclick="openEditTitleModal(activeArticleId)" title="Edit Article Title" style="margin-top: 0.3rem; padding: 0.4rem; opacity: 0.75;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </button>
+        </div>
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.8rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
         <div id="readerCoverWrap"></div>
         <article class="reader-body" id="readerBody"></article>
@@ -2322,6 +2349,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             '<div class="card-actions">' +
               '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
               '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
+              '<button class="action-btn" title="Edit Title" onclick="openEditTitleModal(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>' +
               '<button class="action-btn" title="Manage Tags" onclick="openTagModal(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg></button>' +
               '<button type="button" class="action-btn" title="Download EPUB for KOReader" onclick="downloadEpub(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>' +
               originalLinkHtml +
@@ -2722,6 +2750,65 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function syncAddTextTagChips() {
       renderAddTextTagChips();
+    }
+
+    
+    function openEditTitleModal(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) return;
+      document.getElementById('editTitleEntryId').value = String(id);
+      const input = document.getElementById('editTitleInput');
+      input.value = item.title;
+      openModal('editTitleModal');
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 80);
+    }
+
+    async function handleSaveTitle(e) {
+      e.preventDefault();
+      const idStr = document.getElementById('editTitleEntryId').value;
+      const input = document.getElementById('editTitleInput');
+      const btn = document.getElementById('saveTitleBtn');
+      const id = Number(idStr);
+      const newTitle = input.value.trim();
+
+      if (!id || !newTitle) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      try {
+        const res = await authFetch('/api/entries/' + id + '.json', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const updated = await res.json();
+        
+        // Update local article data
+        const idx = allEntries.findIndex(e => e.id === id);
+        if (idx >= 0) {
+          allEntries[idx].title = updated.title || newTitle;
+        }
+
+        // Update reader header if currently open
+        if (activeArticleId === id) {
+          document.getElementById('readerTitle').textContent = updated.title || newTitle;
+          document.title = (updated.title || newTitle) + ' - Wallaflare';
+        }
+
+        filterArticles();
+        closeModal('editTitleModal');
+        showToast('✓ Title updated successfully!');
+      } catch (err) {
+        showToast('Failed to update title: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Title';
+      }
     }
 
     async function handleIngestText(e) {
