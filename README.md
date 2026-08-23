@@ -43,6 +43,12 @@
   - **Reading Progress Bar**: Live scroll progress indicator.
   - **Themes & Typography**: Dark, Light, and Sepia modes with Serif / Sans-serif toggles and fine-tuned font sizing.
 - **🔍 Smart Article Ingestion**: Powered by `@mozilla/readability` and `linkedom` for fast serverless content extraction with relative URL canonicalization.
+- **🛡️ Built-in Brute-Force & Rate-Limiting Protection**:
+  - Native IP-based lockout protection across all Web & API authentication routes (`/oauth/v2/token`, `/api/auth/verify`, and protected `/api/*` endpoints).
+  - Enforces a **5-attempt threshold** before triggering a **15-minute lockout** (`HTTP 429 Too Many Requests`).
+  - **Live Lockout Countdown**: The web UI displays real-time countdown feedback with automatic field re-enabling upon expiration.
+  - **Inactivity Reset**: Failure counters automatically reset after 15 minutes of inactivity or immediately on any successful authentication.
+  - **Timing-Safe Comparison**: Constant-time string comparison protects against secret extraction via side-channel timing attacks.
 
 ---
 
@@ -126,7 +132,12 @@ Your instance is now live worldwide! 🎉
 ## 🔒 Security & Architecture
 
 - **Stateless & Edge-Native**: No servers to manage, no Docker containers, no background database daemons.
-- **Zero Hardcoded Secrets**: Secrets and tokens are managed via Cloudflare Secrets (`wrangler secret put`).
+- **Zero Hardcoded Secrets**: Secrets and tokens are managed via Cloudflare Secrets (`wrangler secret put AUTH_TOKEN`).
+- **Native Rate-Limiting & Brute-Force Defense**:
+  - Automatically tracks consecutive failed password/token attempts per client IP in Cloudflare D1.
+  - Returns explicit attempt counts on failures and strictly locks out aggressive brute-force attempts for 15 minutes after 5 failures.
+  - Constant-time cryptographic comparison (`timingSafeCompare`) protects against token timing attacks.
+  - Unauthenticated guest visits and clean logouts never consume failure attempts.
 - **Authorization Header Support**: All web actions and EPUB downloads pass credentials securely in HTTP `Authorization: Bearer <token>` headers rather than exposing tokens in query URLs.
 - **Dynamic Origin Resolution**: All redirects, OAuth callbacks, and PWA manifest URLs resolve the client's host origin dynamically at runtime.
 
