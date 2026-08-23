@@ -449,7 +449,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       align-items: center;
       justify-content: space-between;
       padding-top: 0.65rem;
-      border-top: 1px solid var(--border-color);
+      position: relative;
       font-size: 0.75rem;
       color: var(--text-muted);
     }
@@ -2412,9 +2412,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const progressBadgeHtml = progressPct > 0
           ? '<span class="card-progress-center" title="Reading progress saved on this browser" style="font-size: 0.72rem; color: var(--accent); font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + progressPct + '% read <span style="font-size: 0.65rem; opacity: 0.75;">(this browser)</span></span>'
           : '<span style="flex: 1;"></span>';
-        const progressBarHtml = progressPct > 0
-          ? '<div style="height: 2.5px; background: var(--border-color); border-radius: 1px; overflow: hidden; margin: 0.75rem 0 0 0;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
-          : '';
+        const progressLineHtml = progressPct > 0
+          ? '<div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--border-color); overflow: hidden;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
+          : '<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--border-color);"></div>';
 
         return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
           '<div>' +
@@ -2428,8 +2428,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
             tagsHtml +
           '</div>' +
-          progressBarHtml +
-          '<div class="card-footer" style="display: flex; align-items: center; justify-content: space-between;">' +
+          '<div class="card-footer" style="margin-top: 0.75rem;">' +
+            progressLineHtml +
             '<span class="card-date">' + date + '</span>' +
             progressBadgeHtml +
             '<div class="card-actions">' +
