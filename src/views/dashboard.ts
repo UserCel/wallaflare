@@ -870,6 +870,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
     .close-btn:hover { color: var(--text-primary); }
 
+    .form-grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+    }
     .form-group {
       display: flex;
       flex-direction: column;
@@ -1441,7 +1446,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <input type="text" id="textTitle" placeholder="Article or Chapter Title" required autofocus>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="form-grid-2col">
           <div class="form-group">
             <label for="textAuthor">Author / Published By (Optional)</label>
             <input type="text" id="textAuthor" placeholder="e.g. Brandon Sanderson">
