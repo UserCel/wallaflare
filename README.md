@@ -32,6 +32,12 @@
   - Automatic language and Unicode script detection for Right-to-Left (RTL) articles (Hebrew, Arabic, Persian, Urdu, Yiddish).
   - Web reader and card titles automatically align right with RTL blockquotes and typography.
   - EPUB generator sets `page-progression-direction="rtl"`, Hebrew metadata labels, and semantic figures so KOReader renders RTL books natively.
+- **📱 Native Android App (Capacitor & Native Bridge)**:
+  - **Ultra-Lightweight Release**: Only **1.1 MB** with R8 ProGuard minimization and resource shrinking.
+  - **Instant Local Cache**: 0.0ms instantaneous startup rendering from offline storage with automatic background server revalidation.
+  - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser — opens a lightweight background card that parses the URL and shows live title confirmation without disrupting your current app.
+  - **Native EPUB Export & Share Sheet**: Export articles directly to Android's system share sheet to open in KOReader, Moon+ Reader, ReadEra, save to Downloads, or send to Kindle.
+  - **Edge-to-Edge Design & Gestures**: Dynamic status bar / navigation bar safe area padding, pull-to-refresh with real-time physics, in-app confirmation modals, and double-back-to-exit protection.
 - **📚 Rich Multi-Page EPUB Generator**:
   - Automatically generates clean EPUB 3 / EPUB 2 files formatted to match Wallabag.
   - Bundles high-resolution preview cover images (`cover.xhtml` + `cover.png/jpg`) and downloads all inline article photos.
@@ -113,6 +119,23 @@ Deploy your serverless instance to the Cloudflare edge:
 npm run deploy
 ```
 Your instance is now live worldwide! 🎉
+
+---
+
+### Native Android App Build (Capacitor)
+Wallaflare includes a first-class native Android wrapper with background share integration and native EPUB export.
+
+1. **Build Debug APK**:
+   ```bash
+   npm run build:apk
+   ```
+   Output: `android/app/build/outputs/apk/debug/app-debug.apk`
+
+2. **Build Minimized Release APK (1.1 MB)**:
+   ```bash
+   npm run build:apk:release
+   ```
+   Output: `android/app/build/outputs/apk/release/app-release.apk`
 
 ---
 

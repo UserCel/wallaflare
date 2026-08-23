@@ -93,6 +93,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       background-color: rgba(15, 23, 42, 0.82);
       border-bottom: 1px solid var(--border-color);
       padding: 0.75rem 1.25rem;
+      padding-top: max(0.75rem, calc(0.75rem + env(safe-area-inset-top, 0px)));
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1114,11 +1115,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       top: 0;
       left: 0;
       bottom: 0;
-      width: 260px;
+      width: 270px;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
       box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
-      padding: 1.25rem 0.75rem;
+      padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem;
       z-index: 350;
       flex-direction: column;
       gap: 0.35rem;
@@ -1189,6 +1190,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     @media (max-width: 768px) {
       header {
         padding: 0.6rem 0.85rem;
+        padding-top: max(0.6rem, calc(0.6rem + env(safe-area-inset-top, 0px)));
       }
       .brand span:nth-child(2) {
         font-size: 1.05rem;
@@ -1231,10 +1233,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         top: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: 48px !important;
+        height: calc(48px + env(safe-area-inset-top, 0px)) !important;
+        padding-top: env(safe-area-inset-top, 0px) !important;
         background: var(--bg-secondary) !important;
         border-bottom: 1px solid var(--border-color) !important;
-        padding: 0 0.75rem !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
         align-items: center !important;
         justify-content: space-between !important;
         z-index: 150 !important;
@@ -1270,7 +1274,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
         z-index: 250 !important;
         box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
-        padding: 1.25rem 0.75rem !important;
+        padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem !important;
         background: var(--bg-secondary) !important;
         border-right: 1px solid var(--border-color) !important;
         display: flex !important;
@@ -1304,11 +1308,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         display: none !important;
       }
       .reader-main-scroll {
-        padding: 4rem 1rem 3rem 1rem !important;
+        padding: calc(4rem + env(safe-area-inset-top, 0px)) 1rem 3rem 1rem !important;
       }
       #readerTitle {
         font-size: 1.6rem !important;
       }
+    }
+    .ptr-spinning {
+      animation: ptrSpin 0.75s linear infinite !important;
+    }
+    @keyframes ptrSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -1347,6 +1358,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </div>
         <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Pull to Refresh Spinner -->
+  <div id="pullToRefreshWrap" style="position: fixed; top: calc(56px + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -100px); z-index: 300; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none;">
+    <div id="pullToRefreshCard" style="background: var(--bg-card); border: 1.5px solid var(--border-color); box-shadow: 0 8px 25px rgba(0,0,0,0.55); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+      <svg id="pullToRefreshSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" style="transition: transform 0.15s ease;">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
     </div>
   </div>
 
@@ -1422,6 +1444,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
       <button class="action-btn" onclick="closeMobileNavMenu()" style="font-size: 1.25rem;">&times;</button>
     </div>
+    <button class="mobile-nav-item" onclick="openServerConnectModal(); closeMobileNavMenu();" style="color: var(--accent);">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <span>Server Settings</span>
+    </button>
     <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
       <span>Manage Tags</span>
@@ -1495,6 +1521,50 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <p>Add a URL or text using the buttons in the top navbar.</p>
     </div>
   </main>
+
+
+
+  <!-- Modal: Confirmation Dialog -->
+  <div class="modal-backdrop" id="confirmModal" style="z-index: 9999 !important;">
+    <div class="modal" style="max-width: 440px; text-align: left;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="confirmModalTitle">Confirm Action</h3>
+        <button class="close-btn" onclick="handleConfirmModalCancel()">&times;</button>
+      </div>
+      <div id="confirmModalMsg" style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5; margin: 1rem 0 1.25rem 0; white-space: pre-line;"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button type="button" class="btn btn-secondary" onclick="handleConfirmModalCancel()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmModalBtn" onclick="handleConfirmModalOk()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server Connection Modal (for Android Capacitor App) -->
+  <div class="modal-backdrop" id="serverConnectModal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Connect to Wallaflare Server</h3>
+        <button class="close-btn" onclick="closeModal('serverConnectModal')">&times;</button>
+      </div>
+      <form onsubmit="handleSaveServerConnection(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
+        <div class="form-group">
+          <label for="serverUrlInput">Wallaflare Server URL *</label>
+          <input type="url" id="serverUrlInput" placeholder="https://wallaflare.example.com" required>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Enter your Cloudflare Worker URL or custom domain</div>
+        </div>
+
+        <div class="form-group">
+          <label for="serverTokenInput">API Auth Token / Password (Optional)</label>
+          <input type="password" id="serverTokenInput" placeholder="Your AUTH_TOKEN if configured">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('serverConnectModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveServerBtn">Connect &amp; Sync</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Modal: Add URL -->
   <div class="modal-backdrop" id="addUrlModal">
@@ -1825,13 +1895,31 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    function isCapacitorApp() {
+      return window.IS_CAPACITOR_APP === true ||
+             window.location.hostname === 'localhost' ||
+             window.location.hostname === '127.0.0.1' ||
+             window.location.protocol === 'capacitor:' || 
+             (typeof window.Capacitor !== 'undefined');
+    }
+
+    function getApiBaseUrl() {
+      if (isCapacitorApp()) {
+        const customUrl = localStorage.getItem('wf_server_url') || '';
+        return customUrl.endsWith('/') ? customUrl.slice(0, -1) : customUrl;
+      }
+      return '';
+    }
+
     function authFetch(url, options = {}) {
+      const baseUrl = getApiBaseUrl();
+      const fullUrl = url.startsWith('http') ? url : (baseUrl + url);
       const headers = Object.assign({}, options.headers || {});
       const token = getAuthToken();
       if (token) {
         headers['Authorization'] = 'Bearer ' + token;
       }
-      return fetch(url, Object.assign({}, options, { headers }));
+      return fetch(fullUrl, Object.assign({}, options, { headers }));
     }
 
     
@@ -1863,9 +1951,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     });
 
-    function handleLogout() {
-      if (confirm('Are you sure you want to log out of Wallaflare?')) {
+    async function handleLogout() {
+      const ok = await showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?', 'Log Out', true);
+      if (!ok) return;
+      if (isCapacitorApp()) {
         setAuthToken('');
+        localStorage.removeItem('wf_server_url');
+        allEntries = [];
+        updateCounts();
+        filterArticles();
+        openServerConnectModal();
+        showToast('Logged out of server');
+        return;
+      }
+      setAuthToken('');
         const overlay = document.getElementById('authOverlay');
         const input = document.getElementById('authKeyInput');
         const submitBtn = document.getElementById('authSubmitBtn');
@@ -1886,7 +1985,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           overlay.style.display = 'flex';
         }
         showToast('Logged out');
-      }
     }
 
     let lockoutTimer = null;
@@ -2065,8 +2163,54 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       handleRouteState();
     }
 
-    async function loadArticles() {
-      document.getElementById('statusIndicator').textContent = 'Syncing...';
+    function renderFromInstantLocalCache() {
+      try {
+        const fast = localStorage.getItem('wf_cached_articles');
+        if (fast) {
+          const parsed = JSON.parse(fast);
+          if (Array.isArray(parsed) && parsed.length > 0 && allEntries.length === 0) {
+            allEntries = parsed;
+            updateCounts();
+            filterArticles();
+            const status = document.getElementById('statusIndicator');
+            if (status) status.textContent = allEntries.length + ' articles';
+          }
+        }
+      } catch (err) {
+        console.warn('Local cache read error', err);
+      }
+    }
+
+    async function loadArticles(silent = false) {
+      if (isCapacitorApp()) {
+        const settingsBtn = document.getElementById('serverSettingsBtn');
+        if (settingsBtn) settingsBtn.style.display = 'flex';
+
+        if (!localStorage.getItem('wf_server_url')) {
+          openServerConnectModal();
+          return;
+        }
+      }
+
+      // 1. Instant 0ms cache rendering
+      renderFromInstantLocalCache();
+      if (allEntries.length === 0) {
+        const cached = await getArticlesFromOfflineDb();
+        if (cached && cached.length > 0 && allEntries.length === 0) {
+          allEntries = cached;
+          updateCounts();
+          filterArticles();
+          const status = document.getElementById('statusIndicator');
+          if (status) status.textContent = allEntries.length + ' articles';
+        }
+      }
+
+      if (!silent && allEntries.length === 0) {
+        const status = document.getElementById('statusIndicator');
+        if (status) status.textContent = 'Syncing...';
+      }
+
+      // 2. Background Revalidation from Server
       try {
         const res = await authFetch('/api/entries.json?perPage=100');
         if (res.status === 401) {
@@ -2078,15 +2222,33 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allEntries = data._embedded ? data._embedded.items : [];
+        
+        // Save to both instant synchronous cache and IndexedDB
+        try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
+        saveArticlesToOfflineDb(allEntries);
+        
         updateCounts();
         filterArticles();
-        document.getElementById('statusIndicator').textContent = allEntries.length + ' articles';
-        
-        // Initial URL route check
+        const status = document.getElementById('statusIndicator');
+        if (status) status.textContent = allEntries.length + ' articles';
         handleRouteState();
       } catch (err) {
-        document.getElementById('statusIndicator').textContent = 'Error loading library';
-        showToast('Failed to load articles: ' + err.message);
+        console.warn('Server sync error', err);
+        if (allEntries.length === 0) {
+          const cached = await getArticlesFromOfflineDb();
+          if (cached && cached.length > 0) {
+            allEntries = cached;
+            updateCounts();
+            filterArticles();
+            const status = document.getElementById('statusIndicator');
+            if (status) status.textContent = allEntries.length + ' articles (offline)';
+          } else {
+            const status = document.getElementById('statusIndicator');
+            if (status) status.textContent = 'Error loading library';
+          }
+        }
+      } finally {
+        hidePullToRefreshSpinner();
       }
     }
 
@@ -2294,7 +2456,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function deleteGlobalTagAction(tagId, label, count) {
       const msg = count > 0 ? ('Are you sure you want to delete tag "#' + label + '"?\\n\\nIt is currently used on ' + count + ' article' + (count === 1 ? '' : 's') + '. Deleting it will untag them.') : ('Delete unused tag "#' + label + '"?');
 
-      if (!confirm(msg)) return;
+      const ok = await showConfirmDialog('Delete Tag', msg, 'Delete Tag', true);
+      if (!ok) return;
 
       const res = await authFetch('/api/tags/' + tagId + '.json', { method: 'DELETE' });
       if (res.ok) {
@@ -2320,7 +2483,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return;
       }
 
-      if (!confirm('Delete ' + unused.length + ' unused tag(s)?')) return;
+      const ok = await showConfirmDialog('Clean Up Tags', 'Delete ' + unused.length + ' unused tag(s)?', 'Delete Tags', true);
+      if (!ok) return;
 
       for (const t of unused) {
         await authFetch('/api/tags/' + t.id + '.json', { method: 'DELETE' });
@@ -2420,7 +2584,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
         const progressPct = Math.round(savedRatio * 100);
         const progressBadgeHtml = progressPct > 0
-          ? '<span class="card-progress-center" title="Reading progress saved on this browser" style="font-size: 0.72rem; color: var(--accent); font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + progressPct + '% read <span style="font-size: 0.65rem; opacity: 0.75;">(this browser)</span></span>'
+          ? '<span class="card-progress-center" title="Reading progress" style="font-size: 0.75rem; color: var(--accent); font-weight: 600; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + progressPct + '% read</span>'
           : '<span style="flex: 1;"></span>';
         const progressLineHtml = progressPct > 0
           ? '<div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--border-color); overflow: hidden;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
@@ -2471,7 +2635,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function downloadEpub(id) {
       const item = allEntries.find(e => e.id === id);
-      showToast('Preparing EPUB download...');
+      showToast('Preparing EPUB...');
       try {
         const res = await authFetch('/api/entries/' + id + '/export.epub');
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2487,19 +2651,51 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
 
         const blob = await res.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
+
+        // Android native share sheet (JavascriptInterface bridge)
+        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
+          const reader = new FileReader();
+          reader.onload = function() {
+            try {
+              const dataUrl = reader.result;
+              const base64 = dataUrl.split(',')[1];
+              window.AndroidNative.shareBase64File(filename, base64, 'application/epub+zip');
+              showToast('Opening share sheet...');
+            } catch(e) {
+              showToast('Share failed: ' + e.message);
+            }
+          };
+          reader.onerror = function() { showToast('Failed to read EPUB file'); };
+          reader.readAsDataURL(blob);
+          return;
+        }
+
+        // Web Share API with file (PWA / desktop)
+        if (navigator.canShare) {
+          try {
+            const file = new File([blob], filename, { type: 'application/epub+zip' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename });
+              showToast('✓ EPUB shared');
+              return;
+            }
+          } catch (e) {
+            if (e.name === 'AbortError') return;
+          }
+        }
+
+        // Fallback: browser anchor download
+        const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = blobUrl;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
-        setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl);
-          a.remove();
-        }, 2000);
+        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
+        showToast('✓ EPUB downloaded');
       } catch (err) {
-        showToast('Failed to download EPUB: ' + err.message);
+        showToast('EPUB export failed: ' + err.message);
       }
     }
 
@@ -2536,7 +2732,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     async function deleteEntryAction(id) {
-      if (!confirm('Are you sure you want to delete this article?')) return;
+      const ok = await showConfirmDialog('Delete Article', 'Are you sure you want to delete this article?\\n\\nThis action cannot be undone.', 'Delete Article', true);
+      if (!ok) return;
       const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
       if (res.ok) {
         allEntries = allEntries.filter(e => e.id !== id);
@@ -2745,6 +2942,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.body.style.overflow = 'auto';
       document.getElementById('readingProgress').style.width = '0%';
 
+      // Instantly update card progress indicators on the main list
+      filterArticles();
+
       if (updateHistory) {
         const newPath = currentFilter === 'unread' ? '/' : ('/' + currentFilter);
         if (window.location.pathname !== newPath) {
@@ -2948,6 +3148,172 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+
+    // -------------------------------------------------------------
+    // Offline Cache (IndexedDB)
+    // -------------------------------------------------------------
+    const OFFLINE_DB_NAME = 'WallaflareOfflineDB';
+    const OFFLINE_DB_VERSION = 1;
+    const OFFLINE_STORE_NAME = 'articles';
+
+    function openOfflineDb() {
+      return new Promise((resolve) => {
+        if (!window.indexedDB) return resolve(null);
+        try {
+          const req = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(OFFLINE_STORE_NAME)) {
+              db.createObjectStore(OFFLINE_STORE_NAME, { keyPath: 'id' });
+            }
+          };
+          req.onsuccess = (e) => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
+    }
+
+    async function saveArticlesToOfflineDb(entries) {
+      try {
+        const db = await openOfflineDb();
+        if (!db) return;
+        const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(OFFLINE_STORE_NAME);
+        entries.forEach(entry => store.put(entry));
+      } catch (err) {
+        console.warn('Offline cache save error', err);
+      }
+    }
+
+    async function getArticlesFromOfflineDb() {
+      try {
+        const db = await openOfflineDb();
+        if (!db) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction(OFFLINE_STORE_NAME, 'readonly');
+          const store = tx.objectStore(OFFLINE_STORE_NAME);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch {
+        return [];
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Android Share Target Handler
+    // -------------------------------------------------------------
+
+    // -------------------------------------------------------------
+    // Android Back Button Navigation & Drawer Handling
+    // -------------------------------------------------------------
+    window.handleAndroidBackButton = function() {
+      // 1. If Reader Mobile Drawer is open, close it
+      const readerSidebar = document.getElementById('readerSidebar');
+      if (readerSidebar && readerSidebar.classList.contains('drawer-open')) {
+        closeMobileReaderDrawer();
+        return true;
+      }
+
+      // 2. If Reader View is open, close reader
+      const readerView = document.getElementById('readerView');
+      if (readerView && readerView.classList.contains('open')) {
+        closeReader(true);
+        return true;
+      }
+
+      // 3. If any modal is open, close it
+      const openModal = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+      if (openModal) {
+        openModal.classList.remove('open');
+        return true;
+      }
+
+      // 4. If mobile nav drawer is open, close it
+      const mobileNav = document.getElementById('mobileNavDropdown');
+      if (mobileNav && mobileNav.classList.contains('open')) {
+        closeMobileNavMenu();
+        return true;
+      }
+
+      // 5. If card dropdown menu is open, close it
+      const openCardMenu = document.querySelector('.card-dropdown-menu.open');
+      if (openCardMenu) {
+        closeAllCardMenus();
+        return true;
+      }
+
+      return false;
+    };
+
+    window.handleAndroidSharedText = function(text) {
+      if (!text) return;
+      const urlMatch = text.match(new RegExp('https?://[^\\s]+'));
+      const targetUrl = urlMatch ? urlMatch[0] : text.trim();
+      
+      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+        const input = document.getElementById('urlInput');
+        if (input) input.value = targetUrl;
+        openModal('addUrlModal');
+        showToast('Shared URL received!');
+      } else {
+        const contentInput = document.getElementById('textContent');
+        if (contentInput) contentInput.value = text;
+        openModal('addTextModal');
+        showToast('Shared text received!');
+      }
+    };
+
+    function openServerConnectModal() {
+      const urlInput = document.getElementById('serverUrlInput');
+      const tokenInput = document.getElementById('serverTokenInput');
+      if (urlInput) urlInput.value = localStorage.getItem('wf_server_url') || '';
+      if (tokenInput) tokenInput.value = getAuthToken();
+      openModal('serverConnectModal');
+    }
+
+    async function handleSaveServerConnection(e) {
+      e.preventDefault();
+      const urlInput = document.getElementById('serverUrlInput');
+      const tokenInput = document.getElementById('serverTokenInput');
+      const btn = document.getElementById('saveServerBtn');
+      
+      let serverUrl = urlInput.value.trim();
+      if (serverUrl.endsWith('/')) {
+        serverUrl = serverUrl.slice(0, -1);
+      }
+      const token = tokenInput ? tokenInput.value.trim() : '';
+      if (!serverUrl) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Connecting...';
+
+      try {
+        localStorage.setItem('wf_server_url', serverUrl);
+        setAuthToken(token);
+        if (window.AndroidNative && window.AndroidNative.saveServerConfig) {
+          window.AndroidNative.saveServerConfig(serverUrl, token);
+        }
+
+        const res = await authFetch('/api/entries.json?perPage=1');
+        if (!res.ok && res.status !== 401) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        closeModal('serverConnectModal');
+        showToast('✓ Connected to ' + serverUrl);
+        loadArticles();
+      } catch (err) {
+        showToast('Connection failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Connect & Sync';
+      }
+    }
+
     function openEditTitleModal(id) {
       const item = allEntries.find(e => e.id === id);
       if (!item) return;
@@ -3117,6 +3483,40 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     const savedTheme = localStorage.getItem('wf_theme') || 'dark';
     document.documentElement.className = savedTheme;
 
+
+    // -------------------------------------------------------------
+    // Custom In-App Confirmation Dialog
+    // -------------------------------------------------------------
+    let confirmResolve = null;
+
+    function showConfirmDialog(title, message, confirmBtnText = 'Confirm', isDanger = false) {
+      return new Promise((resolve) => {
+        confirmResolve = resolve;
+        document.getElementById('confirmModalTitle').textContent = title;
+        document.getElementById('confirmModalMsg').textContent = message;
+        const btn = document.getElementById('confirmModalBtn');
+        btn.textContent = confirmBtnText;
+        btn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+        openModal('confirmModal');
+      });
+    }
+
+    function handleConfirmModalOk() {
+      closeModal('confirmModal');
+      if (confirmResolve) {
+        confirmResolve(true);
+        confirmResolve = null;
+      }
+    }
+
+    function handleConfirmModalCancel() {
+      closeModal('confirmModal');
+      if (confirmResolve) {
+        confirmResolve(false);
+        confirmResolve = null;
+      }
+    }
+
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
@@ -3127,8 +3527,107 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         .replace(/'/g, '&#039;');
     }
 
+
+    // -------------------------------------------------------------
+    // Pull to Refresh Implementation (Smooth 1:1 Physics)
+    // -------------------------------------------------------------
+    let pullStartY = 0;
+    let isPulling = false;
+    let isRefreshing = false;
+    const PULL_TRIGGER_PX = 50;
+
+    function setupPullToRefresh() {
+      window.addEventListener('touchstart', (e) => {
+        const readerOpen = document.getElementById('readerView') && document.getElementById('readerView').classList.contains('open');
+        const modalOpen = document.querySelector('.modal-backdrop.open');
+        if (window.scrollY <= 1 && !readerOpen && !modalOpen && !isRefreshing) {
+          pullStartY = e.touches[0].clientY;
+          isPulling = true;
+          const wrap = document.getElementById('pullToRefreshWrap');
+          if (wrap) wrap.style.transition = 'none';
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (!isPulling || isRefreshing) return;
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - pullStartY;
+        if (diff > 0 && window.scrollY <= 1) {
+          const pullDistance = Math.min(68, diff * 0.35);
+          const wrap = document.getElementById('pullToRefreshWrap');
+          const svg = document.getElementById('pullToRefreshSvg');
+          if (wrap) {
+            wrap.style.transition = 'none';
+            wrap.style.transform = 'translate(-50%, ' + (pullDistance - 48) + 'px)';
+          }
+          if (svg) {
+            svg.style.transform = 'rotate(' + (diff * 2) + 'deg)';
+          }
+        } else if (diff < 0) {
+          isPulling = false;
+          hidePullToRefreshSpinner();
+        }
+      }, { passive: true });
+
+      const handleTouchEnd = async (e) => {
+        if (!isPulling || isRefreshing) return;
+        isPulling = false;
+        const currentY = e.changedTouches ? e.changedTouches[0].clientY : 0;
+        const diff = currentY - pullStartY;
+        const effectivePull = diff * 0.35;
+
+        const wrap = document.getElementById('pullToRefreshWrap');
+        if (wrap) wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+
+        if (effectivePull >= PULL_TRIGGER_PX && window.scrollY <= 1) {
+          isRefreshing = true;
+          const svg = document.getElementById('pullToRefreshSvg');
+          if (wrap) wrap.style.transform = 'translate(-50%, 18px)';
+          if (svg) svg.classList.add('ptr-spinning');
+          
+          await loadArticles(true);
+          hidePullToRefreshSpinner();
+        } else {
+          hidePullToRefreshSpinner();
+        }
+      };
+
+      window.addEventListener('touchend', handleTouchEnd, { passive: true });
+      window.addEventListener('touchcancel', () => hidePullToRefreshSpinner(), { passive: true });
+    }
+
+    function hidePullToRefreshSpinner() {
+      isRefreshing = false;
+      isPulling = false;
+      const wrap = document.getElementById('pullToRefreshWrap');
+      const svg = document.getElementById('pullToRefreshSvg');
+      if (wrap) {
+        wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+        wrap.style.transform = 'translate(-50%, -100px)';
+      }
+      if (svg) {
+        svg.classList.remove('ptr-spinning');
+        svg.style.transform = '';
+      }
+    }
+
     // Initialize
+    renderFromInstantLocalCache();
+    setupPullToRefresh();
     loadArticles();
+    if (isCapacitorApp()) {
+      const settingsBtn = document.getElementById('serverSettingsBtn');
+      if (settingsBtn) settingsBtn.style.display = 'flex';
+      if (window.AndroidNative && window.AndroidNative.saveServerConfig) {
+        window.AndroidNative.saveServerConfig(
+          localStorage.getItem('wf_server_url') || '',
+          getAuthToken()
+        );
+      }
+      if (!localStorage.getItem('wf_server_url')) {
+        setTimeout(() => openServerConnectModal(), 120);
+      }
+    }
   </script>
 </body>
 </html>`;
