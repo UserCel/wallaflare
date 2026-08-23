@@ -870,6 +870,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
     .close-btn:hover { color: var(--text-primary); }
 
+    .form-grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+    }
+    @media (max-width: 768px) {
+      .form-grid-2col {
+        grid-template-columns: 1fr !important;
+        gap: 0.95rem;
+      }
+    }
+    .form-group input[type="date"] {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
     .form-group {
       display: flex;
       flex-direction: column;
@@ -1415,7 +1431,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <h3 class="modal-title">Save Article from Web</h3>
         <button class="close-btn" onclick="closeModal('addUrlModal')">&times;</button>
       </div>
-      <form onsubmit="handleIngestUrl(event)">
+      <form onsubmit="handleIngestUrl(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
         <div class="form-group">
           <label for="urlInput">Article URL</label>
           <input type="url" id="urlInput" placeholder="https://example.com/article" required autofocus>
@@ -1430,24 +1446,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Modal: Add Text -->
   <div class="modal-backdrop" id="addTextModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 560px;">
       <div class="modal-header">
         <h3 class="modal-title">Add Custom Text / Markdown</h3>
         <button class="close-btn" onclick="closeModal('addTextModal')">&times;</button>
       </div>
-      <form onsubmit="handleIngestText(event)">
+      <form onsubmit="handleIngestText(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
         <div class="form-group">
-          <label for="textTitle">Title</label>
-          <input type="text" id="textTitle" placeholder="Article Title" required>
+          <label for="textTitle">Title *</label>
+          <input type="text" id="textTitle" placeholder="Article or Chapter Title" required autofocus>
         </div>
+
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label for="textAuthor">Author / Published By (Optional)</label>
+            <input type="text" id="textAuthor" placeholder="e.g. Brandon Sanderson">
+          </div>
+          <div class="form-group">
+            <label for="textPublishedAt">Publication Date (Optional)</label>
+            <input type="date" id="textPublishedAt">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="textTags">Tags (Optional, comma-separated)</label>
+          <input type="text" id="textTags" placeholder="e.g. fantasy, novel" oninput="syncAddTextTagChips()">
+          <div id="addTextTagsContainer" style="display: none; margin-top: 0.45rem;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem;">Quick select from existing library tags:</div>
+            <div class="card-tags" id="addTextAvailableTags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;"></div>
+          </div>
+        </div>
+
         <div class="form-group">
           <label for="textUrl">Source URL (Optional)</label>
-          <input type="url" id="textUrl" placeholder="https://...">
+          <input type="url" id="textUrl" placeholder="https://original-source.com/article">
         </div>
+
         <div class="form-group">
-          <label for="textContent">Content (HTML or Markdown)</label>
-          <textarea id="textContent" placeholder="Paste your text or markdown here..." required></textarea>
+          <label for="textContent">Content (HTML or Markdown) *</label>
+          <textarea id="textContent" placeholder="Paste your text, chapter, or markdown here..." rows="7" required></textarea>
         </div>
+
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('addTextModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="ingestTextBtn">Save Entry</button>
@@ -2422,9 +2461,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         coverWrap.innerHTML = '';
       }
 
-      // Populate content cleanly
+      // Populate content cleanly with defense-in-depth sanitization
       const readerBodyEl = document.getElementById('readerBody');
-      readerBodyEl.innerHTML = item.content || '<p>No content available.</p>';
+      const rawContent = item.content || '<p>No content available.</p>';
+      const cleanContent = (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) 
+        ? DOMPurify.sanitize(rawContent, { ADD_ATTR: ['target', 'rel'] }) 
+        : rawContent;
+      readerBodyEl.innerHTML = cleanContent;
 
       // Update active reader star and archive buttons (Desktop & Mobile)
       const starBtn = document.getElementById('readerStarBtn');
@@ -2632,16 +2675,71 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    function renderAddTextTagChips() {
+      const container = document.getElementById('addTextTagsContainer');
+      const chipsContainer = document.getElementById('addTextAvailableTags');
+      if (!container || !chipsContainer) return;
+
+      if (!cachedGlobalTags || cachedGlobalTags.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+
+      const tagsInput = document.getElementById('textTags');
+      const currentTags = (tagsInput ? tagsInput.value : '')
+        .split(',')
+        .map(s => s.trim().toLowerCase().replace(/^#/, ''))
+        .filter(Boolean);
+
+      container.style.display = 'block';
+      chipsContainer.innerHTML = cachedGlobalTags.map(t => {
+        const isSelected = currentTags.includes(t.label.toLowerCase()) || currentTags.includes(t.slug.toLowerCase());
+        const activeStyle = isSelected 
+          ? 'background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;' 
+          : 'cursor: pointer; opacity: 0.85;';
+        return '<span class="tag-badge" style="cursor: pointer; ' + activeStyle + '" data-tag="' + escapeHtml(t.label) + '" onclick="toggleAddTextTag(this.dataset.tag)">' +
+          (isSelected ? '✓ #' : '+ #') + escapeHtml(t.label) + '</span>';
+      }).join('');
+    }
+
+    function toggleAddTextTag(tagLabel) {
+      const input = document.getElementById('textTags');
+      if (!input) return;
+
+      let tags = input.value.split(',').map(s => s.trim()).filter(Boolean);
+      const lower = tagLabel.toLowerCase();
+      const existingIdx = tags.findIndex(t => t.toLowerCase().replace(/^#/, '') === lower);
+
+      if (existingIdx >= 0) {
+        tags.splice(existingIdx, 1);
+      } else {
+        tags.push(tagLabel);
+      }
+
+      input.value = tags.join(', ');
+      renderAddTextTagChips();
+    }
+
+    function syncAddTextTagChips() {
+      renderAddTextTagChips();
+    }
+
     async function handleIngestText(e) {
       e.preventDefault();
       const titleInput = document.getElementById('textTitle');
+      const authorInput = document.getElementById('textAuthor');
+      const publishedAtInput = document.getElementById('textPublishedAt');
+      const tagsInput = document.getElementById('textTags');
       const urlInput = document.getElementById('textUrl');
       const contentInput = document.getElementById('textContent');
       const btn = document.getElementById('ingestTextBtn');
 
       const title = titleInput.value.trim();
       const content = contentInput.value.trim();
-      const url = urlInput.value.trim();
+      const author = authorInput ? authorInput.value.trim() : '';
+      const publishedAt = publishedAtInput && publishedAtInput.value ? publishedAtInput.value : '';
+      const tags = tagsInput ? tagsInput.value.trim() : '';
+      const url = urlInput ? urlInput.value.trim() : '';
       if (!title || !content) return;
 
       btn.disabled = true;
@@ -2651,7 +2749,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const res = await authFetch('/api/entries.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, content, url: url || undefined })
+          body: JSON.stringify({
+            title,
+            content,
+            url: url || undefined,
+            author: author || undefined,
+            published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
+            tags: tags || undefined
+          })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const item = await res.json();
@@ -2661,10 +2766,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         closeModal('addTextModal');
         titleInput.value = '';
         contentInput.value = '';
-        urlInput.value = '';
-        showToast('Custom text saved successfully!');
+        if (authorInput) authorInput.value = '';
+        if (publishedAtInput) publishedAtInput.value = '';
+        if (tagsInput) tagsInput.value = '';
+        if (urlInput) urlInput.value = '';
+        showToast('✓ Custom entry saved successfully!');
       } catch (err) {
-        showToast('Failed to save entry: ' + err.message);
+        showToast('Failed to save text entry: ' + err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = 'Save Entry';
@@ -2684,6 +2792,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             }
           }, 60);
         } else if (id === 'addTextModal') {
+          loadGlobalTags().then(() => renderAddTextTagChips());
           setTimeout(() => {
             document.getElementById('textTitle')?.focus();
           }, 60);

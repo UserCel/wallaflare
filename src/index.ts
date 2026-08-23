@@ -11,6 +11,10 @@ app.use('*', async (c, next) => {
   c.header('X-Wallabag-Version', '2.6.9');
   c.header('X-Powered-By', 'wallabag');
   c.header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+  c.header(
+    'Content-Security-Policy',
+    "default-src 'self' 'unsafe-inline' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: http: data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self';"
+  );
   return next();
 });
 

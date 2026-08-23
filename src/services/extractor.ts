@@ -29,18 +29,85 @@ export function extractDomain(url: string): string {
   }
 }
 
+
+export function sanitizeArticleDom(doc: any): void {
+  if (!doc) return;
+
+  // 1. Remove dangerous executable and embedding elements
+  const dangerousTags = [
+    'script', 'iframe', 'object', 'embed', 'applet', 'link', 
+    'meta', 'form', 'input', 'button', 'select', 'textarea', 
+    'frame', 'frameset', 'noscript', 'style'
+  ];
+  dangerousTags.forEach(tag => {
+    doc.querySelectorAll(tag).forEach((el: any) => el.remove());
+  });
+
+  // 2. Strip all inline JavaScript event handlers (on*) and dangerous URL schemes
+  const allElements = doc.querySelectorAll('*');
+  allElements.forEach((el: any) => {
+    // Strip on* attributes (e.g. onerror, onload, onclick)
+    const attrs = Array.from(el.attributes || []) as any[];
+    attrs.forEach(attr => {
+      if (attr && attr.name && attr.name.toLowerCase().startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+
+    // Strip javascript: / vbscript: / data:text/html from href and src
+    const href = el.getAttribute('href');
+    if (href && /^(javascript|vbscript|data:text\/html)/i.test(href.trim())) {
+      el.removeAttribute('href');
+    }
+    const src = el.getAttribute('src');
+    if (src && /^(javascript|vbscript|data:text\/html)/i.test(src.trim())) {
+      el.removeAttribute('src');
+    }
+  });
+}
+
 export function resolveRelativeUrls(document: any, baseUrl: string): void {
   if (!baseUrl || !baseUrl.startsWith('http')) return;
 
   try {
     const base = new URL(baseUrl);
 
-    // Resolve <img> src attributes
-    document.querySelectorAll('img').forEach((img: any) => {
-      const src = img.getAttribute('src');
-      if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:')) {
+    // Resolve <img> and <source> src, srcset, and lazy-loaded attributes
+    document.querySelectorAll('img, source').forEach((el: any) => {
+      // Handle lazy load data-src fallback if src is missing or transparent placeholder
+      const dataSrc = el.getAttribute('data-src') || el.getAttribute('data-original') || el.getAttribute('data-lazy-src') || el.getAttribute('data-url');
+      const src = el.getAttribute('src');
+
+      if ((!src || src.startsWith('data:') || src.includes('placeholder')) && dataSrc) {
         try {
-          img.setAttribute('src', new URL(src, base).toString());
+          el.setAttribute('src', new URL(dataSrc, base).toString());
+        } catch {}
+      } else if (src) {
+        if (src.startsWith('//')) {
+          el.setAttribute('src', base.protocol + src);
+        } else if (!src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:')) {
+          try {
+            el.setAttribute('src', new URL(src, base).toString());
+          } catch {}
+        }
+      }
+
+      // Canonicalize protocol-relative and relative srcset (e.g. //upload.wikimedia.org/... 2x)
+      const srcset = el.getAttribute('srcset') || el.getAttribute('data-srcset');
+      if (srcset) {
+        try {
+          const cleanedSet = srcset.split(',').map((entry: string) => {
+            const parts = entry.trim().split(/\s+/);
+            if (parts[0]) {
+              if (parts[0].startsWith('//')) {
+                parts[0] = base.protocol + parts[0];
+              } else if (!parts[0].startsWith('http://') && !parts[0].startsWith('https://') && !parts[0].startsWith('data:')) {
+                parts[0] = new URL(parts[0], base).toString();
+              }
+            }
+            return parts.join(' ');
+          }).join(', ');
+          el.setAttribute('srcset', cleanedSet);
         } catch {}
       }
     });
@@ -48,10 +115,14 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
     // Resolve <a> href attributes and ensure secure external targets
     document.querySelectorAll('a').forEach((a: any) => {
       const href = a.getAttribute('href');
-      if (href && !href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:') && !href.startsWith('#')) {
-        try {
-          a.setAttribute('href', new URL(href, base).toString());
-        } catch {}
+      if (href) {
+        if (href.startsWith('//')) {
+          a.setAttribute('href', base.protocol + href);
+        } else if (!href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:') && !href.startsWith('#')) {
+          try {
+            a.setAttribute('href', new URL(href, base).toString());
+          } catch {}
+        }
       }
       if (a.getAttribute('href')?.startsWith('http')) {
         a.setAttribute('target', '_blank');
@@ -85,7 +156,7 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const authorMeta = document.querySelector('meta[name="author"], meta[property="article:author"], meta[property="books:author"], meta[property="og:article:author"], meta[name="twitter:creator"]');
   if (authorMeta) {
     const contentVal = authorMeta.getAttribute('content')?.trim();
-    if (contentVal && !contentVal.startsWith('@') && contentVal.length < 100 && !contentVal.toLowerCase().includes('follow')) {
+    if (contentVal && !contentVal.startsWith('http') && !contentVal.startsWith('@') && contentVal.length < 100 && !contentVal.toLowerCase().includes('follow')) {
       extractedAuthor = contentVal;
     } else if (contentVal && contentVal.startsWith('@') && contentVal.length > 1) {
       extractedAuthor = contentVal.slice(1);
@@ -168,17 +239,34 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     a.remove();
   });
 
-  const reader = new Readability(document, {
-    charThreshold: 0,
-    keepClasses: true,
-  });
 
-  const parsed = reader.parse();
+
+  let parsed: any = null;
+  try {
+    const reader = new Readability(document, {
+      charThreshold: 0,
+      keepClasses: true,
+    });
+    parsed = reader.parse();
+  } catch (err) {
+    // Graceful fallback for minimal body-less or malformed HTML trees
+    parsed = null;
+  }
 
   const domainName = originalUrl ? extractDomain(originalUrl) : 'direct-input';
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
-  const title = parsed?.title || ogTitle || twitterTitle || docTitle || textContent.slice(0, 50) || 'Untitled Article';
-  const content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
+  const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
+  let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
+  if (content) {
+    try {
+      const { document: contentDoc } = parseHTML('<!DOCTYPE html><html><body>' + content + '</body></html>');
+      if (originalUrl) {
+        resolveRelativeUrls(contentDoc, originalUrl);
+      }
+      sanitizeArticleDom(contentDoc);
+      content = contentDoc.body ? contentDoc.body.innerHTML : content;
+    } catch {}
+  }
   const excerpt = parsed?.excerpt || ogDescription || metaDescription || textContent.slice(0, 200);
   const previewPicture = ogImage || twitterImage || firstArticleImg || null;
   const readingTime = calculateReadingTime(textContent);
