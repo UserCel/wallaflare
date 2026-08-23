@@ -459,6 +459,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       align-items: center;
       gap: 0.25rem;
     }
+    .article-card.menu-open {
+      z-index: 100 !important;
+      position: relative;
+    }
+    .card-menu-wrap {
+      position: relative;
+    }
+    .article-card.menu-open .card-menu-wrap {
+      z-index: 101 !important;
+    }
     .card-dropdown-menu {
       position: absolute;
       bottom: calc(100% + 6px);
@@ -469,7 +479,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       box-shadow: 0 10px 25px rgba(0,0,0,0.35);
       min-width: 180px;
       padding: 0.35rem 0;
-      z-index: 100;
+      z-index: 102 !important;
       display: none;
       flex-direction: column;
       animation: menuFadeIn 0.15s ease-out;
@@ -2414,7 +2424,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             '<div class="card-actions">' +
               '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
               '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
-              '<div style="position: relative;">' +
+              '<div class="card-menu-wrap">' +
                 '<button class="action-btn card-more-btn" title="More Actions" onclick="event.stopPropagation(); toggleCardMenu(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>' +
                 '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
@@ -2830,16 +2840,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function closeAllCardMenus() {
       const backdrop = document.getElementById('cardMenuBackdrop');
       if (backdrop) backdrop.style.display = 'none';
+      document.querySelectorAll('.article-card.menu-open').forEach(el => el.classList.remove('menu-open'));
       document.querySelectorAll('.card-dropdown-menu.open').forEach(el => el.classList.remove('open'));
     }
 
     function toggleCardMenu(id) {
       const menu = document.getElementById('card-menu-' + id);
+      const card = document.getElementById('entry-card-' + id);
       if (!menu) return;
       const isOpen = menu.classList.contains('open');
       closeAllCardMenus();
       if (!isOpen) {
         menu.classList.add('open');
+        if (card) card.classList.add('menu-open');
         const backdrop = document.getElementById('cardMenuBackdrop');
         if (backdrop) backdrop.style.display = 'block';
       }
