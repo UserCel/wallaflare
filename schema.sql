@@ -38,3 +38,11 @@ CREATE TABLE IF NOT EXISTS entry_tags (
 
 CREATE INDEX IF NOT EXISTS idx_entry_tags_entry ON entry_tags(entry_id);
 CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag_id);
+
+-- Auth Rate Limits Table
+CREATE TABLE IF NOT EXISTS auth_rate_limits (
+  ip TEXT PRIMARY KEY,
+  failed_attempts INTEGER DEFAULT 0,
+  last_attempt_at INTEGER NOT NULL,
+  locked_until INTEGER DEFAULT 0
+);

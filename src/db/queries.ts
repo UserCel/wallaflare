@@ -422,3 +422,147 @@ export async function deleteEntry(db: D1Database, id: number): Promise<boolean> 
   const res = await db.prepare(query).bind(id).run();
   return (res.meta?.changes ?? 0) > 0;
 }
+
+// -------------------------------------------------------------
+// Authentication Rate Limiting & Brute Force Protection
+// -------------------------------------------------------------
+
+export interface RateLimitStatus {
+  allowed: boolean;
+  attempts_left: number;
+  locked: boolean;
+  remaining_seconds?: number;
+  remaining_minutes?: number;
+}
+
+export const MAX_FAILED_ATTEMPTS = 5;
+export const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout
+export const FAILURE_WINDOW_MS = 15 * 60 * 1000;   // 15 minutes window without attempts resets counter
+
+let rateLimitsTableEnsured = false;
+export async function ensureAuthRateLimitsTable(db: D1Database): Promise<void> {
+  if (rateLimitsTableEnsured) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS auth_rate_limits (
+        ip TEXT PRIMARY KEY,
+        failed_attempts INTEGER DEFAULT 0,
+        last_attempt_at INTEGER NOT NULL,
+        locked_until INTEGER DEFAULT 0
+      )
+    `).run();
+    rateLimitsTableEnsured = true;
+  } catch (err) {
+    console.error('Failed ensuring auth_rate_limits table:', err);
+  }
+}
+
+export function timingSafeCompare(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) {
+    let dummy = 0;
+    for (let i = 0; i < a.length; i++) {
+      dummy |= a.charCodeAt(i) ^ a.charCodeAt(i);
+    }
+    return false;
+  }
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+export async function checkAuthRateLimit(db: D1Database, ip: string): Promise<RateLimitStatus> {
+  await ensureAuthRateLimitsTable(db);
+  try {
+    const row = await db.prepare(
+      'SELECT failed_attempts, last_attempt_at, locked_until FROM auth_rate_limits WHERE ip = ? LIMIT 1'
+    ).bind(ip).first<{ failed_attempts: number; last_attempt_at: number; locked_until: number }>();
+
+    if (!row) {
+      return { allowed: true, attempts_left: MAX_FAILED_ATTEMPTS, locked: false };
+    }
+
+    const now = Date.now();
+
+    // If currently locked
+    if (row.locked_until > now) {
+      const remainingSeconds = Math.max(1, Math.ceil((row.locked_until - now) / 1000));
+      const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+      return {
+        allowed: false,
+        attempts_left: 0,
+        locked: true,
+        remaining_seconds: remainingSeconds,
+        remaining_minutes: remainingMinutes
+      };
+    }
+
+    // If locked_until expired, or window expired (e.g. 15 min since last attempt), reset counter
+    if (row.locked_until > 0 || (now - row.last_attempt_at > FAILURE_WINDOW_MS)) {
+      await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(ip).run().catch(() => {});
+      return { allowed: true, attempts_left: MAX_FAILED_ATTEMPTS, locked: false };
+    }
+
+    const attemptsLeft = Math.max(0, MAX_FAILED_ATTEMPTS - row.failed_attempts);
+    return {
+      allowed: attemptsLeft > 0,
+      attempts_left: attemptsLeft,
+      locked: false
+    };
+  } catch {
+    return { allowed: true, attempts_left: MAX_FAILED_ATTEMPTS, locked: false };
+  }
+}
+
+export async function recordFailedAuthAttempt(db: D1Database, ip: string): Promise<RateLimitStatus> {
+  await ensureAuthRateLimitsTable(db);
+  const now = Date.now();
+  try {
+    const row = await db.prepare(
+      'SELECT failed_attempts, last_attempt_at, locked_until FROM auth_rate_limits WHERE ip = ? LIMIT 1'
+    ).bind(ip).first<{ failed_attempts: number; last_attempt_at: number; locked_until: number }>();
+
+    let newCount = 1;
+    if (row) {
+      if (now - row.last_attempt_at <= FAILURE_WINDOW_MS && row.locked_until <= now) {
+        newCount = row.failed_attempts + 1;
+      }
+    }
+
+    const locked = newCount >= MAX_FAILED_ATTEMPTS;
+    const lockedUntil = locked ? now + LOCKOUT_DURATION_MS : 0;
+
+    await db.prepare(`
+      INSERT INTO auth_rate_limits (ip, failed_attempts, last_attempt_at, locked_until)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(ip) DO UPDATE SET
+        failed_attempts = excluded.failed_attempts,
+        last_attempt_at = excluded.last_attempt_at,
+        locked_until = excluded.locked_until
+    `).bind(ip, newCount, now, lockedUntil).run();
+
+    const attemptsLeft = Math.max(0, MAX_FAILED_ATTEMPTS - newCount);
+    const remainingMinutes = locked ? 15 : undefined;
+    const remainingSeconds = locked ? 15 * 60 : undefined;
+
+    return {
+      allowed: !locked,
+      attempts_left: attemptsLeft,
+      locked,
+      remaining_minutes: remainingMinutes,
+      remaining_seconds: remainingSeconds
+    };
+  } catch (err) {
+    console.error('Error recording auth rate limit:', err);
+    return { allowed: true, attempts_left: MAX_FAILED_ATTEMPTS, locked: false };
+  }
+}
+
+export async function resetAuthRateLimit(db: D1Database, ip: string): Promise<void> {
+  await ensureAuthRateLimitsTable(db);
+  try {
+    await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(ip).run();
+  } catch {}
+}

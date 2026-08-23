@@ -903,6 +903,28 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     /* Auth Lock Overlay */
+    
+    .auth-error-banner {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #f87171;
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      font-size: 0.825rem;
+      line-height: 1.4;
+      text-align: left;
+      display: none;
+    }
+    .auth-error-banner.show {
+      display: block;
+    }
+    .auth-error-banner.lockout {
+      background: rgba(220, 38, 38, 0.22);
+      border-color: #ef4444;
+      color: #fca5a5;
+      font-weight: 500;
+    }
+
     .auth-overlay {
       position: fixed;
       inset: 0;
@@ -1228,11 +1250,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.3rem;">Protected Library</h2>
         <p style="font-size: 0.85rem; color: var(--text-secondary);">Enter your Wallaflare Access Token or Password</p>
       </div>
-      <form onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+
+      <div class="auth-error-banner" id="authErrorMsg"></div>
+
+      <form id="authForm" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
         <div class="form-group" style="text-align: left;">
           <input type="password" id="authKeyInput" placeholder="Enter AUTH_TOKEN / Password" required autofocus>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
+        <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
       </form>
     </div>
   </div>
@@ -1287,8 +1312,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </button>
 
-      <button class="btn-icon desktop-nav-btn" onclick="promptAuthKey()" title="Configure Access Token">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      <button class="btn-icon desktop-nav-btn" onclick="handleLogout()" title="Log Out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
       </button>
     </div>
   </header>
@@ -1326,9 +1351,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       <span>Toggle Theme</span>
     </button>
-    <button class="mobile-nav-item" onclick="promptAuthKey(); closeMobileNavMenu();">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-      <span>Access Token / Logout</span>
+    <button class="mobile-nav-item" onclick="handleLogout(); closeMobileNavMenu();">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      <span>Log Out</span>
     </button>
   </div>
 
@@ -1687,21 +1712,154 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     });
 
-    function promptAuthKey() {
-      const current = getAuthToken();
-      const next = prompt('Enter your Access Token / Password (or leave empty to clear):', current);
-      if (next !== null) {
-        setAuthToken(next);
-        loadArticles();
+    function handleLogout() {
+      if (confirm('Are you sure you want to log out of Wallaflare?')) {
+        setAuthToken('');
+        const overlay = document.getElementById('authOverlay');
+        const input = document.getElementById('authKeyInput');
+        const submitBtn = document.getElementById('authSubmitBtn');
+        const errorBanner = document.getElementById('authErrorMsg');
+        if (input) {
+          input.value = '';
+          input.disabled = false;
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Unlock';
+        }
+        if (errorBanner) {
+          errorBanner.style.display = 'none';
+          errorBanner.className = 'auth-error-banner';
+        }
+        if (overlay) {
+          overlay.style.display = 'flex';
+        }
+        showToast('Logged out');
       }
     }
 
-    function handleLogin(e) {
-      e.preventDefault();
-      const key = document.getElementById('authKeyInput').value.trim();
-      setAuthToken(key);
-      document.getElementById('authOverlay').style.display = 'none';
-      loadArticles();
+    let lockoutTimer = null;
+    function startLockoutCountdown(remainingSeconds) {
+      if (lockoutTimer) clearInterval(lockoutTimer);
+      const errorBanner = document.getElementById('authErrorMsg');
+      const input = document.getElementById('authKeyInput');
+      const submitBtn = document.getElementById('authSubmitBtn');
+
+      if (input) input.disabled = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Locked Out';
+      }
+
+      let sec = Math.max(1, Number(remainingSeconds) || 900);
+
+      function update() {
+        if (sec <= 0) {
+          clearInterval(lockoutTimer);
+          lockoutTimer = null;
+          if (errorBanner) {
+            errorBanner.className = 'auth-error-banner';
+            errorBanner.style.display = 'none';
+          }
+          if (input) {
+            input.disabled = false;
+            input.value = '';
+            input.focus();
+          }
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Unlock';
+          }
+          return;
+        }
+
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        const timeStr = m > 0 ? (m + 'm\u00A0' + (s < 10 ? '0' : '') + s + 's') : (s + 's');
+
+        if (errorBanner) {
+          errorBanner.innerHTML = '<div>🚫 <strong>Too many failed attempts!</strong></div><div style="margin-top: 0.3rem; line-height: 1.4;">Your IP is locked out.<br>Please try again in <strong style="white-space: nowrap; font-variant-numeric: tabular-nums; display: inline-block; color: #fecaca;">' + timeStr + '</strong>.</div>';
+          errorBanner.className = 'auth-error-banner lockout show';
+          errorBanner.style.display = 'block';
+        }
+        sec--;
+      }
+
+      update();
+      lockoutTimer = setInterval(update, 1000);
+    }
+
+    async function handleLogin(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('authKeyInput');
+      const submitBtn = document.getElementById('authSubmitBtn');
+      const errorBanner = document.getElementById('authErrorMsg');
+      const key = input ? input.value.trim() : '';
+
+      if (!key) return;
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
+      }
+      if (errorBanner) {
+        errorBanner.className = 'auth-error-banner';
+        errorBanner.style.display = 'none';
+      }
+
+      try {
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + key
+          },
+          body: JSON.stringify({ token: key })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.success) {
+          if (lockoutTimer) {
+            clearInterval(lockoutTimer);
+            lockoutTimer = null;
+          }
+          setAuthToken(key);
+          const overlay = document.getElementById('authOverlay');
+          if (overlay) overlay.style.display = 'none';
+          showToast('Unlocked successfully');
+          loadArticles();
+          return;
+        }
+
+        if (res.status === 429 || data.locked) {
+          const secs = data.remaining_seconds || (data.remaining_minutes ? data.remaining_minutes * 60 : 900);
+          startLockoutCountdown(secs);
+          return;
+        }
+
+        const left = typeof data.attempts_left === 'number' ? data.attempts_left : 4;
+        if (errorBanner) {
+          errorBanner.innerHTML = '⚠️ <strong>Incorrect password!</strong><br>' + left + ' attempt' + (left === 1 ? '' : 's') + ' remaining before a 15-minute lockout.';
+          errorBanner.className = 'auth-error-banner show';
+          errorBanner.style.display = 'block';
+        }
+        if (input) {
+          input.select();
+          input.focus();
+        }
+      } catch (err) {
+        if (errorBanner) {
+          errorBanner.textContent = 'Connection error. Please try again.';
+          errorBanner.className = 'auth-error-banner show';
+          errorBanner.style.display = 'block';
+        }
+      } finally {
+        if (input && !input.disabled && submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Unlock';
+        }
+      }
     }
 
     // Keyboard shortcut '/' to search & Escape
