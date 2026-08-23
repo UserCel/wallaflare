@@ -875,6 +875,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       grid-template-columns: 1fr 1fr;
       gap: 0.85rem;
     }
+    @media (max-width: 768px) {
+      .form-grid-2col {
+        grid-template-columns: 1fr !important;
+        gap: 0.95rem;
+      }
+    }
+    .form-group input[type="date"] {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
     .form-group {
       display: flex;
       flex-direction: column;
