@@ -87,7 +87,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     header {
       position: sticky;
       top: 0;
-      z-index: 40;
+      z-index: 150;
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       background-color: rgba(15, 23, 42, 0.82);
@@ -460,7 +460,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       gap: 0.25rem;
     }
     .article-card.menu-open {
-      z-index: 100 !important;
+      z-index: 98 !important;
       position: relative;
     }
     .card-menu-wrap {
