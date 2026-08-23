@@ -168,16 +168,23 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     a.remove();
   });
 
-  const reader = new Readability(document, {
-    charThreshold: 0,
-    keepClasses: true,
-  });
 
-  const parsed = reader.parse();
+
+  let parsed: any = null;
+  try {
+    const reader = new Readability(document, {
+      charThreshold: 0,
+      keepClasses: true,
+    });
+    parsed = reader.parse();
+  } catch (err) {
+    // Graceful fallback for minimal body-less or malformed HTML trees
+    parsed = null;
+  }
 
   const domainName = originalUrl ? extractDomain(originalUrl) : 'direct-input';
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
-  const title = parsed?.title || ogTitle || twitterTitle || docTitle || textContent.slice(0, 50) || 'Untitled Article';
+  const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
   const content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
   const excerpt = parsed?.excerpt || ogDescription || metaDescription || textContent.slice(0, 200);
   const previewPicture = ogImage || twitterImage || firstArticleImg || null;

@@ -10,7 +10,8 @@
     "test:watch": "vitest",
     "db:migrate:local": "wrangler d1 execute wallaflare-db --local --file=./schema.sql --yes",
     "db:migrate:remote": "wrangler d1 execute wallaflare-db --remote --file=./schema.sql --yes",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:extract": "tsx scripts/test-extractors.ts"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260823.1",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.3",
     "vitest": "^3.0.7",
     "wrangler": "^4.125.0"
