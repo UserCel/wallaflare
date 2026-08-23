@@ -1415,7 +1415,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <h3 class="modal-title">Save Article from Web</h3>
         <button class="close-btn" onclick="closeModal('addUrlModal')">&times;</button>
       </div>
-      <form onsubmit="handleIngestUrl(event)">
+      <form onsubmit="handleIngestUrl(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
         <div class="form-group">
           <label for="urlInput">Article URL</label>
           <input type="url" id="urlInput" placeholder="https://example.com/article" required autofocus>
@@ -1435,7 +1435,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <h3 class="modal-title">Add Custom Text / Markdown</h3>
         <button class="close-btn" onclick="closeModal('addTextModal')">&times;</button>
       </div>
-      <form onsubmit="handleIngestText(event)">
+      <form onsubmit="handleIngestText(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
         <div class="form-group">
           <label for="textTitle">Title *</label>
           <input type="text" id="textTitle" placeholder="Article or Chapter Title" required autofocus>
@@ -2655,16 +2655,71 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    function renderAddTextTagChips() {
+      const container = document.getElementById('addTextTagsContainer');
+      const chipsContainer = document.getElementById('addTextAvailableTags');
+      if (!container || !chipsContainer) return;
+
+      if (!cachedGlobalTags || cachedGlobalTags.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+
+      const tagsInput = document.getElementById('textTags');
+      const currentTags = (tagsInput ? tagsInput.value : '')
+        .split(',')
+        .map(s => s.trim().toLowerCase().replace(/^#/, ''))
+        .filter(Boolean);
+
+      container.style.display = 'block';
+      chipsContainer.innerHTML = cachedGlobalTags.map(t => {
+        const isSelected = currentTags.includes(t.label.toLowerCase()) || currentTags.includes(t.slug.toLowerCase());
+        const activeStyle = isSelected 
+          ? 'background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;' 
+          : 'cursor: pointer; opacity: 0.85;';
+        return '<span class="tag-badge" style="cursor: pointer; ' + activeStyle + '" data-tag="' + escapeHtml(t.label) + '" onclick="toggleAddTextTag(this.dataset.tag)">' +
+          (isSelected ? '✓ #' : '+ #') + escapeHtml(t.label) + '</span>';
+      }).join('');
+    }
+
+    function toggleAddTextTag(tagLabel) {
+      const input = document.getElementById('textTags');
+      if (!input) return;
+
+      let tags = input.value.split(',').map(s => s.trim()).filter(Boolean);
+      const lower = tagLabel.toLowerCase();
+      const existingIdx = tags.findIndex(t => t.toLowerCase().replace(/^#/, '') === lower);
+
+      if (existingIdx >= 0) {
+        tags.splice(existingIdx, 1);
+      } else {
+        tags.push(tagLabel);
+      }
+
+      input.value = tags.join(', ');
+      renderAddTextTagChips();
+    }
+
+    function syncAddTextTagChips() {
+      renderAddTextTagChips();
+    }
+
     async function handleIngestText(e) {
       e.preventDefault();
       const titleInput = document.getElementById('textTitle');
+      const authorInput = document.getElementById('textAuthor');
+      const publishedAtInput = document.getElementById('textPublishedAt');
+      const tagsInput = document.getElementById('textTags');
       const urlInput = document.getElementById('textUrl');
       const contentInput = document.getElementById('textContent');
       const btn = document.getElementById('ingestTextBtn');
 
       const title = titleInput.value.trim();
       const content = contentInput.value.trim();
-      const url = urlInput.value.trim();
+      const author = authorInput ? authorInput.value.trim() : '';
+      const publishedAt = publishedAtInput && publishedAtInput.value ? publishedAtInput.value : '';
+      const tags = tagsInput ? tagsInput.value.trim() : '';
+      const url = urlInput ? urlInput.value.trim() : '';
       if (!title || !content) return;
 
       btn.disabled = true;
@@ -2674,7 +2729,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const res = await authFetch('/api/entries.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, content, url: url || undefined })
+          body: JSON.stringify({
+            title,
+            content,
+            url: url || undefined,
+            author: author || undefined,
+            published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
+            tags: tags || undefined
+          })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const item = await res.json();
@@ -2684,10 +2746,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         closeModal('addTextModal');
         titleInput.value = '';
         contentInput.value = '';
-        urlInput.value = '';
-        showToast('Custom text saved successfully!');
+        if (authorInput) authorInput.value = '';
+        if (publishedAtInput) publishedAtInput.value = '';
+        if (tagsInput) tagsInput.value = '';
+        if (urlInput) urlInput.value = '';
+        showToast('✓ Custom entry saved successfully!');
       } catch (err) {
-        showToast('Failed to save entry: ' + err.message);
+        showToast('Failed to save text entry: ' + err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = 'Save Entry';
@@ -2707,6 +2772,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             }
           }, 60);
         } else if (id === 'addTextModal') {
+          loadGlobalTags().then(() => renderAddTextTagChips());
           setTimeout(() => {
             document.getElementById('textTitle')?.focus();
           }, 60);
