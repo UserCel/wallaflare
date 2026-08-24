@@ -45,12 +45,16 @@
 - **📱 Native Android App (1.2 MB)**:
   - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser with duplicate detection (`ℹ Already in Library` + save date) and direct `[Read Article]` / `[Open App]` actions.
   - **Auto-Revalidation on Resume**: Newly saved articles appear automatically in the library when returning to the app without manual refresh.
-  - **Native EPUB Export**: Export articles directly to Android's system share sheet to open in KOReader, Moon+ Reader, ReadEra, save to Downloads, or send to Kindle.
+  - **Native Multi-Format Export**: Export articles directly to Android's system share sheet in **EPUB**, **Markdown**, or **PDF** to open in KOReader, Moon+ Reader, ReadEra, Adobe Reader, Google Drive, Obsidian, or send to Kindle.
   - **Safe-Area Notch Protection**: Integrated `@capacitor/status-bar` sync with theme-matched shields to protect text from camera punch-holes.
-- **📚 Rich Multi-Page EPUB & Web Reader**:
-  - Automatically generates clean EPUB 3 / EPUB 2 files with high-res covers, semantic figures, and reading time estimation.
+- **📦 Multi-Format On-Device Export Engine (EPUB, Markdown, PDF)**:
+  - **📚 EPUB (`.epub`)**: Isomorphic, client-side generator producing book-grade EPUBs with high-res cover art, metadata info page, semantic figures, and reading time estimation.
+  - **📝 Markdown (`.md`)**: Exports clean GitHub-flavored markdown with YAML frontmatter (`title`, `author`, `source`, `date`, `tags`). Ideal for personal knowledge management in **Obsidian**, **Logseq**, **Notion**, or **Bear**.
+  - **📄 PDF (`.pdf`)**: On-device 3-section PDF engine featuring full-size cover art, structured metadata summary cards, line-by-line pagination, and running headers & footers (`Page X of Y`) without print dialog popups.
+  - **⚡ 100% Client-Side & Offline Ready**: Generates all formats on-device with 0ms network latency and zero third-party API dependencies.
+- **📚 Distraction-Free Web Reader**:
+  - Auto-hiding headers during reading, customizable serif/sans typography, adjustable font size, and Dark, Light, and Sepia themes.
   - Comprehensive **Right-to-Left (RTL)** Hebrew and Arabic language support.
-  - Distraction-free web reader with auto-hiding headers during reading, customizable typography, and Dark, Light, and Sepia themes.
 - **🛡️ Two-Tier Security & Privacy Defense**:
   - Server-side Linkedom DOM parser strips executable scripts, inline event handlers, and dangerous URIs before storing content in D1.
   - Client-side DOMPurify pass and strict Content-Security-Policy (CSP) headers.

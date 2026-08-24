@@ -19,9 +19,11 @@ const shimLinkedomPlugin: esbuild.Plugin = {
 
 export async function buildEpubClientBundle() {
   const epubTsPath = path.resolve(__dirname, '../src/services/epub.ts');
+  const pdfTsPath = path.resolve(__dirname, '../src/services/pdf.ts');
   const outputPath = path.resolve(__dirname, '../src/views/epub-client-bundle.ts');
 
-  const res = await esbuild.build({
+  // Bundle EPUB engine
+  const resEpub = await esbuild.build({
     entryPoints: [epubTsPath],
     bundle: true,
     minify: true,
@@ -32,8 +34,23 @@ export async function buildEpubClientBundle() {
     target: 'es2020'
   });
 
-  const bundleCode = res.outputFiles[0].text;
-  const tsContent = `// Auto-generated client bundle of src/services/epub.ts\nexport const clientEpubJs = ${JSON.stringify(bundleCode)};\n`;
+  // Bundle PDF engine
+  const resPdf = await esbuild.build({
+    entryPoints: [pdfTsPath],
+    bundle: true,
+    minify: true,
+    plugins: [shimLinkedomPlugin],
+    format: 'iife',
+    globalName: 'WallaflarePdf',
+    write: false,
+    target: 'es2020'
+  });
+
+  const bundleCodeEpub = resEpub.outputFiles[0].text;
+  const bundleCodePdf = resPdf.outputFiles[0].text;
+  const combinedJs = bundleCodeEpub + '\n' + bundleCodePdf;
+
+  const tsContent = `// Auto-generated client bundle of src/services/epub.ts and src/services/pdf.ts\nexport const clientEpubJs = ${JSON.stringify(combinedJs)};\n`;
 
   fs.writeFileSync(outputPath, tsContent, 'utf8');
   console.log('✓ Successfully updated src/views/epub-client-bundle.ts (' + tsContent.length + ' bytes)');

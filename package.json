@@ -23,7 +23,9 @@
     "@mozilla/readability": "^0.6.0",
     "fflate": "^0.8.2",
     "hono": "^4.7.2",
-    "linkedom": "^0.18.9"
+    "jspdf": "^4.2.1",
+    "linkedom": "^0.18.9",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.0",

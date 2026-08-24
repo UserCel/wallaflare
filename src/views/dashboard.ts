@@ -964,6 +964,183 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     .article-card[dir="rtl"] .menu-item span {
       text-align: right !important;
     }
+
+    /* Expandable Submenus for Card Menus & Batch Menu */
+    .chevron-icon {
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      margin-left: auto;
+      opacity: 0.7;
+    }
+    [dir="rtl"] .chevron-icon {
+      margin-left: 0;
+      margin-right: auto;
+    }
+    .menu-item-expandable {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .menu-item-expandable.expanded .chevron-icon {
+      transform: rotate(180deg);
+    }
+    .menu-sub-items {
+      display: none;
+      flex-direction: column;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      margin: 0.2rem 0.4rem;
+      padding: 0.2rem 0;
+      border: 1px solid var(--border-color);
+    }
+    .menu-item-expandable.expanded .menu-sub-items {
+      display: flex;
+    }
+    .menu-sub-item {
+      padding-left: 1.5rem !important;
+      font-size: 0.8rem !important;
+      gap: 0.55rem !important;
+    }
+    [dir="rtl"] .menu-sub-item {
+      padding-left: 0.85rem !important;
+      padding-right: 1.5rem !important;
+    }
+
+    /* Reader sidebar expandable submenu */
+    .reader-sub-menu {
+      display: none;
+      flex-direction: column;
+      gap: 0.25rem;
+      padding: 0.2rem 0 0.4rem 0;
+      margin-top: -0.1rem;
+      margin-bottom: 0.35rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .reader-sub-menu.open {
+      display: flex;
+    }
+    .reader-sub-item {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start !important;
+      gap: 0.65rem;
+      padding: 0.45rem 0.65rem 0.45rem 1.85rem !important;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left !important;
+      transition: all 0.15s ease;
+      width: 100%;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+    .reader-sub-item span {
+      text-align: left !important;
+    }
+    .reader-sub-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+    .reader-sub-item svg {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      opacity: 0.85;
+    }
+    .reader-sub-item:hover svg {
+      opacity: 1;
+      color: var(--text-primary);
+    }
+    [dir="rtl"] .reader-sub-item {
+      padding-left: 0.65rem !important;
+      padding-right: 1.85rem !important;
+      text-align: right !important;
+    }
+    [dir="rtl"] .reader-sub-item span {
+      text-align: right !important;
+    }
+
+    /* Print Stylesheet for PDF Export */
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+      }
+      #mainHeader,
+      .filter-bar,
+      .articles-grid,
+      #emptyState,
+      #bottomNav,
+      #mobileNavDropdown,
+      #mobileNavBackdrop,
+      #readerSidebar,
+      #readerBottomNav,
+      #readerHeader,
+      #readerNavHeader,
+      #readerDrawerBackdrop,
+      .reader-progress-wrap,
+      .reader-fab-scroll,
+      .card-dropdown-menu,
+      .toast,
+      .modal-backdrop,
+      #authOverlay,
+      #confirmBackdrop,
+      #addTextTagPickerModal {
+        display: none !important;
+      }
+      #readerView {
+        display: block !important;
+        position: static !important;
+        inset: auto !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        z-index: auto !important;
+      }
+      .reader-container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .reader-title {
+        font-size: 22pt !important;
+        line-height: 1.25 !important;
+        color: #000 !important;
+        margin-bottom: 0.5rem !important;
+      }
+      .reader-meta {
+        font-size: 10pt !important;
+        color: #444 !important;
+        border-bottom: 1px solid #ccc !important;
+        padding-bottom: 0.5rem !important;
+        margin-bottom: 1.5rem !important;
+      }
+      .reader-body {
+        color: #000 !important;
+        font-size: 12pt !important;
+        line-height: 1.6 !important;
+      }
+      .reader-body a {
+        color: #000 !important;
+        text-decoration: underline !important;
+      }
+      .reader-body img {
+        max-width: 100% !important;
+        page-break-inside: avoid;
+      }
+      .reader-body pre,
+      .reader-body blockquote {
+        page-break-inside: avoid;
+      }
+    }
+
     .menu-divider {
       height: 1px;
       background: var(--border-color);
@@ -1787,6 +1964,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         display: inline-block !important;
         white-space: nowrap !important;
       }
+      .reader-sidebar .reader-sub-item {
+        height: 38px !important;
+        padding-left: 2.25rem !important;
+        font-size: 0.85rem !important;
+        color: var(--text-secondary) !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+      }
+      [dir="rtl"] .reader-sidebar .reader-sub-item {
+        padding-left: 0.85rem !important;
+        padding-right: 2.25rem !important;
+        text-align: right !important;
+      }
       .reader-sidebar .btn-back-tool {
         display: none !important;
       }
@@ -1960,7 +2150,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           </button>
           <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
             <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
-            <button class="menu-item" id="batchDownloadEpubBtn" onclick="closeBatchMenu(); batchDownloadEpub();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export EPUB</span></button>
+                        <div class="menu-item-expandable" id="batchExportWrap">
+              <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleBatchExportSubmenu()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Export</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="menu-sub-items" id="batchExportSub">
+                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchDownloadEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
+                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchExportMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
+                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchExportPdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>
+              </div>
+            </div>
             <button class="menu-item" onclick="closeBatchMenu(); batchRefetchContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
             <button class="menu-item" onclick="closeBatchMenu(); toggleSelectAllArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg><span id="batchMenuSelectAllLabel">Select All</span></button>
             <div class="menu-divider"></div>
@@ -2308,10 +2509,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label">Tags</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="downloadActiveEpub(); closeMobileReaderDrawer();" title="Export EPUB">
+                <button class="reader-tool-btn" id="readerExportBtn" onclick="toggleReaderExportMenu(event)" title="Export Article (EPUB, Markdown, PDF)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span class="btn-label">Export</span>
+          <svg class="chevron-icon" id="readerExportChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
+
+        <div class="reader-sub-menu" id="readerExportSubMenu">
+          <button class="reader-sub-item" onclick="downloadActiveEpub(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
+          <button class="reader-sub-item" onclick="exportActiveMarkdown(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
+          <button class="reader-sub-item" onclick="exportActivePdf(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg><span>PDF (.pdf)</span></button>
+        </div>
 
         <button class="reader-tool-btn" id="readerRefetchBtn" onclick="refetchActiveArticleContent(); closeMobileReaderDrawer();" title="Re-fetch Content from Source URL">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
@@ -3759,7 +3967,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
                 '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
-                  '<button class="menu-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export EPUB</span></button>' +
+                  '<div class="menu-item-expandable" id="card-export-wrap-' + item.id + '">' +
+                    '<button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleCardExportSubmenu(' + item.id + ')">' +
+                      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+                      '<span>Export</span>' +
+                      '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+                    '</button>' +
+                    '<div class="menu-sub-items" id="card-export-sub-' + item.id + '">' +
+                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>' +
+                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); exportMarkdown(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>' +
+                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); exportPdf(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg><span>PDF (.pdf)</span></button>' +
+                    '</div>' +
+                  '</div>' +
                   (item.url && item.domain_name !== 'direct-input' ? '<button class="menu-item" onclick="closeAllCardMenus(); refetchArticleContent(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>' : '') +
                   (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="menu-item" onclick="closeAllCardMenus()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></a>' : '') +
                   '<div class="menu-divider"></div>' +
@@ -3770,6 +3989,268 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+
+    // -------------------------------------------------------------
+    // Export Handlers (EPUB, Markdown, PDF)
+    // -------------------------------------------------------------
+    function toggleReaderExportMenu(e) {
+      if (e) e.stopPropagation();
+      const sub = document.getElementById('readerExportSubMenu');
+      const chevron = document.getElementById('readerExportChevron');
+      if (sub) {
+        sub.classList.toggle('open');
+        if (chevron) {
+          chevron.style.transform = sub.classList.contains('open') ? 'rotate(180deg)' : '';
+        }
+      }
+    }
+
+    function closeReaderExportMenu() {
+      const sub = document.getElementById('readerExportSubMenu');
+      const chevron = document.getElementById('readerExportChevron');
+      if (sub) sub.classList.remove('open');
+      if (chevron) chevron.style.transform = '';
+    }
+
+    function toggleCardExportSubmenu(id) {
+      const wrap = document.getElementById('card-export-wrap-' + id);
+      if (wrap) {
+        wrap.classList.toggle('expanded');
+      }
+    }
+
+    function toggleBatchExportSubmenu() {
+      const wrap = document.getElementById('batchExportWrap');
+      if (wrap) {
+        wrap.classList.toggle('expanded');
+      }
+    }
+
+    function exportActiveMarkdown() {
+      if (activeArticleId) {
+        exportMarkdown(activeArticleId);
+      }
+    }
+
+    function exportActivePdf() {
+      if (activeArticleId) {
+        exportPdf(activeArticleId);
+      }
+    }
+
+    function batchExportMarkdown() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 1) {
+        exportMarkdown(ids[0]);
+      } else {
+        ids.forEach(id => exportMarkdown(id));
+      }
+    }
+
+    function batchExportPdf() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 1) {
+        exportPdf(ids[0]);
+      } else {
+        ids.forEach(id => exportPdf(id));
+      }
+    }
+
+    function htmlToMarkdown(html) {
+      if (!html) return '';
+      const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+      const root = doc.body.firstElementChild || doc.body;
+      const nl = String.fromCharCode(10);
+      const nl2 = nl + nl;
+      const tick = String.fromCharCode(96);
+      const fence = tick + tick + tick;
+
+      function nodeToMd(node) {
+        if (!node) return '';
+        if (node.nodeType === 3) {
+          return node.nodeValue.replace(/\s+/g, ' ');
+        }
+        if (node.nodeType !== 1) return '';
+
+        const tag = node.tagName.toLowerCase();
+        let inner = Array.from(node.childNodes).map(nodeToMd).join('');
+
+        switch (tag) {
+          case 'h1': return nl2 + '# ' + inner.trim() + nl2;
+          case 'h2': return nl2 + '## ' + inner.trim() + nl2;
+          case 'h3': return nl2 + '### ' + inner.trim() + nl2;
+          case 'h4': return nl2 + '#### ' + inner.trim() + nl2;
+          case 'h5': return nl2 + '##### ' + inner.trim() + nl2;
+          case 'h6': return nl2 + '###### ' + inner.trim() + nl2;
+          case 'p': return nl2 + inner.trim() + nl2;
+          case 'strong':
+          case 'b': return '**' + inner.trim() + '**';
+          case 'em':
+          case 'i': return '*' + inner.trim() + '*';
+          case 'code':
+            if (node.parentElement && node.parentElement.tagName.toLowerCase() === 'pre') return inner;
+            return tick + inner + tick;
+          case 'pre':
+            return nl2 + fence + nl + inner.trim() + nl + fence + nl2;
+          case 'blockquote':
+            return nl2 + '> ' + inner.trim().split(nl).join(nl + '> ') + nl2;
+          case 'ul':
+            return nl2 + Array.from(node.children).map(li => '- ' + nodeToMd(li).trim()).join(nl) + nl2;
+          case 'ol':
+            return nl2 + Array.from(node.children).map((li, idx) => (idx + 1) + '. ' + nodeToMd(li).trim()).join(nl) + nl2;
+          case 'li':
+            return inner.trim();
+          case 'a':
+            const href = node.getAttribute('href');
+            return href ? '[' + (inner.trim() || href) + '](' + href + ')' : inner;
+          case 'img':
+            const src = node.getAttribute('src');
+            const alt = node.getAttribute('alt') || 'image';
+            return src ? '![' + alt + '](' + src + ')' : '';
+          case 'hr': return nl2 + '---' + nl2;
+          case 'br': return nl;
+          default: return inner;
+        }
+      }
+
+      const md = nodeToMd(root);
+      return md.replace(new RegExp(nl + '{3,}', 'g'), nl2).trim();
+    }
+
+    async function exportMarkdown(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) {
+        showToast('Article not found');
+        return;
+      }
+      showToast('Exporting Markdown...');
+      try {
+        const title = item.title || 'Untitled Article';
+        const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
+        const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : (item.domain_name || '');
+        const date = item.published_at || item.created_at || new Date().toISOString().split('T')[0];
+        const tags = Array.isArray(item.tags) ? item.tags.map(t => typeof t === 'string' ? t : (t.label || t.slug)).filter(Boolean) : [];
+        const nl = String.fromCharCode(10);
+        const nl2 = nl + nl;
+
+        let frontmatter = '---' + nl;
+        frontmatter += 'title: ' + JSON.stringify(title) + nl;
+        if (author) frontmatter += 'author: ' + JSON.stringify(author) + nl;
+        if (item.url) frontmatter += 'source: ' + JSON.stringify(item.url) + nl;
+        if (date) frontmatter += 'date: ' + JSON.stringify(date) + nl;
+        if (tags.length > 0) frontmatter += 'tags: [' + tags.map(t => JSON.stringify(t)).join(', ') + ']' + nl;
+        frontmatter += '---' + nl2;
+
+        const bodyMd = htmlToMarkdown(item.content || item.text || '');
+        const fullMd = frontmatter + '# ' + title + nl2 + bodyMd + nl;
+        const filename = title.replace(/[/\:*?"<>|]/g, '').trim() + '.md';
+
+        // Android native share sheet (JavascriptInterface bridge)
+        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
+          const base64Data = window.btoa(unescape(encodeURIComponent(fullMd)));
+          window.AndroidNative.shareBase64File(filename, base64Data, 'text/markdown');
+          showToast('Opening Markdown export...');
+          return;
+        }
+
+        // Web Share API
+        if (navigator.canShare) {
+          try {
+            const file = new File([fullMd], filename, { type: 'text/markdown' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename });
+              showToast('✓ Markdown exported');
+              return;
+            }
+          } catch (e) {
+            if (e.name === 'AbortError') return;
+          }
+        }
+
+        // Browser Anchor Download
+        const blob = new Blob([fullMd], { type: 'text/markdown;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
+        showToast('✓ Markdown exported');
+      } catch (err) {
+        console.error('Markdown export error', err);
+        showToast('Failed to export Markdown');
+      }
+    }
+
+    async function exportPdf(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) {
+        showToast('Article not found');
+        return;
+      }
+      showToast('Generating PDF...');
+      try {
+        let pdfBytes = null;
+        if (typeof window.WallaflarePdf !== 'undefined' && typeof window.WallaflarePdf.generatePdf === 'function') {
+          pdfBytes = await window.WallaflarePdf.generatePdf(item);
+        }
+
+        if (!pdfBytes) {
+          throw new Error('PDF engine not loaded');
+        }
+
+        const title = item.title || 'article';
+        const filename = (title.replace(/[/\\:*?"<>|]/g, '').trim() || 'article') + '.pdf';
+        const u8Array = new Uint8Array(pdfBytes);
+
+        // Android Native Share Sheet (open in Adobe / Drive / Share)
+        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
+          let binary = '';
+          const len = u8Array.byteLength;
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(u8Array[i]);
+          }
+          const base64Data = window.btoa(binary);
+          window.AndroidNative.shareBase64File(filename, base64Data, 'application/pdf');
+          showToast('Opening PDF export...');
+          return;
+        }
+
+        // Web Share API
+        if (navigator.canShare) {
+          try {
+            const file = new File([u8Array], filename, { type: 'application/pdf' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename });
+              showToast('✓ PDF exported');
+              return;
+            }
+          } catch (e) {
+            if (e.name === 'AbortError') return;
+          }
+        }
+
+        // Desktop direct file download without print dialog
+        const blob = new Blob([u8Array], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
+        showToast('✓ PDF exported');
+      } catch (err) {
+        console.error('PDF export failed', err);
+        showToast('Failed to generate PDF');
+      }
     }
 
     function downloadActiveEpub() {
@@ -4026,6 +4507,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const scrollEl = document.getElementById('readerScrollContainer');
       lastReaderScrollTop = 0;
       clearTimeout(autoHideInitialTimer);
+      closeReaderExportMenu();
       setReaderMobileBarVisibility(true);
 
       if (scrollEl) {
@@ -4338,6 +4820,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const backdrop = document.getElementById('cardMenuBackdrop');
       if (backdrop) backdrop.style.display = 'none';
       document.querySelectorAll('.article-card.menu-open').forEach(el => el.classList.remove('menu-open'));
+      document.querySelectorAll('.menu-item-expandable.expanded').forEach(el => el.classList.remove('expanded'));
       document.querySelectorAll('.card-dropdown-menu.open').forEach(el => {
         el.classList.remove('open');
         el.classList.remove('open-down');
