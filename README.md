@@ -18,26 +18,43 @@
 
 ---
 
+## ⚠️ Compatibility & Disclaimer
+
+> **Wallaflare is an independent, clean-room serverless reimplementation of the Wallabag v2 API.**  
+> It is built from scratch specifically for Cloudflare Workers and E-ink devices (like KOReader). It is **not** affiliated with or endorsed by the official Wallabag project.
+>
+> While Wallaflare is engineered for high compatibility with KOReader, the official Wallabag Android app, and browser extensions, **it is its own independent system**. Future breaking changes or modifications made to the upstream Wallabag API schema or client apps may require updates or affect compatibility.
+
+---
+
 ## ✨ Features
 
-- **🚀 Zero-Cost Serverless Edge**: Runs 100% on Cloudflare Workers + D1 SQLite free tiers with sub-millisecond cold starts across 300+ global locations.
-- **📱 Drop-in Wallabag v2 API**: Sync seamlessly with **KOReader** (Kindle, Kobo, Android e-ink), official **Wallabag Android app**, and browser extensions.
-- **🎛️ Google Keep Style Control Bar**:
-  - **3 View Modes**: Instant 1-tap cycling between List (1:1 thumbnails), Magazine Grid (hero covers), and Compact Headlines.
-  - **Quick Sorting**: Sort by Newest, Oldest, Shortest Read, Longest Read, or Title (A–Z).
-  - **Zero Mobile Wrapping**: Unified search controls keep filter tabs on a single line on mobile portrait.
-- **🏷️ Tag Management & Batch Operations**: Instant 0ms cached tag filtering, batch tagging, and global unused tag cleanup.
+- **🚀 100% Serverless & Free-Tier Friendly**: Runs entirely on Cloudflare Workers and Cloudflare D1 (serverless SQLite) with sub-millisecond cold starts across 300+ global edge locations.
+- **📱 Drop-in Wallabag v2 API Compatibility**:
+  - Full compatibility with **KOReader's Wallabag plugin** for automated article sync and offline reading on Kindle, Kobo, Boox, and Android e-ink devices.
+  - Compatible with the **Official Wallabag Android App** (connection test, OAuth token authentication, article fetching, incremental sync with `since`, and two-way deletion).
+  - Works out of the box with Wallabag browser extensions and third-party clients.
+- **🎛️ Unified Library Views & Sorting**:
+  - **3 View Modes**: Instant 1-tap cycling between **List View** (1:1 thumbnails, author, reading time), **Magazine Grid** (hero top covers), and **Compact Headlines** (dense layout that gracefully adjusts on mobile portrait).
+  - **Multiple Sort Options**: Sort your library by **Newest First**, **Oldest First**, **Shortest Read** (quick 1–3 min reads), **Longest Read** (deep dives), or **Title (A–Z)**.
+  - **Zero Mobile Row Wrapping**: Integrated search controls keep filter tabs on a single line on mobile screens.
+- **🏷️ Instant Tag Management & Batch Operations**:
+  - Categorize articles with tags (`#tech`, `#news`, `#novel`).
+  - Instant 0ms cached tag badge rendering and one-click tag filtering.
+  - Batch tagging across multiple selected articles and global unused tag cleanup.
 - **📱 Native Android App (1.2 MB)**:
-  - Floating background share sheet with duplicate alerts (`ℹ Already in Library`) and direct `[Read Article]` / `[Open App]` actions.
-  - Instant offline caching with zero-flicker background revalidation on app resume.
-  - Native EPUB sharing to KOReader, Moon+ Reader, ReadEra, or Send to Kindle.
-- **📚 Beautiful EPUB & Reader Generator**:
-  - Bundles high-res covers, semantic figures, and reading time calculation.
-  - Full Right-to-Left (RTL) Hebrew and Arabic language support.
-  - Auto-hiding mobile reader header with smooth scroll recovery and punch-hole camera shields.
-- **🛡️ Private & Secure**:
-  - Server-side DOM sanitization, client-side DOMPurify pass, and strict CSP headers.
-  - Built-in brute-force rate-limiting and search engine crawler disallow (`X-Robots-Tag`).
+  - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser with duplicate detection (`ℹ Already in Library` + save date) and direct `[Read Article]` / `[Open App]` actions.
+  - **Auto-Revalidation on Resume**: Newly saved articles appear automatically in the library when returning to the app without manual refresh.
+  - **Native EPUB Export**: Export articles directly to Android's system share sheet to open in KOReader, Moon+ Reader, ReadEra, save to Downloads, or send to Kindle.
+  - **Safe-Area Notch Protection**: Integrated `@capacitor/status-bar` sync with theme-matched shields to protect text from camera punch-holes.
+- **📚 Rich Multi-Page EPUB & Web Reader**:
+  - Automatically generates clean EPUB 3 / EPUB 2 files with high-res covers, semantic figures, and reading time estimation.
+  - Comprehensive **Right-to-Left (RTL)** Hebrew and Arabic language support.
+  - Distraction-free web reader with auto-hiding headers during reading, customizable typography, and Dark, Light, and Sepia themes.
+- **🛡️ Two-Tier Security & Privacy Defense**:
+  - Server-side Linkedom DOM parser strips executable scripts, inline event handlers, and dangerous URIs before storing content in D1.
+  - Client-side DOMPurify pass and strict Content-Security-Policy (CSP) headers.
+  - Built-in brute-force rate-limiting (5-attempt threshold with 15-minute IP lockout) and search engine crawler disallow (`X-Robots-Tag`, `/robots.txt`).
 
 ---
 
@@ -58,7 +75,7 @@ npm install
 ```bash
 npx wrangler d1 create wallaflare-db
 ```
-Copy the output `database_id` into your `wrangler.toml`:
+Wrangler will output your unique `database_id`. Copy it into your `wrangler.toml`:
 ```toml
 [[d1_databases]]
 binding = "DB"
@@ -72,11 +89,13 @@ npm run db:migrate:remote
 ```
 
 ### 4. Set Access Token Secret (Recommended)
+Set your secure master access token/password in Cloudflare's encrypted secrets:
 ```bash
 npx wrangler secret put AUTH_TOKEN
 ```
 
 ### 5. Deploy
+Deploy your serverless instance to Cloudflare:
 ```bash
 npm run deploy
 ```
@@ -94,21 +113,30 @@ Your instance is now live worldwide! 🎉
 
 ### Official Wallabag Android App
 1. Open the **Wallabag App** ➔ Choose **Wallabag v2**.
-2. Enter your Server URL, `wallaflare` as Username, and your `AUTH_TOKEN` as Password.
-3. Tap **Test connection** and connect!
+2. Enter your Server URL (`https://wallaflare.yourdomain.com`).
+3. Enter `wallaflare` as Username and your `AUTH_TOKEN` as Password.
+4. Tap **Test connection** and connect!
 
 ---
 
 ## 📦 Native Android App Build (Capacitor)
 
-```bash
-# Build minimized release APK (1.2 MB)
-npm run build:apk:release
-```
-Output: `android/app/build/outputs/apk/release/app-release.apk`
+Wallaflare includes a lightweight native Android wrapper with background share integration and native EPUB export.
+
+1. **Build Debug APK**:
+   ```bash
+   npm run build:apk
+   ```
+   Output: `android/app/build/outputs/apk/debug/app-debug.apk`
+
+2. **Build Minimized Release APK (1.2 MB)**:
+   ```bash
+   npm run build:apk:release
+   ```
+   Output: `android/app/build/outputs/apk/release/app-release.apk`
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE) — matching the Wallabag project license.
