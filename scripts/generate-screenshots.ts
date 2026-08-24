@@ -39,6 +39,7 @@ const sampleEntries = [
     updated_at: new Date().toISOString(),
     published_at: '2026-01-15T00:00:00Z',
     preview_picture: `http://localhost:${PORT}/pictures/medieval_hero.webp`,
+    text: "KOReader is a versatile document viewer primarily aimed at e-ink devices. It supports EPUB, PDF, DjVu, CBZ, FB2, and many more formats. Seamlessly sync your reading progress with Wallaflare.",
     is_starred: 0,
     is_archived: 0,
     tags: [

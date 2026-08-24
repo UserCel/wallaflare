@@ -3483,7 +3483,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
         const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
         const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-        const excerpt = item.text ? item.text.slice(0, 160) + '...' : 'No preview available';
+        const rawContentText = item.text || item.excerpt || (item.content ? item.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
+        const excerpt = rawContentText ? (rawContentText.length > 160 ? rawContentText.slice(0, 160) + "..." : rawContentText) : "No preview available";
         const previewPicture = item.preview_picture;
 
         const isChecked = selectedArticleIds.has(item.id);
