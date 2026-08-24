@@ -7,6 +7,10 @@ import {
   createEntry,
   updateEntry,
   deleteEntry,
+  deleteEntriesBatch,
+  updateEntriesBatch,
+  addTagsToEntriesBatch,
+  removeTagFromEntriesBatch,
   entryRowToWallabag,
   getTags,
   getEntryTags,
@@ -496,6 +500,159 @@ apiRouter.post('/api/entries', authMiddleware, postEntryHandler);
 apiRouter.post('/api/entries.json', authMiddleware, postEntryHandler);
 
 // -------------------------------------------------------------
+
+// -------------------------------------------------------------
+// Helper to extract Entry IDs from request (Body or Query)
+// -------------------------------------------------------------
+async function extractIdsFromRequest(c: any): Promise<number[]> {
+  let ids: any[] = [];
+  const queryIds = c.req.query('ids') || c.req.query('entries');
+  if (queryIds) {
+    if (Array.isArray(queryIds)) ids = queryIds;
+    else ids = String(queryIds).split(',').map((s: string) => s.trim());
+  } else {
+    const contentType = c.req.header('Content-Type') || '';
+    if (contentType.includes('application/json')) {
+      const body = await c.req.json().catch(() => ({}));
+      if (Array.isArray(body)) ids = body;
+      else if (Array.isArray(body.ids)) ids = body.ids;
+      else if (Array.isArray(body.entries)) ids = body.entries;
+      else if (typeof body.ids === 'string') ids = body.ids.split(',');
+      else if (typeof body.entries === 'string') ids = body.entries.split(',');
+    } else {
+      const form = await c.req.parseBody().catch(() => ({}));
+      if (Array.isArray(form['ids[]'])) ids = form['ids[]'];
+      else if (Array.isArray(form.ids)) ids = form.ids;
+      else if (typeof form.ids === 'string') ids = form.ids.split(',');
+      else if (typeof form.entries === 'string') ids = form.entries.split(',');
+    }
+  }
+  return ids.map(Number).filter(n => !isNaN(n) && n > 0);
+}
+
+// -------------------------------------------------------------
+// Mass Delete Entries: DELETE /api/entries/list(.json)
+// -------------------------------------------------------------
+const batchDeleteEntriesHandler = async (c: any) => {
+  const ids = await extractIdsFromRequest(c);
+  if (ids.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  const deletedCount = await deleteEntriesBatch(c.env.DB, ids);
+  return c.json({ ids, count: deletedCount, success: true, message: 'Entries deleted' });
+};
+
+apiRouter.delete('/api/entries/list', authMiddleware, batchDeleteEntriesHandler);
+apiRouter.delete('/api/entries/list.json', authMiddleware, batchDeleteEntriesHandler);
+
+// -------------------------------------------------------------
+// Mass Update Entries (Star/Archive): PATCH /api/entries/list(.json)
+// -------------------------------------------------------------
+const batchPatchEntriesHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  let ids: any[] = [];
+  if (Array.isArray(body.ids)) ids = body.ids;
+  else if (Array.isArray(body.entries)) ids = body.entries;
+  else if (typeof body.ids === 'string') ids = body.ids.split(',');
+  else if (c.req.query('ids')) ids = String(c.req.query('ids')).split(',');
+
+  const validIds = ids.map(Number).filter(n => !isNaN(n) && n > 0);
+  if (validIds.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  const updates: { is_starred?: number; is_archived?: number } = {};
+  if (body.starred !== undefined) updates.is_starred = Number(body.starred);
+  if (body.archive !== undefined) updates.is_archived = Number(body.archive);
+  if (body.is_starred !== undefined) updates.is_starred = Number(body.is_starred);
+  if (body.is_archived !== undefined) updates.is_archived = Number(body.is_archived);
+
+  const updatedCount = await updateEntriesBatch(c.env.DB, validIds, updates);
+  return c.json({ ids: validIds, count: updatedCount, success: true });
+};
+
+apiRouter.patch('/api/entries/list', authMiddleware, batchPatchEntriesHandler);
+apiRouter.patch('/api/entries/list.json', authMiddleware, batchPatchEntriesHandler);
+apiRouter.patch('/api/entries/lists', authMiddleware, batchPatchEntriesHandler);
+apiRouter.patch('/api/entries/lists.json', authMiddleware, batchPatchEntriesHandler);
+
+// -------------------------------------------------------------
+// Mass Add Tags to Entries: POST /api/entries/tags/lists(.json)
+// -------------------------------------------------------------
+const batchAddTagsHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  let ids: any[] = [];
+  if (Array.isArray(body.entries)) ids = body.entries;
+  else if (Array.isArray(body.ids)) ids = body.ids;
+  else if (typeof body.entries === 'string') ids = body.entries.split(',');
+  else if (typeof body.ids === 'string') ids = body.ids.split(',');
+
+  const validIds = ids.map(Number).filter(n => !isNaN(n) && n > 0);
+  const tags = body.tags || body.tag || '';
+
+  if (validIds.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  await addTagsToEntriesBatch(c.env.DB, validIds, tags);
+  return c.json({ ids: validIds, success: true, message: 'Tags added to entries' });
+};
+
+apiRouter.post('/api/entries/tags/lists', authMiddleware, batchAddTagsHandler);
+apiRouter.post('/api/entries/tags/lists.json', authMiddleware, batchAddTagsHandler);
+apiRouter.post('/api/entries/tags/list', authMiddleware, batchAddTagsHandler);
+apiRouter.post('/api/entries/tags/list.json', authMiddleware, batchAddTagsHandler);
+
+// -------------------------------------------------------------
+// Mass Remove Tag from Entries: DELETE /api/entries/tags/list(.json)
+// -------------------------------------------------------------
+const batchRemoveTagsHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  let ids: any[] = [];
+  if (Array.isArray(body.entries)) ids = body.entries;
+  else if (Array.isArray(body.ids)) ids = body.ids;
+  else if (typeof body.entries === 'string') ids = body.entries.split(',');
+  else if (c.req.query('entries')) ids = String(c.req.query('entries')).split(',');
+  else if (c.req.query('ids')) ids = String(c.req.query('ids')).split(',');
+
+  const validIds = ids.map(Number).filter(n => !isNaN(n) && n > 0);
+  const tagParam = body.tag || body.tag_id || c.req.query('tag') || c.req.query('tag_id') || '';
+
+  if (validIds.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  await removeTagFromEntriesBatch(c.env.DB, validIds, tagParam);
+  return c.json({ ids: validIds, success: true, message: 'Tags removed from entries' });
+};
+
+apiRouter.delete('/api/entries/tags/list', authMiddleware, batchRemoveTagsHandler);
+apiRouter.delete('/api/entries/tags/list.json', authMiddleware, batchRemoveTagsHandler);
+apiRouter.delete('/api/entries/tags/lists', authMiddleware, batchRemoveTagsHandler);
+apiRouter.delete('/api/entries/tags/lists.json', authMiddleware, batchRemoveTagsHandler);
+
 // Single Entry: GET /api/entries/:id(.json)
 // -------------------------------------------------------------
 const getSingleEntryHandler = async (c: any) => {

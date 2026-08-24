@@ -136,25 +136,46 @@ function createMockD1Database() {
             return { meta: { changes: 1 } };
           }
           if (query.includes('UPDATE entries SET')) {
-            const id = Number(boundParams[boundParams.length - 1]);
-            const entry = entries.find(e => e.id === id);
-            if (entry) {
+            if (query.includes('WHERE id IN')) {
               const setPart = query.split('SET')[1].split('WHERE')[0];
               const clauses = setPart.split(',').map(s => s.trim());
-              clauses.forEach((c, idx) => {
-                if (c.startsWith('title = ?')) entry.title = boundParams[idx];
-                if (c.startsWith('content = ?')) entry.content = boundParams[idx];
-                if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
-                if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+              // params: updated_at, is_starred/is_archived, ...ids
+              const targetIds = boundParams.slice(clauses.length).map(Number);
+              entries.filter(e => targetIds.includes(e.id)).forEach(entry => {
+                clauses.forEach((c, idx) => {
+                  if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
+                  if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+                });
+                entry.updated_at = new Date().toISOString();
               });
-              entry.updated_at = new Date().toISOString();
+              return { meta: { changes: targetIds.length } };
+            } else {
+              const id = Number(boundParams[boundParams.length - 1]);
+              const entry = entries.find(e => e.id === id);
+              if (entry) {
+                const setPart = query.split('SET')[1].split('WHERE')[0];
+                const clauses = setPart.split(',').map(s => s.trim());
+                clauses.forEach((c, idx) => {
+                  if (c.startsWith('title = ?')) entry.title = boundParams[idx];
+                  if (c.startsWith('content = ?')) entry.content = boundParams[idx];
+                  if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
+                  if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+                });
+                entry.updated_at = new Date().toISOString();
+              }
+              return { meta: { changes: 1 } };
             }
-            return { meta: { changes: 1 } };
           }
-          if (query.includes('DELETE FROM entries WHERE id = ?')) {
-            const id = Number(boundParams[0]);
-            entries = entries.filter(e => e.id !== id);
-            entryTags = entryTags.filter(et => et.entry_id !== id);
+          if (query.includes('DELETE FROM entries WHERE id IN') || query.includes('DELETE FROM entries WHERE id = ?')) {
+            const targetIds = boundParams.map(Number);
+            const beforeCount = entries.length;
+            entries = entries.filter(e => !targetIds.includes(e.id));
+            entryTags = entryTags.filter(et => !targetIds.includes(et.entry_id));
+            return { meta: { changes: beforeCount - entries.length } };
+          }
+          if (query.includes('DELETE FROM entry_tags WHERE entry_id IN')) {
+            const targetIds = boundParams.map(Number);
+            entryTags = entryTags.filter(et => !targetIds.includes(et.entry_id));
             return { meta: { changes: 1 } };
           }
           if (query.includes('auth_rate_limits') && query.includes('INSERT INTO')) {
@@ -724,5 +745,132 @@ describe('Custom Text Preview Picture Support', () => {
     const data = await res.json<any>();
     expect(data.preview_picture).toBe('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c');
     expect(data.domain_name).toBe('direct-input');
+  });
+});
+
+
+describe('Wallabag v2 Batch Operations', () => {
+  let mockDb: any;
+
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+  it('mass deletes entries via DELETE /api/entries/list.json', async () => {
+    // 1. Create 3 articles
+    const res1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-del-1', title: 'Batch Delete 1' })
+    }, { DB: mockDb });
+    const res2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-del-2', title: 'Batch Delete 2' })
+    }, { DB: mockDb });
+    const res3 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-del-3', title: 'Batch Delete 3' })
+    }, { DB: mockDb });
+
+    const item1 = await res1.json();
+    const item2 = await res2.json();
+    const item3 = await res3.json();
+
+    // 2. Mass delete item1 and item2 in one call
+    const delBatchRes = await app.request('/api/entries/list.json', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [item1.id, item2.id] })
+    }, { DB: mockDb });
+
+    expect(delBatchRes.status).toBe(200);
+    const delData = await delBatchRes.json();
+    expect(delData.success).toBe(true);
+    expect(delData.count).toBe(2);
+
+    // Verify item1 & item2 are gone, item3 remains
+    const check1 = await app.request(`/api/entries/${item1.id}.json`, {}, { DB: mockDb });
+    expect(check1.status).toBe(404);
+    const check2 = await app.request(`/api/entries/${item2.id}.json`, {}, { DB: mockDb });
+    expect(check2.status).toBe(404);
+    const check3 = await app.request(`/api/entries/${item3.id}.json`, {}, { DB: mockDb });
+    expect(check3.status).toBe(200);
+  });
+
+  it('mass updates entries (star/archive) via PATCH /api/entries/list.json', async () => {
+    const res1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-patch-1', title: 'Batch Patch 1' })
+    }, { DB: mockDb });
+    const res2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-patch-2', title: 'Batch Patch 2' })
+    }, { DB: mockDb });
+
+    const item1 = await res1.json();
+    const item2 = await res2.json();
+
+    // Mass star both entries
+    const patchRes = await app.request('/api/entries/list.json', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [item1.id, item2.id], starred: 1, archive: 1 })
+    }, { DB: mockDb });
+
+    expect(patchRes.status).toBe(200);
+    const patchData = await patchRes.json();
+    expect(patchData.success).toBe(true);
+    expect(patchData.count).toBe(2);
+
+    const check1 = await app.request(`/api/entries/${item1.id}.json`, {}, { DB: mockDb });
+    const updated1 = await check1.json();
+    expect(updated1.is_starred).toBe(1);
+    expect(updated1.is_archived).toBe(1);
+  });
+
+  it('mass adds and removes tags via /api/entries/tags/lists.json and /api/entries/tags/list.json', async () => {
+    const res1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-tag-1', title: 'Batch Tag 1' })
+    }, { DB: mockDb });
+    const res2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-tag-2', title: 'Batch Tag 2' })
+    }, { DB: mockDb });
+
+    const item1 = await res1.json();
+    const item2 = await res2.json();
+
+    // Mass add tag "bulk-test"
+    const addTagsRes = await app.request('/api/entries/tags/lists.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: [item1.id, item2.id], tags: 'bulk-test, news' })
+    }, { DB: mockDb });
+
+    expect(addTagsRes.status).toBe(200);
+
+    // Verify tag added to item1
+    const checkTags1 = await app.request(`/api/entries/${item1.id}/tags.json`, {}, { DB: mockDb });
+    const tags1 = await checkTags1.json();
+    expect(tags1.some((t: any) => t.slug === 'bulk-test')).toBe(true);
+
+    // Mass remove tag "bulk-test"
+    const removeTagsRes = await app.request('/api/entries/tags/list.json', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: [item1.id, item2.id], tag: 'bulk-test' })
+    }, { DB: mockDb });
+
+    expect(removeTagsRes.status).toBe(200);
+
+    const checkTagsAfter = await app.request(`/api/entries/${item1.id}/tags.json`, {}, { DB: mockDb });
+    const tagsAfter = await checkTagsAfter.json();
+    expect(tagsAfter.some((t: any) => t.slug === 'bulk-test')).toBe(false);
   });
 });

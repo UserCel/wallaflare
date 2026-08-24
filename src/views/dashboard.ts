@@ -1164,7 +1164,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       color: var(--text-primary);
     }
     .action-btn.active-star {
-      color: var(--star-color);
+      color: #eab308 !important;
+    }
+    .action-btn.active-star svg {
+      fill: #eab308 !important;
+      stroke: #eab308 !important;
+    }
+    .card-star-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #eab308;
+      margin-right: 0.25rem;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    [dir="rtl"] .card-star-pill {
+      margin-right: 0;
+      margin-left: 0.25rem;
     }
     .action-btn.active-archive {
       color: var(--success);
@@ -3216,22 +3233,26 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const newStarState = !allStarred;
 
       showToast((newStarState ? 'Starring ' : 'Unstarring ') + ids.length + ' articles...');
-      for (const id of ids) {
+      ids.forEach(id => {
         const item = allEntries.find(e => e.id === id);
-        if (item) {
-          item.is_starred = newStarState ? 1 : 0;
-          authFetch('/api/entries/' + id + '.json', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ starred: newStarState ? 1 : 0 })
-          }).catch(err => console.error('Batch star error', err));
-        }
-      }
+        if (item) item.is_starred = newStarState ? 1 : 0;
+      });
       syncLocalEntriesCache(allEntries);
       updateCounts();
       filterArticles();
       clearArticleSelection();
-      showToast((newStarState ? 'Starred ' : 'Unstarred ') + ids.length + ' articles');
+
+      // Single Atomic Batch HTTP Request
+      authFetch('/api/entries/list.json', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, starred: newStarState ? 1 : 0 })
+      }).then(() => {
+        showToast((newStarState ? 'Starred ' : 'Unstarred ') + ids.length + ' articles');
+      }).catch(err => {
+        console.error('Batch star error', err);
+        showToast('Failed to update articles on server');
+      });
     }
 
     async function batchToggleArchive() {
@@ -3244,22 +3265,26 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const newArchiveState = !allArchived;
 
       showToast((newArchiveState ? 'Archiving ' : 'Restoring ') + ids.length + ' articles...');
-      for (const id of ids) {
+      ids.forEach(id => {
         const item = allEntries.find(e => e.id === id);
-        if (item) {
-          item.is_archived = newArchiveState ? 1 : 0;
-          authFetch('/api/entries/' + id + '.json', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ archive: newArchiveState ? 1 : 0 })
-          }).catch(err => console.error('Batch archive error', err));
-        }
-      }
+        if (item) item.is_archived = newArchiveState ? 1 : 0;
+      });
       syncLocalEntriesCache(allEntries);
       updateCounts();
       filterArticles();
       clearArticleSelection();
-      showToast((newArchiveState ? 'Archived ' : 'Restored ') + ids.length + ' articles');
+
+      // Single Atomic Batch HTTP Request
+      authFetch('/api/entries/list.json', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, archive: newArchiveState ? 1 : 0 })
+      }).then(() => {
+        showToast((newArchiveState ? 'Archived ' : 'Restored ') + ids.length + ' articles');
+      }).catch(err => {
+        console.error('Batch archive error', err);
+        showToast('Failed to update articles on server');
+      });
     }
 
     async function batchDeleteArticles() {
@@ -3269,16 +3294,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (!ok) return;
 
       showToast('Deleting ' + ids.length + ' articles...');
-      for (const id of ids) {
-        allEntries = allEntries.filter(e => e.id !== id);
-        authFetch('/api/entries/' + id + '.json', { method: 'DELETE' })
-          .catch(err => console.error('Batch delete error', err));
-      }
+      allEntries = allEntries.filter(e => !ids.includes(e.id));
       syncLocalEntriesCache(allEntries);
       updateCounts();
       filterArticles();
       clearArticleSelection();
-      showToast('Deleted ' + ids.length + ' articles');
+
+      // Single Atomic Batch Delete Request
+      authFetch('/api/entries/list.json', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      }).then(() => {
+        showToast('Deleted ' + ids.length + ' articles');
+      }).catch(err => {
+        console.error('Batch delete error', err);
+        showToast('Failed to delete articles on server');
+      });
     }
 
     function batchManageTags() {
@@ -3538,19 +3570,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       renderArticles(getCurrentlyFilteredEntries());
       showToast('Tag(s) updated');
 
-      // Parallel background server sync
-      for (const item of items) {
-        authFetch('/api/entries/' + item.id + '/tags.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tags: rawTags.join(',') })
-        }).then(async res => {
-          if (res.ok) {
-            const data = await res.json();
-            if (data.tags) item.tags = data.tags;
-          }
-        }).catch(err => console.error('Tag sync error', err));
-      }
+      // Atomic batch server sync
+      authFetch('/api/entries/tags/lists.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries: items.map(i => i.id), tags: rawTags.join(',') })
+      }).catch(err => console.error('Batch tag sync error', err));
     }
 
     async function removeTagFromSelected(tagLabel) {
@@ -3946,6 +3971,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           '<div class="card-main-content">' +
             '<div class="card-text-column">' +
               '<div class="card-meta">' +
+                (item.is_starred ? '<span class="card-star-pill" title="Starred Article"><svg width="12" height="12" viewBox="0 0 24 24" fill="#eab308" stroke="#eab308" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>' : '') +
                 '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
                 authorMetaHtml +
               '</div>' +

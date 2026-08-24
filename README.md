@@ -38,10 +38,10 @@
   - **3 View Modes**: Instant 1-tap cycling between **List View** (1:1 thumbnails, author, reading time), **Magazine Grid** (hero top covers), and **Compact Headlines** (dense layout that gracefully adjusts on mobile portrait).
   - **Multiple Sort Options**: Sort your library by **Newest First**, **Oldest First**, **Shortest Read** (quick 1–3 min reads), **Longest Read** (deep dives), or **Title (A–Z)**.
   - **Zero Mobile Row Wrapping**: Integrated search controls keep filter tabs on a single line on mobile screens.
-- **🏷️ Instant Tag Management & Batch Operations**:
-  - Categorize articles with tags (`#tech`, `#news`, `#novel`).
-  - Instant 0ms cached tag badge rendering and one-click tag filtering.
-  - Batch tagging across multiple selected articles and global unused tag cleanup.
+- **🏷️ Instant Tag Management & Official Batch API Operations**:
+  - **Standard Wallabag v2 Batch Endpoints**: Full server-side implementation of `DELETE /api/entries/list(.json)` (mass deletion), `PATCH /api/entries/list(.json)` (mass star/archive), `POST /api/entries/tags/lists(.json)` (mass tagging), and `DELETE /api/entries/tags/list(.json)` (mass tag removal).
+  - **Atomic 1-Request Operations**: Multi-selection actions in the webapp execute in 1 single HTTP request with atomic D1 SQLite queries.
+  - **Prominent Mobile Star Badges**: Gold star indicator pill on cards in all view modes (List, Magazine, Compact) makes favorite articles instantly recognizable on mobile.
 - **📱 Native Android App (1.2 MB)**:
   - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser with duplicate detection (`Article Already in Library` + save date) and direct `[Read Article]` / `[Open App]` actions.
   - **Auto-Revalidation on Resume**: Newly saved articles appear automatically in the library when returning to the app without manual refresh.

@@ -416,6 +416,54 @@ export async function updateEntry(
   return await getEntryById(db, id);
 }
 
+export async function deleteEntriesBatch(db: D1Database, ids: number[]): Promise<number> {
+  const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
+  if (validIds.length === 0) return 0;
+  const placeholders = validIds.map(() => '?').join(',');
+  await db.prepare(`DELETE FROM entry_tags WHERE entry_id IN (${placeholders})`).bind(...validIds).run();
+  const res = await db.prepare(`DELETE FROM entries WHERE id IN (${placeholders})`).bind(...validIds).run();
+  return res.meta?.changes ?? validIds.length;
+}
+
+export async function updateEntriesBatch(db: D1Database, ids: number[], updates: { is_starred?: number; is_archived?: number }): Promise<number> {
+  const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
+  if (validIds.length === 0) return 0;
+  const setClauses: string[] = ['updated_at = ?'];
+  const params: any[] = [new Date().toISOString()];
+
+  if (updates.is_starred !== undefined) {
+    setClauses.push('is_starred = ?');
+    params.push(updates.is_starred ? 1 : 0);
+  }
+  if (updates.is_archived !== undefined) {
+    setClauses.push('is_archived = ?');
+    params.push(updates.is_archived ? 1 : 0);
+  }
+
+  const placeholders = validIds.map(() => '?').join(',');
+  params.push(...validIds);
+
+  const query = `UPDATE entries SET ${setClauses.join(', ')} WHERE id IN (${placeholders})`;
+  const res = await db.prepare(query).bind(...params).run();
+  return res.meta?.changes ?? validIds.length;
+}
+
+export async function addTagsToEntriesBatch(db: D1Database, ids: number[], rawTags: any): Promise<void> {
+  const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
+  if (validIds.length === 0) return;
+  for (const id of validIds) {
+    await addTagsToEntry(db, id, rawTags);
+  }
+}
+
+export async function removeTagFromEntriesBatch(db: D1Database, ids: number[], tagParam: string | number): Promise<void> {
+  const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
+  if (validIds.length === 0) return;
+  for (const id of validIds) {
+    await removeTagFromEntry(db, id, tagParam);
+  }
+}
+
 export async function deleteEntry(db: D1Database, id: number): Promise<boolean> {
   await db.prepare('DELETE FROM entry_tags WHERE entry_id = ?').bind(id).run();
   const query = 'DELETE FROM entries WHERE id = ?';
