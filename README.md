@@ -10,7 +10,10 @@
 [![KOReader](https://img.shields.io/badge/Reader-KOReader_Ready-darkgreen)](https://koreader.rocks/)
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="Wallaflare Dashboard & Reader Preview" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+  <img src="assets/screenshots/dashboard-desktop.png" alt="Wallaflare Desktop Dashboard" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 20px;" />
+</p>
+<p align="center">
+  <img src="assets/screenshots/dashboard-mobile-mockup.png" alt="Wallaflare Mobile Smartphone App" width="380" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
 </p>
 
 ---
@@ -22,10 +25,14 @@
   - Full compatibility with the **Official Wallabag Android App** (connection test, OAuth token authentication, article fetching, incremental sync with `since`, and two-way deletion).
   - Compatible with **KOReader's Wallabag plugin** for automated article sync and offline reading on Kindle, Kobo, Boox, and Android e-ink devices.
   - Wallabag browser extensions and third-party clients work out of the box.
-- **🏷️ Full Tag Management System**:
+- **🎛️ 3 Distinct Library View Layouts**:
+  - **☰ List View (Default)**: Modern horizontal card layout with 1:1 square right-aligned thumbnails, Instapaper-style `xx of yy min left` reading time, and dedicated author row.
+  - **⊞ Magazine Grid**: Visually immersive grid layout with hero top image covers.
+  - **☷ Compact Headlines**: Dense 1-row table layout on desktop, intelligently transforming into 2 rows on mobile portrait to prevent headline truncation.
+- **🏷️ Full Tag Management & Batch Operations**:
   - Categorize articles with tags (`#tech`, `#news`, `#novel`, `#litrpg`).
-  - **Quick-Add Tags**: Instantly attach existing library tags to articles in one click.
-  - **One-Click Tag Filtering**: Click any tag badge on article cards to filter your reading list.
+  - **Instant 0ms Tag Caching**: Zero-delay tag badge rendering backed by synchronous local storage and offline DB derivation.
+  - **Batch Tagging & Partial Tags**: Select multiple articles to apply common or new tags, with distinct indicators for partially applied tags.
   - **Global Tag Manager**: View all tags with live article counts, delete unused/orphaned tags in 1 click, and safely untag articles with confirmation.
   - Full Wallabag v2 Tag API compatibility (`/api/tags`, `/api/entries/:id/tags`, `/api/entries.json?tags=...`).
 - **🌐 Comprehensive RTL & Hebrew / Arabic Support**:
@@ -33,35 +40,38 @@
   - Web reader and card titles automatically align right with RTL blockquotes and typography.
   - EPUB generator sets `page-progression-direction="rtl"`, Hebrew metadata labels, and semantic figures so KOReader renders RTL books natively.
 - **📱 Native Android App (Capacitor & Native Bridge)**:
-  - **Ultra-Lightweight Release**: Only **1.1 MB** with R8 ProGuard minimization and resource shrinking.
+  - **Ultra-Lightweight Release**: Only **1.2 MB** with R8 ProGuard optimization.
   - **Instant Local Cache**: 0.0ms instantaneous startup rendering from offline storage with automatic background server revalidation.
-  - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser — opens a lightweight background card that parses the URL and shows live title confirmation without disrupting your current app.
+  - **Floating Share Dialog & Duplicate Alerts**: Share links from Chrome, Twitter, Reddit, or any app — opens a lightweight floating card with duplicate detection (`ℹ Article Already in Library` + original save date) and direct `[Read Article]` / `[Open App]` action buttons.
+  - **Native Status Bar & Notch Shield**: Integrated `@capacitor/status-bar` sync with theme-matched safe-area punch-hole shields so text never collides with front cameras.
   - **Native EPUB Export & Share Sheet**: Export articles directly to Android's system share sheet to open in KOReader, Moon+ Reader, ReadEra, save to Downloads, or send to Kindle.
-  - **Edge-to-Edge Design & Gestures**: Dynamic status bar / navigation bar safe area padding, pull-to-refresh with real-time physics, in-app confirmation modals, and double-back-to-exit protection.
+  - **Edge-to-Edge Design & Gestures**: Dynamic safe-area padding, pull-to-refresh with real-time physics, glassmorphic in-app confirmation modals, and double-back-to-exit protection.
 - **📚 Rich Multi-Page EPUB Generator**:
   - Automatically generates clean EPUB 3 / EPUB 2 files formatted to match Wallabag.
   - Bundles high-resolution preview cover images (`cover.xhtml` + `cover.png/jpg`) and downloads all inline article photos.
   - Cleans convoluted CMS wrappers into standard semantic HTML5 figures (`<figure><img><figcaption>`) for reliable rendering on KOReader (Crengine) and Kindle.
   - Generates Wallabag-style summary/metadata pages (Author, Published Date, Estimated Reading Time, Added Date, Source Link).
 - **🖥️ Responsive Web Dashboard & Distraction-Free Reader**:
-  - **Expandable Sidebar Dock**: Top-aligned toolbar that smoothly expands on hover with clear labels (`← Back`, `⭐ Favorite`, `📦 Archive`, `🏷️ Tags`, `📥 EPUB`, `Aa Font`, `🌓 Theme`).
+  - **Mobile Auto-Hide Header**: Reader header and status bar slide up smoothly (500ms delay) as you read, and seamlessly restore on slow upward scrolling (~3 lines).
+  - **Expandable Sidebar Dock**: Desktop sidebar that smoothly expands on hover with clear labels (`← Back`, `⭐ Favorite`, `📦 Archive`, `🏷️ Tags`, `📥 EPUB`, `🔄 Re-fetch`, `Aa Font`, `🌓 Theme`).
   - **Responsive Sub-URLs**: `/read/:id`, `/starred`, `/archive` with native browser Back/Forward navigation.
-  - **Reading Progress Bar**: Live scroll progress indicator.
+  - **Reading Progress Bar**: Live scroll progress indicator with Instapaper-style remaining time calculation.
   - **Themes & Typography**: Dark, Light, and Sepia modes with Serif / Sans-serif toggles and fine-tuned font sizing.
-- **🔍 Smart Article Ingestion**: Powered by `@mozilla/readability` and `linkedom` for fast serverless content extraction with relative URL canonicalization.
+- **🔍 Smart Article Ingestion & Resilient Re-Fetching**:
+  - Powered by `@mozilla/readability` and `linkedom` for fast serverless content extraction with relative URL canonicalization and lead image resolution.
+  - **Resilient Re-Fetching**: Updates article text and cover images from live sources while preserving existing covers if newly scraped pages omit them.
 - **🕵️ Complete Search Engine & Crawler Exclusion**:
   - Automatically emits `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` HTTP headers on every response.
-  - Serves `/robots.txt` disallowing all web crawlers and injects `<meta name="robots">` into all pages to keep your personal reading list 100% private from Google, Bing, and web indexers.
+  - Serves `/robots.txt` disallowing all web crawlers and injects `<meta name="robots">` into all pages to keep your personal reading list 100% private.
 - **🛡️ Two-Tier Content Sanitization & XSS Defense**:
-  - **Server-Side Linkedom Sanitizer**: Automatically purges dangerous tags (`<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`), strips inline event handlers (`onload`, `onerror`, `onclick`), and neutralizes `javascript:` URIs before content is stored in D1.
+  - **Server-Side Linkedom Sanitizer**: Purges dangerous tags (`<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`), strips inline event handlers (`onload`, `onerror`, `onclick`), and neutralizes `javascript:` URIs before content is stored in D1.
   - **Client-Side DOMPurify Pass**: Articles rendered in the web reader pass through DOMPurify for defense-in-depth XSS protection.
   - **Strict Content Security Policy (CSP)**: Global HTTP headers restrict script execution and completely disallow plugin/object embedding (`object-src 'none'`).
 - **🛡️ Built-in Brute-Force & Rate-Limiting Protection**:
   - Native IP-based lockout protection across all Web & API authentication routes (`/oauth/v2/token`, `/api/auth/verify`, and protected `/api/*` endpoints).
   - Enforces a **5-attempt threshold** before triggering a **15-minute lockout** (`HTTP 429 Too Many Requests`).
   - **Live Lockout Countdown**: The web UI displays real-time countdown feedback with automatic field re-enabling upon expiration.
-  - **Inactivity Reset**: Failure counters automatically reset after 15 minutes of inactivity or immediately on any successful authentication.
-  - **Timing-Safe Comparison**: Constant-time string comparison protects against secret extraction via side-channel timing attacks.
+  - **Timing-Safe Comparison**: Constant-time string comparison (`crypto.subtle.timingSafeEqual`) protects against secret extraction via side-channel timing attacks.
 
 ---
 
@@ -103,7 +113,7 @@ Open `wrangler.toml` and update:
 ### 4. Initialize Database Schema
 Run the database migrations on Cloudflare D1:
 ```bash
-npx wrangler d1 execute wallaflare-db --file=schema.sql --remote
+npm run db:migrate:remote
 ```
 
 ### 5. Set Access Token Secret (Recommended)
@@ -122,7 +132,7 @@ Your instance is now live worldwide! 🎉
 
 ---
 
-### Native Android App Build (Capacitor)
+### 📱 Native Android App Build (Capacitor)
 Wallaflare includes a first-class native Android wrapper with background share integration and native EPUB export.
 
 1. **Build Debug APK**:
@@ -131,11 +141,20 @@ Wallaflare includes a first-class native Android wrapper with background share i
    ```
    Output: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-2. **Build Minimized Release APK (1.1 MB)**:
+2. **Build Minimized Release APK (1.2 MB)**:
    ```bash
    npm run build:apk:release
    ```
    Output: `android/app/build/outputs/apk/release/app-release.apk`
+
+---
+
+### 📸 Promotional Screenshot Generator
+Generate high-resolution desktop and smartphone mockups in seconds with:
+```bash
+npm run screenshot
+```
+Output saved to `assets/screenshots/`.
 
 ---
 
@@ -164,18 +183,15 @@ Wallaflare includes a first-class native Android wrapper with background share i
 - **Stateless & Edge-Native**: No servers to manage, no Docker containers, no background database daemons.
 - **Zero Hardcoded Secrets**: Secrets and tokens are managed via Cloudflare Secrets (`wrangler secret put AUTH_TOKEN`).
 - **Two-Tier Content Sanitization & Defense-in-Depth**:
-  - Follows Mozilla Readability's security specifications by actively sanitizing extracted HTML trees against Cross-Site Scripting (XSS).
   - Server-side linkedom DOM parser cleans executable tags, inline event attributes, and dangerous URI protocols before saving to database.
   - Client-side reader uses DOMPurify before innerHTML injection.
   - Strict Content-Security-Policy (CSP) headers block unauthorized script sources and object/embed plugins.
 - **Native Rate-Limiting & Brute-Force Defense**:
   - Automatically tracks consecutive failed password/token attempts per client IP in Cloudflare D1.
   - Returns explicit attempt counts on failures and strictly locks out aggressive brute-force attempts for 15 minutes after 5 failures.
-  - Constant-time cryptographic comparison (`timingSafeCompare`) protects against token timing attacks.
-  - Unauthenticated guest visits and clean logouts never consume failure attempts.
+  - Constant-time cryptographic comparison (`crypto.subtle.timingSafeEqual`) protects against token timing attacks.
 - **Search Engine & Crawler Disallow**: Built-in `X-Robots-Tag` headers, `/robots.txt`, and HTML meta tags prevent public indexing of private libraries.
 - **Authorization Header Support**: All web actions and EPUB downloads pass credentials securely in HTTP `Authorization: Bearer <token>` headers rather than exposing tokens in query URLs.
-- **Dynamic Origin Resolution**: All redirects, OAuth callbacks, and PWA manifest URLs resolve the client's host origin dynamically at runtime.
 
 ---
 

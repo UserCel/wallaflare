@@ -7,7 +7,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import org.json.JSONObject;
@@ -27,6 +29,10 @@ public class ShareActivity extends Activity {
     private ImageView statusIcon;
     private TextView titleView;
     private TextView subtitleView;
+    private LinearLayout actionButtons;
+    private Button btnOpenApp;
+    private Button btnOpenArticle;
+    private Runnable autoDismissRunnable;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -39,10 +45,42 @@ public class ShareActivity extends Activity {
         statusIcon = findViewById(R.id.shareStatusIcon);
         titleView = findViewById(R.id.shareTitle);
         subtitleView = findViewById(R.id.shareSubtitle);
+        actionButtons = findViewById(R.id.shareActionButtons);
+        btnOpenApp = findViewById(R.id.btnOpenApp);
+        btnOpenArticle = findViewById(R.id.btnOpenArticle);
 
-        findViewById(R.id.shareCard).setOnClickListener(v -> finish());
+        View closeBtn = findViewById(R.id.shareCloseBtn);
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> dismissDialog());
+        }
+
+        btnOpenApp.setOnClickListener(v -> {
+            cancelAutoDismiss();
+            Intent openApp = new Intent(ShareActivity.this, MainActivity.class);
+            openApp.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(openApp);
+            finish();
+        });
 
         handleIncomingShare(getIntent());
+    }
+
+    private void dismissDialog() {
+        cancelAutoDismiss();
+        finish();
+    }
+
+    private void cancelAutoDismiss() {
+        if (autoDismissRunnable != null) {
+            mainHandler.removeCallbacks(autoDismissRunnable);
+            autoDismissRunnable = null;
+        }
+    }
+
+    private void scheduleAutoDismiss(long delayMillis) {
+        cancelAutoDismiss();
+        autoDismissRunnable = this::finish;
+        mainHandler.postDelayed(autoDismissRunnable, delayMillis);
     }
 
     private void handleIncomingShare(Intent intent) {
@@ -72,12 +110,10 @@ public class ShareActivity extends Activity {
             spinner.setVisibility(View.GONE);
             statusIcon.setVisibility(View.VISIBLE);
             titleView.setText("Server Not Configured");
-            subtitleView.setText("Tap to open Wallaflare and set up your server");
-            findViewById(R.id.shareCard).setOnClickListener(v -> {
-                Intent openApp = new Intent(ShareActivity.this, MainActivity.class);
-                startActivity(openApp);
-                finish();
-            });
+            subtitleView.setText("Tap to open Wallaflare and configure your server");
+            actionButtons.setVisibility(View.VISIBLE);
+            btnOpenArticle.setVisibility(View.GONE);
+            btnOpenApp.setText("Configure Server");
             return;
         }
 
@@ -131,22 +167,54 @@ public class ShareActivity extends Activity {
                 }
 
                 JSONObject respObj = new JSONObject(response.toString());
-                String parsedTitle = respObj.optString("title", "Article Saved");
+                final long articleId = respObj.optLong("id", -1);
+                final String parsedTitle = respObj.optString("title", "Article");
+                final boolean alreadyExists = respObj.optBoolean("already_exists", false);
+                final String addedDateStr = respObj.optString("added_date_str", "");
 
                 mainHandler.post(() -> {
                     spinner.setVisibility(View.GONE);
                     statusIcon.setVisibility(View.VISIBLE);
-                    titleView.setText("✓ " + parsedTitle);
-                    subtitleView.setText("Saved to Wallaflare");
 
-                    mainHandler.postDelayed(this::finish, 2200);
+                    if (alreadyExists) {
+                        titleView.setText("ℹ Article Already in Library");
+                        if (!addedDateStr.isEmpty()) {
+                            subtitleView.setText("Saved on " + addedDateStr + ": " + parsedTitle);
+                        } else {
+                            subtitleView.setText(parsedTitle);
+                        }
+                    } else {
+                        titleView.setText("✓ Article Saved");
+                        subtitleView.setText(parsedTitle);
+                    }
+
+                    // Show action buttons: Read Article & Open Wallaflare
+                    actionButtons.setVisibility(View.VISIBLE);
+                    if (articleId > 0) {
+                        btnOpenArticle.setVisibility(View.VISIBLE);
+                        btnOpenArticle.setOnClickListener(v -> {
+                            cancelAutoDismiss();
+                            Intent openArticle = new Intent(ShareActivity.this, MainActivity.class);
+                            openArticle.putExtra("open_reader_id", articleId);
+                            openArticle.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                            startActivity(openArticle);
+                            finish();
+                        });
+                    } else {
+                        btnOpenArticle.setVisibility(View.GONE);
+                    }
+
+                    // Allow user enough time to interact with buttons
+                    scheduleAutoDismiss(alreadyExists ? 6000 : 4500);
                 });
             } else {
                 mainHandler.post(() -> {
                     spinner.setVisibility(View.GONE);
                     statusIcon.setVisibility(View.VISIBLE);
                     titleView.setText("Failed to save (HTTP " + code + ")");
-                    mainHandler.postDelayed(this::finish, 2800);
+                    actionButtons.setVisibility(View.VISIBLE);
+                    btnOpenArticle.setVisibility(View.GONE);
+                    scheduleAutoDismiss(4000);
                 });
             }
         } catch (Exception e) {
@@ -155,7 +223,9 @@ public class ShareActivity extends Activity {
                 statusIcon.setVisibility(View.VISIBLE);
                 titleView.setText("Save failed");
                 subtitleView.setText(e.getMessage());
-                mainHandler.postDelayed(this::finish, 2800);
+                actionButtons.setVisibility(View.VISIBLE);
+                btnOpenArticle.setVisibility(View.GONE);
+                scheduleAutoDismiss(4000);
             });
         }
     }
@@ -163,6 +233,7 @@ public class ShareActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        cancelAutoDismiss();
         executor.shutdown();
     }
 }

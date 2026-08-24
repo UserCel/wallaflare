@@ -75,14 +75,42 @@ public class MainActivity extends BridgeActivity {
             getBridge().getWebView().addJavascriptInterface(new NativeInterface(), "AndroidNative");
         }
 
-        handleSendIntent(getIntent());
+        handleIncomingIntents(getIntent());
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        handleIncomingIntents(intent);
+    }
+
+    private void handleIncomingIntents(Intent intent) {
+        if (intent == null) return;
+
+        if (intent.hasExtra("open_reader_id")) {
+            final long articleId = intent.getLongExtra("open_reader_id", -1);
+            if (articleId > 0) {
+                openArticleInReader(articleId);
+                return;
+            }
+        }
+
         handleSendIntent(intent);
+    }
+
+    private void openArticleInReader(final long articleId) {
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    getBridge().getWebView().evaluateJavascript(
+                        "(function() { if (window.openReader) { window.openReader(" + articleId + "); } else { window.location.href = '/read/" + articleId + "'; } })()",
+                        null
+                    );
+                }
+            }, 350);
+        }
     }
 
     @Override

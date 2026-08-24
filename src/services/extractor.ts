@@ -264,6 +264,7 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
   const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
   let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
+  let contentFirstImg: string | null = null;
   if (content) {
     try {
       const { document: contentDoc } = parseHTML('<!DOCTYPE html><html><body>' + content + '</body></html>');
@@ -272,10 +273,24 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
       }
       sanitizeArticleDom(contentDoc);
       content = contentDoc.body ? contentDoc.body.innerHTML : content;
+
+      // Extract first lead image from parsed and sanitized article content
+      const imgEl = contentDoc.querySelector('img');
+      if (imgEl) {
+        const src = imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original');
+        if (src && !src.startsWith('data:') && !src.endsWith('.svg') && !src.includes('pixel') && !src.includes('tracker')) {
+          contentFirstImg = src.trim();
+        }
+      }
     } catch {}
   }
   const excerpt = parsed?.excerpt || ogDescription || metaDescription || textContent.slice(0, 200);
-  const previewPicture = ogImage || twitterImage || firstArticleImg || null;
+  let previewPicture = ogImage || twitterImage || contentFirstImg || firstArticleImg || null;
+  if (previewPicture && originalUrl) {
+    try {
+      previewPicture = new URL(previewPicture, originalUrl).toString();
+    } catch {}
+  }
   const readingTime = calculateReadingTime(textContent);
 
   return {

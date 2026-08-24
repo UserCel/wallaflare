@@ -1868,6 +1868,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           </button>
           <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
             <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
+            <button class="menu-item" id="batchDownloadEpubBtn" onclick="closeBatchMenu(); batchDownloadEpub();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download EPUB</span></button>
             <button class="menu-item" onclick="closeBatchMenu(); batchRefetchContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
             <button class="menu-item" onclick="closeBatchMenu(); toggleSelectAllArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg><span id="batchMenuSelectAllLabel">Select All</span></button>
             <div class="menu-divider"></div>
@@ -1950,10 +1951,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </button>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.65rem;">
-        <div style="font-size: 0.8rem; color: var(--text-muted);" id="statusIndicator">
-          Syncing...
-        </div>
+      <div style="display: flex; align-items: center; gap: 0.65rem; margin-left: auto;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;" id="statusIndicator"></div>
 
         <div class="view-mode-toggle" id="viewModeToggle">
           <button class="view-btn active" id="viewBtnList" onclick="setViewMode('list')" title="List View (Right Thumbnail)">
@@ -2817,6 +2816,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           if (editBtn) {
             editBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
           }
+          const downloadBtn = document.getElementById('batchDownloadEpubBtn');
+          if (downloadBtn) {
+            downloadBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
+          }
           const selectAllLabel = document.getElementById('batchMenuSelectAllLabel');
           const current = getCurrentlyFilteredEntries();
           const allSelected = current.length > 0 && current.every(e => selectedArticleIds.has(e.id));
@@ -2839,6 +2842,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       clearArticleSelection();
     }
 
+    function batchDownloadEpub() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      downloadEpub(id);
+      clearArticleSelection();
+    }
+
     async function batchRefetchContent() {
       if (selectedArticleIds.size === 0) return;
       const ids = Array.from(selectedArticleIds);
@@ -2848,9 +2858,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return;
       }
 
+      const ok = await showConfirmDialog(
+        'Re-fetch Selected Articles',
+        'Re-fetch ' + urlItems.length + ' selected article(s) from their original source URLs?\\n\\nThis will download the latest content and preview images from the live sites.',
+        'Re-fetch (' + urlItems.length + ')',
+        false
+      );
+      if (!ok) return;
+
       showToast('Re-fetching ' + urlItems.length + ' article(s)...');
       for (const item of urlItems) {
-        await refetchArticleContent(item.id);
+        await refetchArticleContent(item.id, true);
       }
       clearArticleSelection();
     }
@@ -4124,12 +4142,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    async function refetchArticleContent(id) {
+    async function refetchArticleContent(id, skipConfirm = false) {
       const item = allEntries.find(e => e.id === id);
       if (!item || !item.url || item.domain_name === 'direct-input') return;
 
-      if (!confirm('Re-fetch article from original source URL?\\n\\nThis will download the latest content from ' + (item.domain_name || item.url) + ' and update the article text.')) {
-        return;
+      if (!skipConfirm) {
+        const ok = await showConfirmDialog(
+          'Re-fetch Article',
+          'Re-fetch article from original source URL (' + (item.domain_name || item.url) + ')?\\n\\nThis will download the latest content and preview image from the live site.',
+          'Re-fetch',
+          false
+        );
+        if (!ok) return;
       }
 
       showToast('Re-fetching article from source...');
