@@ -1,3 +1,5 @@
+import { buildEpubClientBundle } from "./bundle-epub-client";
+buildEpubClientBundle();
 import * as fs from 'fs';
 import * as path from 'path';
 import { renderDashboardHtml } from '../src/views/dashboard';

@@ -1,6 +1,13 @@
 import { zipSync, strToU8 } from 'fflate';
 import { parseHTML } from 'linkedom';
 
+function parseHtmlDoc(html: string): any {
+  if (typeof DOMParser !== 'undefined') {
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+  return parseHTML(html).document;
+}
+
 export interface EpubArticleInput {
   id?: number | string;
   title: string;
@@ -204,7 +211,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   }
 
   // 2. Parse & sanitize content HTML, fetching inline images
-  const { document } = parseHTML(`<!DOCTYPE html><html><body>${article.content || ''}</body></html>`);
+  const document = parseHtmlDoc(`<!DOCTYPE html><html><body>${article.content || ''}</body></html>`);
 
   // Remove unsafe elements
   const removeSelectors = ['script', 'style', 'iframe', 'noscript', 'object', 'embed'];

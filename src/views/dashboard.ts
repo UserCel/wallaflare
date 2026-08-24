@@ -1,3 +1,4 @@
+import { clientEpubJs } from './epub-client-bundle';
 export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -868,37 +869,61 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
       box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45) !important;
-      min-width: 185px;
-      padding: 0.35rem 0;
+      min-width: 195px;
+      padding: 0.4rem 0;
       z-index: 102 !important;
       display: none;
       flex-direction: column;
       opacity: 1 !important;
       animation: menuFadeIn 0.15s ease-out;
     }
+    .card-dropdown-menu.open {
+      display: flex !important;
+    }
+    .card-dropdown-menu.open-down {
+      bottom: auto !important;
+      top: calc(100% + 6px) !important;
+    }
     .action-btn.card-more-btn {
       opacity: 1 !important;
     }
+    .article-card[dir="rtl"] .card-dropdown-menu {
+      right: auto;
+      left: 0;
+    }
     .menu-item {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      gap: 0.75rem;
       width: 100%;
-      padding: 0.55rem 0.9rem;
+      padding: 0.6rem 0.95rem;
       border: none;
       background: transparent;
       color: var(--text-primary) !important;
-      font-size: 0.825rem;
+      font-size: 0.85rem;
+      font-weight: 450;
       cursor: pointer;
-      text-align: start;
+      text-align: left !important;
       text-decoration: none;
       opacity: 1 !important;
-      transition: background-color 0.15s ease;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      white-space: nowrap;
+      box-sizing: border-box;
     }
     .menu-item svg {
-      opacity: 0.9;
+      width: 16px;
+      height: 16px;
+      opacity: 0.85;
       color: var(--text-secondary);
       flex-shrink: 0;
+      display: inline-block;
+    }
+    .menu-item span {
+      text-align: left !important;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .menu-item:hover {
       background: var(--bg-secondary) !important;
@@ -908,43 +933,36 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       opacity: 1;
       color: var(--accent);
     }
-    .article-card[dir="rtl"] .card-dropdown-menu {
-      right: auto;
-      left: 0;
+    .menu-item.active {
+      color: var(--accent) !important;
+      font-weight: 600;
+      background: rgba(99, 102, 241, 0.08) !important;
     }
-    .card-dropdown-menu.open {
-      display: flex !important;
-    }
-    .menu-item {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      padding: 0.55rem 0.85rem;
-      font-size: 0.825rem;
-      color: var(--text-primary);
-      text-decoration: none;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      width: 100%;
-      text-align: left;
-      transition: background 0.15s ease;
-      white-space: nowrap;
-      box-sizing: border-box;
-    }
-    .article-card[dir="rtl"] .menu-item {
-      text-align: right;
-    }
-    .menu-item:hover {
-      background: var(--bg-secondary);
-      color: var(--text-primary);
+    .menu-item.active svg {
+      color: var(--accent) !important;
+      opacity: 1;
     }
     .menu-item-danger {
-      color: #ef4444;
+      color: #ef4444 !important;
+    }
+    .menu-item-danger svg {
+      color: #ef4444 !important;
     }
     .menu-item-danger:hover {
-      background: rgba(239, 68, 68, 0.12);
-      color: #f87171;
+      background: rgba(239, 68, 68, 0.12) !important;
+      color: #f87171 !important;
+    }
+    .menu-item-danger:hover svg {
+      color: #f87171 !important;
+    }
+    [dir="rtl"] .menu-item,
+    .article-card[dir="rtl"] .menu-item {
+      text-align: right !important;
+      justify-content: flex-start !important;
+    }
+    [dir="rtl"] .menu-item span,
+    .article-card[dir="rtl"] .menu-item span {
+      text-align: right !important;
     }
     .menu-divider {
       height: 1px;
@@ -1942,7 +1960,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           </button>
           <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
             <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
-            <button class="menu-item" id="batchDownloadEpubBtn" onclick="closeBatchMenu(); batchDownloadEpub();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download EPUB</span></button>
+            <button class="menu-item" id="batchDownloadEpubBtn" onclick="closeBatchMenu(); batchDownloadEpub();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export EPUB</span></button>
             <button class="menu-item" onclick="closeBatchMenu(); batchRefetchContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
             <button class="menu-item" onclick="closeBatchMenu(); toggleSelectAllArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg><span id="batchMenuSelectAllLabel">Select All</span></button>
             <div class="menu-divider"></div>
@@ -2290,9 +2308,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label">Tags</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="downloadActiveEpub(); closeMobileReaderDrawer();" title="Download EPUB">
+        <button class="reader-tool-btn" onclick="downloadActiveEpub(); closeMobileReaderDrawer();" title="Export EPUB">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span class="btn-label">EPUB</span>
+          <span class="btn-label">Export</span>
         </button>
 
         <button class="reader-tool-btn" id="readerRefetchBtn" onclick="refetchActiveArticleContent(); closeMobileReaderDrawer();" title="Re-fetch Content from Source URL">
@@ -2406,6 +2424,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <script>
+    ${clientEpubJs}
     function isRtlText(text) {
       return /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text || '');
     }
@@ -2775,6 +2794,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           return;
         }
         document.getElementById('authOverlay').style.display = 'none';
+        isOfflineMode = false;
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allEntries = data._embedded ? data._embedded.items : [];
@@ -2796,13 +2816,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             allEntries = cached;
             updateCounts();
             filterArticles();
-            const status = document.getElementById('statusIndicator');
-            if (status) status.textContent = allEntries.length + ' articles (offline)';
-          } else {
-            const status = document.getElementById('statusIndicator');
-            if (status) status.textContent = 'Error loading library';
           }
         }
+        handleConnectionFailure(silent);
       } finally {
         hidePullToRefreshSpinner();
       }
@@ -3637,8 +3653,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           status.textContent = filtered.length === 1 ? '1 article' : (filtered.length + ' articles');
         }
       } else {
-        if (status && status.textContent !== 'Syncing...' && status.textContent !== 'Offline') {
-          status.textContent = '';
+        if (status) {
+          if (isOfflineMode || navigator.onLine === false) {
+            status.textContent = allEntries.length > 0 ? (allEntries.length + ' saved (offline)') : 'Offline';
+          } else if (status.textContent !== 'Syncing...') {
+            status.textContent = '';
+          }
         }
       }
 
@@ -3739,7 +3759,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
                 '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
-                  '<button class="menu-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download EPUB</span></button>' +
+                  '<button class="menu-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export EPUB</span></button>' +
                   (item.url && item.domain_name !== 'direct-input' ? '<button class="menu-item" onclick="closeAllCardMenus(); refetchArticleContent(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>' : '') +
                   (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="menu-item" onclick="closeAllCardMenus()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></a>' : '') +
                   '<div class="menu-divider"></div>' +
@@ -3760,22 +3780,41 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function downloadEpub(id) {
       const item = allEntries.find(e => e.id === id);
-      showToast('Preparing EPUB...');
+      if (!item) {
+        showToast('Article not found');
+        return;
+      }
+      showToast('Exporting EPUB...');
       try {
-        const res = await authFetch('/api/entries/' + id + '/export.epub');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-
+        let blob = null;
         let filename = item && item.title ? (item.title.replace(/[/\\:*?"<>|]/g, '').trim() + '.epub') : 'article.epub';
-        const disposition = res.headers.get('Content-Disposition');
-        if (disposition && disposition.includes("filename*=")) {
-          const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-          if (match) filename = decodeURIComponent(match[1]);
-        } else if (disposition && disposition.includes("filename=")) {
-          const match = disposition.match(/filename="?([^";]+)"?/i);
-          if (match) filename = match[1];
+
+        // 1. Instant on-device client generation (100% offline capable)
+        if (typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
+          try {
+            const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin, {
+              downloadImages: navigator.onLine !== false
+            });
+            blob = new Blob([u8], { type: 'application/epub+zip' });
+          } catch (clientErr) {
+            console.warn('Client EPUB build failed, trying server fallback:', clientErr);
+          }
         }
 
-        const blob = await res.blob();
+        // 2. Server fallback if needed
+        if (!blob) {
+          const res = await authFetch('/api/entries/' + id + '/export.epub');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const disposition = res.headers.get('Content-Disposition');
+          if (disposition && disposition.includes("filename*=")) {
+            const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (match) filename = decodeURIComponent(match[1]);
+          } else if (disposition && disposition.includes("filename=")) {
+            const match = disposition.match(/filename="?([^";]+)"?/i);
+            if (match) filename = match[1];
+          }
+          blob = await res.blob();
+        }
 
         // Android native share sheet (JavascriptInterface bridge)
         if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
@@ -3785,12 +3824,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
               const dataUrl = reader.result;
               const base64 = dataUrl.split(',')[1];
               window.AndroidNative.shareBase64File(filename, base64, 'application/epub+zip');
-              showToast('Opening share sheet...');
+              showToast('Opening EPUB export...');
             } catch(e) {
               showToast('Share failed: ' + e.message);
             }
           };
-          reader.onerror = function() { showToast('Failed to read EPUB file'); };
+          reader.onerror = function() { showToast('Failed to export EPUB file'); };
           reader.readAsDataURL(blob);
           return;
         }
@@ -3801,7 +3840,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             const file = new File([blob], filename, { type: 'application/epub+zip' });
             if (navigator.canShare({ files: [file] })) {
               await navigator.share({ files: [file], title: filename });
-              showToast('✓ EPUB shared');
+              showToast('✓ EPUB exported');
               return;
             }
           } catch (e) {
@@ -3818,9 +3857,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
-        showToast('✓ EPUB downloaded');
+        showToast('✓ EPUB exported');
       } catch (err) {
-        showToast('EPUB export failed: ' + err.message);
+        showToast('Failed to export EPUB');
       }
     }
 
@@ -4299,7 +4338,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const backdrop = document.getElementById('cardMenuBackdrop');
       if (backdrop) backdrop.style.display = 'none';
       document.querySelectorAll('.article-card.menu-open').forEach(el => el.classList.remove('menu-open'));
-      document.querySelectorAll('.card-dropdown-menu.open').forEach(el => el.classList.remove('open'));
+      document.querySelectorAll('.card-dropdown-menu.open').forEach(el => {
+        el.classList.remove('open');
+        el.classList.remove('open-down');
+      });
     }
 
     function toggleCardMenu(id) {
@@ -4309,7 +4351,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const isOpen = menu.classList.contains('open');
       closeAllCardMenus();
       if (!isOpen) {
+        menu.classList.remove('open-down');
         menu.classList.add('open');
+
+        // Smart collision detection: check available space above vs below
+        const btn = menu.previousElementSibling || menu.parentElement;
+        if (btn) {
+          const btnRect = btn.getBoundingClientRect();
+          const menuHeight = menu.offsetHeight || 220;
+          // If not enough headroom above (near top navbar), open downwards
+          if (btnRect.top - menuHeight < 68) {
+            menu.classList.add('open-down');
+          }
+        }
+
         if (card) card.classList.add('menu-open');
         const backdrop = document.getElementById('cardMenuBackdrop');
         if (backdrop) backdrop.style.display = 'block';
@@ -4832,7 +4887,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           }
           if (svg) svg.classList.add('ptr-spinning');
           
-          await loadArticles(true);
+          const minDelay = new Promise(r => setTimeout(r, 450));
+          await Promise.all([loadArticles(false), minDelay]);
           hidePullToRefreshSpinner();
         } else {
           hidePullToRefreshSpinner();
@@ -4967,10 +5023,39 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       setupInteractiveDrawerTracking('readerSidebar', 'readerDrawerBackdrop', closeMobileReaderDrawer, 'drawer-open');
     }
 
+    // Global connection state & offline management
+    let isOfflineMode = false;
+    let lastOfflineToastTime = 0;
+
+    function handleConnectionFailure(isSilent = false) {
+      isOfflineMode = true;
+      const now = Date.now();
+      const status = document.getElementById('statusIndicator');
+      if (status) {
+        if (!selectedTagFilter && (!document.getElementById('searchInput') || !document.getElementById('searchInput').value.trim())) {
+          status.textContent = allEntries.length > 0 ? (allEntries.length + ' saved (offline)') : 'Offline';
+        }
+      }
+
+      // If manual pull-to-refresh (!isSilent), always show toast; if background resume, debounce to 30s
+      if (!isSilent || (now - lastOfflineToastTime > 30000)) {
+        lastOfflineToastTime = now;
+        if (allEntries.length > 0) {
+          showToast('Offline mode — viewing saved articles', 3500);
+        } else {
+          showToast('Could not connect to server', 3500);
+        }
+      }
+    }
+
     // Global silent refresh helper for native app resume & tab focus
     window.refreshArticlesSilently = function() {
       const reader = document.getElementById('readerView');
       if (reader && reader.classList.contains('open')) return;
+      if (navigator.onLine === false) {
+        handleConnectionFailure(true);
+        return;
+      }
       loadArticles(true);
     };
 
@@ -4982,6 +5067,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     window.addEventListener('focus', () => {
       window.refreshArticlesSilently();
+    });
+
+    window.addEventListener('offline', () => {
+      handleConnectionFailure(false);
+    });
+
+    window.addEventListener('online', () => {
+      showToast('Back online — syncing library...', 2500);
+      loadArticles(true).then(() => {
+        const status = document.getElementById('statusIndicator');
+        if (status && (status.textContent.includes('offline') || status.textContent === 'Offline')) {
+          status.textContent = '';
+        }
+      });
     });
 
     // Initialize
