@@ -43,7 +43,7 @@
   - Instant 0ms cached tag badge rendering and one-click tag filtering.
   - Batch tagging across multiple selected articles and global unused tag cleanup.
 - **📱 Native Android App (1.2 MB)**:
-  - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser with duplicate detection (`ℹ Article Already in Library` + save date) and direct `[Read Article]` / `[Open App]` actions.
+  - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser with duplicate detection (`Article Already in Library` + save date) and direct `[Read Article]` / `[Open App]` actions.
   - **Auto-Revalidation on Resume**: Newly saved articles appear automatically in the library when returning to the app without manual refresh.
   - **Native Multi-Format Export**: Export articles directly to Android's system share sheet in **EPUB**, **Markdown**, or **PDF** to open in KOReader, Moon+ Reader, ReadEra, Adobe Reader, Google Drive, Obsidian, or send to Kindle.
   - **Safe-Area Notch Protection**: Integrated `@capacitor/status-bar` sync with theme-matched shields to protect text from camera punch-holes.

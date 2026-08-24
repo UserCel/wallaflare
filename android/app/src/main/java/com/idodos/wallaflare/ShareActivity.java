@@ -178,7 +178,7 @@ public class ShareActivity extends Activity {
                     statusIcon.setVisibility(View.VISIBLE);
 
                     if (alreadyExists) {
-                        titleView.setText("ℹ Article Already in Library");
+                        titleView.setText("Article Already in Library");
                         if (!addedDateStr.isEmpty()) {
                             subtitleView.setText("Saved on " + addedDateStr + ": " + parsedTitle);
                         } else {

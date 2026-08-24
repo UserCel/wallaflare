@@ -4740,7 +4740,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
         if (item.already_exists) {
           const dateStr = item.added_date_str || (item.created_at ? new Date(item.created_at).toLocaleDateString() : '');
-          showToast('ℹ️ Article already in library! Added on ' + dateStr, 4500);
+          showToast('Article already in library! Added on ' + dateStr, 4500);
           const card = document.getElementById('entry-card-' + item.id);
           if (card) {
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
