@@ -1366,7 +1366,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <!-- Pull to Refresh Spinner -->
-  <div id="pullToRefreshWrap" style="position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; transform: translate(-50%, 0); z-index: 140; opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;">
+  <div id="pullToRefreshWrap" style="position: fixed; top: calc(56px + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -20px); z-index: 300; opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;">
     <div id="pullToRefreshCard" style="background: var(--bg-card); border: 1.5px solid var(--border-color); box-shadow: 0 8px 25px rgba(0,0,0,0.55); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
       <svg id="pullToRefreshSvg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" style="transition: transform 0.15s ease;">
         <polyline points="23 4 23 10 17 10"></polyline>
@@ -3561,12 +3561,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function setupPullToRefresh() {
       window.addEventListener('touchstart', (e) => {
         const readerOpen = document.getElementById('readerView') && document.getElementById('readerView').classList.contains('open');
-        const modalOpen = document.querySelector('.modal-backdrop.open');
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (window.scrollY <= 1 && !readerOpen && !modalOpen && !isRefreshing) {
           pullStartY = e.touches[0].clientY;
           isPulling = true;
           const wrap = document.getElementById('pullToRefreshWrap');
-          if (wrap) wrap.style.transition = 'none';
+          if (wrap) {
+            wrap.style.transition = 'none';
+          }
         }
       }, { passive: true });
 
@@ -3575,15 +3577,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const currentY = e.touches[0].clientY;
         const diff = currentY - pullStartY;
         if (diff > 0 && window.scrollY <= 1) {
-          const pullDistance = Math.min(68, diff * 0.35);
+          const pullDistance = Math.min(68, diff * 0.4);
           const wrap = document.getElementById('pullToRefreshWrap');
           const svg = document.getElementById('pullToRefreshSvg');
           if (wrap) {
+            wrap.style.visibility = 'visible';
             wrap.style.transition = 'none';
-            wrap.style.transform = 'translate(-50%, ' + (pullDistance - 48) + 'px)';
+            wrap.style.opacity = String(Math.min(1, pullDistance / 16));
+            wrap.style.transform = 'translate(-50%, ' + pullDistance + 'px)';
           }
           if (svg) {
-            svg.style.transform = 'rotate(' + (diff * 2) + 'deg)';
+            svg.style.transform = 'rotate(' + (diff * 2.5) + 'deg)';
           }
         } else if (diff < 0) {
           isPulling = false;
@@ -3596,15 +3600,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         isPulling = false;
         const currentY = e.changedTouches ? e.changedTouches[0].clientY : 0;
         const diff = currentY - pullStartY;
-        const effectivePull = diff * 0.35;
+        const effectivePull = diff * 0.4;
 
         const wrap = document.getElementById('pullToRefreshWrap');
-        if (wrap) wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+        if (wrap) wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
 
         if (effectivePull >= PULL_TRIGGER_PX && window.scrollY <= 1) {
           isRefreshing = true;
           const svg = document.getElementById('pullToRefreshSvg');
-          if (wrap) wrap.style.transform = 'translate(-50%, 18px)';
+          if (wrap) {
+            wrap.style.visibility = 'visible';
+            wrap.style.opacity = '1';
+            wrap.style.transform = 'translate(-50%, 54px)';
+          }
           if (svg) svg.classList.add('ptr-spinning');
           
           await loadArticles(true);
@@ -3624,8 +3632,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const wrap = document.getElementById('pullToRefreshWrap');
       const svg = document.getElementById('pullToRefreshSvg');
       if (wrap) {
-        wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
-        wrap.style.transform = 'translate(-50%, -100px)';
+        wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
+        wrap.style.opacity = '0';
+        wrap.style.transform = 'translate(-50%, -20px)';
+        setTimeout(() => {
+          if (!isRefreshing && !isPulling) {
+            wrap.style.visibility = 'hidden';
+          }
+        }, 260);
       }
       if (svg) {
         svg.classList.remove('ptr-spinning');
