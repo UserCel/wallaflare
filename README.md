@@ -10,10 +10,10 @@
 [![KOReader](https://img.shields.io/badge/Reader-KOReader_Ready-darkgreen)](https://koreader.rocks/)
 
 <p align="center">
-  <img src="assets/screenshots/dashboard-desktop.png" alt="Wallaflare Desktop Dashboard" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 20px;" />
+  <img src="assets/screenshots/dashboard-desktop.png?raw=true&v=2" alt="Wallaflare Desktop Dashboard" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 20px;" />
 </p>
 <p align="center">
-  <img src="assets/screenshots/dashboard-mobile-mockup.png" alt="Wallaflare Mobile Smartphone App" width="380" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+  <img src="assets/screenshots/dashboard-mobile-mockup.png?raw=true&v=2" alt="Wallaflare Mobile Smartphone App" width="380" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
 </p>
 
 ---
