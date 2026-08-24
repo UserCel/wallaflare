@@ -2177,7 +2177,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             updateCounts();
             filterArticles();
             const status = document.getElementById('statusIndicator');
-            if (status) status.textContent = allEntries.length + ' articles';
+            if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
           }
         }
       } catch (err) {
@@ -2205,7 +2205,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           updateCounts();
           filterArticles();
           const status = document.getElementById('statusIndicator');
-          if (status) status.textContent = allEntries.length + ' articles';
+          if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
         }
       }
 
@@ -2234,7 +2234,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         updateCounts();
         filterArticles();
         const status = document.getElementById('statusIndicator');
-        if (status) status.textContent = allEntries.length + ' articles';
+        if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
         handleRouteState();
       } catch (err) {
         console.warn('Server sync error', err);
@@ -2534,12 +2534,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         });
       }
 
+      const status = document.getElementById('statusIndicator');
       if (search) {
         filtered = filtered.filter(e =>
           (e.title && e.title.toLowerCase().includes(search)) ||
           (e.domain_name && e.domain_name.toLowerCase().includes(search)) ||
           (e.text && e.text.toLowerCase().includes(search))
         );
+        if (status) {
+          status.textContent = filtered.length === 1 ? '1 match' : (filtered.length + ' matches');
+        }
+      } else if (selectedTagFilter) {
+        if (status) {
+          status.textContent = filtered.length === 1 ? '1 article' : (filtered.length + ' articles');
+        }
+      } else {
+        if (status && status.textContent !== 'Syncing...' && status.textContent !== 'Offline') {
+          status.textContent = '';
+        }
       }
 
       renderArticles(filtered);
@@ -3647,9 +3659,74 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    // -------------------------------------------------------------
+    // Swipe-to-Close Gesture Handlers for Mobile Drawers
+    // -------------------------------------------------------------
+    function setupDrawerSwipeHandlers() {
+      let touchStartX = 0;
+      let touchStartY = 0;
+
+      // 1. Main Navigation Drawer (#mobileNavDropdown)
+      const navDrawer = document.getElementById('mobileNavDropdown');
+      const navBackdrop = document.getElementById('mobileNavBackdrop');
+
+      function handleNavTouchStart(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+
+      function handleNavTouchEnd(e) {
+        if (!navDrawer || !navDrawer.classList.contains('open')) return;
+        const diffX = e.changedTouches[0].clientX - touchStartX;
+        const diffY = e.changedTouches[0].clientY - touchStartY;
+        // Horizontal swipe left with at least 35px delta
+        if (diffX < -35 && Math.abs(diffX) > Math.abs(diffY)) {
+          closeMobileNavMenu();
+        }
+      }
+
+      if (navDrawer) {
+        navDrawer.addEventListener('touchstart', handleNavTouchStart, { passive: true });
+        navDrawer.addEventListener('touchend', handleNavTouchEnd, { passive: true });
+      }
+      if (navBackdrop) {
+        navBackdrop.addEventListener('touchstart', handleNavTouchStart, { passive: true });
+        navBackdrop.addEventListener('touchend', handleNavTouchEnd, { passive: true });
+      }
+
+      // 2. Reader Action Sidebar Drawer (#readerSidebar)
+      const readerDrawer = document.getElementById('readerSidebar');
+      const readerBackdrop = document.getElementById('readerDrawerBackdrop');
+
+      function handleReaderTouchStart(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+
+      function handleReaderTouchEnd(e) {
+        if (!readerDrawer || !readerDrawer.classList.contains('drawer-open')) return;
+        const diffX = e.changedTouches[0].clientX - touchStartX;
+        const diffY = e.changedTouches[0].clientY - touchStartY;
+        // Horizontal swipe left with at least 35px delta
+        if (diffX < -35 && Math.abs(diffX) > Math.abs(diffY)) {
+          closeMobileReaderDrawer();
+        }
+      }
+
+      if (readerDrawer) {
+        readerDrawer.addEventListener('touchstart', handleReaderTouchStart, { passive: true });
+        readerDrawer.addEventListener('touchend', handleReaderTouchEnd, { passive: true });
+      }
+      if (readerBackdrop) {
+        readerBackdrop.addEventListener('touchstart', handleReaderTouchStart, { passive: true });
+        readerBackdrop.addEventListener('touchend', handleReaderTouchEnd, { passive: true });
+      }
+    }
+
     // Initialize
     renderFromInstantLocalCache();
     setupPullToRefresh();
+    setupDrawerSwipeHandlers();
     loadArticles();
     if (isCapacitorApp()) {
       const settingsBtn = document.getElementById('serverSettingsBtn');
