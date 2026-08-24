@@ -71,6 +71,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       padding: 0;
     }
 
+    html, body {
+      overscroll-behavior-y: contain;
+    }
+
     body {
       font-family: var(--font-ui);
       background-color: var(--bg-primary);
@@ -1362,9 +1366,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <!-- Pull to Refresh Spinner -->
-  <div id="pullToRefreshWrap" style="position: fixed; top: calc(56px + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -100px); z-index: 300; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none;">
-    <div id="pullToRefreshCard" style="background: var(--bg-card); border: 1.5px solid var(--border-color); box-shadow: 0 8px 25px rgba(0,0,0,0.55); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-      <svg id="pullToRefreshSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" style="transition: transform 0.15s ease;">
+  <div id="pullToRefreshWrap" style="position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; transform: translate(-50%, 0); z-index: 140; opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;">
+    <div id="pullToRefreshCard" style="background: var(--bg-card); border: 1.5px solid var(--border-color); box-shadow: 0 8px 25px rgba(0,0,0,0.55); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+      <svg id="pullToRefreshSvg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" style="transition: transform 0.15s ease;">
         <polyline points="23 4 23 10 17 10"></polyline>
         <polyline points="1 20 1 14 7 14"></polyline>
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
@@ -2467,6 +2471,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             entry.tags = entry.tags.filter(t => t.id !== tagId);
           }
         }
+        syncLocalEntriesCache(allEntries);
         await loadGlobalTags();
         renderGlobalTagList();
         renderArticles(allEntries);
@@ -2709,6 +2714,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (res.ok) {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_starred = next;
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         showToast(next ? 'Starred article' : 'Unstarred article');
@@ -2725,6 +2731,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (res.ok) {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_archived = next;
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         showToast(next ? 'Archived article' : 'Moved to unread');
@@ -2737,6 +2744,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
       if (res.ok) {
         allEntries = allEntries.filter(e => e.id !== id);
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         showToast('Article deleted');
@@ -3020,6 +3028,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           }
         } else {
           allEntries.unshift(item);
+          syncLocalEntriesCache(allEntries);
           updateCounts();
           filterArticles();
           showToast('✓ Article saved successfully!');
@@ -3175,13 +3184,25 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       });
     }
 
+    function syncLocalEntriesCache(entries) {
+      try {
+        localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
+      } catch (err) {
+        console.warn('LocalStorage cache save error', err);
+      }
+      saveArticlesToOfflineDb(entries || []);
+    }
+
     async function saveArticlesToOfflineDb(entries) {
       try {
         const db = await openOfflineDb();
         if (!db) return;
         const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
         const store = tx.objectStore(OFFLINE_STORE_NAME);
-        entries.forEach(entry => store.put(entry));
+        store.clear();
+        if (Array.isArray(entries)) {
+          entries.forEach(entry => store.put(entry));
+        }
       } catch (err) {
         console.warn('Offline cache save error', err);
       }
@@ -3412,6 +3433,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const item = await res.json();
         allEntries.unshift(item);
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         closeModal('addTextModal');
