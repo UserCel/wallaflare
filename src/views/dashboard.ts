@@ -195,32 +195,85 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     .nav-search {
       flex: 1;
-      max-width: 420px;
+      max-width: 460px;
       position: relative;
-    }
-    .nav-search input {
-      width: 100%;
+      display: flex;
+      align-items: center;
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 9999px;
-      padding: 0.5rem 1rem 0.5rem 2.25rem;
-      color: var(--text-primary);
-      font-size: 0.875rem;
-      outline: none;
+      padding: 0.15rem 0.35rem 0.15rem 0.65rem;
       transition: all 0.2s;
     }
-    .nav-search input:focus {
+    .nav-search:focus-within {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
     }
-    .nav-search svg {
-      position: absolute;
-      left: 0.75rem;
-      top: 50%;
-      transform: translateY(-50%);
+    .nav-search .search-magnifier {
       color: var(--text-muted);
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+    .nav-search input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 0.35rem 0.4rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      outline: none;
+      min-width: 50px;
+    }
+    .search-ctrl-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+      transition: all 0.15s;
+    }
+    .search-ctrl-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+    .search-ctrl-btn.active {
+      color: var(--accent);
+    }
+    .search-ctrl-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-color);
+      margin: 0 0.2rem;
+      flex-shrink: 0;
+    }
+    .search-dropdown-menu {
+      position: absolute !important;
+      top: calc(100% + 8px) !important;
+      bottom: auto !important;
+      right: 0 !important;
+      left: auto !important;
+      background: var(--bg-primary) !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: var(--radius-sm) !important;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
+      min-width: 185px !important;
+      padding: 0.4rem 0 !important;
+      z-index: 1000 !important;
+      display: none;
+      flex-direction: column;
+      animation: menuFadeIn 0.15s ease-out;
+    }
+    .search-dropdown-menu.open {
+      display: flex !important;
     }
 
     .nav-actions {
@@ -1807,8 +1860,29 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
 
       <div class="nav-search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="filterArticles()">
+        <svg class="search-magnifier" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="handleSearchInput()">
+        <button type="button" class="search-ctrl-btn" id="searchClearBtn" onclick="clearSearchInput()" title="Clear Search" style="display: none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="search-ctrl-divider"></div>
+        <button type="button" class="search-ctrl-btn" id="cycleLayoutBtn" onclick="cycleViewMode()" title="Toggle View Layout (List / Grid / Compact)">
+          <span id="cycleLayoutIcon" style="display: flex; align-items: center; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          </span>
+        </button>
+        <div class="card-menu-wrap" style="position: relative;">
+          <button type="button" class="search-ctrl-btn" id="sortBtn" onclick="event.stopPropagation(); toggleSortMenu()" title="Sort Articles">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="4" x2="12" y2="20"></line><polyline points="18 14 12 20 6 14"></polyline><polyline points="6 10 12 4 18 10"></polyline></svg>
+          </button>
+          <div class="search-dropdown-menu card-dropdown-menu" id="sortDropdownMenu" onclick="event.stopPropagation()">
+            <button class="menu-item" id="sortOptNewest" onclick="setSortOrder('newest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span>Newest First</span></button>
+            <button class="menu-item" id="sortOptOldest" onclick="setSortOrder('oldest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg><span>Oldest First</span></button>
+            <button class="menu-item" id="sortOptShortest" onclick="setSortOrder('shortest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="12" y2="12"></line><line x1="4" y1="6" x2="8" y2="6"></line><line x1="4" y1="18" x2="16" y2="18"></line></svg><span>Shortest Read</span></button>
+            <button class="menu-item" id="sortOptLongest" onclick="setSortOrder('longest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="18" x2="12" y2="18"></line></svg><span>Longest Read</span></button>
+            <button class="menu-item" id="sortOptTitle" onclick="setSortOrder('title')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"></path><line x1="12" y1="4" x2="12" y2="20"></line></svg><span>Title (A-Z)</span></button>
+          </div>
+        </div>
       </div>
 
       <div class="nav-actions">
@@ -1951,21 +2025,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </button>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.65rem; margin-left: auto;">
-        <div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;" id="statusIndicator"></div>
-
-        <div class="view-mode-toggle" id="viewModeToggle">
-          <button class="view-btn active" id="viewBtnList" onclick="setViewMode('list')" title="List View (Right Thumbnail)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-          </button>
-          <button class="view-btn" id="viewBtnGrid" onclick="setViewMode('grid')" title="Magazine Grid (Top Image)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
-          </button>
-          <button class="view-btn" id="viewBtnCompact" onclick="setViewMode('compact')" title="Compact Headlines">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
-        </div>
-      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto; white-space: nowrap;" id="statusIndicator"></div>
     </div>
 
     <!-- Article Grid -->
@@ -3392,11 +3452,26 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     
     let currentViewMode = localStorage.getItem('wf_view_mode') || 'list';
+    let currentSortOrder = localStorage.getItem('wf_sort_order') || 'newest';
+    setTimeout(() => { updateCycleLayoutIcon(); updateSortMenuUI(); }, 0);
+
+    function cycleViewMode() {
+      if (currentViewMode === 'list') {
+        setViewMode('grid');
+      } else if (currentViewMode === 'grid') {
+        setViewMode('compact');
+      } else {
+        setViewMode('list');
+      }
+      const names = { 'list': 'List View', 'grid': 'Magazine Grid', 'compact': 'Compact Headlines' };
+      showToast('View: ' + (names[currentViewMode] || currentViewMode));
+    }
 
     function setViewMode(mode) {
       currentViewMode = mode;
       try { localStorage.setItem('wf_view_mode', mode); } catch (e) {}
       applyViewModeUI();
+    updateSortMenuUI();
     }
 
     function applyViewModeUI() {
@@ -3405,9 +3480,113 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         grid.classList.remove('view-list', 'view-grid', 'view-compact');
         grid.classList.add('view-' + currentViewMode);
       }
-      document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
-      const activeBtn = document.getElementById('viewBtn' + currentViewMode.charAt(0).toUpperCase() + currentViewMode.slice(1));
-      if (activeBtn) activeBtn.classList.add('active');
+      updateCycleLayoutIcon();
+    }
+
+    function updateCycleLayoutIcon() {
+      const el = document.getElementById('cycleLayoutIcon');
+      const btn = document.getElementById('cycleLayoutBtn');
+      if (!el) return;
+      if (currentViewMode === 'list') {
+        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>';
+        if (btn) btn.title = 'View: List (Click to cycle)';
+      } else if (currentViewMode === 'grid') {
+        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>';
+        if (btn) btn.title = 'View: Magazine Grid (Click to cycle)';
+      } else {
+        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
+        if (btn) btn.title = 'View: Compact Headlines (Click to cycle)';
+      }
+    }
+
+    function toggleSortMenu() {
+      const menu = document.getElementById('sortDropdownMenu');
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      closeAllCardMenus();
+      if (!isOpen) {
+        menu.classList.add('open');
+        updateSortMenuUI();
+      }
+    }
+
+    function closeSortMenu() {
+      const menu = document.getElementById('sortDropdownMenu');
+      if (menu) menu.classList.remove('open');
+    }
+
+    function updateSortMenuUI() {
+      const map = {
+        'newest': 'sortOptNewest',
+        'oldest': 'sortOptOldest',
+        'shortest': 'sortOptShortest',
+        'longest': 'sortOptLongest',
+        'title': 'sortOptTitle'
+      };
+      Object.keys(map).forEach(key => {
+        const el = document.getElementById(map[key]);
+        if (el) {
+          el.classList.toggle('active', currentSortOrder === key);
+        }
+      });
+      const sortBtn = document.getElementById('sortBtn');
+      if (sortBtn) {
+        sortBtn.classList.toggle('active', currentSortOrder !== 'newest');
+      }
+    }
+
+    function setSortOrder(order) {
+      currentSortOrder = order;
+      try { localStorage.setItem('wf_sort_order', order); } catch (e) {}
+      closeSortMenu();
+      updateSortMenuUI();
+      filterArticles();
+      const names = {
+        'newest': 'Newest First',
+        'oldest': 'Oldest First',
+        'shortest': 'Shortest Read',
+        'longest': 'Longest Read',
+        'title': 'Title (A-Z)'
+      };
+      showToast('Sorted: ' + (names[order] || order));
+    }
+
+    function sortEntries(entries) {
+      if (!Array.isArray(entries)) return [];
+      return entries.slice().sort((a, b) => {
+        if (currentSortOrder === 'oldest') {
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        } else if (currentSortOrder === 'shortest') {
+          return (a.reading_time || 1) - (b.reading_time || 1);
+        } else if (currentSortOrder === 'longest') {
+          return (b.reading_time || 1) - (a.reading_time || 1);
+        } else if (currentSortOrder === 'title') {
+          return (a.title || '').localeCompare(b.title || '');
+        } else {
+          // newest
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        }
+      });
+    }
+
+    function handleSearchInput() {
+      const input = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) {
+        clearBtn.style.display = (input && input.value.trim().length > 0) ? 'inline-flex' : 'none';
+      }
+      filterArticles();
+    }
+
+    function clearSearchInput() {
+      const input = document.getElementById('searchInput');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      filterArticles();
     }
 
     function filterArticles() {
@@ -3463,6 +3642,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
       }
 
+      filtered = sortEntries(filtered);
       renderArticles(filtered);
     }
 
@@ -4505,11 +4685,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.getElementById(id).classList.remove('open');
     }
 
-    function showToast(msg) {
+    let toastTimeout = null;
+    function showToast(msg, duration = 3000) {
       const toast = document.getElementById('toast');
-      document.getElementById('toastMsg').textContent = msg;
+      const msgEl = document.getElementById('toastMsg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
       toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3000);
+      if (toastTimeout) {
+        clearTimeout(toastTimeout);
+      }
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        toastTimeout = null;
+      }, duration);
     }
 
     function toggleTheme() {
@@ -4777,6 +4966,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       // 2. Reader Action Sidebar Drawer
       setupInteractiveDrawerTracking('readerSidebar', 'readerDrawerBackdrop', closeMobileReaderDrawer, 'drawer-open');
     }
+
+    // Global silent refresh helper for native app resume & tab focus
+    window.refreshArticlesSilently = function() {
+      const reader = document.getElementById('readerView');
+      if (reader && reader.classList.contains('open')) return;
+      loadArticles(true);
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        window.refreshArticlesSilently();
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      window.refreshArticlesSilently();
+    });
 
     // Initialize
     renderFromInstantLocalCache();

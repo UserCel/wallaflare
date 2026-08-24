@@ -79,10 +79,30 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        refreshLibrarySilently();
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         handleIncomingIntents(intent);
+    }
+
+    private void refreshLibrarySilently() {
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    getBridge().getWebView().evaluateJavascript(
+                        "if (window.refreshArticlesSilently) { window.refreshArticlesSilently(); }",
+                        null
+                    );
+                }
+            });
+        }
     }
 
     private void handleIncomingIntents(Intent intent) {

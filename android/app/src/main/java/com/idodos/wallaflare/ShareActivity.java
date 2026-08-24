@@ -57,6 +57,7 @@ public class ShareActivity extends Activity {
         btnOpenApp.setOnClickListener(v -> {
             cancelAutoDismiss();
             Intent openApp = new Intent(ShareActivity.this, MainActivity.class);
+            openApp.putExtra("refresh_library", true);
             openApp.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(openApp);
             finish();
@@ -196,6 +197,7 @@ public class ShareActivity extends Activity {
                             cancelAutoDismiss();
                             Intent openArticle = new Intent(ShareActivity.this, MainActivity.class);
                             openArticle.putExtra("open_reader_id", articleId);
+                            openArticle.putExtra("refresh_library", true);
                             openArticle.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                             startActivity(openArticle);
                             finish();
