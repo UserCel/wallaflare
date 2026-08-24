@@ -69,6 +69,59 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent !important;
+      tap-highlight-color: transparent !important;
+    }
+
+    img, a, button {
+      -webkit-user-drag: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+
+    /* Allow standard text selection in input controls */
+    input, textarea, [contenteditable="true"], [contenteditable=""], select {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+
+    /* Allow rich text selection exclusively within the actual article content text */
+    .reader-body,
+    .reader-body * {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+
+    /* Strictly disallow text selection on Reader titles, meta, covers, and card elements */
+    .reader-title,
+    .reader-meta,
+    .reader-meta *,
+    .reader-domain,
+    .reader-cover,
+    .reader-cover-img,
+    .reader-lead-image-caption,
+    .article-card,
+    .article-card *,
+    .card-image-wrap,
+    .card-image,
+    .card-title {
+      -webkit-user-select: none !important;
+      -moz-user-select: none !important;
+      -ms-user-select: none !important;
+      user-select: none !important;
+      -webkit-touch-callout: none !important;
+      -webkit-tap-highlight-color: transparent !important;
     }
 
     html, body {
@@ -281,11 +334,214 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       background: rgba(249, 115, 22, 0.15);
     }
 
-    /* Grid of Cards */
+    /* View Mode Switcher */
+    .view-mode-toggle {
+      display: flex;
+      background: var(--bg-secondary);
+      padding: 2px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      gap: 2px;
+    }
+    .view-btn {
+      padding: 0.3rem 0.5rem;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .view-btn.active {
+      background: var(--bg-tertiary);
+      color: var(--accent);
+    }
+    .view-btn:hover {
+      color: var(--text-primary);
+    }
+
+    /* -------------------------------------------------------------
+       ARTICLE VIEW MODES (List, Grid, Compact)
+       ------------------------------------------------------------- */
     .articles-grid {
+      transition: opacity 0.15s ease;
+    }
+
+    /* 1. Default: List View (Horizontal Card with Right Thumbnail) */
+    .articles-grid.view-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .articles-grid.view-list .card-main-content {
+      display: flex;
+      gap: 1rem;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .articles-grid.view-list .card-text-column {
+      flex: 1;
+      min-width: 0;
+    }
+    .articles-grid.view-list .card-image-wrap {
+      width: 88px;
+      height: 88px;
+      aspect-ratio: 1 / 1;
+      flex-shrink: 0;
+      border-radius: var(--radius-sm);
+      margin: 0 0 0 0.85rem;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+    }
+    @media (max-width: 768px) {
+      .articles-grid.view-list .card-image-wrap {
+        width: 76px;
+        height: 76px;
+        margin: 0 0 0 0.65rem;
+      }
+    }
+    .articles-grid.view-list .article-card[dir="rtl"] .card-image-wrap {
+      margin: 0 0.75rem 0 0;
+    }
+    .articles-grid.view-list .card-excerpt {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+
+    /* 2. Grid View (Magazine Hero Cards with Top Image) */
+    .articles-grid.view-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
       gap: 1.15rem;
+    }
+    .articles-grid.view-grid .card-main-content {
+      display: flex;
+      flex-direction: column;
+    }
+    .articles-grid.view-grid .card-image-wrap {
+      order: -1;
+      width: calc(100% + 2.3rem);
+      margin: -1.15rem -1.15rem 0.85rem -1.15rem;
+      height: 155px;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+    }
+    .articles-grid.view-grid .card-excerpt {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 1.1rem;
+    }
+
+    /* 3. Compact View (Headlines / Dense Rows) */
+    .articles-grid.view-compact {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-width: 100%;
+    }
+    .articles-grid.view-compact .article-card {
+      padding: 0.6rem 0.85rem;
+      min-height: auto;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .articles-grid.view-compact .card-main-content {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+      min-width: 0;
+    }
+    .articles-grid.view-compact .card-text-column {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+      min-width: 0;
+    }
+    .articles-grid.view-compact .card-meta {
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+    .articles-grid.view-compact .card-title {
+      font-size: 0.95rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      margin: 0;
+    }
+    .articles-grid.view-compact .card-excerpt,
+    .articles-grid.view-compact .card-image-wrap,
+    .articles-grid.view-compact .card-tags,
+    .articles-grid.view-compact .card-progress-center {
+      display: none !important;
+    }
+    .articles-grid.view-compact .card-footer {
+      padding-top: 0;
+      border: none;
+      flex-shrink: 0;
+      gap: 0.5rem;
+    }
+    .articles-grid.view-compact .card-select-wrap {
+      position: static;
+      margin-right: 0.35rem;
+    }
+
+    /* Intelligent 2-Row Responsive Layout for Mobile Portrait */
+    @media (max-width: 768px) {
+      .articles-grid.view-compact .article-card {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.65rem 0.85rem;
+        gap: 0.4rem;
+      }
+      .articles-grid.view-compact .card-main-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+      }
+      .articles-grid.view-compact .card-text-column {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+      }
+      .articles-grid.view-compact .card-title {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 0.92rem;
+        line-height: 1.35;
+      }
+      .articles-grid.view-compact .card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 0.3rem;
+        border-top: 1px solid var(--border-color);
+        font-size: 0.72rem;
+      }
+      .articles-grid.view-compact .card-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.72rem;
+      }
     }
 
     .article-card {
@@ -299,9 +555,59 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       box-shadow: var(--shadow-sm);
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
       position: relative;
       overflow: hidden;
+      cursor: pointer;
+    }
+    .article-card.is-selected {
+      border-color: var(--accent) !important;
+      background: rgba(249, 115, 22, 0.08) !important;
+      box-shadow: 0 0 0 1px var(--accent), var(--shadow);
+    }
+    .card-select-wrap {
+      position: absolute;
+      top: 0.65rem;
+      right: 0.65rem;
+      z-index: 25;
+      padding: 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .article-card[dir="rtl"] .card-select-wrap {
+      right: auto;
+      left: 0.65rem;
+    }
+    .article-card:hover .card-select-wrap,
+    body.selection-mode-active .card-select-wrap,
+    .article-card.is-selected .card-select-wrap {
+      opacity: 1;
+    }
+    .card-checkbox {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      background: rgba(15, 23, 42, 0.65);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: transparent;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: all 0.15s ease;
+    }
+    html.light .card-checkbox {
+      border-color: rgba(0, 0, 0, 0.25);
+      background: rgba(255, 255, 255, 0.85);
+    }
+    .card-checkbox.checked {
+      background: var(--accent) !important;
+      border-color: var(--accent) !important;
+      color: white !important;
+      transform: scale(1.05);
     }
     .article-card:hover {
       transform: translateY(-2px);
@@ -341,10 +647,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     .tag-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      font-size: 0.72rem;
+      gap: 0.35rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      padding: 0.15rem 0.5rem;
+      padding: 0.2rem 0.6rem;
       border-radius: 9999px;
       background: var(--bg-tertiary);
       color: var(--accent);
@@ -352,6 +658,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       cursor: pointer;
       transition: all 0.15s ease;
       text-decoration: none;
+      line-height: 1.3;
     }
     .tag-badge:hover {
       background: var(--accent);
@@ -364,11 +671,36 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
     .tag-badge .tag-remove-btn {
       cursor: pointer;
-      opacity: 0.7;
-      margin-left: 0.15rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-left: 0.2rem;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    html.light .tag-badge .tag-remove-btn {
+      background: rgba(0, 0, 0, 0.08);
     }
     .tag-badge .tag-remove-btn:hover {
-      opacity: 1;
+      background: rgba(239, 68, 68, 0.9);
+      color: #ffffff;
+      transform: scale(1.1);
+    }
+    .tag-badge-partial {
+      background: rgba(249, 115, 22, 0.1) !important;
+      border: 1.5px dashed var(--accent) !important;
+      cursor: pointer;
+    }
+    .tag-badge-partial:hover {
+      background: rgba(249, 115, 22, 0.22) !important;
+      border-style: solid !important;
     }
 
     /* Tag Modal (z-index 400 to show above reader-view) */
@@ -465,29 +797,63 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       gap: 0.25rem;
     }
     .article-card.menu-open {
-      z-index: 98 !important;
+      z-index: 120 !important;
       position: relative;
+      overflow: visible !important;
     }
     .card-menu-wrap {
       position: relative;
     }
     .article-card.menu-open .card-menu-wrap {
-      z-index: 101 !important;
+      z-index: 150 !important;
     }
     .card-dropdown-menu {
       position: absolute;
       bottom: calc(100% + 6px);
       right: 0;
-      background: var(--bg-card);
+      background: var(--bg-primary) !important;
       border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-      min-width: 180px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45) !important;
+      min-width: 185px;
       padding: 0.35rem 0;
       z-index: 102 !important;
       display: none;
       flex-direction: column;
+      opacity: 1 !important;
       animation: menuFadeIn 0.15s ease-out;
+    }
+    .action-btn.card-more-btn {
+      opacity: 1 !important;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      width: 100%;
+      padding: 0.55rem 0.9rem;
+      border: none;
+      background: transparent;
+      color: var(--text-primary) !important;
+      font-size: 0.825rem;
+      cursor: pointer;
+      text-align: start;
+      text-decoration: none;
+      opacity: 1 !important;
+      transition: background-color 0.15s ease;
+    }
+    .menu-item svg {
+      opacity: 0.9;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .menu-item:hover {
+      background: var(--bg-secondary) !important;
+      color: var(--text-primary) !important;
+    }
+    .menu-item:hover svg {
+      opacity: 1;
+      color: var(--accent);
     }
     .article-card[dir="rtl"] .card-dropdown-menu {
       right: auto;
@@ -606,7 +972,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
     .reader-sidebar:hover {
       width: 175px;
-      box-shadow: 6px 0 28px rgba(0, 0, 0, 0.45);
+      box-shadow: none;
     }
 
     .reader-sidebar-group {
@@ -1122,16 +1488,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       width: 270px;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
-      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
+      box-shadow: none;
+      visibility: hidden;
+      pointer-events: none;
       padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem;
       z-index: 350;
       flex-direction: column;
       gap: 0.35rem;
       transform: translateX(-100%);
-      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s ease, box-shadow 0.25s ease;
     }
     .mobile-nav-dropdown.open {
       transform: translateX(0);
+      visibility: visible;
+      pointer-events: auto;
+      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
     }
     .mobile-nav-item {
       display: flex;
@@ -1226,10 +1597,33 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       .article-card {
         padding: 1rem;
       }
+      /* Clean mobile cards: Hide busy button row in favor of full card tap & long-press selection */
+      .article-card .card-actions {
+        display: none !important;
+      }
+      .card-select-wrap {
+        display: none;
+      }
+      body.selection-mode-active .card-select-wrap {
+        display: flex;
+        opacity: 1;
+      }
 
       /* Mobile Reader Layout: Top Navigation Bar & Left Slide-out Drawer */
       .reader-view {
         flex-direction: column !important;
+      }
+      .reader-notch-shield {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: env(safe-area-inset-top, 0px);
+        background: var(--bg-primary) !important;
+        z-index: 260;
+        pointer-events: none;
+        display: block;
+        transition: background-color 0.25s ease;
       }
       .reader-mobile-bar {
         display: flex !important;
@@ -1237,15 +1631,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         top: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: calc(48px + env(safe-area-inset-top, 0px)) !important;
-        padding-top: env(safe-area-inset-top, 0px) !important;
+        box-sizing: border-box !important;
+        padding: 0.6rem 0.85rem !important;
+        padding-top: max(0.6rem, calc(0.6rem + env(safe-area-inset-top, 0px))) !important;
+        min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
         background: var(--bg-secondary) !important;
         border-bottom: 1px solid var(--border-color) !important;
-        padding-left: 0.75rem !important;
-        padding-right: 0.75rem !important;
         align-items: center !important;
         justify-content: space-between !important;
         z-index: 150 !important;
+        transition: transform 0.52s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
+      }
+      .reader-mobile-bar.bar-hidden {
+        transform: translateY(-100%) !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      .reader-main-scroll {
+        padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
       }
       .reader-mobile-bar-group {
         display: flex !important;
@@ -1274,10 +1677,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         bottom: 0 !important;
         width: 250px !important;
         height: 100vh !important;
-        transform: translateX(-100%) !important;
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transform: translateX(-100%);
+        box-shadow: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s ease;
         z-index: 250 !important;
-        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
         padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem !important;
         background: var(--bg-secondary) !important;
         border-right: 1px solid var(--border-color) !important;
@@ -1288,6 +1693,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       .reader-sidebar.drawer-open {
         transform: translateX(0) !important;
+        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
       }
       .reader-sidebar .reader-tool-btn {
         width: 100% !important;
@@ -1378,57 +1786,95 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Top Header -->
   <header>
-    <div style="display: flex; align-items: center; gap: 0.5rem;">
-      <!-- Mobile Left Menu Trigger Button (3 lines / hamburger) -->
-      <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-      </button>
+    <!-- Standard Nav Header Elements -->
+    <div id="standardNavHeader" style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 0.85rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <!-- Mobile Left Menu Trigger Button (3 lines / hamburger) -->
+        <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
 
-      <div class="brand" onclick="navigateTo('/')">
-        <div class="brand-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-          </svg>
+        <div class="brand" onclick="navigateTo('/')">
+          <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </div>
+          <span>${appName}</span>
+          <span class="brand-tag">Edge E-ink</span>
         </div>
-        <span>${appName}</span>
-        <span class="brand-tag">Edge E-ink</span>
+      </div>
+
+      <div class="nav-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="filterArticles()">
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn btn-primary" onclick="openModal('addUrlModal')" title="Add URL">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Add URL</span>
+        </button>
+
+        <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          <span>Add Text</span>
+        </button>
+
+        <button class="btn btn-secondary desktop-nav-btn" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          <span>Tags</span>
+        </button>
+
+        <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <span>KOReader</span>
+        </button>
+
+        <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
+
+        <button class="btn-icon desktop-nav-btn" onclick="handleLogout()" title="Log Out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
       </div>
     </div>
 
-    <div class="nav-search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="filterArticles()">
-    </div>
+    <!-- Batch Selection Contextual Action Header -->
+    <div id="batchActionHeader" style="display: none; align-items: center; justify-content: space-between; width: 100%; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <button class="btn-icon" onclick="clearArticleSelection()" title="Cancel Selection" style="flex-shrink: 0;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <span id="batchSelectedCount" style="font-weight: 700; font-size: 1.05rem; color: var(--text-primary); white-space: nowrap;">0 selected</span>
+      </div>
 
-    <div class="nav-actions">
-      <button class="btn btn-primary" onclick="openModal('addUrlModal')" title="Add URL">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>Add URL</span>
-      </button>
+      <div style="display: flex; align-items: center; gap: 0.35rem;">
+        <button class="btn-icon" onclick="batchToggleStar()" title="Toggle Star for Selected" id="batchStarBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </button>
+        <button class="btn-icon" onclick="batchToggleArchive()" title="Toggle Archive for Selected" id="batchArchiveBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+        </button>
+        <button class="btn-icon" onclick="batchManageTags()" title="Add / Manage Tags">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+        </button>
 
-      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-        <span>Add Text</span>
-      </button>
-
-      <button class="btn btn-secondary desktop-nav-btn" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-        <span>Tags</span>
-      </button>
-
-      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-        <span>KOReader</span>
-      </button>
-
-      <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-      </button>
-
-      <button class="btn-icon desktop-nav-btn" onclick="handleLogout()" title="Log Out">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-      </button>
+        <div class="card-menu-wrap">
+          <button class="btn-icon" title="More Options" onclick="event.stopPropagation(); toggleBatchMenu()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+          </button>
+          <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
+            <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
+            <button class="menu-item" onclick="closeBatchMenu(); batchRefetchContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
+            <button class="menu-item" onclick="closeBatchMenu(); toggleSelectAllArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg><span id="batchMenuSelectAllLabel">Select All</span></button>
+            <div class="menu-divider"></div>
+            <button class="menu-item menu-item-danger" onclick="closeBatchMenu(); batchDeleteArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article(s)</span></button>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -1465,7 +1911,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <span>KOReader Sync</span>
     </button>
     <div class="mobile-nav-divider"></div>
-    <button class="mobile-nav-item" onclick="toggleTheme(); closeMobileNavMenu();">
+    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); padding: 0.4rem 0.75rem 0.2rem 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">View Layout</div>
+    <div style="display: flex; gap: 0.4rem; padding: 0.2rem 0.75rem 0.6rem 0.75rem;">
+      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('list'); closeMobileNavMenu();">List</button>
+      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('grid'); closeMobileNavMenu();">Grid</button>
+      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('compact'); closeMobileNavMenu();">Compact</button>
+    </div>
+    <div class="mobile-nav-divider"></div>
+    <button class="mobile-nav-item" onclick="toggleTheme();">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       <span>Toggle Theme</span>
     </button>
@@ -1497,8 +1950,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </button>
       </div>
 
-      <div style="font-size: 0.8rem; color: var(--text-muted);" id="statusIndicator">
-        Syncing...
+      <div style="display: flex; align-items: center; gap: 0.65rem;">
+        <div style="font-size: 0.8rem; color: var(--text-muted);" id="statusIndicator">
+          Syncing...
+        </div>
+
+        <div class="view-mode-toggle" id="viewModeToggle">
+          <button class="view-btn active" id="viewBtnList" onclick="setViewMode('list')" title="List View (Right Thumbnail)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          </button>
+          <button class="view-btn" id="viewBtnGrid" onclick="setViewMode('grid')" title="Magazine Grid (Top Image)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
+          </button>
+          <button class="view-btn" id="viewBtnCompact" onclick="setViewMode('compact')" title="Compact Headlines">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1714,6 +2181,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
        READER VIEW: Top Bar for Mobile & Full-Height Sidebar for Desktop
        ------------------------------------------------------------- -->
   <div class="reader-view" id="readerView">
+    <!-- Black status bar / camera punch hole shield -->
+    <div class="reader-notch-shield"></div>
+
     <!-- Mobile Top Action Bar -->
     <div class="reader-mobile-bar">
       <div class="reader-mobile-bar-group">
@@ -1803,7 +2273,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </aside>
 
     <!-- Main Content Reader Scroll Area -->
-    <section class="reader-main-scroll" id="readerScrollContainer" onscroll="updateReadingProgress()">
+    <section class="reader-main-scroll" id="readerScrollContainer" onscroll="handleReaderScroll()">
       <div class="reader-content-wrap">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
           <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin: 0; flex: 1;"></h1>
@@ -1823,16 +2293,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <!-- Card Menu Click-Away Backdrop -->
   <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 95; display: none;" onclick="closeAllCardMenus()"></div>
 
-  <!-- Article Tag Management Modal -->
+  <!-- Article Tag Management Modal (Unified Single & Multi-Select) -->
   <div class="tag-modal-overlay" id="tagModal" onclick="if(event.target === this) closeTagModal()">
     <div class="tag-modal">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <h3 style="font-size: 1.15rem; font-weight: 600; margin: 0;">Article Tags</h3>
+        <h3 style="font-size: 1.15rem; font-weight: 600; margin: 0;" id="tagModalHeaderTitle">Manage Tags</h3>
         <button class="action-btn" onclick="closeTagModal()">&times;</button>
       </div>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="tagModalArticleTitle"></p>
       
-      <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Current Tags:</div>
+      <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;" id="tagModalCurrentTagsLabel">Applied Tags:</div>
       <div class="card-tags" id="tagModalCurrentTags" style="margin-bottom: 1.25rem;"></div>
       
       <form onsubmit="event.preventDefault(); submitAddTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
@@ -1841,9 +2311,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </form>
 
       <div id="quickTagsSection" style="display: none;">
-        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Add Existing Tags:</div>
+        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Add Library Tags:</div>
         <div class="card-tags" id="tagModalAvailableTags"></div>
       </div>
+    </div>
+  </div>
     </div>
   </div>
 
@@ -1927,8 +2399,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     
+    function clearActiveTextSelection() {
+      try {
+        if (window.getSelection) {
+          const sel = window.getSelection();
+          if (sel && sel.removeAllRanges) {
+            sel.removeAllRanges();
+          }
+        }
+      } catch (e) {}
+    }
+
     function toggleMobileNavMenu(e) {
       if (e) e.stopPropagation();
+      clearActiveTextSelection();
       const dropdown = document.getElementById('mobileNavDropdown');
       const backdrop = document.getElementById('mobileNavBackdrop');
       if (dropdown && backdrop) {
@@ -2122,6 +2606,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         document.getElementById('searchInput').focus();
       }
       if (e.key === 'Escape') {
+        const openMenu = document.querySelector('.card-dropdown-menu.open');
+        if (openMenu) {
+          closeAllCardMenus();
+          return;
+        }
+        if (isSelectionMode()) {
+          clearArticleSelection();
+          return;
+        }
         closeModal('addUrlModal');
         closeModal('addTextModal');
         closeModal('syncModal');
@@ -2256,6 +2749,260 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+        // -------------------------------------------------------------
+    // Multi-Selection State & Batch Actions
+    // -------------------------------------------------------------
+    const selectedArticleIds = new Set();
+    let justTriggeredLongPress = false;
+
+    function isSelectionMode() {
+      return selectedArticleIds.size > 0;
+    }
+
+    function updateSelectionModeUI() {
+      const isSel = selectedArticleIds.size > 0;
+      document.body.classList.toggle('selection-mode-active', isSel);
+
+      const navHeader = document.getElementById('standardNavHeader');
+      const batchHeader = document.getElementById('batchActionHeader');
+      const countEl = document.getElementById('batchSelectedCount');
+      const selectAllBtn = document.getElementById('batchSelectAllBtn');
+
+      if (isSel) {
+        if (navHeader) navHeader.style.display = 'none';
+        if (batchHeader) batchHeader.style.display = 'flex';
+        if (countEl) countEl.textContent = selectedArticleIds.size + ' selected';
+
+        // Update select all button text
+        const currentArticles = getCurrentlyFilteredEntries();
+        if (selectAllBtn) {
+          const allSelected = currentArticles.length > 0 && currentArticles.every(e => selectedArticleIds.has(e.id));
+          selectAllBtn.textContent = allSelected ? 'Deselect All' : 'Select All';
+        }
+      } else {
+        if (navHeader) navHeader.style.display = 'flex';
+        if (batchHeader) batchHeader.style.display = 'none';
+      }
+
+      // Update card visual checkmarks and borders
+      document.querySelectorAll('.article-card').forEach(card => {
+        const id = parseInt(card.dataset.id, 10);
+        const isChecked = selectedArticleIds.has(id);
+        card.classList.toggle('is-selected', isChecked);
+        const checkEl = card.querySelector('.card-checkbox');
+        if (checkEl) checkEl.classList.toggle('checked', isChecked);
+      });
+    }
+
+    function toggleArticleSelection(id, forceSelect = false) {
+      if (forceSelect) {
+        selectedArticleIds.add(id);
+      } else if (selectedArticleIds.has(id)) {
+        selectedArticleIds.delete(id);
+      } else {
+        selectedArticleIds.add(id);
+      }
+      updateSelectionModeUI();
+    }
+
+    
+    function toggleBatchMenu() {
+      const menu = document.getElementById('batchDropdownMenu');
+      if (menu) {
+        const isOpen = menu.classList.contains('open');
+        closeAllCardMenus();
+        if (!isOpen) {
+          menu.classList.add('open');
+          const editBtn = document.getElementById('batchEditTitleBtn');
+          if (editBtn) {
+            editBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
+          }
+          const selectAllLabel = document.getElementById('batchMenuSelectAllLabel');
+          const current = getCurrentlyFilteredEntries();
+          const allSelected = current.length > 0 && current.every(e => selectedArticleIds.has(e.id));
+          if (selectAllLabel) {
+            selectAllLabel.textContent = allSelected ? 'Deselect All' : 'Select All';
+          }
+        }
+      }
+    }
+
+    function closeBatchMenu() {
+      const menu = document.getElementById('batchDropdownMenu');
+      if (menu) menu.classList.remove('open');
+    }
+
+    function batchEditTitle() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      openEditTitleModal(id);
+      clearArticleSelection();
+    }
+
+    async function batchRefetchContent() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const urlItems = ids.map(id => allEntries.find(e => e.id === id)).filter(it => it && it.url && it.domain_name !== 'direct-input');
+      if (urlItems.length === 0) {
+        showToast('Selected articles are custom text or have no original URL');
+        return;
+      }
+
+      showToast('Re-fetching ' + urlItems.length + ' article(s)...');
+      for (const item of urlItems) {
+        await refetchArticleContent(item.id);
+      }
+      clearArticleSelection();
+    }
+
+    function clearArticleSelection() {
+      selectedArticleIds.clear();
+      updateSelectionModeUI();
+    }
+
+    function getCurrentlyFilteredEntries() {
+      const search = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim().toLowerCase();
+      let filtered = allEntries;
+
+      if (currentFilter === 'unread') {
+        filtered = filtered.filter(e => !e.is_archived);
+      } else if (currentFilter === 'starred') {
+        filtered = filtered.filter(e => e.is_starred);
+      } else if (currentFilter === 'archive') {
+        filtered = filtered.filter(e => e.is_archived);
+      }
+
+      if (selectedTagFilter) {
+        const filterLower = selectedTagFilter.toLowerCase().trim();
+        filtered = filtered.filter(e => {
+          const tags = Array.isArray(e.tags) ? e.tags : [];
+          return tags.some(t => 
+            (t.slug && t.slug.toLowerCase() === filterLower) || 
+            (t.label && t.label.toLowerCase() === filterLower)
+          );
+        });
+      }
+
+      if (search) {
+        filtered = filtered.filter(e =>
+          (e.title && e.title.toLowerCase().includes(search)) ||
+          (e.domain_name && e.domain_name.toLowerCase().includes(search)) ||
+          (e.text && e.text.toLowerCase().includes(search))
+        );
+      }
+      return filtered;
+    }
+
+    function toggleSelectAllArticles() {
+      const current = getCurrentlyFilteredEntries();
+      const allSelected = current.length > 0 && current.every(e => selectedArticleIds.has(e.id));
+      if (allSelected) {
+        clearArticleSelection();
+      } else {
+        current.forEach(e => selectedArticleIds.add(e.id));
+        updateSelectionModeUI();
+      }
+    }
+
+    async function batchToggleStar() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const allStarred = ids.every(id => {
+        const item = allEntries.find(e => e.id === id);
+        return item && item.is_starred;
+      });
+      const newStarState = !allStarred;
+
+      showToast((newStarState ? 'Starring ' : 'Unstarring ') + ids.length + ' articles...');
+      for (const id of ids) {
+        const item = allEntries.find(e => e.id === id);
+        if (item) {
+          item.is_starred = newStarState ? 1 : 0;
+          authFetch('/api/entries/' + id + '.json', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ starred: newStarState ? 1 : 0 })
+          }).catch(err => console.error('Batch star error', err));
+        }
+      }
+      syncLocalEntriesCache(allEntries);
+      updateCounts();
+      filterArticles();
+      clearArticleSelection();
+      showToast((newStarState ? 'Starred ' : 'Unstarred ') + ids.length + ' articles');
+    }
+
+    async function batchToggleArchive() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const allArchived = ids.every(id => {
+        const item = allEntries.find(e => e.id === id);
+        return item && item.is_archived;
+      });
+      const newArchiveState = !allArchived;
+
+      showToast((newArchiveState ? 'Archiving ' : 'Restoring ') + ids.length + ' articles...');
+      for (const id of ids) {
+        const item = allEntries.find(e => e.id === id);
+        if (item) {
+          item.is_archived = newArchiveState ? 1 : 0;
+          authFetch('/api/entries/' + id + '.json', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ archive: newArchiveState ? 1 : 0 })
+          }).catch(err => console.error('Batch archive error', err));
+        }
+      }
+      syncLocalEntriesCache(allEntries);
+      updateCounts();
+      filterArticles();
+      clearArticleSelection();
+      showToast((newArchiveState ? 'Archived ' : 'Restored ') + ids.length + ' articles');
+    }
+
+    async function batchDeleteArticles() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to permanently delete ' + ids.length + ' selected article(s)?', 'Delete (' + ids.length + ')', true);
+      if (!ok) return;
+
+      showToast('Deleting ' + ids.length + ' articles...');
+      for (const id of ids) {
+        allEntries = allEntries.filter(e => e.id !== id);
+        authFetch('/api/entries/' + id + '.json', { method: 'DELETE' })
+          .catch(err => console.error('Batch delete error', err));
+      }
+      syncLocalEntriesCache(allEntries);
+      updateCounts();
+      filterArticles();
+      clearArticleSelection();
+      showToast('Deleted ' + ids.length + ' articles');
+    }
+
+    function batchManageTags() {
+      if (selectedArticleIds.size === 0) return;
+      openTagModal(selectedArticleIds);
+    }
+
+    function handleCardClick(e, id) {
+      if (justTriggeredLongPress) return;
+      // If clicked on interactive sub-elements (links, dropdown menu, buttons)
+      if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap')) return;
+
+      // Ctrl+Click / Cmd+Click / Shift+Click on desktop immediately enters/toggles selection mode
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
+        toggleArticleSelection(id);
+        return;
+      }
+
+      if (isSelectionMode()) {
+        toggleArticleSelection(id);
+      } else {
+        openReader(id);
+      }
+    }
+
     function updateCounts() {
       const unread = allEntries.filter(e => !e.is_archived).length;
       const starred = allEntries.filter(e => e.is_starred).length;
@@ -2285,15 +3032,41 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     
     
-    let selectedTagFilter = null;
-    let tagModalEntryId = null;
     let cachedGlobalTags = [];
+    try {
+      const savedTags = localStorage.getItem('wf_cached_tags');
+      if (savedTags) cachedGlobalTags = JSON.parse(savedTags);
+    } catch (e) {}
+
+    let selectedTagFilter = null;
+    let activeTagModalIds = [];
+
+    function getEffectiveGlobalTags() {
+      const map = new Map();
+      (cachedGlobalTags || []).forEach(t => {
+        const key = (t.label || t.slug || '').toLowerCase().trim();
+        if (key) map.set(key, t);
+      });
+      // Merge with tags from currently loaded articles
+      (allEntries || []).forEach(entry => {
+        (entry.tags || []).forEach(t => {
+          const key = (t.label || t.slug || '').toLowerCase().trim();
+          if (key && !map.has(key)) {
+            map.set(key, { id: t.id || Date.now(), label: t.label, slug: t.slug || key, entry_count: 1 });
+          }
+        });
+      });
+      return Array.from(map.values());
+    }
 
     async function loadGlobalTags() {
       try {
         const res = await authFetch('/api/tags.json');
         if (res.ok) {
           cachedGlobalTags = await res.json();
+          try {
+            localStorage.setItem('wf_cached_tags', JSON.stringify(cachedGlobalTags));
+          } catch (e) {}
         }
       } catch (e) {
         console.error('Failed to load tags', e);
@@ -2310,107 +3083,203 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       filterArticles();
     }
 
-    async function openTagModal(id) {
-      const item = allEntries.find(e => e.id === id);
-      if (!item) return;
-      tagModalEntryId = id;
-      document.getElementById('tagModalArticleTitle').textContent = item.title;
-      await loadGlobalTags();
-      renderModalTags(item.tags || []);
+    function openTagModal(target) {
+      if (typeof target === 'number') {
+        activeTagModalIds = [target];
+      } else if (Array.isArray(target)) {
+        activeTagModalIds = [...target];
+      } else if (target instanceof Set) {
+        activeTagModalIds = Array.from(target);
+      } else if (selectedArticleIds.size > 0) {
+        activeTagModalIds = Array.from(selectedArticleIds);
+      } else if (activeArticleId) {
+        activeTagModalIds = [activeArticleId];
+      } else {
+        return;
+      }
+
+      if (activeTagModalIds.length === 0) return;
+
+      const headerTitle = document.getElementById('tagModalHeaderTitle');
+      const articleTitle = document.getElementById('tagModalArticleTitle');
+
+      if (activeTagModalIds.length === 1) {
+        const item = allEntries.find(e => e.id === activeTagModalIds[0]);
+        if (headerTitle) headerTitle.textContent = 'Manage Tags';
+        if (articleTitle) articleTitle.textContent = item ? (item.title || 'Selected Article') : 'Selected Article';
+      } else {
+        if (headerTitle) headerTitle.textContent = 'Manage Tags (' + activeTagModalIds.length + ' articles)';
+        if (articleTitle) articleTitle.textContent = activeTagModalIds.length + ' articles selected for batch tagging';
+      }
+
+      // Render instantly from local cache (0ms delay)
+      renderTagModalUI();
       document.getElementById('tagModal').classList.add('open');
-      setTimeout(() => document.getElementById('newTagInput').focus(), 100);
+      setTimeout(() => document.getElementById('newTagInput').focus(), 50);
+
+      // Silently refresh global tags in the background without blocking
+      loadGlobalTags().then(() => renderTagModalUI()).catch(() => {});
     }
 
     function closeTagModal() {
-      tagModalEntryId = null;
+      activeTagModalIds = [];
       document.getElementById('tagModal').classList.remove('open');
       document.getElementById('newTagInput').value = '';
     }
 
-    function renderModalTags(tags) {
+    function renderTagModalUI() {
+      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
       const currentContainer = document.getElementById('tagModalCurrentTags');
-      if (!tags || tags.length === 0) {
-        currentContainer.innerHTML = '<span style="font-size: 0.82rem; color: var(--text-muted);">No tags attached to this article.</span>';
-      } else {
-        currentContainer.innerHTML = tags.map(t => 
-          '<span class="tag-badge">#' + escapeHtml(t.label) + 
-          '<span class="tag-remove-btn" title="Remove tag" onclick="removeTagAction(' + t.id + ')">&times;</span></span>'
-        ).join('');
-      }
-
-      // Quick add available tags
-      const currentTagIds = new Set((tags || []).map(t => t.id));
-      const currentTagSlugs = new Set((tags || []).map(t => t.slug.toLowerCase()));
-      const available = cachedGlobalTags.filter(t => !currentTagIds.has(t.id) && !currentTagSlugs.has(t.slug.toLowerCase()));
-
       const availableSection = document.getElementById('quickTagsSection');
       const availableContainer = document.getElementById('tagModalAvailableTags');
 
+      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
+      if (items.length === 0) return;
+
+      // Count tag occurrences across all selected items
+      const tagStats = new Map(); // key: label.toLowerCase() -> { label, slug, count, tagIds: Map<entryId, tagId> }
+
+      items.forEach(item => {
+        const tags = Array.isArray(item.tags) ? item.tags : [];
+        tags.forEach(t => {
+          const key = (t.label || t.slug || '').toLowerCase().trim();
+          if (!key) return;
+          if (!tagStats.has(key)) {
+            tagStats.set(key, { label: t.label, slug: t.slug, count: 0, tagIdsByEntry: new Map() });
+          }
+          const stat = tagStats.get(key);
+          stat.count++;
+          stat.tagIdsByEntry.set(item.id, t.id);
+        });
+      });
+
+      const totalItems = items.length;
+      let tagsHtml = '';
+
+      if (tagStats.size === 0) {
+        tagsHtml = '<span style="font-size: 0.82rem; color: var(--text-muted);">' + 
+          (totalItems === 1 ? 'No tags applied to this article.' : 'No tags applied to the selected articles.') + 
+          '</span>';
+      } else {
+        const sortedTags = Array.from(tagStats.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+        tagsHtml = sortedTags.map(stat => {
+          if (stat.count === totalItems) {
+            // Applied to ALL selected articles
+            return '<span class="tag-badge">' +
+              '<span>#' + escapeHtml(stat.label) + '</span>' + 
+              '<span class="tag-remove-btn" title="Remove tag" data-label="' + escapeHtml(stat.label) + '" onclick="event.stopPropagation(); removeTagFromSelected(this.dataset.label)">&times;</span>' +
+            '</span>';
+          } else {
+            // Applied to SOME selected articles (partial) - Clicking anywhere applies to ALL
+            return '<span class="tag-badge tag-badge-partial" title="Click to apply #' + escapeHtml(stat.label) + ' to all selected articles" data-label="' + escapeHtml(stat.label) + '" onclick="addTagToSelected(this.dataset.label)">' +
+              '<span>#' + escapeHtml(stat.label) + ' <span style="font-size: 0.72rem; opacity: 0.8; font-weight: 600;">(' + stat.count + '/' + totalItems + ')</span></span>' +
+              '<span class="tag-remove-btn" title="Remove from selected" data-label="' + escapeHtml(stat.label) + '" onclick="event.stopPropagation(); removeTagFromSelected(this.dataset.label)">&times;</span>' +
+            '</span>';
+          }
+        }).join('');
+      }
+
+      currentContainer.innerHTML = tagsHtml;
+
+      // Available library tags that are not already on ALL selected items
+      const commonTagKeys = new Set();
+      tagStats.forEach((stat, key) => {
+        if (stat.count === totalItems) commonTagKeys.add(key);
+      });
+
+      const available = getEffectiveGlobalTags().filter(t => {
+        const key = (t.label || t.slug || '').toLowerCase().trim();
+        return key && !commonTagKeys.has(key);
+      });
+
       if (available.length > 0) {
         availableSection.style.display = 'block';
-                availableContainer.innerHTML = available.map(t => 
-          '<span class="tag-badge" style="opacity: 0.85; border-style: dashed;" data-label="' + escapeHtml(t.label) + '" onclick="quickAddTag(this.dataset.label)">+ #' + escapeHtml(t.label) + '</span>'
+        availableContainer.innerHTML = available.slice(0, 30).map(t => 
+          '<span class="tag-badge" style="opacity: 0.85; border-style: dashed; cursor: pointer;" data-label="' + escapeHtml(t.label) + '" onclick="addTagToSelected(this.dataset.label)">+ #' + escapeHtml(t.label) + '</span>'
         ).join('');
       } else {
         availableSection.style.display = 'none';
       }
     }
 
-    async function quickAddTag(label) {
-      if (!tagModalEntryId) return;
-      await addTagsToCurrentArticle(label);
-    }
-
     async function submitAddTag() {
-      if (!tagModalEntryId) return;
       const input = document.getElementById('newTagInput');
-      const val = input.value.trim();
+      const val = input ? input.value.trim() : '';
       if (!val) return;
-      await addTagsToCurrentArticle(val);
-      input.value = '';
+      await addTagToSelected(val);
+      if (input) input.value = '';
     }
 
-    async function addTagsToCurrentArticle(tagString) {
-      const res = await authFetch('/api/entries/' + tagModalEntryId + '/tags.json', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: tagString })
+    async function addTagToSelected(tagString) {
+      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
+      const rawTags = tagString.split(',').map(s => s.trim()).filter(Boolean);
+      if (rawTags.length === 0) return;
+
+      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
+      if (items.length === 0) return;
+
+      // Instant local in-memory update (0ms UI latency)
+      rawTags.forEach(tagName => {
+        const cleanTag = tagName.replace(/^#/, '').trim();
+        if (!cleanTag) return;
+        items.forEach(item => {
+          item.tags = item.tags || [];
+          if (!item.tags.some(t => t.label.toLowerCase() === cleanTag.toLowerCase())) {
+            item.tags.push({ id: Date.now() + Math.floor(Math.random() * 1000), label: cleanTag, slug: cleanTag.toLowerCase() });
+          }
+        });
       });
 
-      if (res.ok) {
-        const updated = await res.json();
-        const entry = allEntries.find(e => e.id === tagModalEntryId);
-        if (entry) {
-          entry.tags = updated.tags || [];
-        }
-        await loadGlobalTags();
-        renderModalTags(entry ? entry.tags : []);
-        renderArticles(allEntries);
-        showToast('Tag updated');
-      } else {
-        showToast('Failed to add tag');
+      syncLocalEntriesCache(allEntries);
+      renderTagModalUI();
+      renderArticles(getCurrentlyFilteredEntries());
+      showToast('Tag(s) updated');
+
+      // Parallel background server sync
+      for (const item of items) {
+        authFetch('/api/entries/' + item.id + '/tags.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: rawTags.join(',') })
+        }).then(async res => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.tags) item.tags = data.tags;
+          }
+        }).catch(err => console.error('Tag sync error', err));
       }
     }
 
-    async function removeTagAction(tagId) {
-      if (!tagModalEntryId) return;
-      const res = await authFetch('/api/entries/' + tagModalEntryId + '/tags/' + tagId + '.json', {
-        method: 'DELETE'
+    async function removeTagFromSelected(tagLabel) {
+      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
+      const cleanLabel = tagLabel.toLowerCase().trim();
+      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
+      if (items.length === 0) return;
+
+      // Instant local in-memory update
+      const deleteRequests = [];
+      items.forEach(item => {
+        if (!Array.isArray(item.tags)) return;
+        const matchingTag = item.tags.find(t => (t.label || t.slug || '').toLowerCase().trim() === cleanLabel);
+        if (matchingTag) {
+          const tagId = matchingTag.id;
+          item.tags = item.tags.filter(t => t !== matchingTag);
+          deleteRequests.push({ entryId: item.id, tagId });
+        }
       });
 
-      if (res.ok) {
-        const updated = await res.json();
-        const entry = allEntries.find(e => e.id === tagModalEntryId);
-        if (entry) {
-          entry.tags = updated.tags || [];
-        }
-        await loadGlobalTags();
-        renderModalTags(entry ? entry.tags : []);
-        renderArticles(allEntries);
-        showToast('Tag removed');
-      } else {
-        showToast('Failed to remove tag');
-      }
+      syncLocalEntriesCache(allEntries);
+      renderTagModalUI();
+      renderArticles(getCurrentlyFilteredEntries());
+      showToast('Tag #' + tagLabel + ' removed');
+
+      // Parallel background server delete
+      deleteRequests.forEach(({ entryId, tagId }) => {
+        authFetch('/api/entries/' + entryId + '/tags/' + tagId + '.json', {
+          method: 'DELETE'
+        }).catch(err => console.error('Tag remove error', err));
+      });
     }
 
     // -------------------------------------------------------------
@@ -2421,10 +3290,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       filterByTag(slug);
     }
 
-    async function openGlobalTagManager() {
-      await loadGlobalTags();
+    function openGlobalTagManager() {
+      clearActiveTextSelection();
       renderGlobalTagList();
       document.getElementById('globalTagModal').classList.add('open');
+      loadGlobalTags().then(() => renderGlobalTagList()).catch(() => {});
     }
 
     function closeGlobalTagModal() {
@@ -2434,15 +3304,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function renderGlobalTagList() {
       const container = document.getElementById('globalTagListContainer');
       const countLabel = document.getElementById('globalTagCountLabel');
+      const tags = getEffectiveGlobalTags();
       
-      countLabel.textContent = cachedGlobalTags.length + ' tags total';
+      countLabel.textContent = tags.length + ' tags total';
 
-      if (cachedGlobalTags.length === 0) {
+      if (tags.length === 0) {
         container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem 0;">No tags created yet.</div>';
         return;
       }
 
-      container.innerHTML = cachedGlobalTags.map(t => {
+      container.innerHTML = tags.map(t => {
         const count = t.entry_count || 0;
         const countText = count === 1 ? '1 article' : count + ' articles';
         return '<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">' +
@@ -2500,6 +3371,26 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       showToast('Cleaned up unused tags');
     }
 
+
+    
+    let currentViewMode = localStorage.getItem('wf_view_mode') || 'list';
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      try { localStorage.setItem('wf_view_mode', mode); } catch (e) {}
+      applyViewModeUI();
+    }
+
+    function applyViewModeUI() {
+      const grid = document.getElementById('articlesGrid');
+      if (grid) {
+        grid.classList.remove('view-list', 'view-grid', 'view-compact');
+        grid.classList.add('view-' + currentViewMode);
+      }
+      document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('viewBtn' + currentViewMode.charAt(0).toUpperCase() + currentViewMode.slice(1));
+      if (activeBtn) activeBtn.classList.add('active');
+    }
 
     function filterArticles() {
       const banner = document.getElementById('activeTagFilterBanner');
@@ -2568,6 +3459,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
 
       empty.style.display = 'none';
+      applyViewModeUI();
       grid.innerHTML = entries.map(item => {
         const domain = item.domain_name || 'direct-input';
         const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
@@ -2576,19 +3468,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const excerpt = item.text ? item.text.slice(0, 160) + '...' : 'No preview available';
         const previewPicture = item.preview_picture;
 
+        const isChecked = selectedArticleIds.has(item.id);
+
+        const selectCheckboxHtml = '<div class="card-select-wrap" onclick="event.stopPropagation(); toggleArticleSelection(' + item.id + ');">' +
+          '<div class="card-checkbox ' + (isChecked ? 'checked' : '') + '">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+          '</div>' +
+        '</div>';
+
         const imgHtml = previewPicture
-          ? '<div class="card-image-wrap" onclick="openReader(' + item.id + ')"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
+          ? '<div class="card-image-wrap"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
           : '';
 
         const starSvg = item.is_starred
           ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>'
           : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
 
-        const originalLinkHtml = item.url
-          ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="action-btn" title="Open original link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>'
-          : '';
-
-        const authorMetaHtml = author ? ' &bull; <span class="card-author" style="color: var(--text-secondary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">by ' + escapeHtml(author) + '</span>' : '';
+        const authorMetaHtml = author ? ' &bull; <span class="card-author" style="color: var(--text-secondary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">by ' + escapeHtml(author) + '</span>' : '';
 
         const tags = item.tags || [];
         const tagsHtml = tags.length > 0
@@ -2598,34 +3494,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
         const titleDir = isRtlText(item.title) ? 'rtl' : 'ltr';
         const excerptDir = isRtlText(excerpt) ? 'rtl' : 'ltr';
+        
+        // Smart reading time & progress calculation (Instapaper "xx of yy min left" style)
+        const totalMin = item.reading_time || 1;
         const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
         const progressPct = Math.round(savedRatio * 100);
-        const progressBadgeHtml = progressPct > 0
-          ? '<span class="card-progress-center" title="Reading progress" style="font-size: 0.75rem; color: var(--accent); font-weight: 600; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + progressPct + '% read</span>'
-          : '<span style="flex: 1;"></span>';
+        
+        let readingProgressText = totalMin + ' min read';
+        if (progressPct >= 95) {
+          readingProgressText = 'Finished (' + totalMin + 'm)';
+        } else if (progressPct > 0) {
+          const minLeft = Math.max(1, Math.round(totalMin * (1 - savedRatio)));
+          readingProgressText = minLeft + ' of ' + totalMin + ' min left (' + progressPct + '%)';
+        }
+
+        const progressBadgeHtml = '<span class="card-progress-center" title="Reading time & progress" style="font-size: 0.75rem; color: ' + (progressPct > 0 ? 'var(--accent)' : 'var(--text-muted)') + '; font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + readingProgressText + '</span>';
+        
         const progressLineHtml = progressPct > 0
           ? '<div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--border-color); overflow: hidden;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
           : '<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--border-color);"></div>';
 
-        return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
-          '<div>' +
-            imgHtml +
-            '<div class="card-meta">' +
-              '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
-              authorMetaHtml +
-              '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
+        return '<div class="article-card ' + (isChecked ? 'is-selected' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + ' onclick="handleCardClick(event, ' + item.id + ')">' +
+          selectCheckboxHtml +
+          '<div class="card-main-content">' +
+            '<div class="card-text-column">' +
+              '<div class="card-meta">' +
+                '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
+                authorMetaHtml +
+              '</div>' +
+              '<h2 class="card-title" dir="' + titleDir + '">' + escapeHtml(item.title) + '</h2>' +
+              '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
+              tagsHtml +
             '</div>' +
-            '<h2 class="card-title" dir="' + titleDir + '" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
-            '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
-            tagsHtml +
+            imgHtml +
           '</div>' +
           '<div class="card-footer" style="margin-top: 0.75rem;">' +
             progressLineHtml +
             '<span class="card-date">' + date + '</span>' +
             progressBadgeHtml +
             '<div class="card-actions">' +
-              '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
-              '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
+              '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="event.stopPropagation(); toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
+              '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="event.stopPropagation(); toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
               '<div class="card-menu-wrap">' +
                 '<button class="action-btn card-more-btn" title="More Actions" onclick="event.stopPropagation(); toggleCardMenu(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>' +
                 '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
@@ -2877,6 +3786,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.body.style.overflow = 'hidden';
 
       const scrollEl = document.getElementById('readerScrollContainer');
+      lastReaderScrollTop = 0;
+      clearTimeout(autoHideInitialTimer);
+      setReaderMobileBarVisibility(true);
+
       if (scrollEl) {
         const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
         if (savedRatio > 0.005) {
@@ -2884,6 +3797,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             const total = scrollEl.scrollHeight - scrollEl.clientHeight;
             if (total > 0) {
               scrollEl.scrollTop = savedRatio * total;
+              lastReaderScrollTop = scrollEl.scrollTop;
             }
             updateReadingProgress();
           }, 70);
@@ -2893,6 +3807,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       updateReadingProgress();
 
+      // Smoothly slide up the top bar and status bar after user sees the article open
+      autoHideInitialTimer = setTimeout(() => {
+        const readerView = document.getElementById('readerView');
+        const drawer = document.getElementById('readerSidebar');
+        if (readerView && readerView.classList.contains('open') && (!drawer || !drawer.classList.contains('drawer-open'))) {
+          setReaderMobileBarVisibility(false);
+        }
+      }, 500);
+
       if (pushHistory) {
         history.pushState({ readerId: id }, '', '/read/' + id);
       }
@@ -2901,6 +3824,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     
     function toggleMobileReaderDrawer(e) {
       if (e) e.stopPropagation();
+      clearActiveTextSelection();
       const sidebar = document.getElementById('readerSidebar');
       const backdrop = document.getElementById('readerDrawerBackdrop');
       if (sidebar && backdrop) {
@@ -2956,6 +3880,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
 
     function closeReader(updateHistory = true) {
+      clearTimeout(autoHideInitialTimer);
+      setReaderMobileBarVisibility(true);
+      setStatusBarVisibility(true);
       closeMobileReaderDrawer();
       activeArticleId = null;
       document.getElementById('readerView').classList.remove('open');
@@ -2971,6 +3898,68 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           history.pushState({}, '', newPath);
         }
       }
+    }
+
+    
+    let lastReaderScrollTop = 0;
+    let autoHideInitialTimer = null;
+    let scrollUpDistance = 0;
+
+    function setStatusBarVisibility(visible) {
+      try {
+        if (window.Capacitor && window.Capacitor.isPluginAvailable('StatusBar')) {
+          const StatusBar = window.Capacitor.Plugins.StatusBar;
+          if (visible) {
+            StatusBar.show({ animation: 'SLIDE' });
+          } else {
+            StatusBar.hide({ animation: 'SLIDE' });
+          }
+        }
+      } catch (e) {}
+    }
+
+    function setReaderMobileBarVisibility(visible) {
+      const bar = document.querySelector('.reader-mobile-bar');
+      if (bar) {
+        if (visible) {
+          bar.classList.remove('bar-hidden');
+        } else {
+          bar.classList.add('bar-hidden');
+        }
+      }
+      setStatusBarVisibility(visible);
+    }
+
+    function handleReaderScroll() {
+      updateReadingProgress();
+      const container = document.getElementById('readerScrollContainer');
+      if (!container) return;
+      const currentScrollTop = container.scrollTop;
+      
+      const drawer = document.getElementById('readerSidebar');
+      if (drawer && drawer.classList.contains('drawer-open')) return;
+
+      const delta = lastReaderScrollTop - currentScrollTop;
+
+      if (currentScrollTop <= 35) {
+        scrollUpDistance = 0;
+        setReaderMobileBarVisibility(true);
+      } else if (delta > 0) {
+        // Scrolling UP - accumulate distance so even slow ~3 lines scroll triggers return
+        scrollUpDistance += delta;
+        if (scrollUpDistance >= 28) {
+          clearTimeout(autoHideInitialTimer);
+          setReaderMobileBarVisibility(true);
+        }
+      } else if (delta < 0) {
+        // Scrolling DOWN
+        scrollUpDistance = 0;
+        if (currentScrollTop > 60 && Math.abs(delta) > 4) {
+          clearTimeout(autoHideInitialTimer);
+          setReaderMobileBarVisibility(false);
+        }
+      }
+      lastReaderScrollTop = currentScrollTop;
     }
 
     function handleReaderBack() {
@@ -3107,6 +4096,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     document.addEventListener('click', () => closeAllCardMenus());
 
     function closeAllCardMenus() {
+      closeBatchMenu();
       const backdrop = document.getElementById('cardMenuBackdrop');
       if (backdrop) backdrop.style.display = 'none';
       document.querySelectorAll('.article-card.menu-open').forEach(el => el.classList.remove('menu-open'));
@@ -3466,6 +4456,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     function openModal(id) {
+      clearActiveTextSelection();
       const modalEl = document.getElementById(id);
       if (modalEl) {
         modalEl.classList.add('open');
@@ -3660,73 +4651,183 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     // -------------------------------------------------------------
-    // Swipe-to-Close Gesture Handlers for Mobile Drawers
+    // Interactive 1:1 Finger Tracking Swipe-to-Close for Drawers
     // -------------------------------------------------------------
+    function setupInteractiveDrawerTracking(drawerId, backdropId, closeFn, openClass) {
+      const drawer = document.getElementById(drawerId);
+      const backdrop = document.getElementById(backdropId);
+      if (!drawer || !backdrop) return;
+
+      let startX = 0;
+      let startY = 0;
+      let isDragging = false;
+      let currentDiffX = 0;
+      let startTime = 0;
+
+      function onTouchStart(e) {
+        if (!drawer.classList.contains(openClass)) return;
+        clearActiveTextSelection();
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isDragging = false;
+        currentDiffX = 0;
+        startTime = Date.now();
+      }
+
+      function onTouchMove(e) {
+        if (!drawer.classList.contains(openClass)) return;
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - startX;
+        const diffY = currentY - startY;
+
+        // Detect horizontal dragging towards the left
+        if (!isDragging) {
+          if (diffX < -5 && Math.abs(diffX) > Math.abs(diffY)) {
+            isDragging = true;
+          }
+        }
+
+        if (isDragging) {
+          currentDiffX = Math.min(0, diffX);
+          drawer.style.setProperty('transition', 'none', 'important');
+          backdrop.style.setProperty('transition', 'none', 'important');
+          drawer.style.setProperty('transform', 'translateX(' + currentDiffX + 'px)', 'important');
+
+          const width = drawer.offsetWidth || 260;
+          const progress = Math.max(0, Math.min(1, 1 + currentDiffX / width));
+          backdrop.style.setProperty('opacity', String(progress), 'important');
+        }
+      }
+
+      function onTouchEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const width = drawer.offsetWidth || 260;
+        const elapsed = Date.now() - startTime;
+        const velocity = Math.abs(currentDiffX) / Math.max(1, elapsed);
+
+        const shouldClose = currentDiffX < -(width * 0.25) || (currentDiffX < -20 && velocity > 0.3);
+
+        drawer.style.setProperty('transition', 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)', 'important');
+        backdrop.style.setProperty('transition', 'opacity 0.22s ease', 'important');
+
+        if (shouldClose) {
+          drawer.style.setProperty('transform', 'translateX(-100%)', 'important');
+          backdrop.style.setProperty('opacity', '0', 'important');
+          setTimeout(() => {
+            closeFn();
+            drawer.style.removeProperty('transform');
+            drawer.style.removeProperty('transition');
+            backdrop.style.removeProperty('opacity');
+            backdrop.style.removeProperty('transition');
+          }, 230);
+        } else {
+          drawer.style.setProperty('transform', 'translateX(0)', 'important');
+          backdrop.style.setProperty('opacity', '1', 'important');
+          setTimeout(() => {
+            drawer.style.removeProperty('transform');
+            drawer.style.removeProperty('transition');
+            backdrop.style.removeProperty('opacity');
+            backdrop.style.removeProperty('transition');
+          }, 230);
+        }
+      }
+
+      drawer.addEventListener('touchstart', onTouchStart, { passive: true });
+      drawer.addEventListener('touchmove', onTouchMove, { passive: true });
+      drawer.addEventListener('touchend', onTouchEnd, { passive: true });
+      drawer.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+      backdrop.addEventListener('touchstart', onTouchStart, { passive: true });
+      backdrop.addEventListener('touchmove', onTouchMove, { passive: true });
+      backdrop.addEventListener('touchend', onTouchEnd, { passive: true });
+      backdrop.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    }
+
     function setupDrawerSwipeHandlers() {
-      let touchStartX = 0;
-      let touchStartY = 0;
-
-      // 1. Main Navigation Drawer (#mobileNavDropdown)
-      const navDrawer = document.getElementById('mobileNavDropdown');
-      const navBackdrop = document.getElementById('mobileNavBackdrop');
-
-      function handleNavTouchStart(e) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-      }
-
-      function handleNavTouchEnd(e) {
-        if (!navDrawer || !navDrawer.classList.contains('open')) return;
-        const diffX = e.changedTouches[0].clientX - touchStartX;
-        const diffY = e.changedTouches[0].clientY - touchStartY;
-        // Horizontal swipe left with at least 35px delta
-        if (diffX < -35 && Math.abs(diffX) > Math.abs(diffY)) {
-          closeMobileNavMenu();
-        }
-      }
-
-      if (navDrawer) {
-        navDrawer.addEventListener('touchstart', handleNavTouchStart, { passive: true });
-        navDrawer.addEventListener('touchend', handleNavTouchEnd, { passive: true });
-      }
-      if (navBackdrop) {
-        navBackdrop.addEventListener('touchstart', handleNavTouchStart, { passive: true });
-        navBackdrop.addEventListener('touchend', handleNavTouchEnd, { passive: true });
-      }
-
-      // 2. Reader Action Sidebar Drawer (#readerSidebar)
-      const readerDrawer = document.getElementById('readerSidebar');
-      const readerBackdrop = document.getElementById('readerDrawerBackdrop');
-
-      function handleReaderTouchStart(e) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-      }
-
-      function handleReaderTouchEnd(e) {
-        if (!readerDrawer || !readerDrawer.classList.contains('drawer-open')) return;
-        const diffX = e.changedTouches[0].clientX - touchStartX;
-        const diffY = e.changedTouches[0].clientY - touchStartY;
-        // Horizontal swipe left with at least 35px delta
-        if (diffX < -35 && Math.abs(diffX) > Math.abs(diffY)) {
-          closeMobileReaderDrawer();
-        }
-      }
-
-      if (readerDrawer) {
-        readerDrawer.addEventListener('touchstart', handleReaderTouchStart, { passive: true });
-        readerDrawer.addEventListener('touchend', handleReaderTouchEnd, { passive: true });
-      }
-      if (readerBackdrop) {
-        readerBackdrop.addEventListener('touchstart', handleReaderTouchStart, { passive: true });
-        readerBackdrop.addEventListener('touchend', handleReaderTouchEnd, { passive: true });
-      }
+      // 1. Main Navigation Drawer
+      setupInteractiveDrawerTracking('mobileNavDropdown', 'mobileNavBackdrop', closeMobileNavMenu, 'open');
+      // 2. Reader Action Sidebar Drawer
+      setupInteractiveDrawerTracking('readerSidebar', 'readerDrawerBackdrop', closeMobileReaderDrawer, 'drawer-open');
     }
 
     // Initialize
     renderFromInstantLocalCache();
     setupPullToRefresh();
     setupDrawerSwipeHandlers();
+    setupCardLongPress();
+    // Long-press gesture for mobile cards
+    function setupCardLongPress() {
+      const grid = document.getElementById('articlesGrid');
+      if (!grid) return;
+
+      let longPressTimer = null;
+      let longPressMoved = false;
+      let startX = 0;
+      let startY = 0;
+
+      grid.addEventListener('touchstart', (e) => {
+        const card = e.target.closest('.article-card');
+        if (!card) return;
+        if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap')) return;
+
+        const id = parseInt(card.dataset.id, 10);
+        if (!id) return;
+
+        longPressMoved = false;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+          if (!longPressMoved) {
+            justTriggeredLongPress = true;
+            if (navigator.vibrate) {
+              try { navigator.vibrate(25); } catch {}
+            }
+            toggleArticleSelection(id, true);
+          }
+        }, 450);
+      }, { passive: true });
+
+      grid.addEventListener('touchmove', (e) => {
+        if (longPressTimer) {
+          const diffX = Math.abs(e.touches[0].clientX - startX);
+          const diffY = Math.abs(e.touches[0].clientY - startY);
+          if (diffX > 10 || diffY > 10) {
+            longPressMoved = true;
+            clearTimeout(longPressTimer);
+          }
+        }
+      }, { passive: true });
+
+      grid.addEventListener('touchend', () => {
+        clearTimeout(longPressTimer);
+        if (justTriggeredLongPress) {
+          setTimeout(() => { justTriggeredLongPress = false; }, 120);
+        }
+      }, { passive: true });
+
+      grid.addEventListener('touchcancel', () => {
+        clearTimeout(longPressTimer);
+      }, { passive: true });
+    }
+
+    // Android back button support for selection mode
+    const originalBackHandler = window.handleAndroidBackButton;
+    window.handleAndroidBackButton = function() {
+      if (isSelectionMode()) {
+        clearArticleSelection();
+        return true;
+      }
+      if (originalBackHandler) {
+        return originalBackHandler();
+      }
+      return false;
+    };
+
     loadArticles();
     if (isCapacitorApp()) {
       const settingsBtn = document.getElementById('serverSettingsBtn');
