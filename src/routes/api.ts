@@ -1,3 +1,4 @@
+import { OTA_VERSION, OTA_MIN_NATIVE_VERSION, OTA_BUNDLE_B64, OTA_CHECKSUM } from '../views/ota-bundle';
 import { Hono } from 'hono';
 import { Env, EntryRow, WallabagEntry } from '../types';
 import {
@@ -127,6 +128,37 @@ const infoHandler = (c: any) => {
     allowed_registration: false,
   });
 };
+
+
+// -------------------------------------------------------------
+// Capacitor OTA App Update Endpoints
+// -------------------------------------------------------------
+const appVersionHandler = (c: any) => {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return c.json({
+    version: OTA_VERSION,
+    min_native_version: OTA_MIN_NATIVE_VERSION,
+    checksum: OTA_CHECKSUM,
+    url: '/api/app/bundle.zip'
+  });
+};
+
+apiRouter.get('/api/app/version', appVersionHandler);
+apiRouter.get('/api/app/version.json', appVersionHandler);
+
+apiRouter.get('/api/app/bundle.zip', (c: any) => {
+  const binaryString = atob(OTA_BUNDLE_B64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  c.header('Content-Type', 'application/zip');
+  c.header('Content-Disposition', 'attachment; filename="bundle.zip"');
+  c.header('Cache-Control', 'public, max-age=86400');
+  return c.body(bytes);
+});
 
 apiRouter.get('/api/info', infoHandler);
 apiRouter.get('/api/info.json', infoHandler);

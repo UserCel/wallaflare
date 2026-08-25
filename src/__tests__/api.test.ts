@@ -1159,3 +1159,25 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(data.client_secret).toBe("wallaflare");
   });
 });
+
+
+describe("Capacitor Android OTA Endpoints", () => {
+  it("serves the OTA version manifest on /api/app/version.json", async () => {
+    const res = await app.request("/api/app/version.json");
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.version).toBeDefined();
+    expect(data.min_native_version).toBe("1.0.0");
+    expect(data.url).toBe("/api/app/bundle.zip");
+    expect(data.checksum).toBeDefined();
+  });
+
+  it("serves the OTA zip bundle on /api/app/bundle.zip", async () => {
+    const res = await app.request("/api/app/bundle.zip");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/zip");
+    expect(res.headers.get("Cache-Control")).toContain("public, max-age=86400");
+    const arrayBuffer = await res.arrayBuffer();
+    expect(arrayBuffer.byteLength).toBeGreaterThan(1000);
+  });
+});

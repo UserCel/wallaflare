@@ -1,3 +1,4 @@
+import { OTA_VERSION } from './ota-bundle';
 import { clientEpubJs } from './epub-client-bundle';
 export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   return `<!DOCTYPE html>
@@ -304,6 +305,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       background: var(--accent);
       color: white;
     }
+
+    .btn-offline-mode {
+      background: rgba(245, 158, 11, 0.16) !important;
+      color: #f59e0b !important;
+      border: 1px solid rgba(245, 158, 11, 0.4) !important;
+      cursor: pointer;
+    }
+    .btn-offline-mode:hover {
+      background: rgba(245, 158, 11, 0.25) !important;
+    }
+
     .btn-primary:hover {
       background: var(--accent-hover);
       box-shadow: 0 0 12px var(--accent-glow);
@@ -1751,6 +1763,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       left: 0;
       bottom: 0;
       width: 270px;
+      max-height: 100vh;
+      max-height: 100dvh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
       box-shadow: none;
@@ -1807,7 +1824,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       margin: 0.4rem 0;
     }
 
-    @media (max-width: 768px) {
+    /* -------------------------------------------------------------
+       RESPONSIVE HEADER & NAVIGATION BREAKPOINTS
+       ------------------------------------------------------------- */
+    @media (max-width: 1150px) {
+      .brand-tag {
+        display: none !important;
+      }
+      .desktop-nav-btn span {
+        display: none !important;
+      }
+      .desktop-nav-btn {
+        padding: 0.45rem !important;
+      }
+    }
+
+    @media (max-width: 960px) {
       .desktop-nav-btn {
         display: none !important;
       }
@@ -1817,16 +1849,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       header .brand {
         display: none !important;
       }
+      .brand-tag {
+        display: none !important;
+      }
       .nav-search {
         max-width: none !important;
         flex: 1 !important;
         margin: 0 0.5rem !important;
       }
+      .nav-actions button span {
+        display: none !important;
+      }
+      .nav-actions button {
+        padding: 0.45rem !important;
+      }
     }
 
-    /* -------------------------------------------------------------
-       MOBILE & TABLET RESPONSIVENESS
-       ------------------------------------------------------------- */
     @media (max-width: 768px) {
       header {
         padding: 0.6rem 0.85rem;
@@ -1834,18 +1872,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       .brand span:nth-child(2) {
         font-size: 1.05rem;
-      }
-      .brand-tag {
-        display: none;
-      }
-      .nav-search {
-        max-width: 140px;
-      }
-      .nav-actions button span {
-        display: none;
-      }
-      .nav-actions button {
-        padding: 0.45rem;
       }
       main {
         padding: 1rem 0.75rem 4rem 0.75rem;
@@ -1874,7 +1900,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         opacity: 1;
       }
 
-      /* Mobile Reader Layout: Top Navigation Bar & Left Slide-out Drawer */
+    }
+
+    /* -------------------------------------------------------------
+       MOBILE & LANDSCAPE READER LAYOUT (Phones, Landscape & Tablets)
+       ------------------------------------------------------------- */
+    @media (max-width: 960px), (max-height: 550px) {
       .reader-view {
         flex-direction: column !important;
       }
@@ -1912,9 +1943,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         opacity: 0 !important;
         pointer-events: none !important;
       }
-      .reader-main-scroll {
-        padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
-      }
       .reader-mobile-bar-group {
         display: flex !important;
         align-items: center !important;
@@ -1940,8 +1968,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         top: 0 !important;
         left: 0 !important;
         bottom: 0 !important;
-        width: 250px !important;
-        height: 100vh !important;
+        width: 260px !important;
+        max-height: 100vh !important;
+        max-height: 100dvh !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        -webkit-overflow-scrolling: touch !important;
         transform: translateX(-100%);
         box-shadow: none !important;
         visibility: hidden !important;
@@ -2113,9 +2145,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
 
       <div class="nav-actions">
-        <button class="btn btn-primary" onclick="openModal('addUrlModal')" title="Add URL">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>Add URL</span>
+        <button class="btn btn-primary" id="addArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL">
+          <svg id="addArticleBtnIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span id="addArticleBtnLabel">Add URL</span>
         </button>
 
         <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
@@ -2131,6 +2163,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
           <span>KOReader</span>
+        </button>
+
+        <button class="btn-icon desktop-nav-btn" id="desktopRefreshBtn" onclick="handleDesktopRefresh(this)" title="Refresh Articles">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
         </button>
 
         <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
@@ -2239,6 +2275,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
       <span>Log Out</span>
     </button>
+    <div style="margin-top: auto; padding: 1.25rem 0.75rem 0.75rem 0.75rem; font-size: 0.72rem; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border-color);">
+      <span id="mobileVersionLabel">Wallaflare v1.0.0</span>
+    </div>
   </div>
 
   <!-- Main Content -->
@@ -2263,7 +2302,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </button>
       </div>
 
-      <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto; white-space: nowrap;" id="statusIndicator"></div>
     </div>
 
     <!-- Article Grid -->
@@ -2288,6 +2326,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <h3>No articles found</h3>
       <p>Add a URL or text using the buttons in the top navbar.</p>
     </div>
+
+
   </main>
 
 
@@ -2329,6 +2369,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('serverConnectModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="saveServerBtn">Connect &amp; Sync</button>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.75rem;">
+          Wallaflare v1.0.0 (Capacitor Android &bull; Auto-OTA Enabled)
         </div>
       </form>
     </div>
@@ -2764,7 +2807,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       return '';
     }
 
-    function authFetch(url, options = {}) {
+    async function authFetch(url, options = {}) {
       const baseUrl = getApiBaseUrl();
       const fullUrl = url.startsWith('http') ? url : (baseUrl + url);
       const headers = Object.assign({}, options.headers || {});
@@ -2772,7 +2815,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (token) {
         headers['Authorization'] = 'Bearer ' + token;
       }
-      return fetch(fullUrl, Object.assign({}, options, { headers }));
+      const response = await fetch(fullUrl, Object.assign({}, options, { headers }));
+
+      if (isCapacitorApp() && response.headers) {
+        const serverVer = response.headers.get('x-wallaflare-web-version');
+        const minNative = response.headers.get('x-wallaflare-min-native');
+        if (serverVer) {
+          checkOtaFromVersionHeader(serverVer, minNative);
+        }
+      }
+
+      return response;
     }
 
     
@@ -2790,6 +2843,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function toggleMobileNavMenu(e) {
       if (e) e.stopPropagation();
       clearActiveTextSelection();
+      updateVersionDisplay();
       const dropdown = document.getElementById('mobileNavDropdown');
       const backdrop = document.getElementById('mobileNavBackdrop');
       if (dropdown && backdrop) {
@@ -2817,7 +2871,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     });
 
     async function handleLogout() {
-      const ok = await showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?', 'Log Out', true);
+      const currentWebVer = getAppWebVersion();
+      const ok = await showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?\\n\\nWallaflare v1.0.0 (Web: ' + currentWebVer + ')', 'Log Out', true);
       if (!ok) return;
 
       try {
@@ -2966,7 +3021,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           const overlay = document.getElementById('authOverlay');
           if (overlay) overlay.style.display = 'none';
           showToast('Unlocked successfully');
-          loadArticles();
+          
+    function getAppWebVersion() {
+      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+    }
+
+    function updateVersionDisplay() {
+      const ver = getAppWebVersion();
+      const label = document.getElementById('mobileVersionLabel');
+      if (label) {
+        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      }
+    }
+
+    updateVersionDisplay();
+    loadArticles();
           return;
         }
 
@@ -3166,7 +3235,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    let isLoadingArticles = false;
     async function loadArticles(silent = false) {
+      if (isLoadingArticles) return;
+      isLoadingArticles = true;
       if (isCapacitorApp()) {
         const settingsBtn = document.getElementById('serverSettingsBtn');
         if (settingsBtn) settingsBtn.style.display = 'flex';
@@ -3178,7 +3250,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
 
       // 1. Instant 0ms cache rendering
-      renderFromInstantLocalCache();
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) updateOfflineUI(true);
+    renderFromInstantLocalCache();
       if (allEntries.length === 0) {
         const cached = await getArticlesFromOfflineDb();
         if (cached && cached.length > 0 && allEntries.length === 0) {
@@ -3204,7 +3277,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           return;
         }
         document.getElementById('authOverlay').style.display = 'none';
-        isOfflineMode = false;
+        updateOfflineUI(false);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allEntries = data._embedded ? data._embedded.items : [];
@@ -3230,6 +3303,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
         handleConnectionFailure(silent);
       } finally {
+        isLoadingArticles = false;
         hidePullToRefreshSpinner();
       }
     }
@@ -5319,7 +5393,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
         closeModal('serverConnectModal');
         showToast('✓ Connected to ' + serverUrl);
-        loadArticles();
+        
+    function getAppWebVersion() {
+      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+    }
+
+    function updateVersionDisplay() {
+      const ver = getAppWebVersion();
+      const label = document.getElementById('mobileVersionLabel');
+      if (label) {
+        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      }
+    }
+
+    updateVersionDisplay();
+    loadArticles();
       } catch (err) {
         showToast('Connection failed: ' + err.message);
       } finally {
@@ -5755,25 +5843,65 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       setupInteractiveDrawerTracking('readerSidebar', 'readerDrawerBackdrop', closeMobileReaderDrawer, 'drawer-open');
     }
 
+
+    function updateOfflineUI(offline) {
+      isOfflineMode = offline;
+      const btn = document.getElementById('addArticleBtn');
+      const icon = document.getElementById('addArticleBtnIcon');
+      const label = document.getElementById('addArticleBtnLabel');
+      if (!btn) return;
+
+      if (offline) {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-offline-mode');
+        btn.title = 'Offline Mode — Reading from cache (Tap to retry)';
+        if (icon) {
+          icon.innerHTML = '<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>';
+        }
+        if (label) label.textContent = 'Offline';
+      } else {
+        btn.classList.remove('btn-offline-mode');
+        btn.classList.add('btn-primary');
+        btn.title = 'Add URL';
+        if (icon) {
+          icon.innerHTML = '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>';
+        }
+        if (label) label.textContent = 'Add URL';
+      }
+    }
+
+
+    async function handleDesktopRefresh(btn) {
+      const svg = btn ? btn.querySelector('svg') : null;
+      if (svg) svg.classList.add('ptr-spinning');
+      try {
+        await loadArticles(false);
+      } finally {
+        if (svg) svg.classList.remove('ptr-spinning');
+      }
+    }
+
+    function handleAddArticleBtnClick() {
+      if (isOfflineMode) {
+        loadArticles(false);
+        return;
+      }
+      openModal('addUrlModal');
+    }
+
     // Global connection state & offline management
     let isOfflineMode = false;
     let lastOfflineToastTime = 0;
 
     function handleConnectionFailure(isSilent = false) {
-      isOfflineMode = true;
+      updateOfflineUI(true);
       const now = Date.now();
-      const status = document.getElementById('statusIndicator');
-      if (status) {
-        if (!selectedTagFilter && (!document.getElementById('searchInput') || !document.getElementById('searchInput').value.trim())) {
-          status.textContent = allEntries.length > 0 ? (allEntries.length + ' saved (offline)') : 'Offline';
-        }
-      }
 
       // If manual pull-to-refresh (!isSilent), always show toast; if background resume, debounce to 30s
       if (!isSilent || (now - lastOfflineToastTime > 30000)) {
         lastOfflineToastTime = now;
         if (allEntries.length > 0) {
-          showToast('Offline mode — viewing saved articles', 3500);
+          showToast('Offline — viewing saved articles from cache', 3000);
         } else {
           showToast('Could not connect to server', 3500);
         }
@@ -5781,6 +5909,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     // Global silent refresh helper for native app resume & tab focus
+    let lastForegroundSyncTime = 0;
     window.refreshArticlesSilently = function() {
       const reader = document.getElementById('readerView');
       if (reader && reader.classList.contains('open')) return;
@@ -5788,6 +5917,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         handleConnectionFailure(true);
         return;
       }
+      const now = Date.now();
+      if (now - lastForegroundSyncTime < 2500) {
+        return;
+      }
+      lastForegroundSyncTime = now;
       loadArticles(true);
     };
 
@@ -5807,12 +5941,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     window.addEventListener('online', () => {
       showToast('Back online — syncing library...', 2500);
-      loadArticles(true).then(() => {
-        const status = document.getElementById('statusIndicator');
-        if (status && (status.textContent.includes('offline') || status.textContent === 'Offline')) {
-          status.textContent = '';
-        }
-      });
+      updateOfflineUI(false);
+      loadArticles(true);
     });
 
     // Initialize
@@ -5890,6 +6020,95 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       return false;
     };
 
+
+    function compareSemVer(a, b) {
+      const pa = String(a || '1.0.0').split(/[\.-]/).map(n => parseInt(n, 10) || 0);
+      const pb = String(b || '1.0.0').split(/[\.-]/).map(n => parseInt(n, 10) || 0);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const na = pa[i] || 0;
+        const nb = pb[i] || 0;
+        if (na > nb) return 1;
+        if (na < nb) return -1;
+      }
+      return 0;
+    }
+
+    let isDownloadingOta = false;
+    async function checkOtaFromVersionHeader(serverVer, minNative) {
+      if (!isCapacitorApp() || isDownloadingOta) return;
+      const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
+      if (!updater) return;
+
+      const currentLocal = (await updater.getLatest().catch(() => null))?.version || window.WF_BUILD_VERSION || '';
+      if (serverVer === currentLocal) return;
+
+      const nativeVer = window.WF_NATIVE_VERSION || '1.0.0';
+      if (minNative && compareSemVer(nativeVer, minNative) < 0) {
+        console.warn('[OTA] Native app update required for web version:', serverVer);
+        return;
+      }
+
+      isDownloadingOta = true;
+      try {
+        const serverUrl = getApiBaseUrl();
+        const downloadUrl = serverUrl + '/api/app/bundle.zip';
+        console.log('[OTA] Downloading update bundle in background:', serverVer);
+        const downloaded = await updater.download({
+          url: downloadUrl,
+          version: serverVer
+        });
+        if (downloaded) {
+          await updater.set(downloaded);
+          console.log('[OTA] Update downloaded and ready.');
+          showOtaRestartBanner();
+        }
+      } catch (err) {
+        console.warn('[OTA] Background download error:', err);
+      } finally {
+        isDownloadingOta = false;
+      }
+    }
+
+    function showOtaRestartBanner() {
+      showToast('🚀 New update downloaded! Tap here to restart', 15000);
+      const toast = document.getElementById('toast');
+      if (toast) {
+        toast.style.cursor = 'pointer';
+        toast.onclick = () => {
+          const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
+          if (updater) {
+            updater.reload().catch(() => window.location.reload());
+          } else {
+            window.location.reload();
+          }
+        };
+      }
+    }
+
+    async function initCapacitorOtaUpdater() {
+      if (!isCapacitorApp()) return;
+      const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
+      if (!updater) return;
+
+      try {
+        await updater.notifyAppReady();
+      } catch (e) {}
+    }
+
+    
+    function getAppWebVersion() {
+      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+    }
+
+    function updateVersionDisplay() {
+      const ver = getAppWebVersion();
+      const label = document.getElementById('mobileVersionLabel');
+      if (label) {
+        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      }
+    }
+
+    updateVersionDisplay();
     loadArticles();
     if (isCapacitorApp()) {
       const settingsBtn = document.getElementById('serverSettingsBtn');
@@ -5902,6 +6121,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       if (!localStorage.getItem('wf_server_url')) {
         setTimeout(() => openServerConnectModal(), 120);
+      } else {
+        setTimeout(() => initCapacitorOtaUpdater(), 1000);
       }
     }
   </script>

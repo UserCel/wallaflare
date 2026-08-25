@@ -38,15 +38,22 @@
   - **3 View Modes**: Instant 1-tap cycling between **List View** (1:1 thumbnails, author, reading time), **Magazine Grid** (hero top covers), and **Compact Headlines** (dense layout that gracefully adjusts on mobile portrait).
   - **Multiple Sort Options**: Sort your library by **Newest First**, **Oldest First**, **Shortest Read** (quick 1–3 min reads), **Longest Read** (deep dives), or **Title (A–Z)**.
   - **Zero Mobile Row Wrapping**: Integrated search controls keep filter tabs on a single line on mobile screens.
-- **🏷️ Instant Tag Management & Official Batch API Operations**:
+- **🏷️ Global Tag Management & Official Batch API Operations**:
+  - **Standalone & Bulk Tag Operations**: Create tags directly (`POST /api/tags(.json)`), filter by tag with 1-click active filter banner, and bulk manage tags across selected articles.
   - **Standard Wallabag v2 Batch Endpoints**: Full server-side implementation of `DELETE /api/entries/list(.json)` (mass deletion), `PATCH /api/entries/list(.json)` (mass star/archive), `POST /api/entries/tags/lists(.json)` (mass tagging), and `DELETE /api/entries/tags/list(.json)` (mass tag removal).
   - **Atomic 1-Request Operations**: Multi-selection actions in the webapp execute in 1 single HTTP request with atomic D1 SQLite queries.
   - **Prominent Mobile Star Badges**: Gold star indicator pill on cards in all view modes (List, Magazine, Compact) makes favorite articles instantly recognizable on mobile.
-- **📱 Native Android App (1.2 MB)**:
+- **📱 Native Android App with Over-The-Air (OTA) Updates**:
+  - **🔄 Automated Zero-Request OTA Updates**: Powered by `@capgo/capacitor-updater`. Deploying with `npm run deploy` automatically builds versioned web bundles and delivers updates Over-The-Air without rebuilding the APK.
+  - **⚡ Header-Driven Detection**: Detects updates via lightweight response headers (`X-Wallaflare-Web-Version`) during normal syncs — zero extra polling requests or battery drain.
   - **Floating Share Dialog**: Share links from Chrome, Twitter, Reddit, or any browser with duplicate detection (`Article Already in Library` + save date) and direct `[Read Article]` / `[Open App]` actions.
   - **Auto-Revalidation on Resume**: Newly saved articles appear automatically in the library when returning to the app without manual refresh.
   - **Native Multi-Format Export**: Export articles directly to Android's system share sheet in **EPUB**, **Markdown**, or **PDF** to open in KOReader, Moon+ Reader, ReadEra, Adobe Reader, Google Drive, Obsidian, or send to Kindle.
   - **Safe-Area Notch Protection**: Integrated `@capacitor/status-bar` sync with theme-matched shields to protect text from camera punch-holes.
+- **⚡ Offline-First Architecture & Add-Button Morphing**:
+  - **Instant 0ms Cache & IndexedDB**: Synchronous memory cache + IndexedDB offline fallback ensures the entire library remains fully readable offline.
+  - **Zero-Shift Add/Offline Indicator**: When offline, the `+ Add URL` button smoothly morphs into an amber `Offline` status button with 0 layout shift. Tapping it retries the server connection.
+  - **Responsive Header Tiers**: Adaptive layout specifically optimized for phones (portrait & landscape), tablets, and desktop displays with independent side-panel scrolling.
 - **📦 Multi-Format On-Device Export Engine (EPUB, Markdown, PDF)**:
   - **📚 EPUB (`.epub`)**: Isomorphic, client-side generator producing book-grade EPUBs with high-res cover art, metadata info page, semantic figures, and reading time estimation.
   - **📝 Markdown (`.md`)**: Exports clean GitHub-flavored markdown with YAML frontmatter (`title`, `author`, `source`, `date`, `tags`). Ideal for personal knowledge management in **Obsidian**, **Logseq**, **Notion**, or **Bear**.
@@ -136,9 +143,9 @@ Your instance is now live worldwide! 🎉
 
 ---
 
-## 📦 Native Android App Build (Capacitor)
+## 📦 Native Android App Build (Capacitor & OTA)
 
-Wallaflare includes a lightweight native Android wrapper with background share integration and native EPUB export.
+Wallaflare includes a lightweight native Android wrapper with background share integration, native multi-format export, and automatic Over-The-Air (OTA) live updates.
 
 1. **Build Debug APK**:
    ```bash
@@ -146,11 +153,17 @@ Wallaflare includes a lightweight native Android wrapper with background share i
    ```
    Output: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-2. **Build Minimized Release APK (1.2 MB)**:
+2. **Build Minimized Release APK**:
    ```bash
    npm run build:apk:release
    ```
    Output: `android/app/build/outputs/apk/release/app-release.apk`
+
+3. **Deploy Web & OTA Update**:
+   ```bash
+   npm run deploy
+   ```
+   Automatically updates your Cloudflare Worker and generates the OTA update bundle for Android clients.
 
 ---
 

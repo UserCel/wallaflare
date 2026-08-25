@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run build:web && wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate:local": "wrangler d1 execute wallaflare-db --local --file=./schema.sql --yes",
@@ -20,6 +20,7 @@
   "dependencies": {
     "@capacitor/core": "^8.5.0",
     "@capacitor/status-bar": "^8.0.3",
+    "@capgo/capacitor-updater": "^8.51.14",
     "@mozilla/readability": "^0.6.0",
     "fflate": "^0.8.2",
     "hono": "^4.7.2",
