@@ -174,11 +174,32 @@ public class ShareActivity extends Activity {
                 final boolean alreadyExists = respObj.optBoolean("already_exists", false);
                 final String addedDateStr = respObj.optString("added_date_str", "");
 
-                // Buffer newly saved article in SharedPreferences for 0ms instant display in main app
+                // Buffer newly saved article in synchronized SharedPreferences queue for 0ms instant display in main app
                 if (articleId > 0) {
-                    appContext.getSharedPreferences("wallaflare_config", android.content.Context.MODE_PRIVATE).edit()
-                        .putString("last_saved_article_json", response.toString())
-                        .apply();
+                    synchronized (ShareActivity.class) {
+                        android.content.SharedPreferences sharedPrefs = appContext.getSharedPreferences("wallaflare_config", android.content.Context.MODE_PRIVATE);
+                        String existingQueueStr = sharedPrefs.getString("pending_saved_articles_json", "[]");
+                        try {
+                            org.json.JSONArray queue = new org.json.JSONArray(existingQueueStr);
+                            org.json.JSONArray updatedQueue = new org.json.JSONArray();
+                            for (int i = 0; i < queue.length(); i++) {
+                                org.json.JSONObject item = queue.optJSONObject(i);
+                                if (item != null && item.optLong("id") != articleId) {
+                                    updatedQueue.put(item);
+                                }
+                            }
+                            updatedQueue.put(respObj);
+                            sharedPrefs.edit()
+                                .putString("pending_saved_articles_json", updatedQueue.toString())
+                                .apply();
+                        } catch (Exception ignored) {
+                            org.json.JSONArray fallback = new org.json.JSONArray();
+                            fallback.put(respObj);
+                            sharedPrefs.edit()
+                                .putString("pending_saved_articles_json", fallback.toString())
+                                .apply();
+                        }
+                    }
                 }
 
                 mainHandler.post(() -> {

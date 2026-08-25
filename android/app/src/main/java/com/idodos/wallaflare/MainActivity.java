@@ -28,14 +28,16 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
-        public String pollPendingSavedArticle() {
-            android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
-            String json = prefs.getString("last_saved_article_json", null);
-            if (json != null) {
-                prefs.edit().remove("last_saved_article_json").apply();
-                return json;
+        public String pollPendingSavedArticles() {
+            synchronized (MainActivity.class) {
+                android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
+                String json = prefs.getString("pending_saved_articles_json", null);
+                if (json != null && !json.trim().isEmpty() && !json.equals("[]")) {
+                    prefs.edit().remove("pending_saved_articles_json").apply();
+                    return json;
+                }
+                return "";
             }
-            return "";
         }
 
         @JavascriptInterface
@@ -92,30 +94,32 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
-        checkPendingSavedArticle();
+        checkPendingSavedArticles();
         refreshLibrarySilently();
     }
 
-    private void checkPendingSavedArticle() {
-        android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
-        final String newArticleJson = prefs.getString("last_saved_article_json", null);
-        if (newArticleJson != null && !newArticleJson.trim().isEmpty()) {
-            prefs.edit().remove("last_saved_article_json").apply();
-            final String safeJson = newArticleJson
-                .replace("\\", "\\\\")
-                .replace("'", "\'")
-                .replace("\n", "\\n")
-                .replace("\r", "");
-            if (getBridge() != null && getBridge().getWebView() != null) {
-                getBridge().getWebView().post(new Runnable() {
-                    @Override
-                    public void run() {
-                        getBridge().getWebView().evaluateJavascript(
-                            "(function() { try { if (window.prependSavedArticle) { window.prependSavedArticle(JSON.parse('" + safeJson + "')); } } catch (e) {} })()",
-                            null
-                        );
-                    }
-                });
+    private void checkPendingSavedArticles() {
+        synchronized (MainActivity.class) {
+            android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
+            final String queueJson = prefs.getString("pending_saved_articles_json", null);
+            if (queueJson != null && !queueJson.trim().isEmpty() && !queueJson.equals("[]")) {
+                prefs.edit().remove("pending_saved_articles_json").apply();
+                final String safeJson = queueJson
+                    .replace("\\", "\\\\")
+                    .replace("'", "\'")
+                    .replace("\n", "\\n")
+                    .replace("\r", "");
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    getBridge().getWebView().post(new Runnable() {
+                        @Override
+                        public void run() {
+                            getBridge().getWebView().evaluateJavascript(
+                                "(function() { try { if (window.prependSavedArticles) { window.prependSavedArticles(JSON.parse('" + safeJson + "')); } } catch (e) {} })()",
+                                null
+                            );
+                        }
+                    });
+                }
             }
         }
     }

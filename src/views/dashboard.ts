@@ -3218,28 +3218,38 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
 
-    window.prependSavedArticle = function(article) {
-      if (!article || !article.id) return;
-      const existingIdx = allEntries.findIndex(e => e.id === article.id);
-      if (existingIdx >= 0) {
-        allEntries[existingIdx] = article;
-      } else {
-        allEntries.unshift(article);
+    window.prependSavedArticles = function(articles) {
+      if (!articles) return;
+      const list = Array.isArray(articles) ? articles : [articles];
+      if (list.length === 0) return;
+      let changed = false;
+      for (const article of list) {
+        if (!article || !article.id) continue;
+        const existingIdx = allEntries.findIndex(e => e.id === article.id);
+        if (existingIdx >= 0) {
+          allEntries[existingIdx] = article;
+        } else {
+          allEntries.unshift(article);
+        }
+        changed = true;
       }
-      try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
-      saveArticlesToOfflineDb(allEntries);
-      updateCounts();
-      filterArticles();
+      if (changed) {
+        try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
+        saveArticlesToOfflineDb(allEntries);
+        updateCounts();
+        filterArticles();
+      }
     };
+    window.prependSavedArticle = window.prependSavedArticles;
 
-    function checkNativePendingSavedArticle() {
-      if (window.AndroidNative && window.AndroidNative.pollPendingSavedArticle) {
+    function checkNativePendingSavedArticles() {
+      if (window.AndroidNative && (window.AndroidNative.pollPendingSavedArticles || window.AndroidNative.pollPendingSavedArticle)) {
         try {
-          const raw = window.AndroidNative.pollPendingSavedArticle();
+          const raw = window.AndroidNative.pollPendingSavedArticles ? window.AndroidNative.pollPendingSavedArticles() : window.AndroidNative.pollPendingSavedArticle();
           if (raw) {
-            const article = JSON.parse(raw);
-            if (article && article.id) {
-              window.prependSavedArticle(article);
+            const parsed = JSON.parse(raw);
+            if (parsed) {
+              window.prependSavedArticles(parsed);
             }
           }
         } catch (e) {}
