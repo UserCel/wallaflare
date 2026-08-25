@@ -57,6 +57,12 @@
 - **📦 Multi-Format On-Device Export Engine (EPUB, Markdown, PDF)**:
   - **📚 EPUB (`.epub`)**: Isomorphic, client-side generator producing book-grade EPUBs with high-res cover art, metadata info page, semantic figures, and reading time estimation.
   - **📝 Markdown (`.md`)**: Exports clean GitHub-flavored markdown with YAML frontmatter (`title`, `author`, `source`, `date`, `tags`). Ideal for personal knowledge management in **Obsidian**, **Logseq**, **Notion**, or **Bear**.
+- **🖍️ Multi-Color Highlights & Annotations (W3C + Wallabag v2 Hybrid)**:
+  - **Universal Dual Compatibility**: Fully compliant with standard Wallabag v2 clients (`/api/annotations`) while leveraging modern **W3C Multi-Selectors** (`TextQuoteSelector`, `TextPositionSelector`, `XPathSelector`) for resilient, zero-orphan anchors across theme and typography adjustments.
+  - **Zero-Latency In-Memory Batching**: Highlights & notes are bundled directly into `GET /api/entries.json` response payloads — 0 extra network calls or worker roundtrips required.
+  - **Floating Touch/Desktop Selection Toolbars**: Instant 4-color palette selection (`🟡 Yellow`, `🟢 Green`, `🔵 Blue`, `🟣 Purple`), 1-tap quick copy, and personal note editing. Floats directly above text on desktop, and adapts into an ergonomic bottom floating pill on mobile/Android touch screens to avoid native OS action bar collisions.
+  - **Interactive Popovers & Sidebar Drawer**: Tap any highlight to change colors, read attached notes, or delete. Live highlights counter and list in the reader sidebar drawer let you navigate directly to quotes with smooth scrolling.
+  - **Hybrid Markdown Notes Export**: Exports articles with inline highlights (`==quote==`), note footnotes (`[^note-1]`), and a structured `## 🖍️ Highlights & Notes` summary digest for seamless personal knowledge management in Obsidian, Bear, Logseq, Notion, and Joplin.
   - **📄 PDF (`.pdf`)**: On-device 3-section PDF engine featuring full-size cover art, structured metadata summary cards, line-by-line pagination, and running headers & footers (`Page X of Y`) without print dialog popups.
   - **⚡ 100% Client-Side & Offline Ready**: Generates all formats on-device with 0ms network latency and zero third-party API dependencies.
 - **📚 Distraction-Free Web Reader**:

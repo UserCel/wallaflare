@@ -46,3 +46,21 @@ CREATE TABLE IF NOT EXISTS auth_rate_limits (
   last_attempt_at INTEGER NOT NULL,
   locked_until INTEGER DEFAULT 0
 );
+
+
+-- Annotations & Highlights System (W3C + Wallabag v2 Hybrid)
+CREATE TABLE IF NOT EXISTS annotations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entry_id INTEGER NOT NULL,
+  user_id TEXT DEFAULT 'wallaflare',
+  text TEXT DEFAULT '',
+  quote TEXT NOT NULL,
+  ranges TEXT DEFAULT '[]',
+  target TEXT DEFAULT NULL,
+  color TEXT DEFAULT 'yellow',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_annotations_entry ON annotations(entry_id);

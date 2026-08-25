@@ -430,6 +430,192 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
 
+
+    /* -------------------------------------------------------------
+       HIGHLIGHTS & ANNOTATIONS (W3C + Wallabag v2)
+       ------------------------------------------------------------- */
+    mark.reader-hl {
+      border-radius: 3px;
+      padding: 0.12em 0.18em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    mark.reader-hl:hover {
+      filter: brightness(1.15);
+    }
+    mark.reader-hl-yellow {
+      background-color: rgba(234, 179, 8, 0.35);
+      border-bottom: 2px solid #eab308;
+      color: inherit;
+    }
+    mark.reader-hl-green {
+      background-color: rgba(34, 197, 94, 0.32);
+      border-bottom: 2px solid #22c55e;
+      color: inherit;
+    }
+    mark.reader-hl-blue {
+      background-color: rgba(59, 130, 246, 0.32);
+      border-bottom: 2px solid #3b82f6;
+      color: inherit;
+    }
+    mark.reader-hl-purple {
+      background-color: rgba(168, 85, 247, 0.32);
+      border-bottom: 2px solid #a855f7;
+      color: inherit;
+    }
+    mark.reader-hl.has-note::after {
+      content: " 💬";
+      font-size: 0.75em;
+      opacity: 0.85;
+      vertical-align: super;
+    }
+
+    .highlight-toolbar {
+      position: fixed;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-lg);
+      border-radius: 2rem;
+      padding: 0.3rem 0.5rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .hl-filter-pill {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 20px;
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .hl-filter-pill:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .hl-filter-pill.active {
+      background: var(--accent) !important;
+      color: #ffffff !important;
+      border-color: var(--accent) !important;
+      font-weight: 600;
+    }
+
+    .hl-sort-btn {
+      padding: 3px 9px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .hl-sort-btn:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .hl-sort-btn.active {
+      background: var(--accent) !important;
+      color: #ffffff !important;
+      border-color: var(--accent) !important;
+      font-weight: 600;
+    }
+    .modal-hl-item {
+      padding: 0.75rem 0.9rem;
+      background: var(--card-bg, var(--bg-secondary));
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .modal-hl-item:hover {
+      border-color: var(--accent) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .hl-color-btn {
+      width: 22px !important;
+      height: 22px !important;
+      min-width: 22px !important;
+      min-height: 22px !important;
+      max-width: 22px !important;
+      max-height: 22px !important;
+      border-radius: 50% !important;
+      aspect-ratio: 1 / 1 !important;
+      border: 2px solid transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+      display: inline-block;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .hl-color-btn:hover {
+      transform: scale(1.2);
+    }
+    .hl-color-btn.active-color {
+      border-color: var(--text-primary) !important;
+      transform: scale(1.1);
+    }
+    .hl-color-btn.hl-yellow { background: #eab308; }
+    .hl-color-btn.hl-green { background: #22c55e; }
+    .hl-color-btn.hl-blue { background: #3b82f6; }
+    .hl-color-btn.hl-purple { background: #a855f7; }
+
+    .hl-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-color);
+      margin: 0 0.2rem;
+    }
+    .hl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.25rem 0.45rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .hl-btn:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .highlight-popover {
+      position: fixed;
+      z-index: 10001;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      padding: 0.75rem;
+      width: 280px;
+      max-width: 90vw;
+      font-size: 0.85rem;
+      backdrop-filter: blur(12px);
+    }
+
     /* -------------------------------------------------------------
        SKELETON PLACEHOLDER LOADER (High-Contrast Dynamic Wave Shimmer)
        ------------------------------------------------------------- */
@@ -2266,6 +2452,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
           </button>
           <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
+            <button class="menu-item" id="batchHighlightsBtn" onclick="closeBatchMenu(); batchOpenHighlights();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span id="batchHighlightsLabel">Highlights &amp; Notes</span></button>
+            <button class="menu-item" id="batchOpenOriginalBtn" onclick="closeBatchMenu(); batchOpenOriginal();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
             <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
                         <div class="menu-item-expandable" id="batchExportWrap">
               <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleBatchExportSubmenu()">
@@ -2541,6 +2729,79 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
+  <!-- Modal: Article Highlights & Notes Navigator -->
+  <div class="modal-backdrop" id="readerHighlightsModal" style="z-index: 10001 !important;">
+    <div class="modal" style="max-width: 560px; text-align: left; max-height: 85vh; display: flex; flex-direction: column; padding: 0;">
+      <div class="modal-header" style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.25rem;">🖍️</span>
+          <h3 class="modal-title" id="modalHighlightsTitle">Highlights &amp; Notes</h3>
+          <span class="badge" id="modalHighlightsCountBadge" style="background: var(--accent); color: #fff; font-size: 0.72rem; padding: 2px 7px; border-radius: 12px;">0</span>
+        </div>
+        <button class="close-btn" onclick="closeModal('readerHighlightsModal')">&times;</button>
+      </div>
+
+      <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem; background: var(--bg-secondary);">
+        <div style="display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 2px;" id="highlightsFilterPills">
+          <button class="hl-filter-pill active" onclick="filterHighlightsModalList('all', this)">All</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('yellow', this)">🟡 Yellow</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('green', this)">🟢 Green</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('blue', this)">🔵 Blue</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('purple', this)">🟣 Purple</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('notes', this)">💬 With Notes</button>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+          <span style="color: var(--text-muted); font-size: 0.75rem;">Sort Highlights:</span>
+          <div style="display: flex; gap: 0.35rem;" id="highlightsSortWrap">
+            <button class="hl-sort-btn active" id="btnSortPosition" onclick="setHighlightsSort('position', this)" title="Article Reading Order">📖 Article Order</button>
+            <button class="hl-sort-btn" id="btnSortTime" onclick="setHighlightsSort('time', this)" title="Newest Highlights First">⏱️ Newest First</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="modalHighlightsList" style="flex: 1; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+      </div>
+
+      <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-primary);">
+        <span style="font-size: 0.78rem; color: var(--text-muted);">💡 Tap any highlight to jump directly to it</span>
+        <button class="btn btn-secondary" onclick="closeModal('readerHighlightsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Annotation Note Editor -->
+  <div class="modal-backdrop" id="annotationNoteModal" style="z-index: 10002 !important;">
+    <div class="modal" style="max-width: 480px; text-align: left;">
+      <div class="modal-header">
+        <h3 class="modal-title">Highlight Note</h3>
+        <button class="close-btn" onclick="closeAnnotationNoteModal()">&times;</button>
+      </div>
+      <form onsubmit="handleSaveAnnotationNoteForm(event)">
+        <div style="margin-bottom: 0.85rem; padding: 0.65rem 0.85rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; max-height: 100px; overflow-y: auto;">
+          <span style="font-weight: 600; color: var(--accent); margin-right: 0.25rem;">Quote:</span>
+          <span id="annotationNoteQuotePreview"></span>
+        </div>
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-weight: 500; font-size: 0.85rem; margin-bottom: 0.35rem; display: block;">Highlight Color</label>
+          <div style="display: flex; gap: 0.5rem; align-items: center;" id="modalNoteColors">
+            <button type="button" class="hl-color-btn hl-yellow active-color" data-color="yellow" onclick="selectModalNoteColor('yellow', this)" title="Yellow"></button>
+            <button type="button" class="hl-color-btn hl-green" data-color="green" onclick="selectModalNoteColor('green', this)" title="Green"></button>
+            <button type="button" class="hl-color-btn hl-blue" data-color="blue" onclick="selectModalNoteColor('blue', this)" title="Blue"></button>
+            <button type="button" class="hl-color-btn hl-purple" data-color="purple" onclick="selectModalNoteColor('purple', this)" title="Purple"></button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="annotationNoteInput" style="font-weight: 500; font-size: 0.85rem; margin-bottom: 0.35rem; display: block;">Personal Note / Comment</label>
+          <textarea id="annotationNoteInput" class="form-input" rows="4" placeholder="Add your thoughts or notes on this highlight..." style="width: 100%; box-sizing: border-box; resize: vertical;"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeAnnotationNoteModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveAnnotationNoteBtn">Save Note</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal: KOReader / Wallabag Sync -->
   <div class="modal-backdrop" id="syncModal">
     <div class="modal" style="max-width: 500px;">
@@ -2623,6 +2884,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
 
       <div class="reader-mobile-bar-group right-actions">
+        <button class="btn-icon" id="readerMobileHighlightsBtn" onclick="toggleReaderHighlightsModal()" title="View Highlights & Notes" style="position: relative;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span id="readerHighlightsBadgeMobile" style="position: absolute; top: -1px; right: -2px; background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px;">0</span>
+        </button>
         <button class="btn-icon" id="readerMobileArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive / Finished">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </button>
@@ -2636,6 +2901,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <div class="reader-sidebar-backdrop" id="readerDrawerBackdrop" onclick="closeMobileReaderDrawer()"></div>
 
     <!-- Expandable Reader Action Sidebar (Slide-out drawer on Mobile) -->
+        <!-- Floating Highlight Toolbar -->
+    <div id="readerHighlightToolbar" class="highlight-toolbar" style="display: none;">
+      <button class="hl-color-btn hl-yellow" onclick="handleCreateHighlight('yellow')" title="Yellow Highlight"></button>
+      <button class="hl-color-btn hl-green" onclick="handleCreateHighlight('green')" title="Green Highlight"></button>
+      <button class="hl-color-btn hl-blue" onclick="handleCreateHighlight('blue')" title="Blue Highlight"></button>
+      <button class="hl-color-btn hl-purple" onclick="handleCreateHighlight('purple')" title="Purple Highlight"></button>
+      <div class="hl-divider"></div>
+      <button class="hl-btn" onclick="handleCreateHighlightWithNote()" title="Highlight with Note">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        <span>Note</span>
+      </button>
+      <button class="hl-btn" onclick="handleCopySelection()" title="Copy Selection">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      </button>
+    </div>
+
+    <!-- Highlight Popover -->
+    <div id="highlightPopover" class="highlight-popover" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <div style="display: flex; gap: 0.35rem; align-items: center;" id="popoverColors">
+          <button class="hl-color-btn hl-yellow" onclick="changePopoverHighlightColor('yellow')" title="Yellow"></button>
+          <button class="hl-color-btn hl-green" onclick="changePopoverHighlightColor('green')" title="Green"></button>
+          <button class="hl-color-btn hl-blue" onclick="changePopoverHighlightColor('blue')" title="Blue"></button>
+          <button class="hl-color-btn hl-purple" onclick="changePopoverHighlightColor('purple')" title="Purple"></button>
+        </div>
+        <div style="display: flex; gap: 0.25rem; align-items: center;">
+          <button class="btn-icon" onclick="copyPopoverQuote()" title="Copy Quote" style="padding: 3px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+          <button class="btn-icon" onclick="deletePopoverHighlight()" title="Delete Highlight" style="color: var(--danger); padding: 3px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div id="popoverNoteText" style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.8rem; font-style: italic; line-height: 1.35; max-height: 80px; overflow-y: auto; word-break: break-word;"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.4rem;">
+        <button class="btn btn-outline" style="font-size: 0.75rem; padding: 2px 8px;" onclick="openAnnotationNoteModal(activePopoverAnnotation)">Edit Note</button>
+        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 2px 8px;" onclick="closeHighlightPopover()">Close</button>
+      </div>
+    </div>
+
     <aside class="reader-sidebar" id="readerSidebar">
       <div class="reader-sidebar-group">
         <button class="reader-tool-btn btn-back-tool" onclick="handleReaderBack()" title="Back to Library (Esc)">
@@ -2658,7 +2964,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label">Tags</span>
         </button>
 
-                <button class="reader-tool-btn" id="readerExportBtn" onclick="toggleReaderExportMenu(event)" title="Export Article (EPUB, Markdown, PDF)">
+                <button class="reader-tool-btn" id="readerHighlightsSidebarBtn" onclick="toggleReaderHighlightsSidebar(event)" title="Highlights & Notes">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span class="btn-label">Highlights (<span id="readerHighlightsCount">0</span>)</span>
+          <svg class="chevron-icon" id="readerHighlightsChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+
+        <div class="reader-sub-menu" id="readerHighlightsList" style="display: none; max-height: 260px; overflow-y: auto; flex-direction: column; gap: 0.35rem; padding: 0.35rem 0.25rem;">
+        </div>
+
+        <button class="reader-tool-btn" id="readerExportBtn" onclick="toggleReaderExportMenu(event)" title="Export Article (EPUB, Markdown, PDF)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span class="btn-label">Export</span>
           <svg class="chevron-icon" id="readerExportChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -3156,6 +3471,29 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         document.getElementById('searchInput').focus();
       }
       if (e.key === 'Escape') {
+        // 0. Dismiss active text selection or highlight toolbar/popover first
+        const sel = window.getSelection();
+        const highlightToolbar = document.getElementById('readerHighlightToolbar');
+        const highlightPopover = document.getElementById('highlightPopover');
+        let dismissedHighlight = false;
+        if (highlightToolbar && highlightToolbar.style.display !== 'none') {
+          highlightToolbar.style.display = 'none';
+          activeSelectionRange = null;
+          dismissedHighlight = true;
+        }
+        if (highlightPopover && highlightPopover.style.display !== 'none') {
+          closeHighlightPopover();
+          dismissedHighlight = true;
+        }
+        if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+          sel.removeAllRanges();
+          dismissedHighlight = true;
+        }
+        if (dismissedHighlight) {
+          e.preventDefault();
+          return;
+        }
+
         // 1. Highest priority: Confirmation Dialog (Log out, Delete, Re-fetch, etc.)
         const confirmModal = document.getElementById('confirmModal');
         if (confirmModal && confirmModal.classList.contains('open')) {
@@ -3185,6 +3523,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
 
         // 3. Open Dialogs & Modals (Close modal while keeping selection / reader intact)
+        const annotationNoteModal = document.getElementById('annotationNoteModal');
+        if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
+          e.preventDefault();
+          closeAnnotationNoteModal();
+          return;
+        }
+        const readerHighlightsModal = document.getElementById('readerHighlightsModal');
+        if (readerHighlightsModal && readerHighlightsModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('readerHighlightsModal');
+          return;
+        }
         const tagModal = document.getElementById('tagModal');
         if (tagModal && tagModal.classList.contains('open')) {
           e.preventDefault();
@@ -3505,13 +3855,32 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         closeAllCardMenus();
         if (!isOpen) {
           menu.classList.add('open');
+          const isSingle = selectedArticleIds.size === 1;
           const editBtn = document.getElementById('batchEditTitleBtn');
-          if (editBtn) {
-            editBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
-          }
+          if (editBtn) editBtn.style.display = isSingle ? 'flex' : 'none';
+
           const downloadBtn = document.getElementById('batchDownloadEpubBtn');
-          if (downloadBtn) {
-            downloadBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
+          if (downloadBtn) downloadBtn.style.display = isSingle ? 'flex' : 'none';
+
+          const hlBtn = document.getElementById('batchHighlightsBtn');
+          const origBtn = document.getElementById('batchOpenOriginalBtn');
+
+          if (isSingle) {
+            const singleId = Array.from(selectedArticleIds)[0];
+            const item = allEntries.find(e => e.id === singleId);
+            if (hlBtn) {
+              hlBtn.style.display = 'flex';
+              const hlCount = (item && item.annotations) ? item.annotations.length : 0;
+              const hlLabel = document.getElementById('batchHighlightsLabel');
+              if (hlLabel) hlLabel.textContent = 'Highlights & Notes' + (hlCount > 0 ? (' (' + hlCount + ')') : '');
+            }
+            if (origBtn) {
+              const hasUrl = Boolean(item && item.url && item.domain_name !== 'direct-input');
+              origBtn.style.display = hasUrl ? 'flex' : 'none';
+            }
+          } else {
+            if (hlBtn) hlBtn.style.display = 'none';
+            if (origBtn) origBtn.style.display = 'none';
           }
           const selectAllLabel = document.getElementById('batchMenuSelectAllLabel');
           const current = getCurrentlyFilteredEntries();
@@ -3526,6 +3895,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function closeBatchMenu() {
       const menu = document.getElementById('batchDropdownMenu');
       if (menu) menu.classList.remove('open');
+    }
+
+    function batchOpenHighlights() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      clearArticleSelection();
+      openArticleHighlightsModal(id);
+    }
+
+    function batchOpenOriginal() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      const item = allEntries.find(e => e.id === id);
+      clearArticleSelection();
+      if (item && item.url) {
+        window.open(item.url, '_blank', 'noopener,noreferrer');
+      }
     }
 
     function batchEditTitle() {
@@ -4408,6 +4794,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
               '<div class="card-menu-wrap">' +
                 '<button class="action-btn card-more-btn" title="More Actions" onclick="event.stopPropagation(); toggleCardMenu(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>' +
                 '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
+                  ((item.annotations && item.annotations.length > 0) ? '<button class="menu-item" onclick="closeAllCardMenus(); openArticleHighlightsModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Highlights (' + item.annotations.length + ')</span></button>' : '') +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
                   '<div class="menu-item-expandable" id="card-export-wrap-' + item.id + '">' +
@@ -4505,17 +4892,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function htmlToMarkdown(html) {
       if (!html) return '';
-      const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
-      const root = doc.body.firstElementChild || doc.body;
+      const doc = new DOMParser().parseFromString('<!DOCTYPE html><html><body>' + html + '</body></html>', 'text/html');
+      const root = doc.body || doc;
       const nl = String.fromCharCode(10);
       const nl2 = nl + nl;
       const tick = String.fromCharCode(96);
       const fence = tick + tick + tick;
+      const wsRegex = new RegExp('[' + String.fromCharCode(32, 9, 10, 13) + ']+', 'g');
 
       function nodeToMd(node) {
         if (!node) return '';
         if (node.nodeType === 3) {
-          return node.nodeValue.replace(/\s+/g, ' ');
+          return node.nodeValue.replace(wsRegex, ' ');
         }
         if (node.nodeType !== 1) return '';
 
@@ -4523,6 +4911,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         let inner = Array.from(node.childNodes).map(nodeToMd).join('');
 
         switch (tag) {
+          case 'body': return inner.trim();
           case 'h1': return nl2 + '# ' + inner.trim() + nl2;
           case 'h2': return nl2 + '## ' + inner.trim() + nl2;
           case 'h3': return nl2 + '### ' + inner.trim() + nl2;
@@ -4588,8 +4977,62 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (tags.length > 0) frontmatter += 'tags: [' + tags.map(t => JSON.stringify(t)).join(', ') + ']' + nl;
         frontmatter += '---' + nl2;
 
-        const bodyMd = htmlToMarkdown(item.content || item.text || '');
-        const fullMd = frontmatter + '# ' + title + nl2 + bodyMd + nl;
+        let annotations = item.annotations || [];
+        if (annotations.length === 0) {
+          try {
+            const annRes = await authFetch('/api/annotations/' + id + '.json');
+            if (annRes.ok) {
+              const fetched = await annRes.json();
+              if (Array.isArray(fetched)) annotations = fetched;
+            }
+          } catch (e) {}
+        }
+        annotations = getSortedAnnotations({ ...item, annotations: annotations }, 'position');
+
+        let bodyMd = htmlToMarkdown(item.content || item.text || '');
+
+        // 1. Inline highlight replacement (==quote==) and footnote tracking
+        const footnotes = [];
+        let noteCounter = 1;
+
+        if (annotations.length > 0) {
+          for (const ann of annotations) {
+            const quote = (ann.quote || '').trim();
+            if (!quote) continue;
+
+            const fnRef = (ann.text && ann.text.trim()) ? ('[^note-' + noteCounter + ']') : '';
+            if (fnRef) {
+              footnotes.push('[^note-' + noteCounter + ']: 💬 **Note**: ' + ann.text.trim());
+              noteCounter++;
+            }
+
+            const replacement = '==' + quote + '==' + fnRef;
+            if (bodyMd.includes(quote)) {
+              bodyMd = bodyMd.replace(quote, replacement);
+            }
+          }
+        }
+
+        // 2. Structured Highlights & Notes Summary Section
+        let summaryMd = '';
+        if (annotations.length > 0) {
+          summaryMd = nl2 + '---' + nl2 + '## 🖍️ Highlights & Notes' + nl2;
+          for (const ann of annotations) {
+            const colorEmoji = ann.color === 'green' ? '🟢' : (ann.color === 'blue' ? '🔵' : (ann.color === 'purple' ? '🟣' : '🟡'));
+            summaryMd += '- ' + colorEmoji + ' **\"' + (ann.quote || '').trim() + '\"**' + nl;
+            if (ann.text && ann.text.trim()) {
+              summaryMd += '  > 💬 **Note**: ' + ann.text.trim() + nl;
+            }
+          }
+        }
+
+        // 3. Footnotes block
+        let footnotesMd = '';
+        if (footnotes.length > 0) {
+          footnotesMd = nl2 + footnotes.join(nl) + nl;
+        }
+
+        const fullMd = frontmatter + '# ' + title + nl2 + bodyMd + summaryMd + footnotesMd + nl;
         const filename = title.replace(/[/\:*?"<>|]/g, '').trim() + '.md';
 
         // Android native share sheet (JavascriptInterface bridge)
@@ -4891,6 +5334,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         ? DOMPurify.sanitize(rawContent, { ADD_ATTR: ['target', 'rel'] }) 
         : rawContent;
       readerBodyEl.innerHTML = cleanContent;
+      applyAnnotationsToReader(item);
 
       // Update active reader star and archive buttons (Desktop & Mobile)
       const starBtn = document.getElementById('readerStarBtn');
@@ -5424,6 +5868,700 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+
+    // -------------------------------------------------------------
+    // Highlights & Annotations Client Engine (W3C + Wallabag v2)
+    // -------------------------------------------------------------
+    let activeSelectionRange = null;
+    let activePopoverAnnotation = null;
+    let pendingHighlightData = null;
+
+    function setupReaderSelectionHandlers() {
+      const body = document.getElementById("readerBody");
+      const toolbar = document.getElementById("readerHighlightToolbar");
+      if (!body || !toolbar) return;
+
+      document.addEventListener("selectionchange", () => {
+        const readerView = document.getElementById("readerView");
+        if (!readerView || !readerView.classList.contains("open")) {
+          toolbar.style.display = "none";
+          activeSelectionRange = null;
+          return;
+        }
+
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) {
+          return;
+        }
+
+        const range = sel.getRangeAt(0);
+        if (!body.contains(range.commonAncestorContainer)) {
+          toolbar.style.display = "none";
+          activeSelectionRange = null;
+          return;
+        }
+
+        const text = sel.toString().trim();
+        if (text.length < 1) {
+          toolbar.style.display = "none";
+          activeSelectionRange = null;
+          return;
+        }
+
+        activeSelectionRange = range.cloneRange();
+        closeHighlightPopover();
+
+        // Check if on mobile / Android native
+        const isMobileScreen = window.innerWidth <= 768 && (isCapacitorApp() || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+        toolbar.style.display = "flex";
+
+        if (isMobileScreen) {
+          // On mobile & Android: Floating bottom pill
+          toolbar.style.top = "auto";
+          toolbar.style.bottom = "calc(20px + env(safe-area-inset-bottom, 0px))";
+          toolbar.style.left = "50%";
+          toolbar.style.transform = "translateX(-50%)";
+        } else {
+          // On desktop: Float directly above selected text
+          toolbar.style.bottom = "auto";
+          toolbar.style.transform = "none";
+          const rect = range.getBoundingClientRect();
+          const top = Math.max(10, rect.top - 46);
+          const left = Math.max(10, Math.min(window.innerWidth - 240, rect.left + (rect.width / 2) - 110));
+          toolbar.style.top = top + "px";
+          toolbar.style.left = left + "px";
+        }
+      });
+
+      // Dismiss on mousedown outside
+      document.addEventListener("mousedown", (e) => {
+        const insideToolbar = e.target.closest("#readerHighlightToolbar");
+        const insidePopover = e.target.closest("#highlightPopover");
+        const insideMark = e.target.closest("mark.reader-hl");
+        const insideModal = e.target.closest(".modal-backdrop");
+
+        if (toolbar && toolbar.style.display !== "none" && !insideToolbar) {
+          toolbar.style.display = "none";
+          activeSelectionRange = null;
+        }
+
+        const popover = document.getElementById("highlightPopover");
+        if (popover && popover.style.display !== "none" && !insidePopover && !insideMark && !insideModal) {
+          closeHighlightPopover();
+        }
+      });
+    }
+
+    async function handleCreateHighlight(color = "yellow", note = "") {
+      const toolbar = document.getElementById("readerHighlightToolbar");
+      if (toolbar) toolbar.style.display = "none";
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (!item) return;
+
+      const sel = window.getSelection();
+      const quote = (sel ? sel.toString() : (activeSelectionRange ? activeSelectionRange.toString() : "")).trim();
+      if (!quote) return;
+
+      const body = document.getElementById("readerBody");
+      const fullText = body ? (body.textContent || "") : "";
+      const startOffset = Math.max(0, fullText.indexOf(quote));
+      const endOffset = startOffset + quote.length;
+      const prefix = fullText.slice(Math.max(0, startOffset - 32), startOffset);
+      const suffix = fullText.slice(endOffset, Math.min(fullText.length, endOffset + 32));
+
+      const w3cTarget = {
+        source: item.url || ("entry://" + item.id),
+        selector: [
+          { type: "TextQuoteSelector", exact: quote, prefix: prefix, suffix: suffix },
+          { type: "TextPositionSelector", start: startOffset, end: endOffset }
+        ]
+      };
+
+      await handleCreateHighlightWithData(quote, note, color, w3cTarget);
+    }
+
+    async function handleCreateHighlightWithData(quote, note, color, target) {
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (!item) return;
+
+      const tempId = Date.now();
+      const optimisticAnnotation = {
+        id: tempId,
+        entry_id: item.id,
+        quote: quote,
+        text: note || "",
+        color: color || "yellow",
+        ranges: [],
+        target: target,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user: "wallaflare"
+      };
+
+      if (!item.annotations) item.annotations = [];
+      item.annotations.push(optimisticAnnotation);
+
+      const sel = window.getSelection();
+      if (sel) sel.removeAllRanges();
+      activeSelectionRange = null;
+
+      applyAnnotationsToReader(item);
+      syncLocalEntriesCache(allEntries);
+
+      try {
+        const res = await authFetch("/api/annotations/" + item.id + ".json", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quote: quote,
+            text: note || "",
+            color: color || "yellow",
+            ranges: [],
+            target: target
+          })
+        });
+        if (res.ok) {
+          const saved = await res.json();
+          const idx = item.annotations.findIndex(a => a.id === tempId);
+          if (idx >= 0) item.annotations[idx] = saved;
+          syncLocalEntriesCache(allEntries);
+          applyAnnotationsToReader(item);
+          showToast("✓ Highlight saved");
+        }
+      } catch (err) {
+        console.warn("Failed to save highlight to server", err);
+      }
+    }
+
+    function handleCreateHighlightWithNote() {
+      const toolbar = document.getElementById("readerHighlightToolbar");
+      if (toolbar) toolbar.style.display = "none";
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (!item) return;
+
+      const sel = window.getSelection();
+      const quote = (sel ? sel.toString() : (activeSelectionRange ? activeSelectionRange.toString() : "")).trim();
+      if (!quote) return;
+
+      const body = document.getElementById("readerBody");
+      const fullText = body ? (body.textContent || "") : "";
+      const startOffset = Math.max(0, fullText.indexOf(quote));
+      const endOffset = startOffset + quote.length;
+      const prefix = fullText.slice(Math.max(0, startOffset - 32), startOffset);
+      const suffix = fullText.slice(endOffset, Math.min(fullText.length, endOffset + 32));
+
+      const w3cTarget = {
+        source: item.url || ("entry://" + item.id),
+        selector: [
+          { type: "TextQuoteSelector", exact: quote, prefix: prefix, suffix: suffix },
+          { type: "TextPositionSelector", start: startOffset, end: endOffset }
+        ]
+      };
+
+      // Open Note Modal without pre-highlighting
+      openAnnotationNoteModal(null, {
+        quote: quote,
+        target: w3cTarget,
+        color: "yellow"
+      });
+    }
+
+    function handleCopySelection() {
+      const sel = window.getSelection();
+      const quote = (sel ? sel.toString() : (activeSelectionRange ? activeSelectionRange.toString() : "")).trim();
+      if (quote) {
+        copyDirectText(quote);
+      }
+      const toolbar = document.getElementById("readerHighlightToolbar");
+      if (toolbar) toolbar.style.display = "none";
+    }
+
+    function applyAnnotationsToReader(item) {
+      if (!item) return;
+      const annotations = item.annotations || [];
+      const container = document.getElementById("readerBody");
+      if (!container) return;
+
+      const existingMarks = container.querySelectorAll("mark.reader-hl");
+      existingMarks.forEach(m => {
+        const parent = m.parentNode;
+        if (parent) {
+          while (m.firstChild) parent.insertBefore(m.firstChild, m);
+          parent.removeChild(m);
+          parent.normalize();
+        }
+      });
+
+      if (!annotations || annotations.length === 0) {
+        updateReaderHighlightsList(item);
+        return;
+      }
+
+      for (const ann of annotations) {
+        if (!ann || !ann.quote) continue;
+        const quote = ann.quote.trim();
+        if (!quote) continue;
+
+        highlightTextInNode(container, ann);
+      }
+
+      updateReaderHighlightsList(item);
+    }
+
+    function highlightTextInNode(container, ann) {
+      const quote = (ann.quote || '').trim();
+      if (!quote) return;
+
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+      let node;
+      let candidates = [];
+
+      while ((node = walker.nextNode())) {
+        if (node.parentElement && node.parentElement.closest('mark.reader-hl')) continue;
+
+        const text = node.nodeValue || '';
+        let idx = text.indexOf(quote);
+        while (idx !== -1) {
+          candidates.push({ node, idx, text });
+          idx = text.indexOf(quote, idx + Math.max(1, quote.length));
+        }
+      }
+
+      if (candidates.length === 0) return;
+
+      // Match best candidate using prefix/suffix if present
+      let best = candidates[0];
+      if (ann.target && ann.target.selector && candidates.length > 1) {
+        const tq = ann.target.selector.find(s => s.type === 'TextQuoteSelector');
+        if (tq && (tq.prefix || tq.suffix)) {
+          const match = candidates.find(c => {
+            const preMatch = !tq.prefix || c.text.slice(Math.max(0, c.idx - tq.prefix.length), c.idx).includes(tq.prefix.slice(-6));
+            const sufMatch = !tq.suffix || c.text.slice(c.idx + quote.length, c.idx + quote.length + tq.suffix.length).includes(tq.suffix.slice(0, 6));
+            return preMatch || sufMatch;
+          });
+          if (match) best = match;
+        }
+      }
+
+      const targetNode = best.node;
+      const idx = best.idx;
+      const text = targetNode.nodeValue || '';
+      const beforeText = text.slice(0, idx);
+      const matchText = text.slice(idx, idx + quote.length);
+      const afterText = text.slice(idx + quote.length);
+
+      const mark = document.createElement('mark');
+      mark.className = 'reader-hl reader-hl-' + (ann.color || 'yellow') + (ann.text ? ' has-note' : '');
+      mark.dataset.annotationId = String(ann.id);
+      mark.title = ann.text ? (ann.color + ' highlight: ' + ann.text) : (ann.color + ' highlight');
+      mark.textContent = matchText;
+      mark.onclick = (e) => {
+        e.stopPropagation();
+        openHighlightPopover(ann, mark);
+      };
+
+      const parent = targetNode.parentNode;
+      if (!parent) return;
+
+      if (beforeText) {
+        parent.insertBefore(document.createTextNode(beforeText), targetNode);
+      }
+      parent.insertBefore(mark, targetNode);
+      if (afterText) {
+        parent.insertBefore(document.createTextNode(afterText), targetNode);
+      }
+      parent.removeChild(targetNode);
+    }
+
+    let activeModalHighlightsArticleId = null;
+    let activeModalHighlightsFilter = "all";
+    let activeModalHighlightsSort = "position";
+
+    function getSortedAnnotations(item, sortMode = "position") {
+      if (!item || !item.annotations || !Array.isArray(item.annotations)) return [];
+      const list = [...item.annotations];
+
+      if (sortMode === "time") {
+        return list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      }
+
+      // Default: Position / Reading order in document
+      // 1. Check if marks exist in reader DOM
+      const markElements = Array.from(document.querySelectorAll("#readerBody mark.reader-hl"));
+      if (markElements.length > 0 && activeArticleId === item.id) {
+        const domIndexMap = new Map();
+        markElements.forEach((m, idx) => {
+          const id = parseInt(m.dataset.annotationId, 10);
+          if (id && !domIndexMap.has(id)) domIndexMap.set(id, idx);
+        });
+        return list.sort((a, b) => {
+          const posA = domIndexMap.has(a.id) ? domIndexMap.get(a.id) : 99999;
+          const posB = domIndexMap.has(b.id) ? domIndexMap.get(b.id) : 99999;
+          if (posA !== posB) return posA - posB;
+          return (a.id || 0) - (b.id || 0);
+        });
+      }
+
+      // 2. Fallback: character offset / quote index in article text
+      const fullText = (item.content || item.text || "").toLowerCase();
+      return list.sort((a, b) => {
+        const getOffset = (ann) => {
+          if (ann.target && Array.isArray(ann.target.selector)) {
+            const posSel = ann.target.selector.find(s => s.type === "TextPositionSelector");
+            if (posSel && typeof posSel.start === "number") return posSel.start;
+          }
+          if (ann.quote) {
+            const idx = fullText.indexOf(ann.quote.toLowerCase().slice(0, 30));
+            if (idx >= 0) return idx;
+          }
+          return 99999;
+        };
+        const offA = getOffset(a);
+        const offB = getOffset(b);
+        if (offA !== offB) return offA - offB;
+        return (a.id || 0) - (b.id || 0);
+      });
+    }
+
+    function setHighlightsSort(sortMode, btn) {
+      activeModalHighlightsSort = sortMode;
+      const wrap = document.getElementById("highlightsSortWrap");
+      if (wrap) {
+        wrap.querySelectorAll(".hl-sort-btn").forEach(b => b.classList.remove("active"));
+      }
+      if (btn) btn.classList.add("active");
+      renderModalHighlightsList();
+    }
+
+    function toggleReaderHighlightsSidebar(e) {
+      if (e) e.stopPropagation();
+      const list = document.getElementById("readerHighlightsList");
+      const chevron = document.getElementById("readerHighlightsChevron");
+      if (!list) return;
+      const isHidden = list.style.display === "none" || !list.style.display;
+      list.style.display = isHidden ? "flex" : "none";
+      if (chevron) chevron.style.transform = isHidden ? "rotate(180deg)" : "none";
+    }
+
+    function toggleReaderHighlightsModal() {
+      if (!activeArticleId) return;
+      openArticleHighlightsModal(activeArticleId);
+    }
+
+    function openArticleHighlightsModal(articleId) {
+      activeModalHighlightsArticleId = articleId;
+      activeModalHighlightsFilter = "all";
+      const item = allEntries.find(e => e.id === articleId);
+      const titleEl = document.getElementById("modalHighlightsTitle");
+      if (titleEl && item) {
+        const shortTitle = (item.title || "Article").length > 35 ? (item.title.slice(0, 35) + "...") : (item.title || "Article");
+        titleEl.textContent = "Highlights: " + shortTitle;
+      }
+
+      // Reset filter pills and sort buttons
+      const pills = document.getElementById("highlightsFilterPills");
+      if (pills) {
+        pills.querySelectorAll(".hl-filter-pill").forEach((p, idx) => {
+          if (idx === 0) p.classList.add("active");
+          else p.classList.remove("active");
+        });
+      }
+      const sortWrap = document.getElementById("highlightsSortWrap");
+      if (sortWrap) {
+        sortWrap.querySelectorAll(".hl-sort-btn").forEach(b => {
+          if (b.id === "btnSortPosition") b.classList.add("active");
+          else b.classList.remove("active");
+        });
+      }
+
+      renderModalHighlightsList();
+      openModal("readerHighlightsModal");
+    }
+
+    function filterHighlightsModalList(filterType, btn) {
+      activeModalHighlightsFilter = filterType;
+      const pills = document.getElementById("highlightsFilterPills");
+      if (pills) {
+        pills.querySelectorAll(".hl-filter-pill").forEach(p => p.classList.remove("active"));
+      }
+      if (btn) btn.classList.add("active");
+      renderModalHighlightsList();
+    }
+
+    function renderModalHighlightsList() {
+      const container = document.getElementById("modalHighlightsList");
+      const countBadge = document.getElementById("modalHighlightsCountBadge");
+      if (!container) return;
+
+      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
+      const annotations = getSortedAnnotations(item, activeModalHighlightsSort);
+      if (countBadge) countBadge.textContent = String(annotations.length);
+
+      if (annotations.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 0.5rem;">🖍️</div><div style="font-size: 0.95rem; font-weight: 500;">No highlights in this article yet</div><div style="font-size: 0.8rem; margin-top: 0.35rem;">Select any text while reading to highlight and take notes.</div></div>';
+        return;
+      }
+
+      let filtered = annotations;
+      if (activeModalHighlightsFilter === "notes") {
+        filtered = annotations.filter(a => a.text && a.text.trim().length > 0);
+      } else if (activeModalHighlightsFilter !== "all") {
+        filtered = annotations.filter(a => (a.color || "yellow") === activeModalHighlightsFilter);
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.88rem; font-style: italic;">No highlights matching this filter.</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(ann => {
+        const color = ann.color || "yellow";
+        const colorEmoji = color === "green" ? "🟢" : (color === "blue" ? "🔵" : (color === "purple" ? "🟣" : "🟡"));
+        const colorBorder = color === "green" ? "#22c55e" : (color === "blue" ? "#3b82f6" : (color === "purple" ? "#a855f7" : "#eab308"));
+        const quoteText = escapeHtml(ann.quote || "");
+        const noteHtml = ann.text ? '<div style="margin-top: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); font-size: 0.82rem; color: var(--text-primary); line-height: 1.4;"><span style="font-weight: 600; color: var(--accent); margin-right: 0.25rem;">💬 Note:</span>' + escapeHtml(ann.text) + '</div>' : '';
+
+        return '<div class="modal-hl-item" style="border-left: 4px solid ' + colorBorder + ';" onclick="scrollToAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')">' +
+          '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">' +
+            '<div style="font-size: 0.88rem; color: var(--text-primary); font-weight: 500; line-height: 1.45;"><span style="font-size: 0.8rem; margin-right: 0.35rem;">' + colorEmoji + '</span>\"' + quoteText + '\"</div>' +
+            '<div style="display: flex; gap: 0.2rem; flex-shrink: 0;" onclick="event.stopPropagation()">' +
+              '<button class="btn-icon" style="padding: 3px;" title="Copy Quote" onclick="copyHighlightFromModal(' + ann.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
+              '<button class="btn-icon" style="padding: 3px;" title="Edit Note" onclick="editHighlightFromModal(' + ann.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
+            '</div>' +
+          '</div>' +
+          noteHtml +
+          '<div style="display: flex; justify-content: flex-end; margin-top: 0.25rem;">' +
+            '<span style="font-size: 0.72rem; color: var(--accent); font-weight: 500; display: flex; align-items: center; gap: 0.2rem;">Jump to passage &rarr;</span>' +
+          '</div>' +
+        '</div>';
+      }).join("");
+    }
+
+    function editHighlightFromModal(annId) {
+      closeModal("readerHighlightsModal");
+      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
+      if (!item || !item.annotations) return;
+      const ann = item.annotations.find(a => a.id === annId);
+      if (ann) openAnnotationNoteModal(ann);
+    }
+
+    function copyHighlightFromModal(annId) {
+      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
+      if (!item || !item.annotations) return;
+      const ann = item.annotations.find(a => a.id === annId);
+      if (ann && ann.quote) copyDirectText(ann.quote);
+    }
+
+    function updateReaderHighlightsList(item) {
+      const listEl = document.getElementById("readerHighlightsList");
+      const countEl = document.getElementById("readerHighlightsCount");
+      const badgeMobile = document.getElementById("readerHighlightsBadgeMobile");
+      const annotations = getSortedAnnotations(item, activeModalHighlightsSort);
+      const count = annotations.length;
+
+      if (countEl) countEl.textContent = String(count);
+      if (badgeMobile) {
+        badgeMobile.textContent = String(count);
+        badgeMobile.style.display = count > 0 ? "flex" : "none";
+      }
+
+      if (!listEl) return;
+      if (count === 0) {
+        listEl.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 0.35rem 0.25rem;">No highlights yet. Select text in the article to highlight.</div>';
+        return;
+      }
+
+      listEl.innerHTML = annotations.map(ann => {
+        const colorEmoji = ann.color === "green" ? "🟢" : (ann.color === "blue" ? "🔵" : (ann.color === "purple" ? "🟣" : "🟡"));
+        const quotePreview = escapeHtml((ann.quote || "").slice(0, 70)) + ((ann.quote || "").length > 70 ? "..." : "");
+        const noteHtml = ann.text ? '<div style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">💬 ' + escapeHtml(ann.text) + '</div>' : "";
+        return '<div class="reader-sub-item" style="height: auto; padding: 0.45rem 0.6rem; line-height: 1.35; flex-direction: column; align-items: flex-start; gap: 0.2rem; cursor: pointer; border-radius: var(--radius-sm);" onclick="scrollToAnnotation(' + ann.id + ')">' +
+          '<div style="font-size: 0.78rem; color: var(--text-primary); font-weight: 500;"><span style="font-size: 0.7rem; margin-right: 0.25rem;">' + colorEmoji + '</span>\"' + quotePreview + '\"</div>' +
+          noteHtml +
+        '</div>';
+      }).join("");
+    }
+
+    function scrollToAnnotation(annId, articleId = null) {
+      if (articleId && articleId !== activeArticleId) {
+        openReader(articleId);
+        setTimeout(() => {
+          doScrollToAnnotation(annId);
+        }, 150);
+      } else {
+        doScrollToAnnotation(annId);
+      }
+    }
+
+    function doScrollToAnnotation(annId) {
+      closeModal("readerHighlightsModal");
+      closeMobileReaderDrawer();
+      const mark = document.querySelector('mark[data-annotation-id="' + annId + '"]');
+      if (mark) {
+        mark.scrollIntoView({ behavior: "smooth", block: "center" });
+        mark.style.outline = "3px solid var(--accent)";
+        mark.style.boxShadow = "0 0 16px var(--accent)";
+        mark.style.transition = "outline 0.3s, box-shadow 0.3s";
+        setTimeout(() => {
+          mark.style.outline = "";
+          mark.style.boxShadow = "";
+        }, 2200);
+      }
+    }
+
+    function openHighlightPopover(ann, targetEl) {
+      activePopoverAnnotation = ann;
+      const popover = document.getElementById("highlightPopover");
+      if (!popover) return;
+      const noteEl = document.getElementById("popoverNoteText");
+      if (noteEl) {
+        noteEl.textContent = (ann && ann.text && ann.text.trim()) ? ann.text.trim() : "No note attached.";
+      }
+      popover.style.display = "block";
+      const rect = targetEl.getBoundingClientRect();
+      const top = Math.min(window.innerHeight - 150, Math.max(10, rect.bottom + 6));
+      const left = Math.max(10, Math.min(window.innerWidth - 290, rect.left));
+      popover.style.top = top + "px";
+      popover.style.left = left + "px";
+    }
+
+    function closeHighlightPopover() {
+      const popover = document.getElementById("highlightPopover");
+      if (popover) popover.style.display = "none";
+      activePopoverAnnotation = null;
+    }
+
+    function copyPopoverQuote() {
+      if (activePopoverAnnotation && activePopoverAnnotation.quote) {
+        copyDirectText(activePopoverAnnotation.quote);
+      }
+      closeHighlightPopover();
+    }
+
+    async function changePopoverHighlightColor(color) {
+      if (!activePopoverAnnotation || !activeArticleId) return;
+      const ann = activePopoverAnnotation;
+      ann.color = color;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (item) {
+        applyAnnotationsToReader(item);
+        syncLocalEntriesCache(allEntries);
+      }
+      closeHighlightPopover();
+
+      try {
+        await authFetch("/api/annotations/" + ann.id + ".json", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ color: color })
+        });
+      } catch (e) {}
+    }
+
+    let activeModalAnnotation = null;
+    let modalSelectedColor = "yellow";
+
+    function selectModalNoteColor(color, btn) {
+      modalSelectedColor = color;
+      const wrap = document.getElementById("modalNoteColors");
+      if (wrap) {
+        wrap.querySelectorAll(".hl-color-btn").forEach(b => b.classList.remove("active-color"));
+      }
+      if (btn) btn.classList.add("active-color");
+    }
+
+    function closeAnnotationNoteModal() {
+      activeModalAnnotation = null;
+      pendingHighlightData = null;
+      closeModal("annotationNoteModal");
+    }
+
+    function openAnnotationNoteModal(ann, pendingData = null) {
+      activeModalAnnotation = ann || null;
+      pendingHighlightData = pendingData || null;
+      modalSelectedColor = (ann ? ann.color : (pendingData ? pendingData.color : "yellow")) || "yellow";
+
+      closeHighlightPopover();
+      const preview = document.getElementById("annotationNoteQuotePreview");
+      const input = document.getElementById("annotationNoteInput");
+      const quote = ann ? ann.quote : (pendingData ? pendingData.quote : "");
+      if (preview) preview.textContent = (quote || "").slice(0, 200) + ((quote || "").length > 200 ? "..." : "");
+      if (input) input.value = (ann ? ann.text : "") || "";
+
+      // Set active color button in modal
+      const wrap = document.getElementById("modalNoteColors");
+      if (wrap) {
+        wrap.querySelectorAll(".hl-color-btn").forEach(b => {
+          if (b.getAttribute("data-color") === modalSelectedColor) {
+            b.classList.add("active-color");
+          } else {
+            b.classList.remove("active-color");
+          }
+        });
+      }
+
+      openModal("annotationNoteModal");
+      setTimeout(() => { if (input) input.focus(); }, 60);
+    }
+
+    async function handleSaveAnnotationNoteForm(e) {
+      if (e) e.preventDefault();
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (!item) return;
+
+      const input = document.getElementById("annotationNoteInput");
+      const text = input ? input.value.trim() : "";
+      const chosenColor = modalSelectedColor || "yellow";
+
+      if (pendingHighlightData) {
+        const data = pendingHighlightData;
+        pendingHighlightData = null;
+        closeModal("annotationNoteModal");
+        await handleCreateHighlightWithData(data.quote, text, chosenColor, data.target);
+        return;
+      }
+
+      if (activeModalAnnotation) {
+        const ann = activeModalAnnotation;
+        activeModalAnnotation = null;
+        ann.text = text;
+        ann.color = chosenColor;
+        applyAnnotationsToReader(item);
+        syncLocalEntriesCache(allEntries);
+        closeModal("annotationNoteModal");
+        showToast("✓ Note updated");
+
+        try {
+          await authFetch("/api/annotations/" + ann.id + ".json", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: text, color: chosenColor })
+          });
+        } catch (e) {}
+      }
+    }
+
+    async function deletePopoverHighlight() {
+      if (!activePopoverAnnotation || !activeArticleId) return;
+      const annId = activePopoverAnnotation.id;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (item && item.annotations) {
+        item.annotations = item.annotations.filter(a => a.id !== annId);
+        applyAnnotationsToReader(item);
+        syncLocalEntriesCache(allEntries);
+      }
+      closeHighlightPopover();
+
+      try {
+        await authFetch("/api/annotations/" + annId + ".json", { method: "DELETE" });
+        showToast("Highlight deleted");
+      } catch (e) {}
+    }
+
     // -------------------------------------------------------------
     // Android Share Target Handler
     // -------------------------------------------------------------
@@ -5432,6 +6570,38 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     // Android Back Button Navigation & Drawer Handling
     // -------------------------------------------------------------
     window.handleAndroidBackButton = function() {
+      // 0. If Annotation Note Modal is open, close it first
+      const annotationNoteModal = document.getElementById('annotationNoteModal');
+      if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
+        closeAnnotationNoteModal();
+        return true;
+      }
+      const readerHighlightsModal = document.getElementById('readerHighlightsModal');
+      if (readerHighlightsModal && readerHighlightsModal.classList.contains('open')) {
+        closeModal('readerHighlightsModal');
+        return true;
+      }
+
+      // 0.1 If Highlight toolbar or popover or text selection is active, dismiss it first
+      const highlightToolbar = document.getElementById('readerHighlightToolbar');
+      const highlightPopover = document.getElementById('highlightPopover');
+      const sel = window.getSelection();
+      let dismissed = false;
+      if (highlightToolbar && highlightToolbar.style.display !== 'none') {
+        highlightToolbar.style.display = 'none';
+        activeSelectionRange = null;
+        dismissed = true;
+      }
+      if (highlightPopover && highlightPopover.style.display !== 'none') {
+        closeHighlightPopover();
+        dismissed = true;
+      }
+      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+        sel.removeAllRanges();
+        dismissed = true;
+      }
+      if (dismissed) return true;
+
       // 1. If Reader Mobile Drawer is open, close it
       const readerSidebar = document.getElementById('readerSidebar');
       if (readerSidebar && readerSidebar.classList.contains('drawer-open')) {
@@ -6082,6 +7252,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     renderFromInstantLocalCache();
     setupPullToRefresh();
     setupDrawerSwipeHandlers();
+      setupReaderSelectionHandlers();
     setupCardLongPress();
     // Long-press gesture for mobile cards
     function setupCardLongPress() {

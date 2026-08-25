@@ -14,6 +14,10 @@ import {
   removeTagFromEntriesBatch,
   entryRowToWallabag,
   getTags,
+  getEntryAnnotations,
+  createAnnotation,
+  updateAnnotation,
+  deleteAnnotation,
   getEntryTags,
   addTagsToEntry,
   removeTagFromEntry,
@@ -321,6 +325,90 @@ apiRouter.post('/api/auth/verify', async (c: any) => {
 });
 
 apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
+
+
+// -------------------------------------------------------------
+// Annotations & Highlights Endpoints (Wallabag v2 Compatible)
+// -------------------------------------------------------------
+const getAnnotationsHandler = async (c: any) => {
+  let rawId = c.req.param('entryId') || '';
+  rawId = rawId.replace(/\.json$/, '');
+  const entryId = Number(rawId);
+  if (isNaN(entryId) || entryId <= 0) {
+    return c.json({ error: 'Invalid entry ID' }, 400);
+  }
+  const annotations = await getEntryAnnotations(c.env.DB, entryId);
+  return c.json(annotations);
+};
+
+const createAnnotationHandler = async (c: any) => {
+  let rawId = c.req.param('entryId') || '';
+  rawId = rawId.replace(/\.json$/, '');
+  const entryId = Number(rawId);
+  if (isNaN(entryId) || entryId <= 0) {
+    return c.json({ error: 'Invalid entry ID' }, 400);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const quote = String(body.quote || body.text || '').trim();
+  if (!quote) {
+    return c.json({ error: 'Quote text is required' }, 400);
+  }
+  const text = body.text !== undefined && body.quote ? String(body.text) : (body.comment || '');
+  const color = String(body.color || 'yellow');
+  const ranges = body.ranges || [];
+
+  const target = body.target || null;
+  const annotation = await createAnnotation(c.env.DB, entryId, { quote, text, color, ranges, target });
+  return c.json(annotation, 201);
+};
+
+const updateAnnotationHandler = async (c: any) => {
+  let rawId = c.req.param('id') || '';
+  rawId = rawId.replace(/\.json$/, '');
+  const id = Number(rawId);
+  if (isNaN(id) || id <= 0) {
+    return c.json({ error: 'Invalid annotation ID' }, 400);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const annotation = await updateAnnotation(c.env.DB, id, {
+    text: body.text !== undefined ? String(body.text) : undefined,
+    color: body.color !== undefined ? String(body.color) : undefined,
+    target: body.target !== undefined ? body.target : undefined
+  });
+
+  if (!annotation) {
+    return c.json({ error: 'Annotation not found' }, 404);
+  }
+  return c.json(annotation);
+};
+
+const deleteAnnotationHandler = async (c: any) => {
+  let rawId = c.req.param('id') || '';
+  rawId = rawId.replace(/\.json$/, '');
+  const id = Number(rawId);
+  if (isNaN(id) || id <= 0) {
+    return c.json({ error: 'Invalid annotation ID' }, 400);
+  }
+
+  const deleted = await deleteAnnotation(c.env.DB, id);
+  if (!deleted) {
+    return c.json({ error: 'Annotation not found' }, 404);
+  }
+  return c.json({ success: true, message: 'Annotation deleted' });
+};
+
+apiRouter.get('/api/annotations/:entryId', authMiddleware, getAnnotationsHandler);
+apiRouter.get('/api/annotations/:entryId.json', authMiddleware, getAnnotationsHandler);
+apiRouter.post('/api/annotations/:entryId', authMiddleware, createAnnotationHandler);
+apiRouter.post('/api/annotations/:entryId.json', authMiddleware, createAnnotationHandler);
+apiRouter.put('/api/annotations/:id', authMiddleware, updateAnnotationHandler);
+apiRouter.put('/api/annotations/:id.json', authMiddleware, updateAnnotationHandler);
+apiRouter.patch('/api/annotations/:id', authMiddleware, updateAnnotationHandler);
+apiRouter.patch('/api/annotations/:id.json', authMiddleware, updateAnnotationHandler);
+apiRouter.delete('/api/annotations/:id', authMiddleware, deleteAnnotationHandler);
+apiRouter.delete('/api/annotations/:id.json', authMiddleware, deleteAnnotationHandler);
 
 // -------------------------------------------------------------
 // Tag Management Endpoints
