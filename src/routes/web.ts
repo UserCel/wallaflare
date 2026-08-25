@@ -430,10 +430,12 @@ webRouter.post('/login_check', async (c) => {
   }
 
   const expectedToken = c.env.AUTH_TOKEN;
+  const expectedUsername = (c.env.USERNAME || 'wallaflare').toLowerCase();
 
   if (expectedToken) {
-    const isValid = password && (timingSafeCompare(password, expectedToken) || timingSafeCompare(password, 'wallaflare'));
-    if (!isValid) {
+    const isUserValid = String(username || '').trim().toLowerCase() === expectedUsername;
+    const isPassValid = password && (timingSafeCompare(password, expectedToken) || timingSafeCompare(password, 'wallaflare'));
+    if (!isUserValid || !isPassValid) {
       if (c.env.DB) {
         await recordFailedAuthAttempt(c.env.DB, ip);
       }

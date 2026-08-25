@@ -996,6 +996,41 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(data.token_type).toBe("bearer");
   });
 
+
+  it("rejects invalid username on POST /login_check even if password is correct", async () => {
+    const res = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `_username=wronguser&_password=${SECRET}`
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/login?error=1");
+  });
+
+  it("rejects invalid username on /oauth/v2/token password grant", async () => {
+    const res = await app.request("/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "password",
+        client_id: "wallaflare",
+        client_secret: "wallaflare",
+        username: "wronguser",
+        password: SECRET
+      })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+
+    expect(res.status).toBe(400);
+    const data = await res.json<any>();
+    expect(data.error).toBe("invalid_grant");
+  });
+
   it("returns active client credentials on GET /api/client-info when authenticated", async () => {
     const res = await app.request("/api/client-info", {
       headers: { "Authorization": `Bearer ${SECRET}` }

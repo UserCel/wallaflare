@@ -2814,6 +2814,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function handleLogout() {
       const ok = await showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?', 'Log Out', true);
       if (!ok) return;
+
+      try {
+        await fetch('/logout', { method: 'GET', credentials: 'include' });
+      } catch {}
+      try {
+        document.cookie = 'PHPSESSID=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;';
+      } catch {}
       if (isCapacitorApp()) {
         setAuthToken('');
         localStorage.removeItem('wf_server_url');

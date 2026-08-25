@@ -178,10 +178,13 @@ const oauthTokenHandler = async (c: any) => {
     let isMatch = false;
 
     if (grantType === 'password' || !grantType) {
+      const expectedUsername = (c.env.USERNAME || 'wallaflare').toLowerCase();
+      const usernameCandidate = String(username || body.username || '').trim().toLowerCase();
+      const isUserValid = usernameCandidate === expectedUsername;
       const passwordCandidate = password || body.password || '';
       const isPasswordValid = passwordCandidate && (timingSafeCompare(passwordCandidate, expectedToken) || timingSafeCompare(passwordCandidate, 'wallaflare'));
       const isSecretValid = !clientSecret || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
-      isMatch = Boolean(isPasswordValid && isSecretValid);
+      isMatch = Boolean(isUserValid && isPasswordValid && isSecretValid);
     } else if (grantType === 'client_credentials') {
       isMatch = Boolean(clientSecret && (timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken)));
     } else if (grantType === 'refresh_token') {
