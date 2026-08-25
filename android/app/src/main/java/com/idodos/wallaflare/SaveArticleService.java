@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import android.content.Intent;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -125,6 +126,10 @@ public class SaveArticleService extends Service {
                                 .putString("pending_saved_articles_json", fallback.toString())
                                 .apply();
                         }
+                        // Notify MainActivity that queue was updated
+                        Intent notifyIntent = new Intent("com.idodos.wallaflare.ARTICLE_SAVED");
+                        notifyIntent.setPackage(appContext.getPackageName());
+                        appContext.sendBroadcast(notifyIntent);
                     }
                 }
             } else {

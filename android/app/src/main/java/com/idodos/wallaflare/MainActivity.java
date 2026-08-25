@@ -1,6 +1,9 @@
 package com.idodos.wallaflare;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,6 +19,7 @@ import java.io.FileOutputStream;
 public class MainActivity extends BridgeActivity {
     private long lastBackPressTime = 0;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private BroadcastReceiver articleSavedReceiver;
 
     class NativeInterface {
         @JavascriptInterface
@@ -96,31 +100,47 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         checkPendingSavedArticles();
         refreshLibrarySilently();
+
+        // Register receiver so late-arriving saves still instant-prepend
+        if (articleSavedReceiver == null) {
+            articleSavedReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    checkPendingSavedArticles();
+                }
+            };
+        }
+        try {
+            IntentFilter filter = new IntentFilter("com.idodos.wallaflare.ARTICLE_SAVED");
+            registerReceiver(articleSavedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } catch (Exception e) {
+            // fallback for older APIs
+            try {
+                registerReceiver(articleSavedReceiver, new IntentFilter("com.idodos.wallaflare.ARTICLE_SAVED"));
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (articleSavedReceiver != null) {
+            try { unregisterReceiver(articleSavedReceiver); } catch (Exception ignored) {}
+        }
     }
 
     private void checkPendingSavedArticles() {
-        synchronized (MainActivity.class) {
-            android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
-            final String queueJson = prefs.getString("pending_saved_articles_json", null);
-            if (queueJson != null && !queueJson.trim().isEmpty() && !queueJson.equals("[]")) {
-                prefs.edit().remove("pending_saved_articles_json").apply();
-                final String safeJson = queueJson
-                    .replace("\\", "\\\\")
-                    .replace("'", "\'")
-                    .replace("\n", "\\n")
-                    .replace("\r", "");
-                if (getBridge() != null && getBridge().getWebView() != null) {
-                    getBridge().getWebView().post(new Runnable() {
-                        @Override
-                        public void run() {
-                            getBridge().getWebView().evaluateJavascript(
-                                "(function() { try { if (window.prependSavedArticles) { window.prependSavedArticles(JSON.parse('" + safeJson + "')); } } catch (e) {} })()",
-                                null
-                            );
-                        }
-                    });
+        // Signal the JS side to poll via JavascriptInterface - avoids unsafe JSON embedding
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    getBridge().getWebView().evaluateJavascript(
+                        "if(window.checkNativePendingSavedArticles)window.checkNativePendingSavedArticles();",
+                        null
+                    );
                 }
-            }
+            });
         }
     }
 

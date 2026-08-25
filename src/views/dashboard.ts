@@ -429,6 +429,68 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       color: var(--text-primary);
     }
 
+
+    /* -------------------------------------------------------------
+       SKELETON PLACEHOLDER LOADER (High-Contrast Dynamic Wave Shimmer)
+       ------------------------------------------------------------- */
+    @keyframes skeletonWave {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(100%);
+      }
+    }
+    @keyframes skeletonPulse {
+      0%, 100% { opacity: 0.38; }
+      50% { opacity: 1; }
+    }
+    .skeleton-card {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      pointer-events: none;
+      box-shadow: var(--shadow-sm);
+    }
+    .skeleton-card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.08) 25%,
+        rgba(255, 255, 255, 0.30) 50%,
+        rgba(255, 255, 255, 0.08) 75%,
+        transparent 100%
+      );
+      animation: skeletonWave 1.1s infinite cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+    [data-theme="light"] .skeleton-card::after {
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.04) 25%,
+        rgba(0, 0, 0, 0.18) 50%,
+        rgba(0, 0, 0, 0.04) 75%,
+        transparent 100%
+      );
+    }
+    .skeleton-box {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      min-height: 10px;
+      animation: skeletonPulse 1.1s infinite ease-in-out;
+    }
+
     /* -------------------------------------------------------------
        ARTICLE VIEW MODES (List, Grid, Compact)
        ------------------------------------------------------------- */
@@ -2318,7 +2380,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
     </div>
 
-    <div class="articles-grid" id="articlesGrid"></div>
+    <div class="articles-grid" id="articlesGrid">
+      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:32%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:88%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:60%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:55px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:42px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
+      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:38%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:92%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:50%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:60px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:38px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
+      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:28%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:84%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:68%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:50px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:48px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
+    </div>
 
     <!-- Empty State -->
     <div class="empty-state" id="emptyState" style="display: none;">
@@ -3254,6 +3320,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           }
         } catch (e) {}
       }
+    }
+
+
+    function renderSkeletonCards() {
+      const grid = document.getElementById("articlesGrid");
+      const empty = document.getElementById("emptyState");
+      if (!grid || allEntries.length > 0) return;
+      if (empty) empty.style.display = "none";
+      applyViewModeUI();
+      let html = "";
+      for (let i = 0; i < 3; i++) {
+        html += '<div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:32%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:88%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:60%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:55px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:42px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>';
+      }
+      grid.innerHTML = html;
     }
 
     function renderFromInstantLocalCache() {
