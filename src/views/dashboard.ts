@@ -486,6 +486,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
     }
+    .modal-hl-item {
+      padding: 0.75rem 0.9rem;
+      background: var(--card-bg, var(--bg-secondary));
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .modal-hl-item:hover {
+      border-color: var(--accent) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
     .hl-color-btn {
       width: 22px !important;
       height: 22px !important;
@@ -2665,6 +2681,37 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
+  <!-- Modal: Article Highlights & Notes Navigator -->
+  <div class="modal-backdrop" id="readerHighlightsModal" style="z-index: 10001 !important;">
+    <div class="modal" style="max-width: 560px; text-align: left; max-height: 85vh; display: flex; flex-direction: column; padding: 0;">
+      <div class="modal-header" style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.25rem;">🖍️</span>
+          <h3 class="modal-title" id="modalHighlightsTitle">Highlights &amp; Notes</h3>
+          <span class="badge" id="modalHighlightsCountBadge" style="background: var(--accent); color: #fff; font-size: 0.72rem; padding: 2px 7px; border-radius: 12px;">0</span>
+        </div>
+        <button class="close-btn" onclick="closeModal('readerHighlightsModal')">&times;</button>
+      </div>
+
+      <div style="padding: 0.65rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; gap: 0.4rem; overflow-x: auto; flex-shrink: 0; background: var(--bg-primary);" id="highlightsFilterPills">
+        <button class="filter-pill active" onclick="filterHighlightsModalList('all', this)">All</button>
+        <button class="filter-pill" onclick="filterHighlightsModalList('yellow', this)">🟡 Yellow</button>
+        <button class="filter-pill" onclick="filterHighlightsModalList('green', this)">🟢 Green</button>
+        <button class="filter-pill" onclick="filterHighlightsModalList('blue', this)">🔵 Blue</button>
+        <button class="filter-pill" onclick="filterHighlightsModalList('purple', this)">🟣 Purple</button>
+        <button class="filter-pill" onclick="filterHighlightsModalList('notes', this)">💬 Notes</button>
+      </div>
+
+      <div id="modalHighlightsList" style="flex: 1; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+      </div>
+
+      <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-primary);">
+        <span style="font-size: 0.78rem; color: var(--text-muted);">💡 Tap any highlight to jump directly to it</span>
+        <button class="btn btn-secondary" onclick="closeModal('readerHighlightsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Annotation Note Editor -->
   <div class="modal-backdrop" id="annotationNoteModal" style="z-index: 10002 !important;">
     <div class="modal" style="max-width: 480px; text-align: left;">
@@ -2780,6 +2827,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
 
       <div class="reader-mobile-bar-group right-actions">
+        <button class="btn-icon" id="readerMobileHighlightsBtn" onclick="toggleReaderHighlightsModal()" title="View Highlights & Notes" style="position: relative;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span id="readerHighlightsBadgeMobile" style="position: absolute; top: -1px; right: -2px; background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px;">0</span>
+        </button>
         <button class="btn-icon" id="readerMobileArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive / Finished">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </button>
@@ -2856,7 +2907,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label">Tags</span>
         </button>
 
-                <button class="reader-tool-btn" id="readerExportBtn" onclick="toggleReaderExportMenu(event)" title="Export Article (EPUB, Markdown, PDF)">
+                <button class="reader-tool-btn" id="readerHighlightsSidebarBtn" onclick="toggleReaderHighlightsSidebar(event)" title="Highlights & Notes">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span class="btn-label">Highlights (<span id="readerHighlightsCount">0</span>)</span>
+          <svg class="chevron-icon" id="readerHighlightsChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+
+        <div class="reader-sub-menu" id="readerHighlightsList" style="display: none; max-height: 260px; overflow-y: auto; flex-direction: column; gap: 0.35rem; padding: 0.35rem 0.25rem;">
+        </div>
+
+        <button class="reader-tool-btn" id="readerExportBtn" onclick="toggleReaderExportMenu(event)" title="Export Article (EPUB, Markdown, PDF)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span class="btn-label">Export</span>
           <svg class="chevron-icon" id="readerExportChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -3410,6 +3470,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
           e.preventDefault();
           closeAnnotationNoteModal();
+          return;
+        }
+        const readerHighlightsModal = document.getElementById('readerHighlightsModal');
+        if (readerHighlightsModal && readerHighlightsModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('readerHighlightsModal');
           return;
         }
         const tagModal = document.getElementById('tagModal');
@@ -4635,6 +4701,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
               '<div class="card-menu-wrap">' +
                 '<button class="action-btn card-more-btn" title="More Actions" onclick="event.stopPropagation(); toggleCardMenu(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>' +
                 '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
+                  ((item.annotations && item.annotations.length > 0) ? '<button class="menu-item" onclick="closeAllCardMenus(); openArticleHighlightsModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Highlights (' + item.annotations.length + ')</span></button>' : '') +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
                   '<div class="menu-item-expandable" id="card-export-wrap-' + item.id + '">' +
@@ -6015,36 +6082,175 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       parent.removeChild(targetNode);
     }
 
+    let activeModalHighlightsArticleId = null;
+    let activeModalHighlightsFilter = "all";
+
+    function toggleReaderHighlightsSidebar(e) {
+      if (e) e.stopPropagation();
+      const list = document.getElementById("readerHighlightsList");
+      const chevron = document.getElementById("readerHighlightsChevron");
+      if (!list) return;
+      const isHidden = list.style.display === "none" || !list.style.display;
+      list.style.display = isHidden ? "flex" : "none";
+      if (chevron) chevron.style.transform = isHidden ? "rotate(180deg)" : "none";
+    }
+
+    function toggleReaderHighlightsModal() {
+      if (!activeArticleId) return;
+      openArticleHighlightsModal(activeArticleId);
+    }
+
+    function openArticleHighlightsModal(articleId) {
+      activeModalHighlightsArticleId = articleId;
+      activeModalHighlightsFilter = "all";
+      const item = allEntries.find(e => e.id === articleId);
+      const titleEl = document.getElementById("modalHighlightsTitle");
+      if (titleEl && item) {
+        const shortTitle = (item.title || "Article").length > 35 ? (item.title.slice(0, 35) + "...") : (item.title || "Article");
+        titleEl.textContent = "Highlights: " + shortTitle;
+      }
+
+      // Reset filter pills
+      const pills = document.getElementById("highlightsFilterPills");
+      if (pills) {
+        pills.querySelectorAll(".filter-pill").forEach((p, idx) => {
+          if (idx === 0) p.classList.add("active");
+          else p.classList.remove("active");
+        });
+      }
+
+      renderModalHighlightsList();
+      openModal("readerHighlightsModal");
+    }
+
+    function filterHighlightsModalList(filterType, btn) {
+      activeModalHighlightsFilter = filterType;
+      const pills = document.getElementById("highlightsFilterPills");
+      if (pills) {
+        pills.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+      }
+      if (btn) btn.classList.add("active");
+      renderModalHighlightsList();
+    }
+
+    function renderModalHighlightsList() {
+      const container = document.getElementById("modalHighlightsList");
+      const countBadge = document.getElementById("modalHighlightsCountBadge");
+      if (!container) return;
+
+      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
+      const annotations = (item && item.annotations) ? item.annotations : [];
+      if (countBadge) countBadge.textContent = String(annotations.length);
+
+      if (annotations.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 0.5rem;">🖍️</div><div style="font-size: 0.95rem; font-weight: 500;">No highlights in this article yet</div><div style="font-size: 0.8rem; margin-top: 0.35rem;">Select any text while reading to highlight and take notes.</div></div>';
+        return;
+      }
+
+      let filtered = annotations;
+      if (activeModalHighlightsFilter === "notes") {
+        filtered = annotations.filter(a => a.text && a.text.trim().length > 0);
+      } else if (activeModalHighlightsFilter !== "all") {
+        filtered = annotations.filter(a => (a.color || "yellow") === activeModalHighlightsFilter);
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.88rem; font-style: italic;">No highlights matching this filter.</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(ann => {
+        const color = ann.color || "yellow";
+        const colorEmoji = color === "green" ? "🟢" : (color === "blue" ? "🔵" : (color === "purple" ? "🟣" : "🟡"));
+        const colorBorder = color === "green" ? "#22c55e" : (color === "blue" ? "#3b82f6" : (color === "purple" ? "#a855f7" : "#eab308"));
+        const quoteText = escapeHtml(ann.quote || "");
+        const noteHtml = ann.text ? '<div style="margin-top: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); font-size: 0.82rem; color: var(--text-primary); line-height: 1.4;"><span style="font-weight: 600; color: var(--accent); margin-right: 0.25rem;">💬 Note:</span>' + escapeHtml(ann.text) + '</div>' : '';
+
+        return '<div class="modal-hl-item" style="border-left: 4px solid ' + colorBorder + ';" onclick="scrollToAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')">' +
+          '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">' +
+            '<div style="font-size: 0.88rem; color: var(--text-primary); font-weight: 500; line-height: 1.45;"><span style="font-size: 0.8rem; margin-right: 0.35rem;">' + colorEmoji + '</span>\"' + quoteText + '\"</div>' +
+            '<div style="display: flex; gap: 0.2rem; flex-shrink: 0;" onclick="event.stopPropagation()">' +
+              '<button class="btn-icon" style="padding: 3px;" title="Copy Quote" onclick="copyHighlightFromModal(' + ann.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
+              '<button class="btn-icon" style="padding: 3px;" title="Edit Note" onclick="editHighlightFromModal(' + ann.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
+            '</div>' +
+          '</div>' +
+          noteHtml +
+          '<div style="display: flex; justify-content: flex-end; margin-top: 0.25rem;">' +
+            '<span style="font-size: 0.72rem; color: var(--accent); font-weight: 500; display: flex; align-items: center; gap: 0.2rem;">Jump to passage &rarr;</span>' +
+          '</div>' +
+        '</div>';
+      }).join("");
+    }
+
+    function editHighlightFromModal(annId) {
+      closeModal("readerHighlightsModal");
+      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
+      if (!item || !item.annotations) return;
+      const ann = item.annotations.find(a => a.id === annId);
+      if (ann) openAnnotationNoteModal(ann);
+    }
+
+    function copyHighlightFromModal(annId) {
+      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
+      if (!item || !item.annotations) return;
+      const ann = item.annotations.find(a => a.id === annId);
+      if (ann && ann.quote) copyDirectText(ann.quote);
+    }
+
     function updateReaderHighlightsList(item) {
       const listEl = document.getElementById("readerHighlightsList");
       const countEl = document.getElementById("readerHighlightsCount");
-      if (!listEl) return;
+      const badgeMobile = document.getElementById("readerHighlightsBadgeMobile");
       const annotations = (item && item.annotations) ? item.annotations : [];
-      if (countEl) countEl.textContent = String(annotations.length);
+      const count = annotations.length;
 
-      if (annotations.length === 0) {
-        listEl.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 0.25rem;">No highlights yet. Select text to highlight.</div>';
+      if (countEl) countEl.textContent = String(count);
+      if (badgeMobile) {
+        badgeMobile.textContent = String(count);
+        badgeMobile.style.display = count > 0 ? "flex" : "none";
+      }
+
+      if (!listEl) return;
+      if (count === 0) {
+        listEl.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 0.35rem 0.25rem;">No highlights yet. Select text in the article to highlight.</div>';
         return;
       }
 
       listEl.innerHTML = annotations.map(ann => {
         const colorEmoji = ann.color === "green" ? "🟢" : (ann.color === "blue" ? "🔵" : (ann.color === "purple" ? "🟣" : "🟡"));
-        const quotePreview = escapeHtml((ann.quote || "").slice(0, 75)) + ((ann.quote || "").length > 75 ? "..." : "");
+        const quotePreview = escapeHtml((ann.quote || "").slice(0, 70)) + ((ann.quote || "").length > 70 ? "..." : "");
         const noteHtml = ann.text ? '<div style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">💬 ' + escapeHtml(ann.text) + '</div>' : "";
-        return '<div class="reader-sub-item" style="height: auto; padding: 0.4rem 0.6rem; line-height: 1.35; flex-direction: column; align-items: flex-start; gap: 0.2rem; cursor: pointer;" onclick="scrollToAnnotation(' + ann.id + ')">' +
-          '<div style="font-size: 0.78rem; color: var(--text-primary);"><span style="font-size: 0.7rem; margin-right: 0.25rem;">' + colorEmoji + '</span>\"' + quotePreview + '\"</div>' +
+        return '<div class="reader-sub-item" style="height: auto; padding: 0.45rem 0.6rem; line-height: 1.35; flex-direction: column; align-items: flex-start; gap: 0.2rem; cursor: pointer; border-radius: var(--radius-sm);" onclick="scrollToAnnotation(' + ann.id + ')">' +
+          '<div style="font-size: 0.78rem; color: var(--text-primary); font-weight: 500;"><span style="font-size: 0.7rem; margin-right: 0.25rem;">' + colorEmoji + '</span>\"' + quotePreview + '\"</div>' +
           noteHtml +
         '</div>';
       }).join("");
     }
 
-    function scrollToAnnotation(annId) {
+    function scrollToAnnotation(annId, articleId = null) {
+      if (articleId && articleId !== activeArticleId) {
+        openReader(articleId);
+        setTimeout(() => {
+          doScrollToAnnotation(annId);
+        }, 150);
+      } else {
+        doScrollToAnnotation(annId);
+      }
+    }
+
+    function doScrollToAnnotation(annId) {
+      closeModal("readerHighlightsModal");
+      closeMobileReaderDrawer();
       const mark = document.querySelector('mark[data-annotation-id="' + annId + '"]');
       if (mark) {
         mark.scrollIntoView({ behavior: "smooth", block: "center" });
-        mark.style.outline = "2px solid var(--accent)";
-        setTimeout(() => { mark.style.outline = ""; }, 1500);
-        closeMobileReaderDrawer();
+        mark.style.outline = "3px solid var(--accent)";
+        mark.style.boxShadow = "0 0 16px var(--accent)";
+        mark.style.transition = "outline 0.3s, box-shadow 0.3s";
+        setTimeout(() => {
+          mark.style.outline = "";
+          mark.style.boxShadow = "";
+        }, 2200);
       }
     }
 
@@ -6210,6 +6416,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const annotationNoteModal = document.getElementById('annotationNoteModal');
       if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
         closeAnnotationNoteModal();
+        return true;
+      }
+      const readerHighlightsModal = document.getElementById('readerHighlightsModal');
+      if (readerHighlightsModal && readerHighlightsModal.classList.contains('open')) {
+        closeModal('readerHighlightsModal');
         return true;
       }
 

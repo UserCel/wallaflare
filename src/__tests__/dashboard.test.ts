@@ -106,6 +106,15 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(mark103?.className).toBe('reader-hl reader-hl-blue');
   });
 
+  it('includes Highlights Navigator Modal and Sidebar list components', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="readerHighlightsModal"');
+    expect(html).toContain('id="readerHighlightsList"');
+    expect(html).toContain('id="readerMobileHighlightsBtn"');
+    expect(html).toContain('filterHighlightsModalList');
+    expect(html).toContain('scrollToAnnotation');
+  });
+
   it('supports hybrid Markdown formatting: inline ==highlights==, footnotes [^note-1], and summary block', () => {
     const html = renderDashboardHtml('Wallaflare');
     expect(html).toContain('==');
