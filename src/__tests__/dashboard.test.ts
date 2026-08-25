@@ -106,6 +106,49 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(mark103?.className).toBe('reader-hl reader-hl-blue');
   });
 
+
+  it('sorts annotations by document reading order (position) by default and by time when requested', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    
+    // Extract getSortedAnnotations function
+    const match = html.match(/function getSortedAnnotations\([\s\S]*?\n    \}/);
+    expect(match).toBeDefined();
+
+    const vm = require("node:vm");
+    const context = vm.createContext({
+      document: { querySelectorAll: () => [] },
+      Array: Array,
+      Map: Map,
+      Date: Date,
+      parseInt: parseInt
+    });
+
+    const item = {
+      content: "First paragraph contains beginning facts. Middle section explains key concept. Ending paragraph has the conclusion.",
+      annotations: [
+        { id: 3, quote: "conclusion", created_at: "2026-08-25T10:00:00Z" },
+        { id: 1, quote: "beginning", created_at: "2026-08-25T12:00:00Z" },
+        { id: 2, quote: "key concept", created_at: "2026-08-25T11:00:00Z" }
+      ]
+    };
+
+    const script = new vm.Script(match![0] + '; var byPos = getSortedAnnotations(' + JSON.stringify(item) + ', "position"); var byTime = getSortedAnnotations(' + JSON.stringify(item) + ', "time");');
+    script.runInContext(context);
+
+    const byPos = (context as any).byPos;
+    const byTime = (context as any).byTime;
+
+    // By Position: beginning (id 1) -> key concept (id 2) -> conclusion (id 3)
+    expect(byPos[0].id).toBe(1);
+    expect(byPos[1].id).toBe(2);
+    expect(byPos[2].id).toBe(3);
+
+    // By Time (newest first): id 1 (12:00) -> id 2 (11:00) -> id 3 (10:00)
+    expect(byTime[0].id).toBe(1);
+    expect(byTime[1].id).toBe(2);
+    expect(byTime[2].id).toBe(3);
+  });
+
   it('includes Highlights Navigator Modal and Sidebar list components', () => {
     const html = renderDashboardHtml('Wallaflare');
     expect(html).toContain('id="readerHighlightsModal"');

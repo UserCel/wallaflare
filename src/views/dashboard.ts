@@ -2693,13 +2693,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <button class="close-btn" onclick="closeModal('readerHighlightsModal')">&times;</button>
       </div>
 
-      <div style="padding: 0.65rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; gap: 0.4rem; overflow-x: auto; flex-shrink: 0; background: var(--bg-primary);" id="highlightsFilterPills">
-        <button class="filter-pill active" onclick="filterHighlightsModalList('all', this)">All</button>
-        <button class="filter-pill" onclick="filterHighlightsModalList('yellow', this)">🟡 Yellow</button>
-        <button class="filter-pill" onclick="filterHighlightsModalList('green', this)">🟢 Green</button>
-        <button class="filter-pill" onclick="filterHighlightsModalList('blue', this)">🔵 Blue</button>
-        <button class="filter-pill" onclick="filterHighlightsModalList('purple', this)">🟣 Purple</button>
-        <button class="filter-pill" onclick="filterHighlightsModalList('notes', this)">💬 Notes</button>
+      <div style="padding: 0.65rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; background: var(--bg-primary);">
+        <div style="display: flex; gap: 0.4rem; overflow-x: auto; flex: 1;" id="highlightsFilterPills">
+          <button class="filter-pill active" onclick="filterHighlightsModalList('all', this)">All</button>
+          <button class="filter-pill" onclick="filterHighlightsModalList('yellow', this)">🟡 Yellow</button>
+          <button class="filter-pill" onclick="filterHighlightsModalList('green', this)">🟢 Green</button>
+          <button class="filter-pill" onclick="filterHighlightsModalList('blue', this)">🔵 Blue</button>
+          <button class="filter-pill" onclick="filterHighlightsModalList('purple', this)">🟣 Purple</button>
+          <button class="filter-pill" onclick="filterHighlightsModalList('notes', this)">💬 Notes</button>
+        </div>
+        <div style="display: flex; gap: 0.25rem; flex-shrink: 0; align-items: center;" id="highlightsSortWrap">
+          <button class="btn btn-outline" id="btnSortPosition" style="padding: 2px 7px; font-size: 0.72rem; border-color: var(--accent); color: var(--accent);" onclick="setHighlightsSort('position', this)" title="Article Reading Order">📖 Order</button>
+          <button class="btn btn-outline" id="btnSortTime" style="padding: 2px 7px; font-size: 0.72rem;" onclick="setHighlightsSort('time', this)" title="Newest Highlights First">⏱️ Newest</button>
+        </div>
       </div>
 
       <div id="modalHighlightsList" style="flex: 1; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
@@ -4894,6 +4900,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             }
           } catch (e) {}
         }
+        annotations = getSortedAnnotations({ ...item, annotations: annotations }, 'position');
 
         let bodyMd = htmlToMarkdown(item.content || item.text || '');
 
@@ -6084,6 +6091,69 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     let activeModalHighlightsArticleId = null;
     let activeModalHighlightsFilter = "all";
+    let activeModalHighlightsSort = "position";
+
+    function getSortedAnnotations(item, sortMode = "position") {
+      if (!item || !item.annotations || !Array.isArray(item.annotations)) return [];
+      const list = [...item.annotations];
+
+      if (sortMode === "time") {
+        return list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      }
+
+      // Default: Position / Reading order in document
+      // 1. Check if marks exist in reader DOM
+      const markElements = Array.from(document.querySelectorAll("#readerBody mark.reader-hl"));
+      if (markElements.length > 0 && activeArticleId === item.id) {
+        const domIndexMap = new Map();
+        markElements.forEach((m, idx) => {
+          const id = parseInt(m.dataset.annotationId, 10);
+          if (id && !domIndexMap.has(id)) domIndexMap.set(id, idx);
+        });
+        return list.sort((a, b) => {
+          const posA = domIndexMap.has(a.id) ? domIndexMap.get(a.id) : 99999;
+          const posB = domIndexMap.has(b.id) ? domIndexMap.get(b.id) : 99999;
+          if (posA !== posB) return posA - posB;
+          return (a.id || 0) - (b.id || 0);
+        });
+      }
+
+      // 2. Fallback: character offset / quote index in article text
+      const fullText = (item.content || item.text || "").toLowerCase();
+      return list.sort((a, b) => {
+        const getOffset = (ann) => {
+          if (ann.target && Array.isArray(ann.target.selector)) {
+            const posSel = ann.target.selector.find(s => s.type === "TextPositionSelector");
+            if (posSel && typeof posSel.start === "number") return posSel.start;
+          }
+          if (ann.quote) {
+            const idx = fullText.indexOf(ann.quote.toLowerCase().slice(0, 30));
+            if (idx >= 0) return idx;
+          }
+          return 99999;
+        };
+        const offA = getOffset(a);
+        const offB = getOffset(b);
+        if (offA !== offB) return offA - offB;
+        return (a.id || 0) - (b.id || 0);
+      });
+    }
+
+    function setHighlightsSort(sortMode, btn) {
+      activeModalHighlightsSort = sortMode;
+      const wrap = document.getElementById("highlightsSortWrap");
+      if (wrap) {
+        wrap.querySelectorAll(".btn").forEach(b => {
+          b.style.borderColor = "var(--border-color)";
+          b.style.color = "var(--text-secondary)";
+        });
+      }
+      if (btn) {
+        btn.style.borderColor = "var(--accent)";
+        btn.style.color = "var(--accent)";
+      }
+      renderModalHighlightsList();
+    }
 
     function toggleReaderHighlightsSidebar(e) {
       if (e) e.stopPropagation();
@@ -6139,7 +6209,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (!container) return;
 
       const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
-      const annotations = (item && item.annotations) ? item.annotations : [];
+      const annotations = getSortedAnnotations(item, activeModalHighlightsSort);
       if (countBadge) countBadge.textContent = String(annotations.length);
 
       if (annotations.length === 0) {
@@ -6201,7 +6271,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const listEl = document.getElementById("readerHighlightsList");
       const countEl = document.getElementById("readerHighlightsCount");
       const badgeMobile = document.getElementById("readerHighlightsBadgeMobile");
-      const annotations = (item && item.annotations) ? item.annotations : [];
+      const annotations = getSortedAnnotations(item, activeModalHighlightsSort);
       const count = annotations.length;
 
       if (countEl) countEl.textContent = String(count);
