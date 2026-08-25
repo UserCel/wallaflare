@@ -673,23 +673,36 @@ describe('Re-fetch Article Content API', () => {
     mockDb = createMockD1Database();
   });
 
-  it('rejects reload on direct-input manual entries to preserve hand-crafted text', async () => {
-    // 1. Create custom text entry with a URL
-    const createRes = await app.request('/api/entries.json', {
+  it('sets domain_name when URL is provided and preserves direct-input when URL is missing', async () => {
+    // 1. Create entry with title, content, and URL (e.g. Wallabagger browser fetch)
+    const resWithUrl = await app.request('/api/entries.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: 'Custom Story Chapter',
-        content: '<p>My custom hand-crafted story text.</p>',
-        url: 'https://example.com/chapter-url',
+        title: 'Browser Extracted Article',
+        content: '<p>Parsed content from browser tab.</p>',
+        url: 'https://example.com/news/article-1',
       })
     }, { DB: mockDb });
 
-    const created = await createRes.json<any>();
-    expect(created.domain_name).toBe('direct-input');
+    const itemWithUrl = await resWithUrl.json<any>();
+    expect(itemWithUrl.domain_name).toBe('example.com');
 
-    // 2. Attempt to reload
-    const reloadRes = await app.request(`/api/entries/${created.id}/reload.json`, {
+    // 2. Create entry with title and content without URL (URL-less note)
+    const resNoUrl = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'URL-less Custom Note',
+        content: '<p>My custom hand-crafted note with no source URL.</p>',
+      })
+    }, { DB: mockDb });
+
+    const itemNoUrl = await resNoUrl.json<any>();
+    expect(itemNoUrl.domain_name).toBe('direct-input');
+
+    // Attempt reload on URL-less note -> 400 error
+    const reloadRes = await app.request(`/api/entries/${itemNoUrl.id}/reload.json`, {
       method: 'PATCH',
     }, { DB: mockDb });
 

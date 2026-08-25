@@ -22,7 +22,7 @@ import {
   resetAuthRateLimit,
   timingSafeCompare
 } from '../db/queries';
-import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl } from '../services/extractor';
+import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain } from '../services/extractor';
 import { generateEpub } from '../services/epub';
 import { getClientSecret } from '../services/auth';
 
@@ -451,12 +451,16 @@ const postEntryHandler = async (c: any) => {
       previewPicture = await extractCoverImageFromUrl(url);
     }
 
+    const domainName = url && (url.startsWith('http://') || url.startsWith('https://'))
+      ? (extracted.domainName || extractDomain(url))
+      : 'direct-input';
+
     entryData = {
       url: url || undefined,
       title,
       content: extracted.content,
       preview_picture: previewPicture,
-      domain_name: 'direct-input',
+      domain_name: domainName,
       reading_time: extracted.readingTime,
       language: body.language || extracted.language || 'en',
       author: body.author ? String(body.author).trim() : (extracted.byline || null),
