@@ -28,6 +28,17 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public String pollPendingSavedArticle() {
+            android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
+            String json = prefs.getString("last_saved_article_json", null);
+            if (json != null) {
+                prefs.edit().remove("last_saved_article_json").apply();
+                return json;
+            }
+            return "";
+        }
+
+        @JavascriptInterface
         public void shareBase64File(final String filename, final String base64Data, final String mimeType) {
             mainHandler.post(new Runnable() {
                 @Override
@@ -81,7 +92,32 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        checkPendingSavedArticle();
         refreshLibrarySilently();
+    }
+
+    private void checkPendingSavedArticle() {
+        android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
+        final String newArticleJson = prefs.getString("last_saved_article_json", null);
+        if (newArticleJson != null && !newArticleJson.trim().isEmpty()) {
+            prefs.edit().remove("last_saved_article_json").apply();
+            final String safeJson = newArticleJson
+                .replace("\\", "\\\\")
+                .replace("'", "\'")
+                .replace("\n", "\\n")
+                .replace("\r", "");
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        getBridge().getWebView().evaluateJavascript(
+                            "(function() { try { if (window.prependSavedArticle) { window.prependSavedArticle(JSON.parse('" + safeJson + "')); } } catch (e) {} })()",
+                            null
+                        );
+                    }
+                });
+            }
+        }
     }
 
     @Override

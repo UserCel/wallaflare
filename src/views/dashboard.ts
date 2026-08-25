@@ -3217,6 +3217,35 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       handleRouteState();
     }
 
+
+    window.prependSavedArticle = function(article) {
+      if (!article || !article.id) return;
+      const existingIdx = allEntries.findIndex(e => e.id === article.id);
+      if (existingIdx >= 0) {
+        allEntries[existingIdx] = article;
+      } else {
+        allEntries.unshift(article);
+      }
+      try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
+      saveArticlesToOfflineDb(allEntries);
+      updateCounts();
+      filterArticles();
+    };
+
+    function checkNativePendingSavedArticle() {
+      if (window.AndroidNative && window.AndroidNative.pollPendingSavedArticle) {
+        try {
+          const raw = window.AndroidNative.pollPendingSavedArticle();
+          if (raw) {
+            const article = JSON.parse(raw);
+            if (article && article.id) {
+              window.prependSavedArticle(article);
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
     function renderFromInstantLocalCache() {
       try {
         const fast = localStorage.getItem('wf_cached_articles');

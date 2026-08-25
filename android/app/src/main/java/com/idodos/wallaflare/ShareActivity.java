@@ -173,6 +173,13 @@ public class ShareActivity extends Activity {
                 final boolean alreadyExists = respObj.optBoolean("already_exists", false);
                 final String addedDateStr = respObj.optString("added_date_str", "");
 
+                // Buffer newly saved article in SharedPreferences for 0ms instant display in main app
+                if (articleId > 0) {
+                    getSharedPreferences("wallaflare_config", MODE_PRIVATE).edit()
+                        .putString("last_saved_article_json", response.toString())
+                        .apply();
+                }
+
                 mainHandler.post(() -> {
                     spinner.setVisibility(View.GONE);
                     statusIcon.setVisibility(View.VISIBLE);
