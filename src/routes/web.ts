@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import { Env } from '../types';
 import { renderDashboardHtml } from '../views/dashboard';
 import { ICON_192_B64, ICON_512_B64 } from './icons-b64';
+import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
+import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare } from '../db/queries';
+import { getClientIp } from './api';
 
 export const webRouter = new Hono<{ Bindings: Env }>();
 
@@ -145,7 +148,8 @@ webRouter.get('/share-target', (c) => {
 // Wallabag Android App Exact Regex Handshake
 // -----------------------------------------------------------------
 
-function renderWallabagLoginPage(): string {
+function renderWallabagLoginPage(errorMessage?: string): string {
+  const errorHtml = errorMessage ? `<div class="error-msg" style="color: #ef4444; margin-bottom: 12px; font-weight: 500;">${errorMessage}</div>` : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -160,6 +164,7 @@ function renderWallabagLoginPage(): string {
       <div class="center">
         <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
       </div>
+      ${errorHtml}
       <form action="/login_check" method="post" name="loginform">
         <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
         <div class="input-field">
@@ -178,49 +183,202 @@ function renderWallabagLoginPage(): string {
 </html>`;
 }
 
-function renderWallabagDeveloperPage(c: any, env: Env): string {
-  const secret = env.AUTH_TOKEN || env.CLIENT_SECRET || 'wallaflare';
+function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): string {
   const origin = new URL(c.req.url).origin;
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="generator" content="wallabag">
   <title>API clients management – wallabag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.85);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent: #f97316;
+      --accent-hover: #ea580c;
+      --accent-glow: rgba(249, 115, 22, 0.35);
+      --danger: #ef4444;
+      --font: 'Inter\, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body.developer {
+      min-height: 100vh;
+      background: radial-gradient(circle at top center, #1e293b 0%, #0f172a 100%);
+      color: var(--text-primary);
+      font-family: var(--font);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #main {
+      width: 100%;
+      max-width: 520px;
+    }
+    main {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 36px 30px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .center {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: rgba(249, 115, 22, 0.15);
+      border: 1px solid rgba(249, 115, 22, 0.35);
+      border-radius: 14px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+    .logout-btn {
+      color: #f87171;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+    .collapsible {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .collapsible li {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .collapsible-header {
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--accent);
+      background: rgba(249, 115, 22, 0.08);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .collapsible-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+    .collapsible-body p {
+      color: var(--text-secondary);
+      word-break: break-all;
+    }
+    code {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: monospace;
+      color: #38bdf8;
+      word-break: break-all;
+      display: inline-block;
+    }
+    .delete-link {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      text-decoration: none;
+      margin-top: 4px;
+      display: inline-block;
+    }
+    .delete-link:hover {
+      color: #f87171;
+    }
+    .footer-link {
+      text-align: center;
+      margin-top: 10px;
+    }
+    .footer-link a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+    .footer-link a:hover {
+      color: var(--accent);
+    }
+  </style>
 </head>
 <body class="developer">
   <div id="main">
     <main>
-      <div class="center">
-        <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
+      <div class="header-row">
+        <div class="center" style="margin-bottom: 0;">
+          <div class="logo-badge">
+            <img src="/img/logo-wallabag.svg" alt="wallabag logo" width="32" height="32" />
+          </div>
+        </div>
+        <a href="/logout" class="logout-btn">Logout</a>
       </div>
-      <a href="/logout">Logout</a>
       <h2>API clients management</h2>
       <ul class="collapsible">
         <li>
           <div class="collapsible-header">Android app - #38185</div>
           <div class="collapsible-body">
             <p><strong><code>wallaflare</code></strong></p>
-            <p><strong><code>${secret}</code></strong></p>
+            <p><strong><code>${clientSecret}</code></strong></p>
             <p><strong><code>${origin}</code></strong></p>
             <p><strong><code>token,password</code></strong></p>
-            <a href="/developer/client/delete/38185">Delete</a>
+            <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Default System Client</span>
           </div>
         </li>
         <li>
           <div class="collapsible-header">koreader - #36204</div>
           <div class="collapsible-body">
             <p><strong><code>wallaflare</code></strong></p>
-            <p><strong><code>${secret}</code></strong></p>
+            <p><strong><code>${clientSecret}</code></strong></p>
             <p><strong><code>${origin}</code></strong></p>
             <p><strong><code>token,password</code></strong></p>
-            <a href="/developer/client/delete/36204">Delete</a>
+            <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Default System Client</span>
           </div>
         </li>
       </ul>
       <form action="/developer/client/create" method="post">
         <input type="hidden" id="client__token" name="client[_token]" value="wallaflare_client_token_999" />
       </form>
+      <div class="footer-link">
+        <a href="/">&larr; Back to Dashboard</a>
+      </div>
     </main>
   </div>
 </body>
@@ -236,46 +394,106 @@ webRouter.get('/archive', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'W
 
 // Root page
 webRouter.get('/', (c) => {
-  const cookie = c.req.header('Cookie') || '';
   const appName = c.env.APP_NAME || 'Wallaflare';
-
-  // If authenticated via cookie (from login_check), render Wallabag regular page (with /logout and logo)
-  // so WallabagWebService.testConnection() immediately verifies isRegularPage() == true
-  if (cookie.includes('PHPSESSID')) {
-    return c.html(renderWallabagDeveloperPage(c, c.env));
-  }
-
-  // Dashboard for browser / default root
   return c.html(renderDashboardHtml(appName));
 });
 
-// Login page
+// Login page (renders the unified Wallaflare UI)
 webRouter.get('/login', (c) => {
-  return c.html(renderWallabagLoginPage());
+  return c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare'));
 });
 
-// Login submission by Android app
-webRouter.post('/login_check', (c) => {
+// Login submission by Wallabagger / Android app / browser
+webRouter.post('/login_check', async (c) => {
   const origin = new URL(c.req.url).origin;
-  c.header('Set-Cookie', 'PHPSESSID=wallaflare_session_authenticated; Path=/; HttpOnly; SameSite=Lax');
+  const ip = getClientIp(c);
+
+  if (c.env.DB) {
+    const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
+    if (!rateLimit.allowed) {
+      return c.text(`Too many failed login attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.`, 429);
+    }
+  }
+
+  let username = '';
+  let password = '';
+
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    const body = await c.req.json().catch(() => ({}));
+    username = body._username || body.username || '';
+    password = body._password || body.password || '';
+  } else {
+    const body = await c.req.parseBody().catch(() => ({}));
+    username = String(body._username || body.username || '');
+    password = String(body._password || body.password || '');
+  }
+
+  const expectedToken = c.env.AUTH_TOKEN;
+
+  if (expectedToken) {
+    const isValid = password && (timingSafeCompare(password, expectedToken) || timingSafeCompare(password, 'wallaflare'));
+    if (!isValid) {
+      if (c.env.DB) {
+        await recordFailedAuthAttempt(c.env.DB, ip);
+      }
+      return c.redirect(`${origin}/login?error=1`, 302);
+    }
+  }
+
+  if (c.env.DB) {
+    await resetAuthRateLimit(c.env.DB, ip);
+  }
+
+  const sessionToken = await createSessionToken(c.env);
+  c.header('Set-Cookie', `PHPSESSID=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
   return c.redirect(`${origin}/developer`, 302);
 });
 
-// Developer page (used by Android app to auto-fetch Client ID / Secret)
-webRouter.get('/developer', (c) => {
-  return c.html(renderWallabagDeveloperPage(c, c.env));
+// Developer page (used by Wallabagger and Android app to auto-fetch Client ID / Secret)
+webRouter.get('/developer', async (c) => {
+  const isAuthed = await validateSessionToken(c, c.env);
+  if (!isAuthed && c.env.AUTH_TOKEN) {
+    const origin = new URL(c.req.url).origin;
+    return c.redirect(`${origin}/login`, 302);
+  }
+  const clientSecret = getClientSecret(c.env);
+  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret));
 });
 
-webRouter.get('/developer/client/create', (c) => {
-  return c.html(renderWallabagDeveloperPage(c, c.env));
+webRouter.get('/developer/client/create', async (c) => {
+  const isAuthed = await validateSessionToken(c, c.env);
+  if (!isAuthed && c.env.AUTH_TOKEN) {
+    const origin = new URL(c.req.url).origin;
+    return c.redirect(`${origin}/login`, 302);
+  }
+  const clientSecret = getClientSecret(c.env);
+  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret));
 });
 
-webRouter.post('/developer/client/create', (c) => {
+webRouter.post('/developer/client/create', async (c) => {
+  const isAuthed = await validateSessionToken(c, c.env);
+  if (!isAuthed && c.env.AUTH_TOKEN) {
+    const origin = new URL(c.req.url).origin;
+    return c.redirect(`${origin}/login`, 302);
+  }
   const origin = new URL(c.req.url).origin;
   return c.redirect(`${origin}/developer`, 302);
 });
 
 webRouter.get('/logout', (c) => {
-  c.header('Set-Cookie', 'PHPSESSID=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+  c.header('Set-Cookie', 'PHPSESSID=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
   return c.redirect('/login', 302);
+});
+
+
+// Handle /developer/client/delete/:id gracefully
+webRouter.get('/developer/client/delete/:id', (c) => {
+  const origin = new URL(c.req.url).origin;
+  return c.redirect(`${origin}/developer`, 302);
+});
+
+webRouter.post('/developer/client/delete/:id', (c) => {
+  const origin = new URL(c.req.url).origin;
+  return c.redirect(`${origin}/developer`, 302);
 });

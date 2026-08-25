@@ -24,6 +24,7 @@ import {
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl } from '../services/extractor';
 import { generateEpub } from '../services/epub';
+import { getClientSecret } from '../services/auth';
 
 
 export function getClientIp(c: any): string {
@@ -151,17 +152,18 @@ const oauthTokenHandler = async (c: any) => {
   let clientSecret = '';
   let username = '';
   let password = '';
+  let body: any = {};
 
   const contentType = c.req.header('Content-Type') || '';
   if (contentType.includes('application/json')) {
-    const body = await c.req.json().catch(() => ({}));
+    body = await c.req.json().catch(() => ({}));
     grantType = body.grant_type || '';
     clientId = body.client_id || '';
     clientSecret = body.client_secret || '';
     username = body.username || '';
     password = body.password || '';
   } else {
-    const body = await c.req.parseBody().catch(() => ({}));
+    body = await c.req.parseBody().catch(() => ({}));
     grantType = String(body.grant_type || '');
     clientId = String(body.client_id || '');
     clientSecret = String(body.client_secret || '');
@@ -170,10 +172,26 @@ const oauthTokenHandler = async (c: any) => {
   }
 
   const expectedToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
+  const expectedClientSecret = getClientSecret(c.env);
 
   if (expectedToken) {
-    const candidate = password || clientSecret || clientId;
-    const isMatch = candidate && (timingSafeCompare(candidate, expectedToken) || candidate === 'wallaflare');
+    let isMatch = false;
+
+    if (grantType === 'password' || !grantType) {
+      const passwordCandidate = password || body.password || '';
+      const isPasswordValid = passwordCandidate && (timingSafeCompare(passwordCandidate, expectedToken) || timingSafeCompare(passwordCandidate, 'wallaflare'));
+      const isSecretValid = !clientSecret || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
+      isMatch = Boolean(isPasswordValid && isSecretValid);
+    } else if (grantType === 'client_credentials') {
+      isMatch = Boolean(clientSecret && (timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken)));
+    } else if (grantType === 'refresh_token') {
+      const refreshToken = c.req.query('refresh_token') || body.refresh_token || '';
+      isMatch = Boolean(refreshToken && timingSafeCompare(refreshToken, expectedToken));
+    } else {
+      const candidate = password || clientSecret || clientId;
+      isMatch = Boolean(candidate && (timingSafeCompare(candidate, expectedToken) || timingSafeCompare(candidate, expectedClientSecret) || candidate === 'wallaflare'));
+    }
+
     if (!isMatch) {
       const failure = await recordFailedAuthAttempt(c.env.DB, ip);
       if (failure.locked) {
@@ -825,3 +843,18 @@ const exportEpubHandler = async (c: any) => {
 };
 
 apiRouter.get('/api/entries/:id/export.epub', authMiddleware, exportEpubHandler);
+
+
+// -------------------------------------------------------------
+// Client Info Endpoint (For KOReader & Sync Settings Modal)
+// -------------------------------------------------------------
+apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
+  const origin = new URL(c.req.url).origin;
+  const clientSecret = getClientSecret(c.env);
+  return c.json({
+    server_url: origin,
+    client_id: 'wallaflare',
+    client_secret: clientSecret,
+    username: 'wallaflare',
+  });
+});

@@ -111,15 +111,28 @@ Your instance is now live worldwide! 🎉
 
 ### KOReader (Kindle / Kobo / Android / Linux)
 1. Open **KOReader** ➔ **Search / Tools > Wallabag**.
-2. Set **Server URL** to your Worker URL (`https://wallaflare.yourdomain.com`).
-3. Set **Username** to `wallaflare` and **Password** to your `AUTH_TOKEN`.
-4. Tap **Sync now** — KOReader will sync and download EPUBs with covers and metadata!
+2. Enter the 5 parameters:
+   - **Server URL**: `https://wallaflare.yourdomain.com`
+   - **Client ID**: `wallaflare`
+   - **Client Secret**: `wallaflare`
+   - **Username**: `wallaflare`
+   - **Password**: Your `AUTH_TOKEN`
+3. Tap **Sync now** — KOReader will automatically sync and download high-quality EPUBs with covers and metadata!
 
 ### Official Wallabag Android App
 1. Open the **Wallabag App** ➔ Choose **Wallabag v2**.
 2. Enter your Server URL (`https://wallaflare.yourdomain.com`).
 3. Enter `wallaflare` as Username and your `AUTH_TOKEN` as Password.
 4. Tap **Test connection** and connect!
+
+### Wallabagger (Browser Extension for Chrome, Firefox & Edge)
+1. Open **Wallabagger Settings**.
+2. Enter your Wallaflare URL (`https://wallaflare.yourdomain.com`).
+3. Click **Check URL / Connect** and sign in with your `AUTH_TOKEN` password.
+4. Select any client profile (`Android app - #38185` or `koreader - #36204`) — Wallabagger will automatically fetch the client credentials and pair!
+
+> 💡 **Why is `wallaflare` used for Client ID, Secret, and Username?**  
+> Wallaflare is designed as a personal, single-tenant serverless instance. Using `wallaflare` across all client identifiers removes tedious typing on slow E-ink keyboards (Kindle/Kobo) while ensuring standard Wallabag OAuth2 clients pair effortlessly. All data access remains strictly protected by your private `AUTH_TOKEN` password and brute-force rate-limiting.
 
 ---
 

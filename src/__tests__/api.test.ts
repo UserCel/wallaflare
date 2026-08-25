@@ -874,3 +874,140 @@ describe('Wallabag v2 Batch Operations', () => {
     expect(tagsAfter.some((t: any) => t.slug === 'bulk-test')).toBe(false);
   });
 });
+
+
+describe("Developer Page & OAuth Client Secret Security", () => {
+  let mockDb: D1Database;
+  const SECRET = "super-secret-password-xyz";
+
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it("redirects unauthenticated GET /developer requests to /login", async () => {
+    const res = await app.request("/developer", {}, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/login");
+  });
+
+  it("rejects invalid password on POST /login_check", async () => {
+    const res = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "_username=wallaflare&_password=wrong-password"
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/login?error=1");
+  });
+
+  it("authenticates POST /login_check with correct password and sets session cookie", async () => {
+    const res = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `_username=wallaflare&_password=${SECRET}`
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/developer");
+
+    const setCookie = res.headers.get("Set-Cookie") || "";
+    expect(setCookie).toContain("PHPSESSID=");
+
+    // Extract cookie
+    const match = setCookie.match(/PHPSESSID=([^;]+)/);
+    expect(match).not.toBeNull();
+    const sessionToken = match![1];
+
+    // Access /developer with authenticated session cookie
+    const devRes = await app.request("/developer", {
+      headers: { "Cookie": `PHPSESSID=${sessionToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+
+    expect(devRes.status).toBe(200);
+    const html = await devRes.text();
+    expect(html).toContain("API clients management");
+    expect(html).toContain("wallaflare");
+    // Verify master password is NEVER exposed in the HTML
+    expect(html).not.toContain(SECRET);
+  });
+
+  it("uses custom CLIENT_SECRET in /developer HTML when explicitly configured", async () => {
+    const CUSTOM_CLIENT_SECRET = "custom_extension_secret_abc123";
+    const loginRes = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `_username=wallaflare&_password=${SECRET}`
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+      CLIENT_SECRET: CUSTOM_CLIENT_SECRET
+    });
+
+    const setCookie = loginRes.headers.get("Set-Cookie") || "";
+    const match = setCookie.match(/PHPSESSID=([^;]+)/);
+    const sessionToken = match![1];
+
+    const devRes = await app.request("/developer", {
+      headers: { "Cookie": `PHPSESSID=${sessionToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+      CLIENT_SECRET: CUSTOM_CLIENT_SECRET
+    });
+
+    expect(devRes.status).toBe(200);
+    const html = await devRes.text();
+    expect(html).toContain(CUSTOM_CLIENT_SECRET);
+    expect(html).not.toContain(SECRET);
+  });
+
+  it("exchanges credentials for access_token on /oauth/v2/token with decoupled client secret", async () => {
+    const CUSTOM_CLIENT_SECRET = "client_sec_test_999";
+    const res = await app.request("/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "password",
+        client_id: "wallaflare",
+        client_secret: CUSTOM_CLIENT_SECRET,
+        username: "wallaflare",
+        password: SECRET
+      })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+      CLIENT_SECRET: CUSTOM_CLIENT_SECRET
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.access_token).toBe(SECRET);
+    expect(data.token_type).toBe("bearer");
+  });
+
+  it("returns active client credentials on GET /api/client-info when authenticated", async () => {
+    const res = await app.request("/api/client-info", {
+      headers: { "Authorization": `Bearer ${SECRET}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.client_id).toBe("wallaflare");
+    expect(data.username).toBe("wallaflare");
+    expect(data.client_secret).toBe("wallaflare");
+  });
+});

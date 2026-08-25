@@ -2042,9 +2042,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       <div class="auth-error-banner" id="authErrorMsg"></div>
 
-      <form id="authForm" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+      <form id="authForm" action="/login_check" method="post" name="loginform" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
+        <input type="hidden" id="username" name="_username" value="wallaflare" autocomplete="username" />
         <div class="form-group" style="text-align: left;">
-          <input type="password" id="authKeyInput" placeholder="Enter AUTH_TOKEN / Password" required autofocus>
+          <input type="password" id="authKeyInput" name="_password" placeholder="Enter AUTH_TOKEN / Password" autocomplete="current-password" required autofocus>
         </div>
         <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
       </form>
@@ -2432,42 +2434,63 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Modal: KOReader / Wallabag Sync -->
   <div class="modal-backdrop" id="syncModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 500px;">
       <div class="modal-header">
-        <h3 class="modal-title">Sync with KOReader &amp; Wallabag Apps</h3>
+        <h3 class="modal-title">KOReader &amp; Client Setup</h3>
         <button class="close-btn" onclick="closeModal('syncModal')">&times;</button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.875rem;">
-        <p>Wallaflare is a 100% compatible drop-in replacement for the <strong>Wallabag v2 API</strong>. Connect your e-reader or mobile app using these parameters:</p>
+      <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.875rem;">
+        <p style="color: var(--text-secondary);">Enter these 5 parameters into the <strong>KOReader Wallabag Plugin</strong> (or third-party clients):</p>
         
         <div>
-          <label style="font-weight: 600; color: var(--text-secondary);">Server URL</label>
-          <div class="code-box" id="syncServerUrl"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">1. Server URL</label>
+            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copySyncValue('syncServerUrl', this)">Copy</button>
+          </div>
+          <div class="code-box" id="syncServerUrl" style="word-break: break-all;"></div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div>
-            <label style="font-weight: 600; color: var(--text-secondary);">Client ID / Username</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+              <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">2. Client ID</label>
+              <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+            </div>
             <div class="code-box">wallaflare</div>
           </div>
           <div>
-            <label style="font-weight: 600; color: var(--text-secondary);">Client Secret / Password</label>
-            <div class="code-box" id="syncClientSecretDisplay">Your AUTH_TOKEN / Password</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+              <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">4. Username</label>
+              <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+            </div>
+            <div class="code-box">wallaflare</div>
           </div>
         </div>
 
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">3. Client Secret</label>
+            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+          </div>
+          <div class="code-box" id="syncClientSecretDisplay">wallaflare</div>
+        </div>
+
+        <div>
+          <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">5. Password</label>
+          <div class="code-box" style="color: var(--text-muted);">Your private AUTH_TOKEN password</div>
+        </div>
+
         <div style="background: var(--bg-primary); border-radius: var(--radius-sm); padding: 0.75rem; border: 1px solid var(--border-color);">
-          <strong style="color: var(--accent);">KOReader Setup:</strong>
+          <strong style="color: var(--accent);">KOReader Steps:</strong>
           <ol style="margin-left: 1.25rem; margin-top: 0.4rem; line-height: 1.6; color: var(--text-secondary);">
-            <li>Open KOReader on your Kindle/Kobo/Android device.</li>
-            <li>Go to <strong>Search / Tools &gt; Wallabag</strong> plugin.</li>
-            <li>Enter the Server URL and credentials above.</li>
-            <li>KOReader will automatically sync and download high-quality EPUBs!</li>
+            <li>On your e-reader, open <strong>Search / Tools &gt; Wallabag</strong>.</li>
+            <li>Enter the 5 values above.</li>
+            <li>Tap <strong>Sync now</strong> to sync and download your articles as EPUBs!</li>
           </ol>
         </div>
       </div>
       <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
-        <button class="btn btn-primary" onclick="closeModal('syncModal')">Got it</button>
+        <button class="btn btn-primary" onclick="closeModal('syncModal')">Done</button>
       </div>
     </div>
   </div>
@@ -2659,6 +2682,52 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     let currentReaderFontSize = 18;
     let readerFontFamily = 'serif';
     let activeArticleId = null;
+
+    
+    async function loadClientInfo() {
+      const secretDisplay = document.getElementById('syncClientSecretDisplay');
+      const serverUrlDisplay = document.getElementById('syncServerUrl');
+      if (serverUrlDisplay) serverUrlDisplay.textContent = window.location.origin;
+
+      try {
+        const res = await authFetch('/api/client-info');
+        if (res.ok) {
+          const data = await res.json();
+          if (secretDisplay && data.client_secret) {
+            secretDisplay.textContent = data.client_secret;
+          }
+        }
+      } catch (err) {
+        if (secretDisplay) secretDisplay.textContent = 'wallaflare_client_secret';
+      }
+    }
+
+    function copyDirectText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.style.borderColor = 'var(--success)';
+          btn.style.color = 'var(--success)';
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.borderColor = '';
+            btn.style.color = '';
+          }, 1500);
+        }
+        showToast('Copied to clipboard');
+      }).catch(() => {
+        showToast('Failed to copy');
+      });
+    }
+
+    function copySyncValue(elementId, btn) {
+      const el = document.getElementById(elementId);
+      const text = el ? el.textContent.trim() : '';
+      if (text && text !== 'Loading...') {
+        copyDirectText(text, btn);
+      }
+    }
 
     document.getElementById('syncServerUrl').textContent = window.location.origin;
 
@@ -2865,6 +2934,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             lockoutTimer = null;
           }
           setAuthToken(key);
+
+          try {
+            const formData = new URLSearchParams();
+            formData.append('_username', 'wallaflare');
+            formData.append('_password', key);
+            await fetch('/login_check', {
+              method: 'POST',
+              body: formData,
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              credentials: 'include'
+            });
+          } catch {}
+
+          if (window.location.pathname === '/login') {
+            history.replaceState(null, '', '/');
+          }
+
           const overlay = document.getElementById('authOverlay');
           if (overlay) overlay.style.display = 'none';
           showToast('Unlocked successfully');
@@ -5225,6 +5311,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     function openModal(id) {
+      
       clearActiveTextSelection();
       const modalEl = document.getElementById(id);
       if (modalEl) {
