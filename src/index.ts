@@ -1,3 +1,4 @@
+import { OTA_VERSION, OTA_MIN_NATIVE_VERSION } from './views/ota-bundle';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Env } from './types';
@@ -10,6 +11,8 @@ const app = new Hono<{ Bindings: Env }>();
 app.use('*', async (c, next) => {
   c.header('X-Wallabag-Version', '2.6.9');
   c.header('X-Powered-By', 'wallabag');
+  c.header('X-Wallaflare-Web-Version', OTA_VERSION);
+  c.header('X-Wallaflare-Min-Native', OTA_MIN_NATIVE_VERSION);
   c.header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
   c.header(
     'Content-Security-Policy',
@@ -28,7 +31,7 @@ app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposeHeaders: ['Content-Length', 'Content-Disposition', 'X-Wallabag-Version', 'X-Powered-By'],
+  exposeHeaders: ['Content-Length', 'Content-Disposition', 'X-Wallabag-Version', 'X-Powered-By', 'X-Wallaflare-Web-Version', 'X-Wallaflare-Min-Native'],
   maxAge: 86400,
 }));
 

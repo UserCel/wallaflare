@@ -79,6 +79,14 @@ function createMockD1Database() {
               }
               return { results: results as T[] };
             }
+            return {
+              results: tags.map(t => ({
+                id: t.id,
+                label: t.label,
+                slug: t.slug,
+                entry_count: entryTags.filter(et => et.tag_id === t.id).length
+              })) as T[]
+            };
           }
           if (query.includes('SELECT * FROM entries')) {
             if (query.includes('WHERE t.slug IN') || query.includes('entry_tags et')) {
@@ -136,25 +144,46 @@ function createMockD1Database() {
             return { meta: { changes: 1 } };
           }
           if (query.includes('UPDATE entries SET')) {
-            const id = Number(boundParams[boundParams.length - 1]);
-            const entry = entries.find(e => e.id === id);
-            if (entry) {
+            if (query.includes('WHERE id IN')) {
               const setPart = query.split('SET')[1].split('WHERE')[0];
               const clauses = setPart.split(',').map(s => s.trim());
-              clauses.forEach((c, idx) => {
-                if (c.startsWith('title = ?')) entry.title = boundParams[idx];
-                if (c.startsWith('content = ?')) entry.content = boundParams[idx];
-                if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
-                if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+              // params: updated_at, is_starred/is_archived, ...ids
+              const targetIds = boundParams.slice(clauses.length).map(Number);
+              entries.filter(e => targetIds.includes(e.id)).forEach(entry => {
+                clauses.forEach((c, idx) => {
+                  if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
+                  if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+                });
+                entry.updated_at = new Date().toISOString();
               });
-              entry.updated_at = new Date().toISOString();
+              return { meta: { changes: targetIds.length } };
+            } else {
+              const id = Number(boundParams[boundParams.length - 1]);
+              const entry = entries.find(e => e.id === id);
+              if (entry) {
+                const setPart = query.split('SET')[1].split('WHERE')[0];
+                const clauses = setPart.split(',').map(s => s.trim());
+                clauses.forEach((c, idx) => {
+                  if (c.startsWith('title = ?')) entry.title = boundParams[idx];
+                  if (c.startsWith('content = ?')) entry.content = boundParams[idx];
+                  if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
+                  if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+                });
+                entry.updated_at = new Date().toISOString();
+              }
+              return { meta: { changes: 1 } };
             }
-            return { meta: { changes: 1 } };
           }
-          if (query.includes('DELETE FROM entries WHERE id = ?')) {
-            const id = Number(boundParams[0]);
-            entries = entries.filter(e => e.id !== id);
-            entryTags = entryTags.filter(et => et.entry_id !== id);
+          if (query.includes('DELETE FROM entries WHERE id IN') || query.includes('DELETE FROM entries WHERE id = ?')) {
+            const targetIds = boundParams.map(Number);
+            const beforeCount = entries.length;
+            entries = entries.filter(e => !targetIds.includes(e.id));
+            entryTags = entryTags.filter(et => !targetIds.includes(et.entry_id));
+            return { meta: { changes: beforeCount - entries.length } };
+          }
+          if (query.includes('DELETE FROM entry_tags WHERE entry_id IN')) {
+            const targetIds = boundParams.map(Number);
+            entryTags = entryTags.filter(et => !targetIds.includes(et.entry_id));
             return { meta: { changes: 1 } };
           }
           if (query.includes('auth_rate_limits') && query.includes('INSERT INTO')) {
@@ -218,11 +247,38 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     expect(info.version).toBe('2.6.9');
   });
 
-  it('checks article existence via /api/entries/exists.json', async () => {
-    const existsRes = await app.request('/api/entries/exists.json?url=https://example.com/notfound', {}, { DB: mockDb });
-    expect(existsRes.status).toBe(200);
-    const existsData = await existsRes.json<any>();
-    expect(existsData.exists).toBe(false);
+  it('checks article existence via /api/entries/exists.json conforming to Wallabag v2', async () => {
+    // 1. Not found -> returns false
+    const notFoundRes = await app.request('/api/entries/exists.json?url=https://example.com/notfound', {}, { DB: mockDb });
+    expect(notFoundRes.status).toBe(200);
+    expect(await notFoundRes.json()).toBe(false);
+
+    // 2. Create article
+    await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/exists-check', title: 'Exists Test' })
+    }, { DB: mockDb });
+
+    // 3. Found -> returns true
+    const foundRes = await app.request('/api/entries/exists.json?url=https://example.com/exists-check', {}, { DB: mockDb });
+    expect(foundRes.status).toBe(200);
+    expect(await foundRes.json()).toBe(true);
+
+    // 4. Duplicate prevention with title & content (Wallabagger browser mode)
+    const dupRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/exists-check',
+        title: 'Browser Extracted' ,
+        content: '<p>Browser content</p>'
+      })
+    }, { DB: mockDb });
+
+    expect(dupRes.status).toBe(200);
+    const dupData = await dupRes.json<any>();
+    expect(dupData.already_exists).toBe(true);
   });
 
   it('creates, retrieves, updates, and deletes articles', async () => {
@@ -652,23 +708,36 @@ describe('Re-fetch Article Content API', () => {
     mockDb = createMockD1Database();
   });
 
-  it('rejects reload on direct-input manual entries to preserve hand-crafted text', async () => {
-    // 1. Create custom text entry with a URL
-    const createRes = await app.request('/api/entries.json', {
+  it('sets domain_name when URL is provided and preserves direct-input when URL is missing', async () => {
+    // 1. Create entry with title, content, and URL (e.g. Wallabagger browser fetch)
+    const resWithUrl = await app.request('/api/entries.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: 'Custom Story Chapter',
-        content: '<p>My custom hand-crafted story text.</p>',
-        url: 'https://example.com/chapter-url',
+        title: 'Browser Extracted Article',
+        content: '<p>Parsed content from browser tab.</p>',
+        url: 'https://example.com/news/article-1',
       })
     }, { DB: mockDb });
 
-    const created = await createRes.json<any>();
-    expect(created.domain_name).toBe('direct-input');
+    const itemWithUrl = await resWithUrl.json<any>();
+    expect(itemWithUrl.domain_name).toBe('example.com');
 
-    // 2. Attempt to reload
-    const reloadRes = await app.request(`/api/entries/${created.id}/reload.json`, {
+    // 2. Create entry with title and content without URL (URL-less note)
+    const resNoUrl = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'URL-less Custom Note',
+        content: '<p>My custom hand-crafted note with no source URL.</p>',
+      })
+    }, { DB: mockDb });
+
+    const itemNoUrl = await resNoUrl.json<any>();
+    expect(itemNoUrl.domain_name).toBe('direct-input');
+
+    // Attempt reload on URL-less note -> 400 error
+    const reloadRes = await app.request(`/api/entries/${itemNoUrl.id}/reload.json`, {
       method: 'PATCH',
     }, { DB: mockDb });
 
@@ -724,5 +793,391 @@ describe('Custom Text Preview Picture Support', () => {
     const data = await res.json<any>();
     expect(data.preview_picture).toBe('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c');
     expect(data.domain_name).toBe('direct-input');
+  });
+});
+
+
+describe('Wallabag v2 Batch Operations', () => {
+  let mockDb: any;
+
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+  it('mass deletes entries via DELETE /api/entries/list.json', async () => {
+    // 1. Create 3 articles
+    const res1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-del-1', title: 'Batch Delete 1' })
+    }, { DB: mockDb });
+    const res2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-del-2', title: 'Batch Delete 2' })
+    }, { DB: mockDb });
+    const res3 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-del-3', title: 'Batch Delete 3' })
+    }, { DB: mockDb });
+
+    const item1 = await res1.json();
+    const item2 = await res2.json();
+    const item3 = await res3.json();
+
+    // 2. Mass delete item1 and item2 in one call
+    const delBatchRes = await app.request('/api/entries/list.json', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [item1.id, item2.id] })
+    }, { DB: mockDb });
+
+    expect(delBatchRes.status).toBe(200);
+    const delData = await delBatchRes.json();
+    expect(delData.success).toBe(true);
+    expect(delData.count).toBe(2);
+
+    // Verify item1 & item2 are gone, item3 remains
+    const check1 = await app.request(`/api/entries/${item1.id}.json`, {}, { DB: mockDb });
+    expect(check1.status).toBe(404);
+    const check2 = await app.request(`/api/entries/${item2.id}.json`, {}, { DB: mockDb });
+    expect(check2.status).toBe(404);
+    const check3 = await app.request(`/api/entries/${item3.id}.json`, {}, { DB: mockDb });
+    expect(check3.status).toBe(200);
+  });
+
+  it('mass updates entries (star/archive) via PATCH /api/entries/list.json', async () => {
+    const res1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-patch-1', title: 'Batch Patch 1' })
+    }, { DB: mockDb });
+    const res2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-patch-2', title: 'Batch Patch 2' })
+    }, { DB: mockDb });
+
+    const item1 = await res1.json();
+    const item2 = await res2.json();
+
+    // Mass star both entries
+    const patchRes = await app.request('/api/entries/list.json', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [item1.id, item2.id], starred: 1, archive: 1 })
+    }, { DB: mockDb });
+
+    expect(patchRes.status).toBe(200);
+    const patchData = await patchRes.json();
+    expect(patchData.success).toBe(true);
+    expect(patchData.count).toBe(2);
+
+    const check1 = await app.request(`/api/entries/${item1.id}.json`, {}, { DB: mockDb });
+    const updated1 = await check1.json();
+    expect(updated1.is_starred).toBe(1);
+    expect(updated1.is_archived).toBe(1);
+  });
+
+  it('mass adds and removes tags via /api/entries/tags/lists.json and /api/entries/tags/list.json', async () => {
+    const res1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-tag-1', title: 'Batch Tag 1' })
+    }, { DB: mockDb });
+    const res2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/batch-tag-2', title: 'Batch Tag 2' })
+    }, { DB: mockDb });
+
+    const item1 = await res1.json();
+    const item2 = await res2.json();
+
+    // Mass add tag "bulk-test"
+    const addTagsRes = await app.request('/api/entries/tags/lists.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: [item1.id, item2.id], tags: 'bulk-test, news' })
+    }, { DB: mockDb });
+
+    expect(addTagsRes.status).toBe(200);
+
+    // Verify tag added to item1
+    const checkTags1 = await app.request(`/api/entries/${item1.id}/tags.json`, {}, { DB: mockDb });
+    const tags1 = await checkTags1.json();
+    expect(tags1.some((t: any) => t.slug === 'bulk-test')).toBe(true);
+
+    // Mass remove tag "bulk-test"
+    const removeTagsRes = await app.request('/api/entries/tags/list.json', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: [item1.id, item2.id], tag: 'bulk-test' })
+    }, { DB: mockDb });
+
+    expect(removeTagsRes.status).toBe(200);
+
+    const checkTagsAfter = await app.request(`/api/entries/${item1.id}/tags.json`, {}, { DB: mockDb });
+    const tagsAfter = await checkTagsAfter.json();
+    expect(tagsAfter.some((t: any) => t.slug === 'bulk-test')).toBe(false);
+  });
+});
+
+
+describe("Developer Page & OAuth Client Secret Security", () => {
+  let mockDb: D1Database;
+  const SECRET = "super-secret-password-xyz";
+
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it("redirects unauthenticated GET /developer requests to /login", async () => {
+    const res = await app.request("/developer", {}, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/login");
+  });
+
+  it("rejects invalid password on POST /login_check", async () => {
+    const res = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "_username=wallaflare&_password=wrong-password"
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/login?error=1");
+  });
+
+  it("authenticates POST /login_check with correct password and sets session cookie", async () => {
+    const res = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `_username=wallaflare&_password=${SECRET}`
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/developer");
+
+    const setCookie = res.headers.get("Set-Cookie") || "";
+    expect(setCookie).toContain("PHPSESSID=");
+
+    // Extract cookie
+    const match = setCookie.match(/PHPSESSID=([^;]+)/);
+    expect(match).not.toBeNull();
+    const sessionToken = match![1];
+
+    // Access /developer with authenticated session cookie
+    const devRes = await app.request("/developer", {
+      headers: { "Cookie": `PHPSESSID=${sessionToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+
+    expect(devRes.status).toBe(200);
+    const html = await devRes.text();
+    expect(html).toContain("API clients management");
+    expect(html).toContain("wallaflare");
+    // Verify master password is NEVER exposed in the HTML
+    expect(html).not.toContain(SECRET);
+  });
+
+  it("uses custom CLIENT_SECRET in /developer HTML when explicitly configured", async () => {
+    const CUSTOM_CLIENT_SECRET = "custom_extension_secret_abc123";
+    const loginRes = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `_username=wallaflare&_password=${SECRET}`
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+      CLIENT_SECRET: CUSTOM_CLIENT_SECRET
+    });
+
+    const setCookie = loginRes.headers.get("Set-Cookie") || "";
+    const match = setCookie.match(/PHPSESSID=([^;]+)/);
+    const sessionToken = match![1];
+
+    const devRes = await app.request("/developer", {
+      headers: { "Cookie": `PHPSESSID=${sessionToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+      CLIENT_SECRET: CUSTOM_CLIENT_SECRET
+    });
+
+    expect(devRes.status).toBe(200);
+    const html = await devRes.text();
+    expect(html).toContain(CUSTOM_CLIENT_SECRET);
+    expect(html).not.toContain(SECRET);
+  });
+
+  it("exchanges credentials for access_token on /oauth/v2/token with decoupled client secret", async () => {
+    const CUSTOM_CLIENT_SECRET = "client_sec_test_999";
+    const res = await app.request("/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "password",
+        client_id: "wallaflare",
+        client_secret: CUSTOM_CLIENT_SECRET,
+        username: "wallaflare",
+        password: SECRET
+      })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+      CLIENT_SECRET: CUSTOM_CLIENT_SECRET
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.access_token).toBe(SECRET);
+    expect(data.token_type).toBe("bearer");
+  });
+
+
+  it("rejects invalid username on POST /login_check even if password is correct", async () => {
+    const res = await app.request("/login_check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `_username=wronguser&_password=${SECRET}`
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toContain("/login?error=1");
+  });
+
+  it("rejects invalid username on /oauth/v2/token password grant", async () => {
+    const res = await app.request("/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "password",
+        client_id: "wallaflare",
+        client_secret: "wallaflare",
+        username: "wronguser",
+        password: SECRET
+      })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+
+    expect(res.status).toBe(400);
+    const data = await res.json<any>();
+    expect(data.error).toBe("invalid_grant");
+  });
+
+
+  it('returns Cache-Control headers on /api/tags.json for extensions and supports live queries', async () => {
+    // 1. Check standard tags request contains Cache-Control header for extension caching
+    const tagsRes = await app.request('/api/tags.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(tagsRes.status).toBe(200);
+    expect(tagsRes.headers.get('Cache-Control')).toContain('private, max-age=300');
+
+    // 2. Add an article with a new tag
+    const createRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET}`
+      },
+      body: JSON.stringify({
+        title: 'Live Tag Article',
+        content: '<p>Content with tags</p>',
+        tags: 'urgent, breaking'
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(createRes.status).toBe(200);
+
+    // 3. Request with dashboard timestamp bypass pattern -> Returns fresh tags immediately
+    const liveTagsRes = await app.request('/api/tags.json?_t=' + Date.now(), {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Authorization': `Bearer ${SECRET}`
+      }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(liveTagsRes.status).toBe(200);
+    const tags = await liveTagsRes.json<any>();
+    expect(tags.some((t: any) => t.slug === 'urgent')).toBe(true);
+    expect(tags.some((t: any) => t.slug === 'breaking')).toBe(true);
+  });
+
+
+  it('creates standalone tags via POST /api/tags.json', async () => {
+    // 1. Create a new standalone tag
+    const createTagRes = await app.request('/api/tags.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET}`
+      },
+      body: JSON.stringify({ label: 'Science Fiction' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(createTagRes.status).toBe(200);
+    const tag = await createTagRes.json<any>();
+    expect(tag.label).toBe('Science Fiction');
+    expect(tag.slug).toBe('science-fiction');
+
+    // 2. Listing tags includes the newly created standalone tag
+    const listRes = await app.request('/api/tags.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(listRes.status).toBe(200);
+    const allTags = await listRes.json<any>();
+    expect(allTags.some((t: any) => t.slug === 'science-fiction')).toBe(true);
+  });
+
+  it("returns active client credentials on GET /api/client-info when authenticated", async () => {
+    const res = await app.request("/api/client-info", {
+      headers: { "Authorization": `Bearer ${SECRET}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.client_id).toBe("wallaflare");
+    expect(data.username).toBe("wallaflare");
+    expect(data.client_secret).toBe("wallaflare");
+  });
+});
+
+
+describe("Capacitor Android OTA Endpoints", () => {
+  it("serves the OTA version manifest on /api/app/version.json", async () => {
+    const res = await app.request("/api/app/version.json");
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.version).toBeDefined();
+    expect(data.min_native_version).toBe("1.0.0");
+    expect(data.url).toBe("/api/app/bundle.zip");
+    expect(data.checksum).toBeDefined();
+  });
+
+  it("serves the OTA zip bundle on /api/app/bundle.zip", async () => {
+    const res = await app.request("/api/app/bundle.zip");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/zip");
+    expect(res.headers.get("Cache-Control")).toContain("public, max-age=86400");
+    const arrayBuffer = await res.arrayBuffer();
+    expect(arrayBuffer.byteLength).toBeGreaterThan(1000);
   });
 });

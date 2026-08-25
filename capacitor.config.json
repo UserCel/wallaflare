@@ -1,0 +1,13 @@
+{
+  "appId": "com.idodos.wallaflare",
+  "appName": "Wallaflare",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": false
+    }
+  }
+}

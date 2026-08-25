@@ -1,3 +1,5 @@
+import { OTA_VERSION } from './ota-bundle';
+import { clientEpubJs } from './epub-client-bundle';
 export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -69,6 +71,63 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent !important;
+      tap-highlight-color: transparent !important;
+    }
+
+    img, a, button {
+      -webkit-user-drag: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+
+    /* Allow standard text selection in input controls */
+    input, textarea, [contenteditable="true"], [contenteditable=""], select {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+
+    /* Allow rich text selection exclusively within the actual article content text */
+    .reader-body,
+    .reader-body * {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+
+    /* Strictly disallow text selection on Reader titles, meta, covers, and card elements */
+    .reader-title,
+    .reader-meta,
+    .reader-meta *,
+    .reader-domain,
+    .reader-cover,
+    .reader-cover-img,
+    .reader-lead-image-caption,
+    .article-card,
+    .article-card *,
+    .card-image-wrap,
+    .card-image,
+    .card-title {
+      -webkit-user-select: none !important;
+      -moz-user-select: none !important;
+      -ms-user-select: none !important;
+      user-select: none !important;
+      -webkit-touch-callout: none !important;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+
+    html, body {
+      overscroll-behavior-y: contain;
     }
 
     body {
@@ -93,6 +152,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       background-color: rgba(15, 23, 42, 0.82);
       border-bottom: 1px solid var(--border-color);
       padding: 0.75rem 1.25rem;
+      padding-top: max(0.75rem, calc(0.75rem + env(safe-area-inset-top, 0px)));
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -137,32 +197,85 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     .nav-search {
       flex: 1;
-      max-width: 420px;
+      max-width: 460px;
       position: relative;
-    }
-    .nav-search input {
-      width: 100%;
+      display: flex;
+      align-items: center;
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 9999px;
-      padding: 0.5rem 1rem 0.5rem 2.25rem;
-      color: var(--text-primary);
-      font-size: 0.875rem;
-      outline: none;
+      padding: 0.15rem 0.35rem 0.15rem 0.65rem;
       transition: all 0.2s;
     }
-    .nav-search input:focus {
+    .nav-search:focus-within {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
     }
-    .nav-search svg {
-      position: absolute;
-      left: 0.75rem;
-      top: 50%;
-      transform: translateY(-50%);
+    .nav-search .search-magnifier {
       color: var(--text-muted);
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+    .nav-search input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 0.35rem 0.4rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      outline: none;
+      min-width: 50px;
+    }
+    .search-ctrl-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+      transition: all 0.15s;
+    }
+    .search-ctrl-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+    .search-ctrl-btn.active {
+      color: var(--accent);
+    }
+    .search-ctrl-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-color);
+      margin: 0 0.2rem;
+      flex-shrink: 0;
+    }
+    .search-dropdown-menu {
+      position: absolute !important;
+      top: calc(100% + 8px) !important;
+      bottom: auto !important;
+      right: 0 !important;
+      left: auto !important;
+      background: var(--bg-primary) !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: var(--radius-sm) !important;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
+      min-width: 185px !important;
+      padding: 0.4rem 0 !important;
+      z-index: 1000 !important;
+      display: none;
+      flex-direction: column;
+      animation: menuFadeIn 0.15s ease-out;
+    }
+    .search-dropdown-menu.open {
+      display: flex !important;
     }
 
     .nav-actions {
@@ -192,6 +305,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       background: var(--accent);
       color: white;
     }
+
+    .btn-offline-mode {
+      background: rgba(245, 158, 11, 0.16) !important;
+      color: #f59e0b !important;
+      border: 1px solid rgba(245, 158, 11, 0.4) !important;
+      cursor: pointer;
+    }
+    .btn-offline-mode:hover {
+      background: rgba(245, 158, 11, 0.25) !important;
+    }
+
     .btn-primary:hover {
       background: var(--accent-hover);
       box-shadow: 0 0 12px var(--accent-glow);
@@ -276,11 +400,276 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       background: rgba(249, 115, 22, 0.15);
     }
 
-    /* Grid of Cards */
+    /* View Mode Switcher */
+    .view-mode-toggle {
+      display: flex;
+      background: var(--bg-secondary);
+      padding: 2px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      gap: 2px;
+    }
+    .view-btn {
+      padding: 0.3rem 0.5rem;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .view-btn.active {
+      background: var(--bg-tertiary);
+      color: var(--accent);
+    }
+    .view-btn:hover {
+      color: var(--text-primary);
+    }
+
+
+    /* -------------------------------------------------------------
+       SKELETON PLACEHOLDER LOADER (High-Contrast Dynamic Wave Shimmer)
+       ------------------------------------------------------------- */
+    @keyframes skeletonWave {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(100%);
+      }
+    }
+    @keyframes skeletonPulse {
+      0%, 100% { opacity: 0.38; }
+      50% { opacity: 1; }
+    }
+    .skeleton-card {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      pointer-events: none;
+      box-shadow: var(--shadow-sm);
+    }
+    .skeleton-card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.08) 25%,
+        rgba(255, 255, 255, 0.30) 50%,
+        rgba(255, 255, 255, 0.08) 75%,
+        transparent 100%
+      );
+      animation: skeletonWave 1.1s infinite cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+    [data-theme="light"] .skeleton-card::after {
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.04) 25%,
+        rgba(0, 0, 0, 0.18) 50%,
+        rgba(0, 0, 0, 0.04) 75%,
+        transparent 100%
+      );
+    }
+    .skeleton-box {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      min-height: 10px;
+      animation: skeletonPulse 1.1s infinite ease-in-out;
+    }
+
+    /* -------------------------------------------------------------
+       ARTICLE VIEW MODES (List, Grid, Compact)
+       ------------------------------------------------------------- */
     .articles-grid {
+      transition: opacity 0.15s ease;
+    }
+
+    /* 1. Default: List View (Horizontal Card with Right Thumbnail) */
+    .articles-grid.view-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .articles-grid.view-list .card-main-content {
+      display: flex;
+      gap: 1rem;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .articles-grid.view-list .card-text-column {
+      flex: 1;
+      min-width: 0;
+    }
+    .articles-grid.view-list .card-image-wrap {
+      width: 88px;
+      height: 88px;
+      aspect-ratio: 1 / 1;
+      flex-shrink: 0;
+      border-radius: var(--radius-sm);
+      margin: 0 0 0 0.85rem;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+    }
+    @media (max-width: 768px) {
+      .articles-grid.view-list .card-image-wrap {
+        width: 76px;
+        height: 76px;
+        margin: 0 0 0 0.65rem;
+      }
+    }
+    .articles-grid.view-list .article-card[dir="rtl"] .card-image-wrap {
+      margin: 0 0.75rem 0 0;
+    }
+    .articles-grid.view-list .card-excerpt {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+
+    /* 2. Grid View (Magazine Hero Cards with Top Image) */
+    .articles-grid.view-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
       gap: 1.15rem;
+    }
+    .articles-grid.view-grid .card-main-content {
+      display: flex;
+      flex-direction: column;
+    }
+    .articles-grid.view-grid .card-image-wrap {
+      order: -1;
+      width: calc(100% + 2.3rem);
+      margin: -1.15rem -1.15rem 0.85rem -1.15rem;
+      height: 155px;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+    }
+    .articles-grid.view-grid .card-excerpt {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 1.1rem;
+    }
+
+    /* 3. Compact View (Headlines / Dense Rows) */
+    .articles-grid.view-compact {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-width: 100%;
+    }
+    .articles-grid.view-compact .article-card {
+      padding: 0.6rem 0.85rem;
+      min-height: auto;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .articles-grid.view-compact .card-main-content {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+      min-width: 0;
+    }
+    .articles-grid.view-compact .card-text-column {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+      min-width: 0;
+    }
+    .articles-grid.view-compact .card-meta {
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+    .articles-grid.view-compact .card-title {
+      font-size: 0.95rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      margin: 0;
+    }
+    .articles-grid.view-compact .card-excerpt,
+    .articles-grid.view-compact .card-image-wrap,
+    .articles-grid.view-compact .card-tags,
+    .articles-grid.view-compact .card-progress-center {
+      display: none !important;
+    }
+    .articles-grid.view-compact .card-footer {
+      padding-top: 0;
+      border: none;
+      flex-shrink: 0;
+      gap: 0.5rem;
+    }
+    .articles-grid.view-compact .card-select-wrap {
+      position: static;
+      margin-right: 0.35rem;
+    }
+
+    /* Intelligent 2-Row Responsive Layout for Mobile Portrait */
+    @media (max-width: 768px) {
+      .articles-grid.view-compact .article-card {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.65rem 0.85rem;
+        gap: 0.4rem;
+      }
+      .articles-grid.view-compact .card-main-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+      }
+      .articles-grid.view-compact .card-text-column {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+      }
+      .articles-grid.view-compact .card-title {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 0.92rem;
+        line-height: 1.35;
+      }
+      .articles-grid.view-compact .card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 0.3rem;
+        border-top: 1px solid var(--border-color);
+        font-size: 0.72rem;
+      }
+      .articles-grid.view-compact .card-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.72rem;
+      }
     }
 
     .article-card {
@@ -294,9 +683,59 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       box-shadow: var(--shadow-sm);
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
       position: relative;
       overflow: hidden;
+      cursor: pointer;
+    }
+    .article-card.is-selected {
+      border-color: var(--accent) !important;
+      background: rgba(249, 115, 22, 0.08) !important;
+      box-shadow: 0 0 0 1px var(--accent), var(--shadow);
+    }
+    .card-select-wrap {
+      position: absolute;
+      top: 0.65rem;
+      right: 0.65rem;
+      z-index: 25;
+      padding: 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .article-card[dir="rtl"] .card-select-wrap {
+      right: auto;
+      left: 0.65rem;
+    }
+    .article-card:hover .card-select-wrap,
+    body.selection-mode-active .card-select-wrap,
+    .article-card.is-selected .card-select-wrap {
+      opacity: 1;
+    }
+    .card-checkbox {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      background: rgba(15, 23, 42, 0.65);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: transparent;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: all 0.15s ease;
+    }
+    html.light .card-checkbox {
+      border-color: rgba(0, 0, 0, 0.25);
+      background: rgba(255, 255, 255, 0.85);
+    }
+    .card-checkbox.checked {
+      background: var(--accent) !important;
+      border-color: var(--accent) !important;
+      color: white !important;
+      transform: scale(1.05);
     }
     .article-card:hover {
       transform: translateY(-2px);
@@ -336,10 +775,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     .tag-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      font-size: 0.72rem;
+      gap: 0.35rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      padding: 0.15rem 0.5rem;
+      padding: 0.2rem 0.6rem;
       border-radius: 9999px;
       background: var(--bg-tertiary);
       color: var(--accent);
@@ -347,6 +786,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       cursor: pointer;
       transition: all 0.15s ease;
       text-decoration: none;
+      line-height: 1.3;
     }
     .tag-badge:hover {
       background: var(--accent);
@@ -359,11 +799,36 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
     .tag-badge .tag-remove-btn {
       cursor: pointer;
-      opacity: 0.7;
-      margin-left: 0.15rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-left: 0.2rem;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    html.light .tag-badge .tag-remove-btn {
+      background: rgba(0, 0, 0, 0.08);
     }
     .tag-badge .tag-remove-btn:hover {
-      opacity: 1;
+      background: rgba(239, 68, 68, 0.9);
+      color: #ffffff;
+      transform: scale(1.1);
+    }
+    .tag-badge-partial {
+      background: rgba(249, 115, 22, 0.1) !important;
+      border: 1.5px dashed var(--accent) !important;
+      cursor: pointer;
+    }
+    .tag-badge-partial:hover {
+      background: rgba(249, 115, 22, 0.22) !important;
+      border-style: solid !important;
     }
 
     /* Tag Modal (z-index 400 to show above reader-view) */
@@ -460,68 +925,296 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       gap: 0.25rem;
     }
     .article-card.menu-open {
-      z-index: 98 !important;
+      z-index: 120 !important;
       position: relative;
+      overflow: visible !important;
     }
     .card-menu-wrap {
       position: relative;
     }
     .article-card.menu-open .card-menu-wrap {
-      z-index: 101 !important;
+      z-index: 150 !important;
     }
     .card-dropdown-menu {
       position: absolute;
       bottom: calc(100% + 6px);
       right: 0;
-      background: var(--bg-card);
+      background: var(--bg-primary) !important;
       border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-      min-width: 180px;
-      padding: 0.35rem 0;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45) !important;
+      min-width: 195px;
+      padding: 0.4rem 0;
       z-index: 102 !important;
       display: none;
       flex-direction: column;
+      opacity: 1 !important;
       animation: menuFadeIn 0.15s ease-out;
+    }
+    .card-dropdown-menu.open {
+      display: flex !important;
+    }
+    .card-dropdown-menu.open-down {
+      bottom: auto !important;
+      top: calc(100% + 6px) !important;
+    }
+    .action-btn.card-more-btn {
+      opacity: 1 !important;
     }
     .article-card[dir="rtl"] .card-dropdown-menu {
       right: auto;
       left: 0;
     }
-    .card-dropdown-menu.open {
-      display: flex !important;
-    }
     .menu-item {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      padding: 0.55rem 0.85rem;
-      font-size: 0.825rem;
-      color: var(--text-primary);
-      text-decoration: none;
-      background: transparent;
-      border: none;
-      cursor: pointer;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      gap: 0.75rem;
       width: 100%;
-      text-align: left;
-      transition: background 0.15s ease;
+      padding: 0.6rem 0.95rem;
+      border: none;
+      background: transparent;
+      color: var(--text-primary) !important;
+      font-size: 0.85rem;
+      font-weight: 450;
+      cursor: pointer;
+      text-align: left !important;
+      text-decoration: none;
+      opacity: 1 !important;
+      transition: background-color 0.15s ease, color 0.15s ease;
       white-space: nowrap;
       box-sizing: border-box;
     }
-    .article-card[dir="rtl"] .menu-item {
-      text-align: right;
+    .menu-item svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.85;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .menu-item span {
+      text-align: left !important;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .menu-item:hover {
-      background: var(--bg-secondary);
-      color: var(--text-primary);
+      background: var(--bg-secondary) !important;
+      color: var(--text-primary) !important;
+    }
+    .menu-item:hover svg {
+      opacity: 1;
+      color: var(--accent);
+    }
+    .menu-item.active {
+      color: var(--accent) !important;
+      font-weight: 600;
+      background: rgba(99, 102, 241, 0.08) !important;
+    }
+    .menu-item.active svg {
+      color: var(--accent) !important;
+      opacity: 1;
     }
     .menu-item-danger {
-      color: #ef4444;
+      color: #ef4444 !important;
+    }
+    .menu-item-danger svg {
+      color: #ef4444 !important;
     }
     .menu-item-danger:hover {
-      background: rgba(239, 68, 68, 0.12);
-      color: #f87171;
+      background: rgba(239, 68, 68, 0.12) !important;
+      color: #f87171 !important;
     }
+    .menu-item-danger:hover svg {
+      color: #f87171 !important;
+    }
+    [dir="rtl"] .menu-item,
+    .article-card[dir="rtl"] .menu-item {
+      text-align: right !important;
+      justify-content: flex-start !important;
+    }
+    [dir="rtl"] .menu-item span,
+    .article-card[dir="rtl"] .menu-item span {
+      text-align: right !important;
+    }
+
+    /* Expandable Submenus for Card Menus & Batch Menu */
+    .chevron-icon {
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      margin-left: auto;
+      opacity: 0.7;
+    }
+    [dir="rtl"] .chevron-icon {
+      margin-left: 0;
+      margin-right: auto;
+    }
+    .menu-item-expandable {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .menu-item-expandable.expanded .chevron-icon {
+      transform: rotate(180deg);
+    }
+    .menu-sub-items {
+      display: none;
+      flex-direction: column;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      margin: 0.2rem 0.4rem;
+      padding: 0.2rem 0;
+      border: 1px solid var(--border-color);
+    }
+    .menu-item-expandable.expanded .menu-sub-items {
+      display: flex;
+    }
+    .menu-sub-item {
+      padding-left: 1.5rem !important;
+      font-size: 0.8rem !important;
+      gap: 0.55rem !important;
+    }
+    [dir="rtl"] .menu-sub-item {
+      padding-left: 0.85rem !important;
+      padding-right: 1.5rem !important;
+    }
+
+    /* Reader sidebar expandable submenu */
+    .reader-sub-menu {
+      display: none;
+      flex-direction: column;
+      gap: 0.25rem;
+      padding: 0.2rem 0 0.4rem 0;
+      margin-top: -0.1rem;
+      margin-bottom: 0.35rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .reader-sub-menu.open {
+      display: flex;
+    }
+    .reader-sub-item {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start !important;
+      gap: 0.65rem;
+      padding: 0.45rem 0.65rem 0.45rem 1.85rem !important;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left !important;
+      transition: all 0.15s ease;
+      width: 100%;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+    .reader-sub-item span {
+      text-align: left !important;
+    }
+    .reader-sub-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+    .reader-sub-item svg {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      opacity: 0.85;
+    }
+    .reader-sub-item:hover svg {
+      opacity: 1;
+      color: var(--text-primary);
+    }
+    [dir="rtl"] .reader-sub-item {
+      padding-left: 0.65rem !important;
+      padding-right: 1.85rem !important;
+      text-align: right !important;
+    }
+    [dir="rtl"] .reader-sub-item span {
+      text-align: right !important;
+    }
+
+    /* Print Stylesheet for PDF Export */
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+      }
+      #mainHeader,
+      .filter-bar,
+      .articles-grid,
+      #emptyState,
+      #bottomNav,
+      #mobileNavDropdown,
+      #mobileNavBackdrop,
+      #readerSidebar,
+      #readerBottomNav,
+      #readerHeader,
+      #readerNavHeader,
+      #readerDrawerBackdrop,
+      .reader-progress-wrap,
+      .reader-fab-scroll,
+      .card-dropdown-menu,
+      .toast,
+      .modal-backdrop,
+      #authOverlay,
+      #confirmBackdrop,
+      #addTextTagPickerModal {
+        display: none !important;
+      }
+      #readerView {
+        display: block !important;
+        position: static !important;
+        inset: auto !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        z-index: auto !important;
+      }
+      .reader-container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .reader-title {
+        font-size: 22pt !important;
+        line-height: 1.25 !important;
+        color: #000 !important;
+        margin-bottom: 0.5rem !important;
+      }
+      .reader-meta {
+        font-size: 10pt !important;
+        color: #444 !important;
+        border-bottom: 1px solid #ccc !important;
+        padding-bottom: 0.5rem !important;
+        margin-bottom: 1.5rem !important;
+      }
+      .reader-body {
+        color: #000 !important;
+        font-size: 12pt !important;
+        line-height: 1.6 !important;
+      }
+      .reader-body a {
+        color: #000 !important;
+        text-decoration: underline !important;
+      }
+      .reader-body img {
+        max-width: 100% !important;
+        page-break-inside: avoid;
+      }
+      .reader-body pre,
+      .reader-body blockquote {
+        page-break-inside: avoid;
+      }
+    }
+
     .menu-divider {
       height: 1px;
       background: var(--border-color);
@@ -545,7 +1238,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       color: var(--text-primary);
     }
     .action-btn.active-star {
-      color: var(--star-color);
+      color: #eab308 !important;
+    }
+    .action-btn.active-star svg {
+      fill: #eab308 !important;
+      stroke: #eab308 !important;
+    }
+    .card-star-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #eab308;
+      margin-right: 0.25rem;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    [dir="rtl"] .card-star-pill {
+      margin-right: 0;
+      margin-left: 0.25rem;
     }
     .action-btn.active-archive {
       color: var(--success);
@@ -601,7 +1311,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
     .reader-sidebar:hover {
       width: 175px;
-      box-shadow: 6px 0 28px rgba(0, 0, 0, 0.45);
+      box-shadow: none;
     }
 
     .reader-sidebar-group {
@@ -1114,19 +1824,29 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       top: 0;
       left: 0;
       bottom: 0;
-      width: 260px;
+      width: 270px;
+      max-height: 100vh;
+      max-height: 100dvh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
-      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
-      padding: 1.25rem 0.75rem;
+      box-shadow: none;
+      visibility: hidden;
+      pointer-events: none;
+      padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem;
       z-index: 350;
       flex-direction: column;
       gap: 0.35rem;
       transform: translateX(-100%);
-      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s ease, box-shadow 0.25s ease;
     }
     .mobile-nav-dropdown.open {
       transform: translateX(0);
+      visibility: visible;
+      pointer-events: auto;
+      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
     }
     .mobile-nav-item {
       display: flex;
@@ -1166,7 +1886,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       margin: 0.4rem 0;
     }
 
-    @media (max-width: 768px) {
+    /* -------------------------------------------------------------
+       RESPONSIVE HEADER & NAVIGATION BREAKPOINTS
+       ------------------------------------------------------------- */
+    @media (max-width: 1150px) {
+      .brand-tag {
+        display: none !important;
+      }
+      .desktop-nav-btn span {
+        display: none !important;
+      }
+      .desktop-nav-btn {
+        padding: 0.45rem !important;
+      }
+    }
+
+    @media (max-width: 960px) {
       .desktop-nav-btn {
         display: none !important;
       }
@@ -1176,34 +1911,29 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       header .brand {
         display: none !important;
       }
+      .brand-tag {
+        display: none !important;
+      }
       .nav-search {
         max-width: none !important;
         flex: 1 !important;
         margin: 0 0.5rem !important;
       }
+      .nav-actions button span {
+        display: none !important;
+      }
+      .nav-actions button {
+        padding: 0.45rem !important;
+      }
     }
 
-    /* -------------------------------------------------------------
-       MOBILE & TABLET RESPONSIVENESS
-       ------------------------------------------------------------- */
     @media (max-width: 768px) {
       header {
         padding: 0.6rem 0.85rem;
+        padding-top: max(0.6rem, calc(0.6rem + env(safe-area-inset-top, 0px)));
       }
       .brand span:nth-child(2) {
         font-size: 1.05rem;
-      }
-      .brand-tag {
-        display: none;
-      }
-      .nav-search {
-        max-width: 140px;
-      }
-      .nav-actions button span {
-        display: none;
-      }
-      .nav-actions button {
-        padding: 0.45rem;
       }
       main {
         padding: 1rem 0.75rem 4rem 0.75rem;
@@ -1220,10 +1950,38 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       .article-card {
         padding: 1rem;
       }
+      /* Clean mobile cards: Hide busy button row in favor of full card tap & long-press selection */
+      .article-card .card-actions {
+        display: none !important;
+      }
+      .card-select-wrap {
+        display: none;
+      }
+      body.selection-mode-active .card-select-wrap {
+        display: flex;
+        opacity: 1;
+      }
 
-      /* Mobile Reader Layout: Top Navigation Bar & Left Slide-out Drawer */
+    }
+
+    /* -------------------------------------------------------------
+       MOBILE & LANDSCAPE READER LAYOUT (Phones, Landscape & Tablets)
+       ------------------------------------------------------------- */
+    @media (max-width: 960px), (max-height: 550px) {
       .reader-view {
         flex-direction: column !important;
+      }
+      .reader-notch-shield {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: env(safe-area-inset-top, 0px);
+        background: var(--bg-primary) !important;
+        z-index: 260;
+        pointer-events: none;
+        display: block;
+        transition: background-color 0.25s ease;
       }
       .reader-mobile-bar {
         display: flex !important;
@@ -1231,13 +1989,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         top: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: 48px !important;
+        box-sizing: border-box !important;
+        padding: 0.6rem 0.85rem !important;
+        padding-top: max(0.6rem, calc(0.6rem + env(safe-area-inset-top, 0px))) !important;
+        min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
         background: var(--bg-secondary) !important;
         border-bottom: 1px solid var(--border-color) !important;
-        padding: 0 0.75rem !important;
         align-items: center !important;
         justify-content: space-between !important;
         z-index: 150 !important;
+        transition: transform 0.52s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
+      }
+      .reader-mobile-bar.bar-hidden {
+        transform: translateY(-100%) !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
       }
       .reader-mobile-bar-group {
         display: flex !important;
@@ -1264,13 +2030,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         top: 0 !important;
         left: 0 !important;
         bottom: 0 !important;
-        width: 250px !important;
-        height: 100vh !important;
-        transform: translateX(-100%) !important;
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        width: 260px !important;
+        max-height: 100vh !important;
+        max-height: 100dvh !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        -webkit-overflow-scrolling: touch !important;
+        transform: translateX(-100%);
+        box-shadow: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s ease;
         z-index: 250 !important;
-        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
-        padding: 1.25rem 0.75rem !important;
+        padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem !important;
         background: var(--bg-secondary) !important;
         border-right: 1px solid var(--border-color) !important;
         display: flex !important;
@@ -1280,6 +2052,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       .reader-sidebar.drawer-open {
         transform: translateX(0) !important;
+        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
       }
       .reader-sidebar .reader-tool-btn {
         width: 100% !important;
@@ -1300,15 +2075,35 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         display: inline-block !important;
         white-space: nowrap !important;
       }
+      .reader-sidebar .reader-sub-item {
+        height: 38px !important;
+        padding-left: 2.25rem !important;
+        font-size: 0.85rem !important;
+        color: var(--text-secondary) !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+      }
+      [dir="rtl"] .reader-sidebar .reader-sub-item {
+        padding-left: 0.85rem !important;
+        padding-right: 2.25rem !important;
+        text-align: right !important;
+      }
       .reader-sidebar .btn-back-tool {
         display: none !important;
       }
       .reader-main-scroll {
-        padding: 4rem 1rem 3rem 1rem !important;
+        padding: calc(4rem + env(safe-area-inset-top, 0px)) 1rem 3rem 1rem !important;
       }
       #readerTitle {
         font-size: 1.6rem !important;
       }
+    }
+    .ptr-spinning {
+      animation: ptrSpin 0.75s linear infinite !important;
+    }
+    @keyframes ptrSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -1341,68 +2136,156 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       <div class="auth-error-banner" id="authErrorMsg"></div>
 
-      <form id="authForm" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+      <form id="authForm" action="/login_check" method="post" name="loginform" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
+        <input type="hidden" id="username" name="_username" value="wallaflare" autocomplete="username" />
         <div class="form-group" style="text-align: left;">
-          <input type="password" id="authKeyInput" placeholder="Enter AUTH_TOKEN / Password" required autofocus>
+          <input type="password" id="authKeyInput" name="_password" placeholder="Enter AUTH_TOKEN / Password" autocomplete="current-password" required autofocus>
         </div>
         <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
       </form>
     </div>
   </div>
 
+  <!-- Pull to Refresh Spinner -->
+  <div id="pullToRefreshWrap" style="position: fixed; top: calc(56px + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -20px); z-index: 300; opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;">
+    <div id="pullToRefreshCard" style="background: var(--bg-card); border: 1.5px solid var(--border-color); box-shadow: 0 8px 25px rgba(0,0,0,0.55); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+      <svg id="pullToRefreshSvg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" style="transition: transform 0.15s ease;">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+    </div>
+  </div>
+
   <!-- Top Header -->
   <header>
-    <div style="display: flex; align-items: center; gap: 0.5rem;">
-      <!-- Mobile Left Menu Trigger Button (3 lines / hamburger) -->
-      <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-      </button>
+    <!-- Standard Nav Header Elements -->
+    <div id="standardNavHeader" style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 0.85rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <!-- Mobile Left Menu Trigger Button (3 lines / hamburger) -->
+        <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
 
-      <div class="brand" onclick="navigateTo('/')">
-        <div class="brand-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-          </svg>
+        <div class="brand" onclick="navigateTo('/')">
+          <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </div>
+          <span>${appName}</span>
+          <span class="brand-tag">Edge E-ink</span>
         </div>
-        <span>${appName}</span>
-        <span class="brand-tag">Edge E-ink</span>
+      </div>
+
+      <div class="nav-search">
+        <svg class="search-magnifier" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="handleSearchInput()">
+        <button type="button" class="search-ctrl-btn" id="searchClearBtn" onclick="clearSearchInput()" title="Clear Search" style="display: none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="search-ctrl-divider"></div>
+        <button type="button" class="search-ctrl-btn" id="cycleLayoutBtn" onclick="cycleViewMode()" title="Toggle View Layout (List / Grid / Compact)">
+          <span id="cycleLayoutIcon" style="display: flex; align-items: center; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          </span>
+        </button>
+        <div class="card-menu-wrap" style="position: relative;">
+          <button type="button" class="search-ctrl-btn" id="sortBtn" onclick="event.stopPropagation(); toggleSortMenu()" title="Sort Articles">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="4" x2="12" y2="20"></line><polyline points="18 14 12 20 6 14"></polyline><polyline points="6 10 12 4 18 10"></polyline></svg>
+          </button>
+          <div class="search-dropdown-menu card-dropdown-menu" id="sortDropdownMenu" onclick="event.stopPropagation()">
+            <button class="menu-item" id="sortOptNewest" onclick="setSortOrder('newest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span>Newest First</span></button>
+            <button class="menu-item" id="sortOptOldest" onclick="setSortOrder('oldest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg><span>Oldest First</span></button>
+            <button class="menu-item" id="sortOptShortest" onclick="setSortOrder('shortest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="12" y2="12"></line><line x1="4" y1="6" x2="8" y2="6"></line><line x1="4" y1="18" x2="16" y2="18"></line></svg><span>Shortest Read</span></button>
+            <button class="menu-item" id="sortOptLongest" onclick="setSortOrder('longest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="18" x2="12" y2="18"></line></svg><span>Longest Read</span></button>
+            <button class="menu-item" id="sortOptTitle" onclick="setSortOrder('title')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"></path><line x1="12" y1="4" x2="12" y2="20"></line></svg><span>Title (A-Z)</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn btn-primary" id="addArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL">
+          <svg id="addArticleBtnIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span id="addArticleBtnLabel">Add URL</span>
+        </button>
+
+        <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          <span>Add Text</span>
+        </button>
+
+        <button class="btn btn-secondary desktop-nav-btn" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          <span>Tags</span>
+        </button>
+
+        <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <span>KOReader</span>
+        </button>
+
+        <button class="btn-icon desktop-nav-btn" id="desktopRefreshBtn" onclick="handleDesktopRefresh(this)" title="Refresh Articles">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </button>
+
+        <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
+
+        <button class="btn-icon desktop-nav-btn" onclick="handleLogout()" title="Log Out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
       </div>
     </div>
 
-    <div class="nav-search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="filterArticles()">
-    </div>
+    <!-- Batch Selection Contextual Action Header -->
+    <div id="batchActionHeader" style="display: none; align-items: center; justify-content: space-between; width: 100%; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <button class="btn-icon" onclick="clearArticleSelection()" title="Cancel Selection" style="flex-shrink: 0;">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <span id="batchSelectedCount" style="font-weight: 700; font-size: 1.05rem; color: var(--text-primary); white-space: nowrap;">0 selected</span>
+      </div>
 
-    <div class="nav-actions">
-      <button class="btn btn-primary" onclick="openModal('addUrlModal')" title="Add URL">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>Add URL</span>
-      </button>
+      <div style="display: flex; align-items: center; gap: 0.35rem;">
+        <button class="btn-icon" onclick="batchToggleStar()" title="Toggle Star for Selected" id="batchStarBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </button>
+        <button class="btn-icon" onclick="batchToggleArchive()" title="Toggle Archive for Selected" id="batchArchiveBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+        </button>
+        <button class="btn-icon" onclick="batchManageTags()" title="Add / Manage Tags">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+        </button>
 
-      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-        <span>Add Text</span>
-      </button>
-
-      <button class="btn btn-secondary desktop-nav-btn" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-        <span>Tags</span>
-      </button>
-
-      <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-        <span>KOReader</span>
-      </button>
-
-      <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-      </button>
-
-      <button class="btn-icon desktop-nav-btn" onclick="handleLogout()" title="Log Out">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-      </button>
+        <div class="card-menu-wrap">
+          <button class="btn-icon" title="More Options" onclick="event.stopPropagation(); toggleBatchMenu()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+          </button>
+          <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
+            <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
+                        <div class="menu-item-expandable" id="batchExportWrap">
+              <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleBatchExportSubmenu()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Export</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="menu-sub-items" id="batchExportSub">
+                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchDownloadEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
+                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchExportMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
+                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchExportPdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>
+              </div>
+            </div>
+            <button class="menu-item" onclick="closeBatchMenu(); batchRefetchContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
+            <button class="menu-item" onclick="closeBatchMenu(); toggleSelectAllArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg><span id="batchMenuSelectAllLabel">Select All</span></button>
+            <div class="menu-divider"></div>
+            <button class="menu-item menu-item-danger" onclick="closeBatchMenu(); batchDeleteArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article(s)</span></button>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -1422,6 +2305,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
       <button class="action-btn" onclick="closeMobileNavMenu()" style="font-size: 1.25rem;">&times;</button>
     </div>
+    <button class="mobile-nav-item" id="serverSettingsBtn" onclick="openServerConnectModal(); closeMobileNavMenu();" style="color: var(--accent); display: none;">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <span>Server Settings</span>
+    </button>
     <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
       <span>Manage Tags</span>
@@ -1435,7 +2322,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <span>KOReader Sync</span>
     </button>
     <div class="mobile-nav-divider"></div>
-    <button class="mobile-nav-item" onclick="toggleTheme(); closeMobileNavMenu();">
+    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); padding: 0.4rem 0.75rem 0.2rem 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">View Layout</div>
+    <div style="display: flex; gap: 0.4rem; padding: 0.2rem 0.75rem 0.6rem 0.75rem;">
+      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('list'); closeMobileNavMenu();">List</button>
+      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('grid'); closeMobileNavMenu();">Grid</button>
+      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('compact'); closeMobileNavMenu();">Compact</button>
+    </div>
+    <div class="mobile-nav-divider"></div>
+    <button class="mobile-nav-item" onclick="toggleTheme();">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       <span>Toggle Theme</span>
     </button>
@@ -1443,6 +2337,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
       <span>Log Out</span>
     </button>
+    <div style="margin-top: auto; padding: 1.25rem 0.75rem 0.75rem 0.75rem; font-size: 0.72rem; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border-color);">
+      <span id="mobileVersionLabel">Wallaflare v1.0.0</span>
+    </div>
   </div>
 
   <!-- Main Content -->
@@ -1467,9 +2364,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </button>
       </div>
 
-      <div style="font-size: 0.8rem; color: var(--text-muted);" id="statusIndicator">
-        Syncing...
-      </div>
     </div>
 
     <!-- Article Grid -->
@@ -1486,7 +2380,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </div>
     </div>
 
-    <div class="articles-grid" id="articlesGrid"></div>
+    <div class="articles-grid" id="articlesGrid">
+      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:32%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:88%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:60%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:55px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:42px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
+      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:38%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:92%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:50%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:60px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:38px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
+      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:28%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:84%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:68%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:50px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:48px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
+    </div>
 
     <!-- Empty State -->
     <div class="empty-state" id="emptyState" style="display: none;">
@@ -1494,7 +2392,56 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <h3>No articles found</h3>
       <p>Add a URL or text using the buttons in the top navbar.</p>
     </div>
+
+
   </main>
+
+
+
+  <!-- Modal: Confirmation Dialog -->
+  <div class="modal-backdrop" id="confirmModal" style="z-index: 9999 !important;">
+    <div class="modal" style="max-width: 440px; text-align: left;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="confirmModalTitle">Confirm Action</h3>
+        <button class="close-btn" onclick="handleConfirmModalCancel()">&times;</button>
+      </div>
+      <div id="confirmModalMsg" style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5; margin: 1rem 0 1.25rem 0; white-space: pre-line;"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button type="button" class="btn btn-secondary" onclick="handleConfirmModalCancel()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmModalBtn" onclick="handleConfirmModalOk()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server Connection Modal (for Android Capacitor App) -->
+  <div class="modal-backdrop" id="serverConnectModal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Connect to Wallaflare Server</h3>
+        <button class="close-btn" onclick="closeModal('serverConnectModal')">&times;</button>
+      </div>
+      <form onsubmit="handleSaveServerConnection(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
+        <div class="form-group">
+          <label for="serverUrlInput">Wallaflare Server URL *</label>
+          <input type="url" id="serverUrlInput" placeholder="https://wallaflare.example.com" required>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Enter your Cloudflare Worker URL or custom domain</div>
+        </div>
+
+        <div class="form-group">
+          <label for="serverTokenInput">API Auth Token / Password (Optional)</label>
+          <input type="password" id="serverTokenInput" placeholder="Your AUTH_TOKEN if configured">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('serverConnectModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveServerBtn">Connect &amp; Sync</button>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.75rem;">
+          Wallaflare v1.0.0 (Capacitor Android &bull; Auto-OTA Enabled)
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Modal: Add URL -->
   <div class="modal-backdrop" id="addUrlModal">
@@ -1596,42 +2543,63 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
   <!-- Modal: KOReader / Wallabag Sync -->
   <div class="modal-backdrop" id="syncModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 500px;">
       <div class="modal-header">
-        <h3 class="modal-title">Sync with KOReader &amp; Wallabag Apps</h3>
+        <h3 class="modal-title">KOReader &amp; Client Setup</h3>
         <button class="close-btn" onclick="closeModal('syncModal')">&times;</button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.875rem;">
-        <p>Wallaflare is a 100% compatible drop-in replacement for the <strong>Wallabag v2 API</strong>. Connect your e-reader or mobile app using these parameters:</p>
+      <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.875rem;">
+        <p style="color: var(--text-secondary);">Enter these 5 parameters into the <strong>KOReader Wallabag Plugin</strong> (or third-party clients):</p>
         
         <div>
-          <label style="font-weight: 600; color: var(--text-secondary);">Server URL</label>
-          <div class="code-box" id="syncServerUrl"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">1. Server URL</label>
+            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copySyncValue('syncServerUrl', this)">Copy</button>
+          </div>
+          <div class="code-box" id="syncServerUrl" style="word-break: break-all;"></div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div>
-            <label style="font-weight: 600; color: var(--text-secondary);">Client ID / Username</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+              <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">2. Client ID</label>
+              <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+            </div>
             <div class="code-box">wallaflare</div>
           </div>
           <div>
-            <label style="font-weight: 600; color: var(--text-secondary);">Client Secret / Password</label>
-            <div class="code-box" id="syncClientSecretDisplay">Your AUTH_TOKEN / Password</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+              <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">4. Username</label>
+              <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+            </div>
+            <div class="code-box">wallaflare</div>
           </div>
         </div>
 
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">3. Client Secret</label>
+            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+          </div>
+          <div class="code-box" id="syncClientSecretDisplay">wallaflare</div>
+        </div>
+
+        <div>
+          <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">5. Password</label>
+          <div class="code-box" style="color: var(--text-muted);">Your private AUTH_TOKEN password</div>
+        </div>
+
         <div style="background: var(--bg-primary); border-radius: var(--radius-sm); padding: 0.75rem; border: 1px solid var(--border-color);">
-          <strong style="color: var(--accent);">KOReader Setup:</strong>
+          <strong style="color: var(--accent);">KOReader Steps:</strong>
           <ol style="margin-left: 1.25rem; margin-top: 0.4rem; line-height: 1.6; color: var(--text-secondary);">
-            <li>Open KOReader on your Kindle/Kobo/Android device.</li>
-            <li>Go to <strong>Search / Tools &gt; Wallabag</strong> plugin.</li>
-            <li>Enter the Server URL and credentials above.</li>
-            <li>KOReader will automatically sync and download high-quality EPUBs!</li>
+            <li>On your e-reader, open <strong>Search / Tools &gt; Wallabag</strong>.</li>
+            <li>Enter the 5 values above.</li>
+            <li>Tap <strong>Sync now</strong> to sync and download your articles as EPUBs!</li>
           </ol>
         </div>
       </div>
       <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
-        <button class="btn btn-primary" onclick="closeModal('syncModal')">Got it</button>
+        <button class="btn btn-primary" onclick="closeModal('syncModal')">Done</button>
       </div>
     </div>
   </div>
@@ -1640,6 +2608,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
        READER VIEW: Top Bar for Mobile & Full-Height Sidebar for Desktop
        ------------------------------------------------------------- -->
   <div class="reader-view" id="readerView">
+    <!-- Black status bar / camera punch hole shield -->
+    <div class="reader-notch-shield"></div>
+
     <!-- Mobile Top Action Bar -->
     <div class="reader-mobile-bar">
       <div class="reader-mobile-bar-group">
@@ -1687,10 +2658,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <span class="btn-label">Tags</span>
         </button>
 
-        <button class="reader-tool-btn" onclick="downloadActiveEpub(); closeMobileReaderDrawer();" title="Download EPUB">
+                <button class="reader-tool-btn" id="readerExportBtn" onclick="toggleReaderExportMenu(event)" title="Export Article (EPUB, Markdown, PDF)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span class="btn-label">EPUB</span>
+          <span class="btn-label">Export</span>
+          <svg class="chevron-icon" id="readerExportChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
+
+        <div class="reader-sub-menu" id="readerExportSubMenu">
+          <button class="reader-sub-item" onclick="downloadActiveEpub(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
+          <button class="reader-sub-item" onclick="exportActiveMarkdown(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
+          <button class="reader-sub-item" onclick="exportActivePdf(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg><span>PDF (.pdf)</span></button>
+        </div>
 
         <button class="reader-tool-btn" id="readerRefetchBtn" onclick="refetchActiveArticleContent(); closeMobileReaderDrawer();" title="Re-fetch Content from Source URL">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
@@ -1729,7 +2707,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </aside>
 
     <!-- Main Content Reader Scroll Area -->
-    <section class="reader-main-scroll" id="readerScrollContainer" onscroll="updateReadingProgress()">
+    <section class="reader-main-scroll" id="readerScrollContainer" onscroll="handleReaderScroll()">
       <div class="reader-content-wrap">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
           <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin: 0; flex: 1;"></h1>
@@ -1749,16 +2727,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <!-- Card Menu Click-Away Backdrop -->
   <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 95; display: none;" onclick="closeAllCardMenus()"></div>
 
-  <!-- Article Tag Management Modal -->
+  <!-- Article Tag Management Modal (Unified Single & Multi-Select) -->
   <div class="tag-modal-overlay" id="tagModal" onclick="if(event.target === this) closeTagModal()">
     <div class="tag-modal">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <h3 style="font-size: 1.15rem; font-weight: 600; margin: 0;">Article Tags</h3>
+        <h3 style="font-size: 1.15rem; font-weight: 600; margin: 0;" id="tagModalHeaderTitle">Manage Tags</h3>
         <button class="action-btn" onclick="closeTagModal()">&times;</button>
       </div>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="tagModalArticleTitle"></p>
       
-      <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Current Tags:</div>
+      <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;" id="tagModalCurrentTagsLabel">Applied Tags:</div>
       <div class="card-tags" id="tagModalCurrentTags" style="margin-bottom: 1.25rem;"></div>
       
       <form onsubmit="event.preventDefault(); submitAddTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
@@ -1767,9 +2745,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </form>
 
       <div id="quickTagsSection" style="display: none;">
-        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Add Existing Tags:</div>
+        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Add Library Tags:</div>
         <div class="card-tags" id="tagModalAvailableTags"></div>
       </div>
+    </div>
+  </div>
     </div>
   </div>
 
@@ -1783,6 +2763,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </div>
         <button class="action-btn" onclick="closeGlobalTagModal()">&times;</button>
       </div>
+
+      <form onsubmit="event.preventDefault(); submitCreateGlobalTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <input type="text" id="newGlobalTagInput" class="input" placeholder="Create new tag (e.g. tech, research)..." style="flex: 1;" />
+        <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; white-space: nowrap;">Create Tag</button>
+      </form>
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <span id="globalTagCountLabel" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
@@ -1801,6 +2786,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <script>
+    ${clientEpubJs}
     function isRtlText(text) {
       return /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text || '');
     }
@@ -1810,6 +2796,52 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     let currentReaderFontSize = 18;
     let readerFontFamily = 'serif';
     let activeArticleId = null;
+
+    
+    async function loadClientInfo() {
+      const secretDisplay = document.getElementById('syncClientSecretDisplay');
+      const serverUrlDisplay = document.getElementById('syncServerUrl');
+      if (serverUrlDisplay) serverUrlDisplay.textContent = window.location.origin;
+
+      try {
+        const res = await authFetch('/api/client-info');
+        if (res.ok) {
+          const data = await res.json();
+          if (secretDisplay && data.client_secret) {
+            secretDisplay.textContent = data.client_secret;
+          }
+        }
+      } catch (err) {
+        if (secretDisplay) secretDisplay.textContent = 'wallaflare_client_secret';
+      }
+    }
+
+    function copyDirectText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.style.borderColor = 'var(--success)';
+          btn.style.color = 'var(--success)';
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.borderColor = '';
+            btn.style.color = '';
+          }, 1500);
+        }
+        showToast('Copied to clipboard');
+      }).catch(() => {
+        showToast('Failed to copy');
+      });
+    }
+
+    function copySyncValue(elementId, btn) {
+      const el = document.getElementById(elementId);
+      const text = el ? el.textContent.trim() : '';
+      if (text && text !== 'Loading...') {
+        copyDirectText(text, btn);
+      }
+    }
 
     document.getElementById('syncServerUrl').textContent = window.location.origin;
 
@@ -1825,18 +2857,59 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    function authFetch(url, options = {}) {
+    function isCapacitorApp() {
+      return window.IS_CAPACITOR_APP === true ||
+             window.location.hostname === 'localhost' ||
+             window.location.hostname === '127.0.0.1' ||
+             window.location.protocol === 'capacitor:' || 
+             (typeof window.Capacitor !== 'undefined');
+    }
+
+    function getApiBaseUrl() {
+      if (isCapacitorApp()) {
+        const customUrl = localStorage.getItem('wf_server_url') || '';
+        return customUrl.endsWith('/') ? customUrl.slice(0, -1) : customUrl;
+      }
+      return '';
+    }
+
+    async function authFetch(url, options = {}) {
+      const baseUrl = getApiBaseUrl();
+      const fullUrl = url.startsWith('http') ? url : (baseUrl + url);
       const headers = Object.assign({}, options.headers || {});
       const token = getAuthToken();
       if (token) {
         headers['Authorization'] = 'Bearer ' + token;
       }
-      return fetch(url, Object.assign({}, options, { headers }));
+      const response = await fetch(fullUrl, Object.assign({}, options, { headers }));
+
+      if (isCapacitorApp() && response.headers) {
+        const serverVer = response.headers.get('x-wallaflare-web-version');
+        const minNative = response.headers.get('x-wallaflare-min-native');
+        if (serverVer) {
+          checkOtaFromVersionHeader(serverVer, minNative);
+        }
+      }
+
+      return response;
     }
 
     
+    function clearActiveTextSelection() {
+      try {
+        if (window.getSelection) {
+          const sel = window.getSelection();
+          if (sel && sel.removeAllRanges) {
+            sel.removeAllRanges();
+          }
+        }
+      } catch (e) {}
+    }
+
     function toggleMobileNavMenu(e) {
       if (e) e.stopPropagation();
+      clearActiveTextSelection();
+      updateVersionDisplay();
       const dropdown = document.getElementById('mobileNavDropdown');
       const backdrop = document.getElementById('mobileNavBackdrop');
       if (dropdown && backdrop) {
@@ -1863,9 +2936,28 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     });
 
-    function handleLogout() {
-      if (confirm('Are you sure you want to log out of Wallaflare?')) {
+    async function handleLogout() {
+      const currentWebVer = getAppWebVersion();
+      const ok = await showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?\\n\\nWallaflare v1.0.0 (Web: ' + currentWebVer + ')', 'Log Out', true);
+      if (!ok) return;
+
+      try {
+        await fetch('/logout', { method: 'GET', credentials: 'include' });
+      } catch {}
+      try {
+        document.cookie = 'PHPSESSID=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;';
+      } catch {}
+      if (isCapacitorApp()) {
         setAuthToken('');
+        localStorage.removeItem('wf_server_url');
+        allEntries = [];
+        updateCounts();
+        filterArticles();
+        openServerConnectModal();
+        showToast('Logged out of server');
+        return;
+      }
+      setAuthToken('');
         const overlay = document.getElementById('authOverlay');
         const input = document.getElementById('authKeyInput');
         const submitBtn = document.getElementById('authSubmitBtn');
@@ -1886,7 +2978,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           overlay.style.display = 'flex';
         }
         showToast('Logged out');
-      }
     }
 
     let lockoutTimer = null;
@@ -1976,10 +3067,41 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             lockoutTimer = null;
           }
           setAuthToken(key);
+
+          try {
+            const formData = new URLSearchParams();
+            formData.append('_username', 'wallaflare');
+            formData.append('_password', key);
+            await fetch('/login_check', {
+              method: 'POST',
+              body: formData,
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              credentials: 'include'
+            });
+          } catch {}
+
+          if (window.location.pathname === '/login') {
+            history.replaceState(null, '', '/');
+          }
+
           const overlay = document.getElementById('authOverlay');
           if (overlay) overlay.style.display = 'none';
           showToast('Unlocked successfully');
-          loadArticles();
+          
+    function getAppWebVersion() {
+      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+    }
+
+    function updateVersionDisplay() {
+      const ver = getAppWebVersion();
+      const label = document.getElementById('mobileVersionLabel');
+      if (label) {
+        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      }
+    }
+
+    updateVersionDisplay();
+    loadArticles();
           return;
         }
 
@@ -2020,11 +3142,107 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         document.getElementById('searchInput').focus();
       }
       if (e.key === 'Escape') {
-        closeModal('addUrlModal');
-        closeModal('addTextModal');
-        closeModal('syncModal');
+        // 1. Highest priority: Confirmation Dialog (Log out, Delete, Re-fetch, etc.)
+        const confirmModal = document.getElementById('confirmModal');
+        if (confirmModal && confirmModal.classList.contains('open')) {
+          e.preventDefault();
+          handleConfirmModalCancel();
+          return;
+        }
+
+        // 2. Open Menus and Drawers
+        const openCardMenu = document.querySelector('.card-dropdown-menu.open');
+        if (openCardMenu) {
+          e.preventDefault();
+          closeAllCardMenus();
+          return;
+        }
+        const mobileNav = document.getElementById('mobileNavDropdown');
+        if (mobileNav && mobileNav.classList.contains('open')) {
+          e.preventDefault();
+          closeMobileNavMenu();
+          return;
+        }
+        const readerSidebar = document.getElementById('readerSidebar');
+        if (readerSidebar && readerSidebar.classList.contains('drawer-open')) {
+          e.preventDefault();
+          closeMobileReaderDrawer();
+          return;
+        }
+
+        // 3. Open Dialogs & Modals (Close modal while keeping selection / reader intact)
+        const tagModal = document.getElementById('tagModal');
+        if (tagModal && tagModal.classList.contains('open')) {
+          e.preventDefault();
+          closeTagModal();
+          return;
+        }
+        const globalTagModal = document.getElementById('globalTagModal');
+        if (globalTagModal && globalTagModal.classList.contains('open')) {
+          e.preventDefault();
+          closeGlobalTagModal();
+          return;
+        }
+        const editTitleModal = document.getElementById('editTitleModal');
+        if (editTitleModal && editTitleModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('editTitleModal');
+          return;
+        }
+        const addUrlModal = document.getElementById('addUrlModal');
+        if (addUrlModal && addUrlModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('addUrlModal');
+          return;
+        }
+        const addTextModal = document.getElementById('addTextModal');
+        if (addTextModal && addTextModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('addTextModal');
+          return;
+        }
+        const syncModal = document.getElementById('syncModal');
+        if (syncModal && syncModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('syncModal');
+          return;
+        }
+        const serverConnectModal = document.getElementById('serverConnectModal');
+        if (serverConnectModal && serverConnectModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('serverConnectModal');
+          return;
+        }
+
+        // 4. Reader View (Back to Dashboard)
         if (activeArticleId) {
+          e.preventDefault();
           handleReaderBack();
+          return;
+        }
+
+        // 5. Selection Mode (Clear Selection)
+        if (isSelectionMode()) {
+          e.preventDefault();
+          clearArticleSelection();
+          return;
+        }
+      }
+
+      // Desktop Delete / Backspace key shortcut to delete selected article(s)
+      if ((e.key === 'Delete' || e.key === 'Backspace') &&
+          document.activeElement.tagName !== 'INPUT' &&
+          document.activeElement.tagName !== 'TEXTAREA' &&
+          !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open, .confirm-modal-backdrop.open');
+        if (modalOpen) return;
+
+        if (isSelectionMode() && selectedArticleIds.size > 0) {
+          e.preventDefault();
+          batchDeleteArticles();
+        } else if (activeArticleId) {
+          e.preventDefault();
+          deleteEntryAction(activeArticleId);
         }
       }
     });
@@ -2065,8 +3283,111 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       handleRouteState();
     }
 
-    async function loadArticles() {
-      document.getElementById('statusIndicator').textContent = 'Syncing...';
+
+    window.prependSavedArticles = function(articles) {
+      if (!articles) return;
+      const list = Array.isArray(articles) ? articles : [articles];
+      if (list.length === 0) return;
+      let changed = false;
+      for (const article of list) {
+        if (!article || !article.id) continue;
+        const existingIdx = allEntries.findIndex(e => e.id === article.id);
+        if (existingIdx >= 0) {
+          allEntries[existingIdx] = article;
+        } else {
+          allEntries.unshift(article);
+        }
+        changed = true;
+      }
+      if (changed) {
+        try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
+        saveArticlesToOfflineDb(allEntries);
+        updateCounts();
+        filterArticles();
+      }
+    };
+    window.prependSavedArticle = window.prependSavedArticles;
+
+    function checkNativePendingSavedArticles() {
+      if (window.AndroidNative && (window.AndroidNative.pollPendingSavedArticles || window.AndroidNative.pollPendingSavedArticle)) {
+        try {
+          const raw = window.AndroidNative.pollPendingSavedArticles ? window.AndroidNative.pollPendingSavedArticles() : window.AndroidNative.pollPendingSavedArticle();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed) {
+              window.prependSavedArticles(parsed);
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+
+    function renderSkeletonCards() {
+      const grid = document.getElementById("articlesGrid");
+      const empty = document.getElementById("emptyState");
+      if (!grid || allEntries.length > 0) return;
+      if (empty) empty.style.display = "none";
+      applyViewModeUI();
+      let html = "";
+      for (let i = 0; i < 3; i++) {
+        html += '<div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:32%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:88%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:60%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:55px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:42px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>';
+      }
+      grid.innerHTML = html;
+    }
+
+    function renderFromInstantLocalCache() {
+      try {
+        const fast = localStorage.getItem('wf_cached_articles');
+        if (fast) {
+          const parsed = JSON.parse(fast);
+          if (Array.isArray(parsed) && parsed.length > 0 && allEntries.length === 0) {
+            allEntries = parsed;
+            updateCounts();
+            filterArticles();
+            const status = document.getElementById('statusIndicator');
+            if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
+          }
+        }
+      } catch (err) {
+        console.warn('Local cache read error', err);
+      }
+    }
+
+    let isLoadingArticles = false;
+    async function loadArticles(silent = false) {
+      if (isLoadingArticles) return;
+      isLoadingArticles = true;
+      if (isCapacitorApp()) {
+        const settingsBtn = document.getElementById('serverSettingsBtn');
+        if (settingsBtn) settingsBtn.style.display = 'flex';
+
+        if (!localStorage.getItem('wf_server_url')) {
+          openServerConnectModal();
+          return;
+        }
+      }
+
+      // 1. Instant 0ms cache rendering
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) updateOfflineUI(true);
+    renderFromInstantLocalCache();
+      if (allEntries.length === 0) {
+        const cached = await getArticlesFromOfflineDb();
+        if (cached && cached.length > 0 && allEntries.length === 0) {
+          allEntries = cached;
+          updateCounts();
+          filterArticles();
+          const status = document.getElementById('statusIndicator');
+          if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
+        }
+      }
+
+      if (!silent && allEntries.length === 0) {
+        const status = document.getElementById('statusIndicator');
+        if (status) status.textContent = 'Syncing...';
+      }
+
+      // 2. Background Revalidation from Server
       try {
         const res = await authFetch('/api/entries.json?perPage=100');
         if (res.status === 401) {
@@ -2075,18 +3396,322 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           return;
         }
         document.getElementById('authOverlay').style.display = 'none';
+        updateOfflineUI(false);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allEntries = data._embedded ? data._embedded.items : [];
+        
+        // Save to both instant synchronous cache and IndexedDB
+        try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
+        saveArticlesToOfflineDb(allEntries);
+        
         updateCounts();
         filterArticles();
-        document.getElementById('statusIndicator').textContent = allEntries.length + ' articles';
-        
-        // Initial URL route check
+        const status = document.getElementById('statusIndicator');
+        if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
         handleRouteState();
       } catch (err) {
-        document.getElementById('statusIndicator').textContent = 'Error loading library';
-        showToast('Failed to load articles: ' + err.message);
+        console.warn('Server sync error', err);
+        if (allEntries.length === 0) {
+          const cached = await getArticlesFromOfflineDb();
+          if (cached && cached.length > 0) {
+            allEntries = cached;
+            updateCounts();
+            filterArticles();
+          }
+        }
+        handleConnectionFailure(silent);
+      } finally {
+        isLoadingArticles = false;
+        hidePullToRefreshSpinner();
+      }
+    }
+
+        // -------------------------------------------------------------
+    // Multi-Selection State & Batch Actions
+    // -------------------------------------------------------------
+    const selectedArticleIds = new Set();
+    let justTriggeredLongPress = false;
+
+    function isSelectionMode() {
+      return selectedArticleIds.size > 0;
+    }
+
+    function updateSelectionModeUI() {
+      const isSel = selectedArticleIds.size > 0;
+      document.body.classList.toggle('selection-mode-active', isSel);
+
+      const navHeader = document.getElementById('standardNavHeader');
+      const batchHeader = document.getElementById('batchActionHeader');
+      const countEl = document.getElementById('batchSelectedCount');
+      const selectAllBtn = document.getElementById('batchSelectAllBtn');
+
+      if (isSel) {
+        if (navHeader) navHeader.style.display = 'none';
+        if (batchHeader) batchHeader.style.display = 'flex';
+        if (countEl) countEl.textContent = selectedArticleIds.size + ' selected';
+
+        // Update select all button text
+        const currentArticles = getCurrentlyFilteredEntries();
+        if (selectAllBtn) {
+          const allSelected = currentArticles.length > 0 && currentArticles.every(e => selectedArticleIds.has(e.id));
+          selectAllBtn.textContent = allSelected ? 'Deselect All' : 'Select All';
+        }
+      } else {
+        if (navHeader) navHeader.style.display = 'flex';
+        if (batchHeader) batchHeader.style.display = 'none';
+      }
+
+      // Update card visual checkmarks and borders
+      document.querySelectorAll('.article-card').forEach(card => {
+        const id = parseInt(card.dataset.id, 10);
+        const isChecked = selectedArticleIds.has(id);
+        card.classList.toggle('is-selected', isChecked);
+        const checkEl = card.querySelector('.card-checkbox');
+        if (checkEl) checkEl.classList.toggle('checked', isChecked);
+      });
+    }
+
+    function toggleArticleSelection(id, forceSelect = false) {
+      if (forceSelect) {
+        selectedArticleIds.add(id);
+      } else if (selectedArticleIds.has(id)) {
+        selectedArticleIds.delete(id);
+      } else {
+        selectedArticleIds.add(id);
+      }
+      updateSelectionModeUI();
+    }
+
+    
+    function toggleBatchMenu() {
+      const menu = document.getElementById('batchDropdownMenu');
+      if (menu) {
+        const isOpen = menu.classList.contains('open');
+        closeAllCardMenus();
+        if (!isOpen) {
+          menu.classList.add('open');
+          const editBtn = document.getElementById('batchEditTitleBtn');
+          if (editBtn) {
+            editBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
+          }
+          const downloadBtn = document.getElementById('batchDownloadEpubBtn');
+          if (downloadBtn) {
+            downloadBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
+          }
+          const selectAllLabel = document.getElementById('batchMenuSelectAllLabel');
+          const current = getCurrentlyFilteredEntries();
+          const allSelected = current.length > 0 && current.every(e => selectedArticleIds.has(e.id));
+          if (selectAllLabel) {
+            selectAllLabel.textContent = allSelected ? 'Deselect All' : 'Select All';
+          }
+        }
+      }
+    }
+
+    function closeBatchMenu() {
+      const menu = document.getElementById('batchDropdownMenu');
+      if (menu) menu.classList.remove('open');
+    }
+
+    function batchEditTitle() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      openEditTitleModal(id);
+      clearArticleSelection();
+    }
+
+    function batchDownloadEpub() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      downloadEpub(id);
+      clearArticleSelection();
+    }
+
+    async function batchRefetchContent() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const urlItems = ids.map(id => allEntries.find(e => e.id === id)).filter(it => it && it.url && it.domain_name !== 'direct-input');
+      if (urlItems.length === 0) {
+        showToast('Selected articles are custom text or have no original URL');
+        return;
+      }
+
+      const ok = await showConfirmDialog(
+        'Re-fetch Selected Articles',
+        'Re-fetch ' + urlItems.length + ' selected article(s) from their original source URLs?\\n\\nThis will download the latest content and preview images from the live sites.',
+        'Re-fetch (' + urlItems.length + ')',
+        false
+      );
+      if (!ok) return;
+
+      showToast('Re-fetching ' + urlItems.length + ' article(s)...');
+      for (const item of urlItems) {
+        await refetchArticleContent(item.id, true);
+      }
+      clearArticleSelection();
+    }
+
+    function clearArticleSelection() {
+      selectedArticleIds.clear();
+      updateSelectionModeUI();
+    }
+
+    function getCurrentlyFilteredEntries() {
+      const search = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim().toLowerCase();
+      let filtered = allEntries;
+
+      if (currentFilter === 'unread') {
+        filtered = filtered.filter(e => !e.is_archived);
+      } else if (currentFilter === 'starred') {
+        filtered = filtered.filter(e => e.is_starred);
+      } else if (currentFilter === 'archive') {
+        filtered = filtered.filter(e => e.is_archived);
+      }
+
+      if (selectedTagFilter) {
+        const filterLower = selectedTagFilter.toLowerCase().trim();
+        filtered = filtered.filter(e => {
+          const tags = Array.isArray(e.tags) ? e.tags : [];
+          return tags.some(t => 
+            (t.slug && t.slug.toLowerCase() === filterLower) || 
+            (t.label && t.label.toLowerCase() === filterLower)
+          );
+        });
+      }
+
+      if (search) {
+        filtered = filtered.filter(e =>
+          (e.title && e.title.toLowerCase().includes(search)) ||
+          (e.domain_name && e.domain_name.toLowerCase().includes(search)) ||
+          (e.text && e.text.toLowerCase().includes(search))
+        );
+      }
+      return filtered;
+    }
+
+    function toggleSelectAllArticles() {
+      const current = getCurrentlyFilteredEntries();
+      const allSelected = current.length > 0 && current.every(e => selectedArticleIds.has(e.id));
+      if (allSelected) {
+        clearArticleSelection();
+      } else {
+        current.forEach(e => selectedArticleIds.add(e.id));
+        updateSelectionModeUI();
+      }
+    }
+
+    async function batchToggleStar() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const allStarred = ids.every(id => {
+        const item = allEntries.find(e => e.id === id);
+        return item && item.is_starred;
+      });
+      const newStarState = !allStarred;
+
+      showToast((newStarState ? 'Starring ' : 'Unstarring ') + ids.length + ' articles...');
+      ids.forEach(id => {
+        const item = allEntries.find(e => e.id === id);
+        if (item) item.is_starred = newStarState ? 1 : 0;
+      });
+      syncLocalEntriesCache(allEntries);
+      updateCounts();
+      filterArticles();
+      clearArticleSelection();
+
+      // Single Atomic Batch HTTP Request
+      authFetch('/api/entries/list.json', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, starred: newStarState ? 1 : 0 })
+      }).then(() => {
+        showToast((newStarState ? 'Starred ' : 'Unstarred ') + ids.length + ' articles');
+      }).catch(err => {
+        console.error('Batch star error', err);
+        showToast('Failed to update articles on server');
+      });
+    }
+
+    async function batchToggleArchive() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const allArchived = ids.every(id => {
+        const item = allEntries.find(e => e.id === id);
+        return item && item.is_archived;
+      });
+      const newArchiveState = !allArchived;
+
+      showToast((newArchiveState ? 'Archiving ' : 'Restoring ') + ids.length + ' articles...');
+      ids.forEach(id => {
+        const item = allEntries.find(e => e.id === id);
+        if (item) item.is_archived = newArchiveState ? 1 : 0;
+      });
+      syncLocalEntriesCache(allEntries);
+      updateCounts();
+      filterArticles();
+      clearArticleSelection();
+
+      // Single Atomic Batch HTTP Request
+      authFetch('/api/entries/list.json', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, archive: newArchiveState ? 1 : 0 })
+      }).then(() => {
+        showToast((newArchiveState ? 'Archived ' : 'Restored ') + ids.length + ' articles');
+      }).catch(err => {
+        console.error('Batch archive error', err);
+        showToast('Failed to update articles on server');
+      });
+    }
+
+    async function batchDeleteArticles() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to permanently delete ' + ids.length + ' selected article(s)?', 'Delete (' + ids.length + ')', true);
+      if (!ok) return;
+
+      showToast('Deleting ' + ids.length + ' articles...');
+      allEntries = allEntries.filter(e => !ids.includes(e.id));
+      syncLocalEntriesCache(allEntries);
+      updateCounts();
+      filterArticles();
+      clearArticleSelection();
+
+      // Single Atomic Batch Delete Request
+      authFetch('/api/entries/list.json', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      }).then(() => {
+        showToast('Deleted ' + ids.length + ' articles');
+      }).catch(err => {
+        console.error('Batch delete error', err);
+        showToast('Failed to delete articles on server');
+      });
+    }
+
+    function batchManageTags() {
+      if (selectedArticleIds.size === 0) return;
+      openTagModal(selectedArticleIds);
+    }
+
+    function handleCardClick(e, id) {
+      if (justTriggeredLongPress) return;
+      // If clicked on interactive sub-elements (links, dropdown menu, buttons)
+      if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap')) return;
+
+      // Ctrl+Click / Cmd+Click / Shift+Click on desktop immediately enters/toggles selection mode
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
+        toggleArticleSelection(id);
+        return;
+      }
+
+      if (isSelectionMode()) {
+        toggleArticleSelection(id);
+      } else {
+        openReader(id);
       }
     }
 
@@ -2119,15 +3744,41 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     
     
-    let selectedTagFilter = null;
-    let tagModalEntryId = null;
     let cachedGlobalTags = [];
+    try {
+      const savedTags = localStorage.getItem('wf_cached_tags');
+      if (savedTags) cachedGlobalTags = JSON.parse(savedTags);
+    } catch (e) {}
+
+    let selectedTagFilter = null;
+    let activeTagModalIds = [];
+
+    function getEffectiveGlobalTags() {
+      const map = new Map();
+      (cachedGlobalTags || []).forEach(t => {
+        const key = (t.label || t.slug || '').toLowerCase().trim();
+        if (key) map.set(key, t);
+      });
+      // Merge with tags from currently loaded articles
+      (allEntries || []).forEach(entry => {
+        (entry.tags || []).forEach(t => {
+          const key = (t.label || t.slug || '').toLowerCase().trim();
+          if (key && !map.has(key)) {
+            map.set(key, { id: t.id || Date.now(), label: t.label, slug: t.slug || key, entry_count: 1 });
+          }
+        });
+      });
+      return Array.from(map.values());
+    }
 
     async function loadGlobalTags() {
       try {
-        const res = await authFetch('/api/tags.json');
+        const res = await authFetch('/api/tags.json?_t=' + Date.now(), { cache: 'no-cache' });
         if (res.ok) {
           cachedGlobalTags = await res.json();
+          try {
+            localStorage.setItem('wf_cached_tags', JSON.stringify(cachedGlobalTags));
+          } catch (e) {}
         }
       } catch (e) {
         console.error('Failed to load tags', e);
@@ -2144,107 +3795,196 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       filterArticles();
     }
 
-    async function openTagModal(id) {
-      const item = allEntries.find(e => e.id === id);
-      if (!item) return;
-      tagModalEntryId = id;
-      document.getElementById('tagModalArticleTitle').textContent = item.title;
-      await loadGlobalTags();
-      renderModalTags(item.tags || []);
+    function openTagModal(target) {
+      if (typeof target === 'number') {
+        activeTagModalIds = [target];
+      } else if (Array.isArray(target)) {
+        activeTagModalIds = [...target];
+      } else if (target instanceof Set) {
+        activeTagModalIds = Array.from(target);
+      } else if (selectedArticleIds.size > 0) {
+        activeTagModalIds = Array.from(selectedArticleIds);
+      } else if (activeArticleId) {
+        activeTagModalIds = [activeArticleId];
+      } else {
+        return;
+      }
+
+      if (activeTagModalIds.length === 0) return;
+
+      const headerTitle = document.getElementById('tagModalHeaderTitle');
+      const articleTitle = document.getElementById('tagModalArticleTitle');
+
+      if (activeTagModalIds.length === 1) {
+        const item = allEntries.find(e => e.id === activeTagModalIds[0]);
+        if (headerTitle) headerTitle.textContent = 'Manage Tags';
+        if (articleTitle) articleTitle.textContent = item ? (item.title || 'Selected Article') : 'Selected Article';
+      } else {
+        if (headerTitle) headerTitle.textContent = 'Manage Tags (' + activeTagModalIds.length + ' articles)';
+        if (articleTitle) articleTitle.textContent = activeTagModalIds.length + ' articles selected for batch tagging';
+      }
+
+      // Render instantly from local cache (0ms delay)
+      renderTagModalUI();
       document.getElementById('tagModal').classList.add('open');
-      setTimeout(() => document.getElementById('newTagInput').focus(), 100);
+      setTimeout(() => document.getElementById('newTagInput').focus(), 50);
+
+      // Silently refresh global tags in the background without blocking
+      loadGlobalTags().then(() => renderTagModalUI()).catch(() => {});
     }
 
     function closeTagModal() {
-      tagModalEntryId = null;
+      activeTagModalIds = [];
       document.getElementById('tagModal').classList.remove('open');
       document.getElementById('newTagInput').value = '';
     }
 
-    function renderModalTags(tags) {
+    function renderTagModalUI() {
+      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
       const currentContainer = document.getElementById('tagModalCurrentTags');
-      if (!tags || tags.length === 0) {
-        currentContainer.innerHTML = '<span style="font-size: 0.82rem; color: var(--text-muted);">No tags attached to this article.</span>';
-      } else {
-        currentContainer.innerHTML = tags.map(t => 
-          '<span class="tag-badge">#' + escapeHtml(t.label) + 
-          '<span class="tag-remove-btn" title="Remove tag" onclick="removeTagAction(' + t.id + ')">&times;</span></span>'
-        ).join('');
-      }
-
-      // Quick add available tags
-      const currentTagIds = new Set((tags || []).map(t => t.id));
-      const currentTagSlugs = new Set((tags || []).map(t => t.slug.toLowerCase()));
-      const available = cachedGlobalTags.filter(t => !currentTagIds.has(t.id) && !currentTagSlugs.has(t.slug.toLowerCase()));
-
       const availableSection = document.getElementById('quickTagsSection');
       const availableContainer = document.getElementById('tagModalAvailableTags');
 
+      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
+      if (items.length === 0) return;
+
+      // Count tag occurrences across all selected items
+      const tagStats = new Map(); // key: label.toLowerCase() -> { label, slug, count, tagIds: Map<entryId, tagId> }
+
+      items.forEach(item => {
+        const tags = Array.isArray(item.tags) ? item.tags : [];
+        tags.forEach(t => {
+          const key = (t.label || t.slug || '').toLowerCase().trim();
+          if (!key) return;
+          if (!tagStats.has(key)) {
+            tagStats.set(key, { label: t.label, slug: t.slug, count: 0, tagIdsByEntry: new Map() });
+          }
+          const stat = tagStats.get(key);
+          stat.count++;
+          stat.tagIdsByEntry.set(item.id, t.id);
+        });
+      });
+
+      const totalItems = items.length;
+      let tagsHtml = '';
+
+      if (tagStats.size === 0) {
+        tagsHtml = '<span style="font-size: 0.82rem; color: var(--text-muted);">' + 
+          (totalItems === 1 ? 'No tags applied to this article.' : 'No tags applied to the selected articles.') + 
+          '</span>';
+      } else {
+        const sortedTags = Array.from(tagStats.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+        tagsHtml = sortedTags.map(stat => {
+          if (stat.count === totalItems) {
+            // Applied to ALL selected articles
+            return '<span class="tag-badge">' +
+              '<span>#' + escapeHtml(stat.label) + '</span>' + 
+              '<span class="tag-remove-btn" title="Remove tag" data-label="' + escapeHtml(stat.label) + '" onclick="event.stopPropagation(); removeTagFromSelected(this.dataset.label)">&times;</span>' +
+            '</span>';
+          } else {
+            // Applied to SOME selected articles (partial) - Clicking anywhere applies to ALL
+            return '<span class="tag-badge tag-badge-partial" title="Click to apply #' + escapeHtml(stat.label) + ' to all selected articles" data-label="' + escapeHtml(stat.label) + '" onclick="addTagToSelected(this.dataset.label)">' +
+              '<span>#' + escapeHtml(stat.label) + ' <span style="font-size: 0.72rem; opacity: 0.8; font-weight: 600;">(' + stat.count + '/' + totalItems + ')</span></span>' +
+              '<span class="tag-remove-btn" title="Remove from selected" data-label="' + escapeHtml(stat.label) + '" onclick="event.stopPropagation(); removeTagFromSelected(this.dataset.label)">&times;</span>' +
+            '</span>';
+          }
+        }).join('');
+      }
+
+      currentContainer.innerHTML = tagsHtml;
+
+      // Available library tags that are not already on ALL selected items
+      const commonTagKeys = new Set();
+      tagStats.forEach((stat, key) => {
+        if (stat.count === totalItems) commonTagKeys.add(key);
+      });
+
+      const available = getEffectiveGlobalTags().filter(t => {
+        const key = (t.label || t.slug || '').toLowerCase().trim();
+        return key && !commonTagKeys.has(key);
+      });
+
       if (available.length > 0) {
         availableSection.style.display = 'block';
-                availableContainer.innerHTML = available.map(t => 
-          '<span class="tag-badge" style="opacity: 0.85; border-style: dashed;" data-label="' + escapeHtml(t.label) + '" onclick="quickAddTag(this.dataset.label)">+ #' + escapeHtml(t.label) + '</span>'
+        availableContainer.innerHTML = available.slice(0, 30).map(t => 
+          '<span class="tag-badge" style="opacity: 0.85; border-style: dashed; cursor: pointer;" data-label="' + escapeHtml(t.label) + '" onclick="addTagToSelected(this.dataset.label)">+ #' + escapeHtml(t.label) + '</span>'
         ).join('');
       } else {
         availableSection.style.display = 'none';
       }
     }
 
-    async function quickAddTag(label) {
-      if (!tagModalEntryId) return;
-      await addTagsToCurrentArticle(label);
-    }
-
     async function submitAddTag() {
-      if (!tagModalEntryId) return;
       const input = document.getElementById('newTagInput');
-      const val = input.value.trim();
+      const val = input ? input.value.trim() : '';
       if (!val) return;
-      await addTagsToCurrentArticle(val);
-      input.value = '';
+      await addTagToSelected(val);
+      if (input) input.value = '';
     }
 
-    async function addTagsToCurrentArticle(tagString) {
-      const res = await authFetch('/api/entries/' + tagModalEntryId + '/tags.json', {
+    async function addTagToSelected(tagString) {
+      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
+      const rawTags = tagString.split(',').map(s => s.trim()).filter(Boolean);
+      if (rawTags.length === 0) return;
+
+      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
+      if (items.length === 0) return;
+
+      // Instant local in-memory update (0ms UI latency)
+      rawTags.forEach(tagName => {
+        const cleanTag = tagName.replace(/^#/, '').trim();
+        if (!cleanTag) return;
+        items.forEach(item => {
+          item.tags = item.tags || [];
+          if (!item.tags.some(t => t.label.toLowerCase() === cleanTag.toLowerCase())) {
+            item.tags.push({ id: Date.now() + Math.floor(Math.random() * 1000), label: cleanTag, slug: cleanTag.toLowerCase() });
+          }
+        });
+      });
+
+      syncLocalEntriesCache(allEntries);
+      renderTagModalUI();
+      renderArticles(getCurrentlyFilteredEntries());
+      showToast('Tag(s) updated');
+
+      // Atomic batch server sync
+      authFetch('/api/entries/tags/lists.json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: tagString })
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        const entry = allEntries.find(e => e.id === tagModalEntryId);
-        if (entry) {
-          entry.tags = updated.tags || [];
-        }
-        await loadGlobalTags();
-        renderModalTags(entry ? entry.tags : []);
-        renderArticles(allEntries);
-        showToast('Tag updated');
-      } else {
-        showToast('Failed to add tag');
-      }
+        body: JSON.stringify({ entries: items.map(i => i.id), tags: rawTags.join(',') })
+      }).catch(err => console.error('Batch tag sync error', err));
     }
 
-    async function removeTagAction(tagId) {
-      if (!tagModalEntryId) return;
-      const res = await authFetch('/api/entries/' + tagModalEntryId + '/tags/' + tagId + '.json', {
-        method: 'DELETE'
+    async function removeTagFromSelected(tagLabel) {
+      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
+      const cleanLabel = tagLabel.toLowerCase().trim();
+      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
+      if (items.length === 0) return;
+
+      // Instant local in-memory update
+      const deleteRequests = [];
+      items.forEach(item => {
+        if (!Array.isArray(item.tags)) return;
+        const matchingTag = item.tags.find(t => (t.label || t.slug || '').toLowerCase().trim() === cleanLabel);
+        if (matchingTag) {
+          const tagId = matchingTag.id;
+          item.tags = item.tags.filter(t => t !== matchingTag);
+          deleteRequests.push({ entryId: item.id, tagId });
+        }
       });
 
-      if (res.ok) {
-        const updated = await res.json();
-        const entry = allEntries.find(e => e.id === tagModalEntryId);
-        if (entry) {
-          entry.tags = updated.tags || [];
-        }
-        await loadGlobalTags();
-        renderModalTags(entry ? entry.tags : []);
-        renderArticles(allEntries);
-        showToast('Tag removed');
-      } else {
-        showToast('Failed to remove tag');
-      }
+      syncLocalEntriesCache(allEntries);
+      renderTagModalUI();
+      renderArticles(getCurrentlyFilteredEntries());
+      showToast('Tag #' + tagLabel + ' removed');
+
+      // Parallel background server delete
+      deleteRequests.forEach(({ entryId, tagId }) => {
+        authFetch('/api/entries/' + entryId + '/tags/' + tagId + '.json', {
+          method: 'DELETE'
+        }).catch(err => console.error('Tag remove error', err));
+      });
     }
 
     // -------------------------------------------------------------
@@ -2255,10 +3995,36 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       filterByTag(slug);
     }
 
-    async function openGlobalTagManager() {
-      await loadGlobalTags();
+    async function submitCreateGlobalTag() {
+      const input = document.getElementById('newGlobalTagInput');
+      const val = input ? input.value.trim() : '';
+      if (!val) return;
+
+      try {
+        const res = await authFetch('/api/tags.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: val })
+        });
+        if (res.ok) {
+          input.value = '';
+          await loadGlobalTags();
+          renderGlobalTagList();
+          showToast('Tag #' + val + ' created');
+        } else {
+          showToast('Failed to create tag');
+        }
+      } catch (err) {
+        showToast('Error creating tag: ' + err.message);
+      }
+    }
+
+    function openGlobalTagManager() {
+      clearActiveTextSelection();
       renderGlobalTagList();
       document.getElementById('globalTagModal').classList.add('open');
+      setTimeout(() => document.getElementById('newGlobalTagInput')?.focus(), 50);
+      loadGlobalTags().then(() => renderGlobalTagList()).catch(() => {});
     }
 
     function closeGlobalTagModal() {
@@ -2268,15 +4034,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function renderGlobalTagList() {
       const container = document.getElementById('globalTagListContainer');
       const countLabel = document.getElementById('globalTagCountLabel');
+      const tags = getEffectiveGlobalTags();
       
-      countLabel.textContent = cachedGlobalTags.length + ' tags total';
+      countLabel.textContent = tags.length + ' tags total';
 
-      if (cachedGlobalTags.length === 0) {
+      if (tags.length === 0) {
         container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem 0;">No tags created yet.</div>';
         return;
       }
 
-      container.innerHTML = cachedGlobalTags.map(t => {
+      container.innerHTML = tags.map(t => {
         const count = t.entry_count || 0;
         const countText = count === 1 ? '1 article' : count + ' articles';
         return '<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">' +
@@ -2294,7 +4061,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function deleteGlobalTagAction(tagId, label, count) {
       const msg = count > 0 ? ('Are you sure you want to delete tag "#' + label + '"?\\n\\nIt is currently used on ' + count + ' article' + (count === 1 ? '' : 's') + '. Deleting it will untag them.') : ('Delete unused tag "#' + label + '"?');
 
-      if (!confirm(msg)) return;
+      const ok = await showConfirmDialog('Delete Tag', msg, 'Delete Tag', true);
+      if (!ok) return;
 
       const res = await authFetch('/api/tags/' + tagId + '.json', { method: 'DELETE' });
       if (res.ok) {
@@ -2304,6 +4072,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             entry.tags = entry.tags.filter(t => t.id !== tagId);
           }
         }
+        syncLocalEntriesCache(allEntries);
         await loadGlobalTags();
         renderGlobalTagList();
         renderArticles(allEntries);
@@ -2320,7 +4089,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return;
       }
 
-      if (!confirm('Delete ' + unused.length + ' unused tag(s)?')) return;
+      const ok = await showConfirmDialog('Clean Up Tags', 'Delete ' + unused.length + ' unused tag(s)?', 'Delete Tags', true);
+      if (!ok) return;
 
       for (const t of unused) {
         await authFetch('/api/tags/' + t.id + '.json', { method: 'DELETE' });
@@ -2331,6 +4101,145 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       showToast('Cleaned up unused tags');
     }
 
+
+    
+    let currentViewMode = localStorage.getItem('wf_view_mode') || 'list';
+    let currentSortOrder = localStorage.getItem('wf_sort_order') || 'newest';
+    setTimeout(() => { updateCycleLayoutIcon(); updateSortMenuUI(); }, 0);
+
+    function cycleViewMode() {
+      if (currentViewMode === 'list') {
+        setViewMode('grid');
+      } else if (currentViewMode === 'grid') {
+        setViewMode('compact');
+      } else {
+        setViewMode('list');
+      }
+      const names = { 'list': 'List View', 'grid': 'Magazine Grid', 'compact': 'Compact Headlines' };
+      showToast('View: ' + (names[currentViewMode] || currentViewMode));
+    }
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      try { localStorage.setItem('wf_view_mode', mode); } catch (e) {}
+      applyViewModeUI();
+    updateSortMenuUI();
+    }
+
+    function applyViewModeUI() {
+      const grid = document.getElementById('articlesGrid');
+      if (grid) {
+        grid.classList.remove('view-list', 'view-grid', 'view-compact');
+        grid.classList.add('view-' + currentViewMode);
+      }
+      updateCycleLayoutIcon();
+    }
+
+    function updateCycleLayoutIcon() {
+      const el = document.getElementById('cycleLayoutIcon');
+      const btn = document.getElementById('cycleLayoutBtn');
+      if (!el) return;
+      if (currentViewMode === 'list') {
+        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>';
+        if (btn) btn.title = 'View: List (Click to cycle)';
+      } else if (currentViewMode === 'grid') {
+        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>';
+        if (btn) btn.title = 'View: Magazine Grid (Click to cycle)';
+      } else {
+        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
+        if (btn) btn.title = 'View: Compact Headlines (Click to cycle)';
+      }
+    }
+
+    function toggleSortMenu() {
+      const menu = document.getElementById('sortDropdownMenu');
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      closeAllCardMenus();
+      if (!isOpen) {
+        menu.classList.add('open');
+        updateSortMenuUI();
+      }
+    }
+
+    function closeSortMenu() {
+      const menu = document.getElementById('sortDropdownMenu');
+      if (menu) menu.classList.remove('open');
+    }
+
+    function updateSortMenuUI() {
+      const map = {
+        'newest': 'sortOptNewest',
+        'oldest': 'sortOptOldest',
+        'shortest': 'sortOptShortest',
+        'longest': 'sortOptLongest',
+        'title': 'sortOptTitle'
+      };
+      Object.keys(map).forEach(key => {
+        const el = document.getElementById(map[key]);
+        if (el) {
+          el.classList.toggle('active', currentSortOrder === key);
+        }
+      });
+      const sortBtn = document.getElementById('sortBtn');
+      if (sortBtn) {
+        sortBtn.classList.toggle('active', currentSortOrder !== 'newest');
+      }
+    }
+
+    function setSortOrder(order) {
+      currentSortOrder = order;
+      try { localStorage.setItem('wf_sort_order', order); } catch (e) {}
+      closeSortMenu();
+      updateSortMenuUI();
+      filterArticles();
+      const names = {
+        'newest': 'Newest First',
+        'oldest': 'Oldest First',
+        'shortest': 'Shortest Read',
+        'longest': 'Longest Read',
+        'title': 'Title (A-Z)'
+      };
+      showToast('Sorted: ' + (names[order] || order));
+    }
+
+    function sortEntries(entries) {
+      if (!Array.isArray(entries)) return [];
+      return entries.slice().sort((a, b) => {
+        if (currentSortOrder === 'oldest') {
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        } else if (currentSortOrder === 'shortest') {
+          return (a.reading_time || 1) - (b.reading_time || 1);
+        } else if (currentSortOrder === 'longest') {
+          return (b.reading_time || 1) - (a.reading_time || 1);
+        } else if (currentSortOrder === 'title') {
+          return (a.title || '').localeCompare(b.title || '');
+        } else {
+          // newest
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        }
+      });
+    }
+
+    function handleSearchInput() {
+      const input = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) {
+        clearBtn.style.display = (input && input.value.trim().length > 0) ? 'inline-flex' : 'none';
+      }
+      filterArticles();
+    }
+
+    function clearSearchInput() {
+      const input = document.getElementById('searchInput');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      filterArticles();
+    }
 
     function filterArticles() {
       const banner = document.getElementById('activeTagFilterBanner');
@@ -2365,14 +4274,31 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         });
       }
 
+      const status = document.getElementById('statusIndicator');
       if (search) {
         filtered = filtered.filter(e =>
           (e.title && e.title.toLowerCase().includes(search)) ||
           (e.domain_name && e.domain_name.toLowerCase().includes(search)) ||
           (e.text && e.text.toLowerCase().includes(search))
         );
+        if (status) {
+          status.textContent = filtered.length === 1 ? '1 match' : (filtered.length + ' matches');
+        }
+      } else if (selectedTagFilter) {
+        if (status) {
+          status.textContent = filtered.length === 1 ? '1 article' : (filtered.length + ' articles');
+        }
+      } else {
+        if (status) {
+          if (isOfflineMode || navigator.onLine === false) {
+            status.textContent = allEntries.length > 0 ? (allEntries.length + ' saved (offline)') : 'Offline';
+          } else if (status.textContent !== 'Syncing...') {
+            status.textContent = '';
+          }
+        }
       }
 
+      filtered = sortEntries(filtered);
       renderArticles(filtered);
     }
 
@@ -2387,27 +4313,33 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
 
       empty.style.display = 'none';
+      applyViewModeUI();
       grid.innerHTML = entries.map(item => {
         const domain = item.domain_name || 'direct-input';
         const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
         const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
         const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-        const excerpt = item.text ? item.text.slice(0, 160) + '...' : 'No preview available';
+        const rawContentText = item.text || item.excerpt || (item.content ? item.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
+        const excerpt = rawContentText ? (rawContentText.length > 160 ? rawContentText.slice(0, 160) + "..." : rawContentText) : "No preview available";
         const previewPicture = item.preview_picture;
 
+        const isChecked = selectedArticleIds.has(item.id);
+
+        const selectCheckboxHtml = '<div class="card-select-wrap" onclick="event.stopPropagation(); toggleArticleSelection(' + item.id + ');">' +
+          '<div class="card-checkbox ' + (isChecked ? 'checked' : '') + '">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+          '</div>' +
+        '</div>';
+
         const imgHtml = previewPicture
-          ? '<div class="card-image-wrap" onclick="openReader(' + item.id + ')"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
+          ? '<div class="card-image-wrap"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
           : '';
 
         const starSvg = item.is_starred
           ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>'
           : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
 
-        const originalLinkHtml = item.url
-          ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="action-btn" title="Open original link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>'
-          : '';
-
-        const authorMetaHtml = author ? ' &bull; <span class="card-author" style="color: var(--text-secondary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">by ' + escapeHtml(author) + '</span>' : '';
+        const authorMetaHtml = author ? ' &bull; <span class="card-author" style="color: var(--text-secondary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">by ' + escapeHtml(author) + '</span>' : '';
 
         const tags = item.tags || [];
         const tagsHtml = tags.length > 0
@@ -2417,40 +4349,65 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
         const titleDir = isRtlText(item.title) ? 'rtl' : 'ltr';
         const excerptDir = isRtlText(excerpt) ? 'rtl' : 'ltr';
+        
+        // Smart reading time & progress calculation (Instapaper "xx of yy min left" style)
+        const totalMin = item.reading_time || 1;
         const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
         const progressPct = Math.round(savedRatio * 100);
-        const progressBadgeHtml = progressPct > 0
-          ? '<span class="card-progress-center" title="Reading progress saved on this browser" style="font-size: 0.72rem; color: var(--accent); font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + progressPct + '% read <span style="font-size: 0.65rem; opacity: 0.75;">(this browser)</span></span>'
-          : '<span style="flex: 1;"></span>';
+        
+        let readingProgressText = totalMin + ' min read';
+        if (progressPct >= 95) {
+          readingProgressText = 'Finished (' + totalMin + 'm)';
+        } else if (progressPct > 0) {
+          const minLeft = Math.max(1, Math.round(totalMin * (1 - savedRatio)));
+          readingProgressText = minLeft + ' of ' + totalMin + ' min left (' + progressPct + '%)';
+        }
+
+        const progressBadgeHtml = '<span class="card-progress-center" title="Reading time & progress" style="font-size: 0.75rem; color: ' + (progressPct > 0 ? 'var(--accent)' : 'var(--text-muted)') + '; font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + readingProgressText + '</span>';
+        
         const progressLineHtml = progressPct > 0
           ? '<div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--border-color); overflow: hidden;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
           : '<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--border-color);"></div>';
 
-        return '<div class="article-card" id="entry-card-' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + '>' +
-          '<div>' +
-            imgHtml +
-            '<div class="card-meta">' +
-              '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
-              authorMetaHtml +
-              '<span class="card-reading-time">' + (item.reading_time || 1) + ' min read</span>' +
+        return '<div class="article-card ' + (isChecked ? 'is-selected' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + ' onclick="handleCardClick(event, ' + item.id + ')">' +
+          selectCheckboxHtml +
+          '<div class="card-main-content">' +
+            '<div class="card-text-column">' +
+              '<div class="card-meta">' +
+                (item.is_starred ? '<span class="card-star-pill" title="Starred Article"><svg width="12" height="12" viewBox="0 0 24 24" fill="#eab308" stroke="#eab308" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>' : '') +
+                '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
+                authorMetaHtml +
+              '</div>' +
+              '<h2 class="card-title" dir="' + titleDir + '">' + escapeHtml(item.title) + '</h2>' +
+              '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
+              tagsHtml +
             '</div>' +
-            '<h2 class="card-title" dir="' + titleDir + '" onclick="openReader(' + item.id + ')">' + escapeHtml(item.title) + '</h2>' +
-            '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
-            tagsHtml +
+            imgHtml +
           '</div>' +
           '<div class="card-footer" style="margin-top: 0.75rem;">' +
             progressLineHtml +
             '<span class="card-date">' + date + '</span>' +
             progressBadgeHtml +
             '<div class="card-actions">' +
-              '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
-              '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
+              '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="event.stopPropagation(); toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
+              '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="event.stopPropagation(); toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
               '<div class="card-menu-wrap">' +
                 '<button class="action-btn card-more-btn" title="More Actions" onclick="event.stopPropagation(); toggleCardMenu(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>' +
                 '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
                   '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
-                  '<button class="menu-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download EPUB</span></button>' +
+                  '<div class="menu-item-expandable" id="card-export-wrap-' + item.id + '">' +
+                    '<button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleCardExportSubmenu(' + item.id + ')">' +
+                      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+                      '<span>Export</span>' +
+                      '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+                    '</button>' +
+                    '<div class="menu-sub-items" id="card-export-sub-' + item.id + '">' +
+                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>' +
+                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); exportMarkdown(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>' +
+                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); exportPdf(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg><span>PDF (.pdf)</span></button>' +
+                    '</div>' +
+                  '</div>' +
                   (item.url && item.domain_name !== 'direct-input' ? '<button class="menu-item" onclick="closeAllCardMenus(); refetchArticleContent(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>' : '') +
                   (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="menu-item" onclick="closeAllCardMenus()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></a>' : '') +
                   '<div class="menu-divider"></div>' +
@@ -2463,6 +4420,268 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }).join('');
     }
 
+
+    // -------------------------------------------------------------
+    // Export Handlers (EPUB, Markdown, PDF)
+    // -------------------------------------------------------------
+    function toggleReaderExportMenu(e) {
+      if (e) e.stopPropagation();
+      const sub = document.getElementById('readerExportSubMenu');
+      const chevron = document.getElementById('readerExportChevron');
+      if (sub) {
+        sub.classList.toggle('open');
+        if (chevron) {
+          chevron.style.transform = sub.classList.contains('open') ? 'rotate(180deg)' : '';
+        }
+      }
+    }
+
+    function closeReaderExportMenu() {
+      const sub = document.getElementById('readerExportSubMenu');
+      const chevron = document.getElementById('readerExportChevron');
+      if (sub) sub.classList.remove('open');
+      if (chevron) chevron.style.transform = '';
+    }
+
+    function toggleCardExportSubmenu(id) {
+      const wrap = document.getElementById('card-export-wrap-' + id);
+      if (wrap) {
+        wrap.classList.toggle('expanded');
+      }
+    }
+
+    function toggleBatchExportSubmenu() {
+      const wrap = document.getElementById('batchExportWrap');
+      if (wrap) {
+        wrap.classList.toggle('expanded');
+      }
+    }
+
+    function exportActiveMarkdown() {
+      if (activeArticleId) {
+        exportMarkdown(activeArticleId);
+      }
+    }
+
+    function exportActivePdf() {
+      if (activeArticleId) {
+        exportPdf(activeArticleId);
+      }
+    }
+
+    function batchExportMarkdown() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 1) {
+        exportMarkdown(ids[0]);
+      } else {
+        ids.forEach(id => exportMarkdown(id));
+      }
+    }
+
+    function batchExportPdf() {
+      if (selectedArticleIds.size === 0) return;
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 1) {
+        exportPdf(ids[0]);
+      } else {
+        ids.forEach(id => exportPdf(id));
+      }
+    }
+
+    function htmlToMarkdown(html) {
+      if (!html) return '';
+      const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+      const root = doc.body.firstElementChild || doc.body;
+      const nl = String.fromCharCode(10);
+      const nl2 = nl + nl;
+      const tick = String.fromCharCode(96);
+      const fence = tick + tick + tick;
+
+      function nodeToMd(node) {
+        if (!node) return '';
+        if (node.nodeType === 3) {
+          return node.nodeValue.replace(/\s+/g, ' ');
+        }
+        if (node.nodeType !== 1) return '';
+
+        const tag = node.tagName.toLowerCase();
+        let inner = Array.from(node.childNodes).map(nodeToMd).join('');
+
+        switch (tag) {
+          case 'h1': return nl2 + '# ' + inner.trim() + nl2;
+          case 'h2': return nl2 + '## ' + inner.trim() + nl2;
+          case 'h3': return nl2 + '### ' + inner.trim() + nl2;
+          case 'h4': return nl2 + '#### ' + inner.trim() + nl2;
+          case 'h5': return nl2 + '##### ' + inner.trim() + nl2;
+          case 'h6': return nl2 + '###### ' + inner.trim() + nl2;
+          case 'p': return nl2 + inner.trim() + nl2;
+          case 'strong':
+          case 'b': return '**' + inner.trim() + '**';
+          case 'em':
+          case 'i': return '*' + inner.trim() + '*';
+          case 'code':
+            if (node.parentElement && node.parentElement.tagName.toLowerCase() === 'pre') return inner;
+            return tick + inner + tick;
+          case 'pre':
+            return nl2 + fence + nl + inner.trim() + nl + fence + nl2;
+          case 'blockquote':
+            return nl2 + '> ' + inner.trim().split(nl).join(nl + '> ') + nl2;
+          case 'ul':
+            return nl2 + Array.from(node.children).map(li => '- ' + nodeToMd(li).trim()).join(nl) + nl2;
+          case 'ol':
+            return nl2 + Array.from(node.children).map((li, idx) => (idx + 1) + '. ' + nodeToMd(li).trim()).join(nl) + nl2;
+          case 'li':
+            return inner.trim();
+          case 'a':
+            const href = node.getAttribute('href');
+            return href ? '[' + (inner.trim() || href) + '](' + href + ')' : inner;
+          case 'img':
+            const src = node.getAttribute('src');
+            const alt = node.getAttribute('alt') || 'image';
+            return src ? '![' + alt + '](' + src + ')' : '';
+          case 'hr': return nl2 + '---' + nl2;
+          case 'br': return nl;
+          default: return inner;
+        }
+      }
+
+      const md = nodeToMd(root);
+      return md.replace(new RegExp(nl + '{3,}', 'g'), nl2).trim();
+    }
+
+    async function exportMarkdown(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) {
+        showToast('Article not found');
+        return;
+      }
+      showToast('Exporting Markdown...');
+      try {
+        const title = item.title || 'Untitled Article';
+        const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
+        const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : (item.domain_name || '');
+        const date = item.published_at || item.created_at || new Date().toISOString().split('T')[0];
+        const tags = Array.isArray(item.tags) ? item.tags.map(t => typeof t === 'string' ? t : (t.label || t.slug)).filter(Boolean) : [];
+        const nl = String.fromCharCode(10);
+        const nl2 = nl + nl;
+
+        let frontmatter = '---' + nl;
+        frontmatter += 'title: ' + JSON.stringify(title) + nl;
+        if (author) frontmatter += 'author: ' + JSON.stringify(author) + nl;
+        if (item.url) frontmatter += 'source: ' + JSON.stringify(item.url) + nl;
+        if (date) frontmatter += 'date: ' + JSON.stringify(date) + nl;
+        if (tags.length > 0) frontmatter += 'tags: [' + tags.map(t => JSON.stringify(t)).join(', ') + ']' + nl;
+        frontmatter += '---' + nl2;
+
+        const bodyMd = htmlToMarkdown(item.content || item.text || '');
+        const fullMd = frontmatter + '# ' + title + nl2 + bodyMd + nl;
+        const filename = title.replace(/[/\:*?"<>|]/g, '').trim() + '.md';
+
+        // Android native share sheet (JavascriptInterface bridge)
+        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
+          const base64Data = window.btoa(unescape(encodeURIComponent(fullMd)));
+          window.AndroidNative.shareBase64File(filename, base64Data, 'text/markdown');
+          showToast('Opening Markdown export...');
+          return;
+        }
+
+        // Web Share API
+        if (navigator.canShare) {
+          try {
+            const file = new File([fullMd], filename, { type: 'text/markdown' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename });
+              showToast('✓ Markdown exported');
+              return;
+            }
+          } catch (e) {
+            if (e.name === 'AbortError') return;
+          }
+        }
+
+        // Browser Anchor Download
+        const blob = new Blob([fullMd], { type: 'text/markdown;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
+        showToast('✓ Markdown exported');
+      } catch (err) {
+        console.error('Markdown export error', err);
+        showToast('Failed to export Markdown');
+      }
+    }
+
+    async function exportPdf(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) {
+        showToast('Article not found');
+        return;
+      }
+      showToast('Generating PDF...');
+      try {
+        let pdfBytes = null;
+        if (typeof window.WallaflarePdf !== 'undefined' && typeof window.WallaflarePdf.generatePdf === 'function') {
+          pdfBytes = await window.WallaflarePdf.generatePdf(item);
+        }
+
+        if (!pdfBytes) {
+          throw new Error('PDF engine not loaded');
+        }
+
+        const title = item.title || 'article';
+        const filename = (title.replace(/[/\\:*?"<>|]/g, '').trim() || 'article') + '.pdf';
+        const u8Array = new Uint8Array(pdfBytes);
+
+        // Android Native Share Sheet (open in Adobe / Drive / Share)
+        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
+          let binary = '';
+          const len = u8Array.byteLength;
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(u8Array[i]);
+          }
+          const base64Data = window.btoa(binary);
+          window.AndroidNative.shareBase64File(filename, base64Data, 'application/pdf');
+          showToast('Opening PDF export...');
+          return;
+        }
+
+        // Web Share API
+        if (navigator.canShare) {
+          try {
+            const file = new File([u8Array], filename, { type: 'application/pdf' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename });
+              showToast('✓ PDF exported');
+              return;
+            }
+          } catch (e) {
+            if (e.name === 'AbortError') return;
+          }
+        }
+
+        // Desktop direct file download without print dialog
+        const blob = new Blob([u8Array], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
+        showToast('✓ PDF exported');
+      } catch (err) {
+        console.error('PDF export failed', err);
+        showToast('Failed to generate PDF');
+      }
+    }
+
     function downloadActiveEpub() {
       if (activeArticleId) {
         downloadEpub(activeArticleId);
@@ -2471,35 +4690,86 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function downloadEpub(id) {
       const item = allEntries.find(e => e.id === id);
-      showToast('Preparing EPUB download...');
+      if (!item) {
+        showToast('Article not found');
+        return;
+      }
+      showToast('Exporting EPUB...');
       try {
-        const res = await authFetch('/api/entries/' + id + '/export.epub');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-
+        let blob = null;
         let filename = item && item.title ? (item.title.replace(/[/\\:*?"<>|]/g, '').trim() + '.epub') : 'article.epub';
-        const disposition = res.headers.get('Content-Disposition');
-        if (disposition && disposition.includes("filename*=")) {
-          const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-          if (match) filename = decodeURIComponent(match[1]);
-        } else if (disposition && disposition.includes("filename=")) {
-          const match = disposition.match(/filename="?([^";]+)"?/i);
-          if (match) filename = match[1];
+
+        // 1. Instant on-device client generation (100% offline capable)
+        if (typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
+          try {
+            const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin, {
+              downloadImages: navigator.onLine !== false
+            });
+            blob = new Blob([u8], { type: 'application/epub+zip' });
+          } catch (clientErr) {
+            console.warn('Client EPUB build failed, trying server fallback:', clientErr);
+          }
         }
 
-        const blob = await res.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
+        // 2. Server fallback if needed
+        if (!blob) {
+          const res = await authFetch('/api/entries/' + id + '/export.epub');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const disposition = res.headers.get('Content-Disposition');
+          if (disposition && disposition.includes("filename*=")) {
+            const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (match) filename = decodeURIComponent(match[1]);
+          } else if (disposition && disposition.includes("filename=")) {
+            const match = disposition.match(/filename="?([^";]+)"?/i);
+            if (match) filename = match[1];
+          }
+          blob = await res.blob();
+        }
+
+        // Android native share sheet (JavascriptInterface bridge)
+        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
+          const reader = new FileReader();
+          reader.onload = function() {
+            try {
+              const dataUrl = reader.result;
+              const base64 = dataUrl.split(',')[1];
+              window.AndroidNative.shareBase64File(filename, base64, 'application/epub+zip');
+              showToast('Opening EPUB export...');
+            } catch(e) {
+              showToast('Share failed: ' + e.message);
+            }
+          };
+          reader.onerror = function() { showToast('Failed to export EPUB file'); };
+          reader.readAsDataURL(blob);
+          return;
+        }
+
+        // Web Share API with file (PWA / desktop)
+        if (navigator.canShare) {
+          try {
+            const file = new File([blob], filename, { type: 'application/epub+zip' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename });
+              showToast('✓ EPUB exported');
+              return;
+            }
+          } catch (e) {
+            if (e.name === 'AbortError') return;
+          }
+        }
+
+        // Fallback: browser anchor download
+        const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = blobUrl;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
-        setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl);
-          a.remove();
-        }, 2000);
+        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
+        showToast('✓ EPUB exported');
       } catch (err) {
-        showToast('Failed to download EPUB: ' + err.message);
+        showToast('Failed to export EPUB');
       }
     }
 
@@ -2513,6 +4783,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (res.ok) {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_starred = next;
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         showToast(next ? 'Starred article' : 'Unstarred article');
@@ -2529,6 +4800,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (res.ok) {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_archived = next;
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         showToast(next ? 'Archived article' : 'Moved to unread');
@@ -2536,10 +4808,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     async function deleteEntryAction(id) {
-      if (!confirm('Are you sure you want to delete this article?')) return;
+      const ok = await showConfirmDialog('Delete Article', 'Are you sure you want to delete this article?\\n\\nThis action cannot be undone.', 'Delete Article', true);
+      if (!ok) return;
       const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
       if (res.ok) {
         allEntries = allEntries.filter(e => e.id !== id);
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         showToast('Article deleted');
@@ -2660,6 +4934,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.body.style.overflow = 'hidden';
 
       const scrollEl = document.getElementById('readerScrollContainer');
+      lastReaderScrollTop = 0;
+      clearTimeout(autoHideInitialTimer);
+      closeReaderExportMenu();
+      setReaderMobileBarVisibility(true);
+
       if (scrollEl) {
         const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
         if (savedRatio > 0.005) {
@@ -2667,6 +4946,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             const total = scrollEl.scrollHeight - scrollEl.clientHeight;
             if (total > 0) {
               scrollEl.scrollTop = savedRatio * total;
+              lastReaderScrollTop = scrollEl.scrollTop;
             }
             updateReadingProgress();
           }, 70);
@@ -2676,6 +4956,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       updateReadingProgress();
 
+      // Smoothly slide up the top bar and status bar after user sees the article open
+      autoHideInitialTimer = setTimeout(() => {
+        const readerView = document.getElementById('readerView');
+        const drawer = document.getElementById('readerSidebar');
+        if (readerView && readerView.classList.contains('open') && (!drawer || !drawer.classList.contains('drawer-open'))) {
+          setReaderMobileBarVisibility(false);
+        }
+      }, 500);
+
       if (pushHistory) {
         history.pushState({ readerId: id }, '', '/read/' + id);
       }
@@ -2684,6 +4973,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     
     function toggleMobileReaderDrawer(e) {
       if (e) e.stopPropagation();
+      clearActiveTextSelection();
       const sidebar = document.getElementById('readerSidebar');
       const backdrop = document.getElementById('readerDrawerBackdrop');
       if (sidebar && backdrop) {
@@ -2739,11 +5029,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
 
     function closeReader(updateHistory = true) {
+      clearTimeout(autoHideInitialTimer);
+      setReaderMobileBarVisibility(true);
+      setStatusBarVisibility(true);
       closeMobileReaderDrawer();
       activeArticleId = null;
       document.getElementById('readerView').classList.remove('open');
       document.body.style.overflow = 'auto';
       document.getElementById('readingProgress').style.width = '0%';
+
+      // Instantly update card progress indicators on the main list
+      filterArticles();
 
       if (updateHistory) {
         const newPath = currentFilter === 'unread' ? '/' : ('/' + currentFilter);
@@ -2751,6 +5047,68 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           history.pushState({}, '', newPath);
         }
       }
+    }
+
+    
+    let lastReaderScrollTop = 0;
+    let autoHideInitialTimer = null;
+    let scrollUpDistance = 0;
+
+    function setStatusBarVisibility(visible) {
+      try {
+        if (window.Capacitor && window.Capacitor.isPluginAvailable('StatusBar')) {
+          const StatusBar = window.Capacitor.Plugins.StatusBar;
+          if (visible) {
+            StatusBar.show({ animation: 'SLIDE' });
+          } else {
+            StatusBar.hide({ animation: 'SLIDE' });
+          }
+        }
+      } catch (e) {}
+    }
+
+    function setReaderMobileBarVisibility(visible) {
+      const bar = document.querySelector('.reader-mobile-bar');
+      if (bar) {
+        if (visible) {
+          bar.classList.remove('bar-hidden');
+        } else {
+          bar.classList.add('bar-hidden');
+        }
+      }
+      setStatusBarVisibility(visible);
+    }
+
+    function handleReaderScroll() {
+      updateReadingProgress();
+      const container = document.getElementById('readerScrollContainer');
+      if (!container) return;
+      const currentScrollTop = container.scrollTop;
+      
+      const drawer = document.getElementById('readerSidebar');
+      if (drawer && drawer.classList.contains('drawer-open')) return;
+
+      const delta = lastReaderScrollTop - currentScrollTop;
+
+      if (currentScrollTop <= 35) {
+        scrollUpDistance = 0;
+        setReaderMobileBarVisibility(true);
+      } else if (delta > 0) {
+        // Scrolling UP - accumulate distance so even slow ~3 lines scroll triggers return
+        scrollUpDistance += delta;
+        if (scrollUpDistance >= 28) {
+          clearTimeout(autoHideInitialTimer);
+          setReaderMobileBarVisibility(true);
+        }
+      } else if (delta < 0) {
+        // Scrolling DOWN
+        scrollUpDistance = 0;
+        if (currentScrollTop > 60 && Math.abs(delta) > 4) {
+          clearTimeout(autoHideInitialTimer);
+          setReaderMobileBarVisibility(false);
+        }
+      }
+      lastReaderScrollTop = currentScrollTop;
     }
 
     function handleReaderBack() {
@@ -2811,7 +5169,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
         if (item.already_exists) {
           const dateStr = item.added_date_str || (item.created_at ? new Date(item.created_at).toLocaleDateString() : '');
-          showToast('ℹ️ Article already in library! Added on ' + dateStr, 4500);
+          showToast('Article already in library! Added on ' + dateStr, 4500);
           const card = document.getElementById('entry-card-' + item.id);
           if (card) {
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2820,6 +5178,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           }
         } else {
           allEntries.unshift(item);
+          syncLocalEntriesCache(allEntries);
           updateCounts();
           filterArticles();
           showToast('✓ Article saved successfully!');
@@ -2883,13 +5242,30 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     
     
+    // Clicking on empty background outside of article cards, batch toolbar, modals, or navigation exits selection mode
+    document.addEventListener("click", (e) => {
+      if (!isSelectionMode()) return;
+      if (justTriggeredLongPress) return;
+
+      if (e.target.closest(".article-card, .batch-action-bar, .modal-backdrop, .tag-modal-overlay, .confirm-modal-backdrop, .navbar, .sidebar, .card-dropdown-menu, button, a, input, textarea")) {
+        return;
+      }
+
+      clearArticleSelection();
+    });
+
     document.addEventListener('click', () => closeAllCardMenus());
 
     function closeAllCardMenus() {
+      closeBatchMenu();
       const backdrop = document.getElementById('cardMenuBackdrop');
       if (backdrop) backdrop.style.display = 'none';
       document.querySelectorAll('.article-card.menu-open').forEach(el => el.classList.remove('menu-open'));
-      document.querySelectorAll('.card-dropdown-menu.open').forEach(el => el.classList.remove('open'));
+      document.querySelectorAll('.menu-item-expandable.expanded').forEach(el => el.classList.remove('expanded'));
+      document.querySelectorAll('.card-dropdown-menu.open').forEach(el => {
+        el.classList.remove('open');
+        el.classList.remove('open-down');
+      });
     }
 
     function toggleCardMenu(id) {
@@ -2899,7 +5275,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const isOpen = menu.classList.contains('open');
       closeAllCardMenus();
       if (!isOpen) {
+        menu.classList.remove('open-down');
         menu.classList.add('open');
+
+        // Smart collision detection: check available space above vs below
+        const btn = menu.previousElementSibling || menu.parentElement;
+        if (btn) {
+          const btnRect = btn.getBoundingClientRect();
+          const menuHeight = menu.offsetHeight || 220;
+          // If not enough headroom above (near top navbar), open downwards
+          if (btnRect.top - menuHeight < 68) {
+            menu.classList.add('open-down');
+          }
+        }
+
         if (card) card.classList.add('menu-open');
         const backdrop = document.getElementById('cardMenuBackdrop');
         if (backdrop) backdrop.style.display = 'block';
@@ -2913,12 +5302,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    async function refetchArticleContent(id) {
+    async function refetchArticleContent(id, skipConfirm = false) {
       const item = allEntries.find(e => e.id === id);
       if (!item || !item.url || item.domain_name === 'direct-input') return;
 
-      if (!confirm('Re-fetch article from original source URL?\\n\\nThis will download the latest content from ' + (item.domain_name || item.url) + ' and update the article text.')) {
-        return;
+      if (!skipConfirm) {
+        const ok = await showConfirmDialog(
+          'Re-fetch Article',
+          'Re-fetch article from original source URL (' + (item.domain_name || item.url) + ')?\\n\\nThis will download the latest content and preview image from the live site.',
+          'Re-fetch',
+          false
+        );
+        if (!ok) return;
       }
 
       showToast('Re-fetching article from source...');
@@ -2945,6 +5340,198 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         showToast('✓ Article content re-fetched successfully!');
       } catch (err) {
         showToast('Failed to re-fetch: ' + err.message + ' (Original text preserved)');
+      }
+    }
+
+
+    // -------------------------------------------------------------
+    // Offline Cache (IndexedDB)
+    // -------------------------------------------------------------
+    const OFFLINE_DB_NAME = 'WallaflareOfflineDB';
+    const OFFLINE_DB_VERSION = 1;
+    const OFFLINE_STORE_NAME = 'articles';
+
+    function openOfflineDb() {
+      return new Promise((resolve) => {
+        if (!window.indexedDB) return resolve(null);
+        try {
+          const req = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(OFFLINE_STORE_NAME)) {
+              db.createObjectStore(OFFLINE_STORE_NAME, { keyPath: 'id' });
+            }
+          };
+          req.onsuccess = (e) => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
+    }
+
+    function syncLocalEntriesCache(entries) {
+      try {
+        localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
+      } catch (err) {
+        console.warn('LocalStorage cache save error', err);
+      }
+      saveArticlesToOfflineDb(entries || []);
+    }
+
+    async function saveArticlesToOfflineDb(entries) {
+      try {
+        const db = await openOfflineDb();
+        if (!db) return;
+        const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(OFFLINE_STORE_NAME);
+        store.clear();
+        if (Array.isArray(entries)) {
+          entries.forEach(entry => store.put(entry));
+        }
+      } catch (err) {
+        console.warn('Offline cache save error', err);
+      }
+    }
+
+    async function getArticlesFromOfflineDb() {
+      try {
+        const db = await openOfflineDb();
+        if (!db) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction(OFFLINE_STORE_NAME, 'readonly');
+          const store = tx.objectStore(OFFLINE_STORE_NAME);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch {
+        return [];
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Android Share Target Handler
+    // -------------------------------------------------------------
+
+    // -------------------------------------------------------------
+    // Android Back Button Navigation & Drawer Handling
+    // -------------------------------------------------------------
+    window.handleAndroidBackButton = function() {
+      // 1. If Reader Mobile Drawer is open, close it
+      const readerSidebar = document.getElementById('readerSidebar');
+      if (readerSidebar && readerSidebar.classList.contains('drawer-open')) {
+        closeMobileReaderDrawer();
+        return true;
+      }
+
+      // 2. If Reader View is open, close reader
+      const readerView = document.getElementById('readerView');
+      if (readerView && readerView.classList.contains('open')) {
+        closeReader(true);
+        return true;
+      }
+
+      // 3. If any modal is open, close it
+      const openModal = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+      if (openModal) {
+        openModal.classList.remove('open');
+        return true;
+      }
+
+      // 4. If mobile nav drawer is open, close it
+      const mobileNav = document.getElementById('mobileNavDropdown');
+      if (mobileNav && mobileNav.classList.contains('open')) {
+        closeMobileNavMenu();
+        return true;
+      }
+
+      // 5. If card dropdown menu is open, close it
+      const openCardMenu = document.querySelector('.card-dropdown-menu.open');
+      if (openCardMenu) {
+        closeAllCardMenus();
+        return true;
+      }
+
+      return false;
+    };
+
+    window.handleAndroidSharedText = function(text) {
+      if (!text) return;
+      const urlMatch = text.match(new RegExp('https?://[^\\s]+'));
+      const targetUrl = urlMatch ? urlMatch[0] : text.trim();
+      
+      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+        const input = document.getElementById('urlInput');
+        if (input) input.value = targetUrl;
+        openModal('addUrlModal');
+        showToast('Shared URL received!');
+      } else {
+        const contentInput = document.getElementById('textContent');
+        if (contentInput) contentInput.value = text;
+        openModal('addTextModal');
+        showToast('Shared text received!');
+      }
+    };
+
+    function openServerConnectModal() {
+      const urlInput = document.getElementById('serverUrlInput');
+      const tokenInput = document.getElementById('serverTokenInput');
+      if (urlInput) urlInput.value = localStorage.getItem('wf_server_url') || '';
+      if (tokenInput) tokenInput.value = getAuthToken();
+      openModal('serverConnectModal');
+    }
+
+    async function handleSaveServerConnection(e) {
+      e.preventDefault();
+      const urlInput = document.getElementById('serverUrlInput');
+      const tokenInput = document.getElementById('serverTokenInput');
+      const btn = document.getElementById('saveServerBtn');
+      
+      let serverUrl = urlInput.value.trim();
+      if (serverUrl.endsWith('/')) {
+        serverUrl = serverUrl.slice(0, -1);
+      }
+      const token = tokenInput ? tokenInput.value.trim() : '';
+      if (!serverUrl) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Connecting...';
+
+      try {
+        localStorage.setItem('wf_server_url', serverUrl);
+        setAuthToken(token);
+        if (window.AndroidNative && window.AndroidNative.saveServerConfig) {
+          window.AndroidNative.saveServerConfig(serverUrl, token);
+        }
+
+        const res = await authFetch('/api/entries.json?perPage=1');
+        if (!res.ok && res.status !== 401) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        closeModal('serverConnectModal');
+        showToast('✓ Connected to ' + serverUrl);
+        
+    function getAppWebVersion() {
+      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+    }
+
+    function updateVersionDisplay() {
+      const ver = getAppWebVersion();
+      const label = document.getElementById('mobileVersionLabel');
+      if (label) {
+        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      }
+    }
+
+    updateVersionDisplay();
+    loadArticles();
+      } catch (err) {
+        showToast('Connection failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Connect & Sync';
       }
     }
 
@@ -3046,6 +5633,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const item = await res.json();
         allEntries.unshift(item);
+        syncLocalEntriesCache(allEntries);
         updateCounts();
         filterArticles();
         closeModal('addTextModal');
@@ -3066,6 +5654,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     function openModal(id) {
+      
+      clearActiveTextSelection();
       const modalEl = document.getElementById(id);
       if (modalEl) {
         modalEl.classList.add('open');
@@ -3089,11 +5679,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       document.getElementById(id).classList.remove('open');
     }
 
-    function showToast(msg) {
+    let toastTimeout = null;
+    function showToast(msg, duration = 3000) {
       const toast = document.getElementById('toast');
-      document.getElementById('toastMsg').textContent = msg;
+      const msgEl = document.getElementById('toastMsg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
       toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3000);
+      if (toastTimeout) {
+        clearTimeout(toastTimeout);
+      }
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        toastTimeout = null;
+      }, duration);
     }
 
     function toggleTheme() {
@@ -3117,6 +5716,40 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     const savedTheme = localStorage.getItem('wf_theme') || 'dark';
     document.documentElement.className = savedTheme;
 
+
+    // -------------------------------------------------------------
+    // Custom In-App Confirmation Dialog
+    // -------------------------------------------------------------
+    let confirmResolve = null;
+
+    function showConfirmDialog(title, message, confirmBtnText = 'Confirm', isDanger = false) {
+      return new Promise((resolve) => {
+        confirmResolve = resolve;
+        document.getElementById('confirmModalTitle').textContent = title;
+        document.getElementById('confirmModalMsg').textContent = message;
+        const btn = document.getElementById('confirmModalBtn');
+        btn.textContent = confirmBtnText;
+        btn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+        openModal('confirmModal');
+      });
+    }
+
+    function handleConfirmModalOk() {
+      closeModal('confirmModal');
+      if (confirmResolve) {
+        confirmResolve(true);
+        confirmResolve = null;
+      }
+    }
+
+    function handleConfirmModalCancel() {
+      closeModal('confirmModal');
+      if (confirmResolve) {
+        confirmResolve(false);
+        confirmResolve = null;
+      }
+    }
+
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
@@ -3127,8 +5760,490 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         .replace(/'/g, '&#039;');
     }
 
+
+    // -------------------------------------------------------------
+    // Pull to Refresh Implementation (Smooth 1:1 Physics)
+    // -------------------------------------------------------------
+    let pullStartY = 0;
+    let isPulling = false;
+    let isRefreshing = false;
+    const PULL_TRIGGER_PX = 50;
+
+    function setupPullToRefresh() {
+      window.addEventListener('touchstart', (e) => {
+        const readerOpen = document.getElementById('readerView') && document.getElementById('readerView').classList.contains('open');
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (window.scrollY <= 1 && !readerOpen && !modalOpen && !isRefreshing) {
+          pullStartY = e.touches[0].clientY;
+          isPulling = true;
+          const wrap = document.getElementById('pullToRefreshWrap');
+          if (wrap) {
+            wrap.style.transition = 'none';
+          }
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (!isPulling || isRefreshing) return;
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - pullStartY;
+        if (diff > 0 && window.scrollY <= 1) {
+          const pullDistance = Math.min(68, diff * 0.4);
+          const wrap = document.getElementById('pullToRefreshWrap');
+          const svg = document.getElementById('pullToRefreshSvg');
+          if (wrap) {
+            wrap.style.visibility = 'visible';
+            wrap.style.transition = 'none';
+            wrap.style.opacity = String(Math.min(1, pullDistance / 16));
+            wrap.style.transform = 'translate(-50%, ' + pullDistance + 'px)';
+          }
+          if (svg) {
+            svg.style.transform = 'rotate(' + (diff * 2.5) + 'deg)';
+          }
+        } else if (diff < 0) {
+          isPulling = false;
+          hidePullToRefreshSpinner();
+        }
+      }, { passive: true });
+
+      const handleTouchEnd = async (e) => {
+        if (!isPulling || isRefreshing) return;
+        isPulling = false;
+        const currentY = e.changedTouches ? e.changedTouches[0].clientY : 0;
+        const diff = currentY - pullStartY;
+        const effectivePull = diff * 0.4;
+
+        const wrap = document.getElementById('pullToRefreshWrap');
+        if (wrap) wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
+
+        if (effectivePull >= PULL_TRIGGER_PX && window.scrollY <= 1) {
+          isRefreshing = true;
+          const svg = document.getElementById('pullToRefreshSvg');
+          if (wrap) {
+            wrap.style.visibility = 'visible';
+            wrap.style.opacity = '1';
+            wrap.style.transform = 'translate(-50%, 54px)';
+          }
+          if (svg) svg.classList.add('ptr-spinning');
+          
+          const minDelay = new Promise(r => setTimeout(r, 450));
+          await Promise.all([loadArticles(false), minDelay]);
+          hidePullToRefreshSpinner();
+        } else {
+          hidePullToRefreshSpinner();
+        }
+      };
+
+      window.addEventListener('touchend', handleTouchEnd, { passive: true });
+      window.addEventListener('touchcancel', () => hidePullToRefreshSpinner(), { passive: true });
+    }
+
+    function hidePullToRefreshSpinner() {
+      isRefreshing = false;
+      isPulling = false;
+      const wrap = document.getElementById('pullToRefreshWrap');
+      const svg = document.getElementById('pullToRefreshSvg');
+      if (wrap) {
+        wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
+        wrap.style.opacity = '0';
+        wrap.style.transform = 'translate(-50%, -20px)';
+        setTimeout(() => {
+          if (!isRefreshing && !isPulling) {
+            wrap.style.visibility = 'hidden';
+          }
+        }, 260);
+      }
+      if (svg) {
+        svg.classList.remove('ptr-spinning');
+        svg.style.transform = '';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Interactive 1:1 Finger Tracking Swipe-to-Close for Drawers
+    // -------------------------------------------------------------
+    function setupInteractiveDrawerTracking(drawerId, backdropId, closeFn, openClass) {
+      const drawer = document.getElementById(drawerId);
+      const backdrop = document.getElementById(backdropId);
+      if (!drawer || !backdrop) return;
+
+      let startX = 0;
+      let startY = 0;
+      let isDragging = false;
+      let currentDiffX = 0;
+      let startTime = 0;
+
+      function onTouchStart(e) {
+        if (!drawer.classList.contains(openClass)) return;
+        clearActiveTextSelection();
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isDragging = false;
+        currentDiffX = 0;
+        startTime = Date.now();
+      }
+
+      function onTouchMove(e) {
+        if (!drawer.classList.contains(openClass)) return;
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - startX;
+        const diffY = currentY - startY;
+
+        // Detect horizontal dragging towards the left
+        if (!isDragging) {
+          if (diffX < -5 && Math.abs(diffX) > Math.abs(diffY)) {
+            isDragging = true;
+          }
+        }
+
+        if (isDragging) {
+          currentDiffX = Math.min(0, diffX);
+          drawer.style.setProperty('transition', 'none', 'important');
+          backdrop.style.setProperty('transition', 'none', 'important');
+          drawer.style.setProperty('transform', 'translateX(' + currentDiffX + 'px)', 'important');
+
+          const width = drawer.offsetWidth || 260;
+          const progress = Math.max(0, Math.min(1, 1 + currentDiffX / width));
+          backdrop.style.setProperty('opacity', String(progress), 'important');
+        }
+      }
+
+      function onTouchEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const width = drawer.offsetWidth || 260;
+        const elapsed = Date.now() - startTime;
+        const velocity = Math.abs(currentDiffX) / Math.max(1, elapsed);
+
+        const shouldClose = currentDiffX < -(width * 0.25) || (currentDiffX < -20 && velocity > 0.3);
+
+        drawer.style.setProperty('transition', 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)', 'important');
+        backdrop.style.setProperty('transition', 'opacity 0.22s ease', 'important');
+
+        if (shouldClose) {
+          drawer.style.setProperty('transform', 'translateX(-100%)', 'important');
+          backdrop.style.setProperty('opacity', '0', 'important');
+          setTimeout(() => {
+            closeFn();
+            drawer.style.removeProperty('transform');
+            drawer.style.removeProperty('transition');
+            backdrop.style.removeProperty('opacity');
+            backdrop.style.removeProperty('transition');
+          }, 230);
+        } else {
+          drawer.style.setProperty('transform', 'translateX(0)', 'important');
+          backdrop.style.setProperty('opacity', '1', 'important');
+          setTimeout(() => {
+            drawer.style.removeProperty('transform');
+            drawer.style.removeProperty('transition');
+            backdrop.style.removeProperty('opacity');
+            backdrop.style.removeProperty('transition');
+          }, 230);
+        }
+      }
+
+      drawer.addEventListener('touchstart', onTouchStart, { passive: true });
+      drawer.addEventListener('touchmove', onTouchMove, { passive: true });
+      drawer.addEventListener('touchend', onTouchEnd, { passive: true });
+      drawer.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+      backdrop.addEventListener('touchstart', onTouchStart, { passive: true });
+      backdrop.addEventListener('touchmove', onTouchMove, { passive: true });
+      backdrop.addEventListener('touchend', onTouchEnd, { passive: true });
+      backdrop.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    }
+
+    function setupDrawerSwipeHandlers() {
+      // 1. Main Navigation Drawer
+      setupInteractiveDrawerTracking('mobileNavDropdown', 'mobileNavBackdrop', closeMobileNavMenu, 'open');
+      // 2. Reader Action Sidebar Drawer
+      setupInteractiveDrawerTracking('readerSidebar', 'readerDrawerBackdrop', closeMobileReaderDrawer, 'drawer-open');
+    }
+
+
+    function updateOfflineUI(offline) {
+      isOfflineMode = offline;
+      const btn = document.getElementById('addArticleBtn');
+      const icon = document.getElementById('addArticleBtnIcon');
+      const label = document.getElementById('addArticleBtnLabel');
+      if (!btn) return;
+
+      if (offline) {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-offline-mode');
+        btn.title = 'Offline Mode — Reading from cache (Tap to retry)';
+        if (icon) {
+          icon.innerHTML = '<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>';
+        }
+        if (label) label.textContent = 'Offline';
+      } else {
+        btn.classList.remove('btn-offline-mode');
+        btn.classList.add('btn-primary');
+        btn.title = 'Add URL';
+        if (icon) {
+          icon.innerHTML = '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>';
+        }
+        if (label) label.textContent = 'Add URL';
+      }
+    }
+
+
+    async function handleDesktopRefresh(btn) {
+      const svg = btn ? btn.querySelector('svg') : null;
+      if (svg) svg.classList.add('ptr-spinning');
+      try {
+        await loadArticles(false);
+      } finally {
+        if (svg) svg.classList.remove('ptr-spinning');
+      }
+    }
+
+    function handleAddArticleBtnClick() {
+      if (isOfflineMode) {
+        loadArticles(false);
+        return;
+      }
+      openModal('addUrlModal');
+    }
+
+    // Global connection state & offline management
+    let isOfflineMode = false;
+    let lastOfflineToastTime = 0;
+
+    function handleConnectionFailure(isSilent = false) {
+      updateOfflineUI(true);
+      const now = Date.now();
+
+      // If manual pull-to-refresh (!isSilent), always show toast; if background resume, debounce to 30s
+      if (!isSilent || (now - lastOfflineToastTime > 30000)) {
+        lastOfflineToastTime = now;
+        if (allEntries.length > 0) {
+          showToast('Offline — viewing saved articles from cache', 3000);
+        } else {
+          showToast('Could not connect to server', 3500);
+        }
+      }
+    }
+
+    // Global silent refresh helper for native app resume & tab focus
+    let lastForegroundSyncTime = 0;
+    window.refreshArticlesSilently = function() {
+      const reader = document.getElementById('readerView');
+      if (reader && reader.classList.contains('open')) return;
+      if (navigator.onLine === false) {
+        handleConnectionFailure(true);
+        return;
+      }
+      const now = Date.now();
+      if (now - lastForegroundSyncTime < 2500) {
+        return;
+      }
+      lastForegroundSyncTime = now;
+      loadArticles(true);
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        window.refreshArticlesSilently();
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      window.refreshArticlesSilently();
+    });
+
+    window.addEventListener('offline', () => {
+      handleConnectionFailure(false);
+    });
+
+    window.addEventListener('online', () => {
+      showToast('Back online — syncing library...', 2500);
+      updateOfflineUI(false);
+      loadArticles(true);
+    });
+
     // Initialize
+    renderFromInstantLocalCache();
+    setupPullToRefresh();
+    setupDrawerSwipeHandlers();
+    setupCardLongPress();
+    // Long-press gesture for mobile cards
+    function setupCardLongPress() {
+      const grid = document.getElementById('articlesGrid');
+      if (!grid) return;
+
+      let longPressTimer = null;
+      let longPressMoved = false;
+      let startX = 0;
+      let startY = 0;
+
+      grid.addEventListener('touchstart', (e) => {
+        const card = e.target.closest('.article-card');
+        if (!card) return;
+        if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap')) return;
+
+        const id = parseInt(card.dataset.id, 10);
+        if (!id) return;
+
+        longPressMoved = false;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+          if (!longPressMoved) {
+            justTriggeredLongPress = true;
+            if (navigator.vibrate) {
+              try { navigator.vibrate(25); } catch {}
+            }
+            toggleArticleSelection(id, true);
+          }
+        }, 450);
+      }, { passive: true });
+
+      grid.addEventListener('touchmove', (e) => {
+        if (longPressTimer) {
+          const diffX = Math.abs(e.touches[0].clientX - startX);
+          const diffY = Math.abs(e.touches[0].clientY - startY);
+          if (diffX > 10 || diffY > 10) {
+            longPressMoved = true;
+            clearTimeout(longPressTimer);
+          }
+        }
+      }, { passive: true });
+
+      grid.addEventListener('touchend', () => {
+        clearTimeout(longPressTimer);
+        if (justTriggeredLongPress) {
+          setTimeout(() => { justTriggeredLongPress = false; }, 120);
+        }
+      }, { passive: true });
+
+      grid.addEventListener('touchcancel', () => {
+        clearTimeout(longPressTimer);
+      }, { passive: true });
+    }
+
+    // Android back button support for selection mode
+    const originalBackHandler = window.handleAndroidBackButton;
+    window.handleAndroidBackButton = function() {
+      if (isSelectionMode()) {
+        clearArticleSelection();
+        return true;
+      }
+      if (originalBackHandler) {
+        return originalBackHandler();
+      }
+      return false;
+    };
+
+
+    function compareSemVer(a, b) {
+      const pa = String(a || '1.0.0').split(/[\.-]/).map(n => parseInt(n, 10) || 0);
+      const pb = String(b || '1.0.0').split(/[\.-]/).map(n => parseInt(n, 10) || 0);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const na = pa[i] || 0;
+        const nb = pb[i] || 0;
+        if (na > nb) return 1;
+        if (na < nb) return -1;
+      }
+      return 0;
+    }
+
+    let isDownloadingOta = false;
+    async function checkOtaFromVersionHeader(serverVer, minNative) {
+      if (!isCapacitorApp() || isDownloadingOta) return;
+      const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
+      if (!updater) return;
+
+      const currentLocal = (await updater.getLatest().catch(() => null))?.version || window.WF_BUILD_VERSION || '';
+      if (serverVer === currentLocal) return;
+
+      const nativeVer = window.WF_NATIVE_VERSION || '1.0.0';
+      if (minNative && compareSemVer(nativeVer, minNative) < 0) {
+        console.warn('[OTA] Native app update required for web version:', serverVer);
+        return;
+      }
+
+      isDownloadingOta = true;
+      try {
+        const serverUrl = getApiBaseUrl();
+        const downloadUrl = serverUrl + '/api/app/bundle.zip';
+        console.log('[OTA] Downloading update bundle in background:', serverVer);
+        const downloaded = await updater.download({
+          url: downloadUrl,
+          version: serverVer
+        });
+        if (downloaded) {
+          await updater.set(downloaded);
+          console.log('[OTA] Update downloaded and ready.');
+          showOtaRestartBanner();
+        }
+      } catch (err) {
+        console.warn('[OTA] Background download error:', err);
+      } finally {
+        isDownloadingOta = false;
+      }
+    }
+
+    function showOtaRestartBanner() {
+      showToast('🚀 New update downloaded! Tap here to restart', 15000);
+      const toast = document.getElementById('toast');
+      if (toast) {
+        toast.style.cursor = 'pointer';
+        toast.onclick = () => {
+          const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
+          if (updater) {
+            updater.reload().catch(() => window.location.reload());
+          } else {
+            window.location.reload();
+          }
+        };
+      }
+    }
+
+    async function initCapacitorOtaUpdater() {
+      if (!isCapacitorApp()) return;
+      const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
+      if (!updater) return;
+
+      try {
+        await updater.notifyAppReady();
+      } catch (e) {}
+    }
+
+    
+    function getAppWebVersion() {
+      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+    }
+
+    function updateVersionDisplay() {
+      const ver = getAppWebVersion();
+      const label = document.getElementById('mobileVersionLabel');
+      if (label) {
+        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      }
+    }
+
+    updateVersionDisplay();
     loadArticles();
+    if (isCapacitorApp()) {
+      const settingsBtn = document.getElementById('serverSettingsBtn');
+      if (settingsBtn) settingsBtn.style.display = 'flex';
+      if (window.AndroidNative && window.AndroidNative.saveServerConfig) {
+        window.AndroidNative.saveServerConfig(
+          localStorage.getItem('wf_server_url') || '',
+          getAuthToken()
+        );
+      }
+      if (!localStorage.getItem('wf_server_url')) {
+        setTimeout(() => openServerConnectModal(), 120);
+      } else {
+        setTimeout(() => initCapacitorOtaUpdater(), 1000);
+      }
+    }
   </script>
 </body>
 </html>`;

@@ -5,22 +5,34 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run build:web && wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate:local": "wrangler d1 execute wallaflare-db --local --file=./schema.sql --yes",
     "db:migrate:remote": "wrangler d1 execute wallaflare-db --remote --file=./schema.sql --yes",
     "typecheck": "tsc --noEmit",
-    "test:extract": "tsx scripts/test-extractors.ts"
+    "test:extract": "tsx scripts/test-extractors.ts",
+    "build:web": "tsx scripts/build-web.ts",
+    "build:apk": "tsx scripts/build-web.ts && npx cap sync android && cd android && export JAVA_HOME=/var/home/ido/.jdks/jdk-21 && export ANDROID_HOME=/home/ido/Android/Sdk && ./gradlew assembleDebug --no-daemon",
+    "build:apk:release": "tsx scripts/build-web.ts && npx cap sync android && cd android && export JAVA_HOME=/var/home/ido/.jdks/jdk-21 && export ANDROID_HOME=/home/ido/Android/Sdk && ./gradlew assembleRelease --no-daemon",
+    "screenshot": "tsx scripts/generate-screenshots.ts"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/status-bar": "^8.0.3",
+    "@capgo/capacitor-updater": "^8.51.14",
     "@mozilla/readability": "^0.6.0",
     "fflate": "^0.8.2",
     "hono": "^4.7.2",
-    "linkedom": "^0.18.9"
+    "jspdf": "^4.2.1",
+    "linkedom": "^0.18.9",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
     "@cloudflare/workers-types": "^5.20260823.1",
+    "puppeteer": "^25.8.0",
     "tsx": "^4.23.12",
     "typescript": "^5.7.3",
     "vitest": "^3.0.7",

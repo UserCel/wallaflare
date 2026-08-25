@@ -1,3 +1,4 @@
+import { OTA_VERSION, OTA_MIN_NATIVE_VERSION, OTA_BUNDLE_B64, OTA_CHECKSUM } from '../views/ota-bundle';
 import { Hono } from 'hono';
 import { Env, EntryRow, WallabagEntry } from '../types';
 import {
@@ -7,6 +8,10 @@ import {
   createEntry,
   updateEntry,
   deleteEntry,
+  deleteEntriesBatch,
+  updateEntriesBatch,
+  addTagsToEntriesBatch,
+  removeTagFromEntriesBatch,
   entryRowToWallabag,
   getTags,
   getEntryTags,
@@ -16,10 +21,12 @@ import {
   checkAuthRateLimit,
   recordFailedAuthAttempt,
   resetAuthRateLimit,
-  timingSafeCompare
+  timingSafeCompare,
+  slugify
 } from '../db/queries';
-import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl } from '../services/extractor';
+import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain } from '../services/extractor';
 import { generateEpub } from '../services/epub';
+import { getClientSecret } from '../services/auth';
 
 
 export function getClientIp(c: any): string {
@@ -122,6 +129,37 @@ const infoHandler = (c: any) => {
   });
 };
 
+
+// -------------------------------------------------------------
+// Capacitor OTA App Update Endpoints
+// -------------------------------------------------------------
+const appVersionHandler = (c: any) => {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return c.json({
+    version: OTA_VERSION,
+    min_native_version: OTA_MIN_NATIVE_VERSION,
+    checksum: OTA_CHECKSUM,
+    url: '/api/app/bundle.zip'
+  });
+};
+
+apiRouter.get('/api/app/version', appVersionHandler);
+apiRouter.get('/api/app/version.json', appVersionHandler);
+
+apiRouter.get('/api/app/bundle.zip', (c: any) => {
+  const binaryString = atob(OTA_BUNDLE_B64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  c.header('Content-Type', 'application/zip');
+  c.header('Content-Disposition', 'attachment; filename="bundle.zip"');
+  c.header('Cache-Control', 'public, max-age=86400');
+  return c.body(bytes);
+});
+
 apiRouter.get('/api/info', infoHandler);
 apiRouter.get('/api/info.json', infoHandler);
 
@@ -147,17 +185,18 @@ const oauthTokenHandler = async (c: any) => {
   let clientSecret = '';
   let username = '';
   let password = '';
+  let body: any = {};
 
   const contentType = c.req.header('Content-Type') || '';
   if (contentType.includes('application/json')) {
-    const body = await c.req.json().catch(() => ({}));
+    body = await c.req.json().catch(() => ({}));
     grantType = body.grant_type || '';
     clientId = body.client_id || '';
     clientSecret = body.client_secret || '';
     username = body.username || '';
     password = body.password || '';
   } else {
-    const body = await c.req.parseBody().catch(() => ({}));
+    body = await c.req.parseBody().catch(() => ({}));
     grantType = String(body.grant_type || '');
     clientId = String(body.client_id || '');
     clientSecret = String(body.client_secret || '');
@@ -166,10 +205,29 @@ const oauthTokenHandler = async (c: any) => {
   }
 
   const expectedToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
+  const expectedClientSecret = getClientSecret(c.env);
 
   if (expectedToken) {
-    const candidate = password || clientSecret || clientId;
-    const isMatch = candidate && (timingSafeCompare(candidate, expectedToken) || candidate === 'wallaflare');
+    let isMatch = false;
+
+    if (grantType === 'password' || !grantType) {
+      const expectedUsername = (c.env.USERNAME || 'wallaflare').toLowerCase();
+      const usernameCandidate = String(username || body.username || '').trim().toLowerCase();
+      const isUserValid = usernameCandidate === expectedUsername;
+      const passwordCandidate = password || body.password || '';
+      const isPasswordValid = passwordCandidate && (timingSafeCompare(passwordCandidate, expectedToken) || timingSafeCompare(passwordCandidate, 'wallaflare'));
+      const isSecretValid = !clientSecret || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
+      isMatch = Boolean(isUserValid && isPasswordValid && isSecretValid);
+    } else if (grantType === 'client_credentials') {
+      isMatch = Boolean(clientSecret && (timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken)));
+    } else if (grantType === 'refresh_token') {
+      const refreshToken = c.req.query('refresh_token') || body.refresh_token || '';
+      isMatch = Boolean(refreshToken && timingSafeCompare(refreshToken, expectedToken));
+    } else {
+      const candidate = password || clientSecret || clientId;
+      isMatch = Boolean(candidate && (timingSafeCompare(candidate, expectedToken) || timingSafeCompare(candidate, expectedClientSecret) || candidate === 'wallaflare'));
+    }
+
     if (!isMatch) {
       const failure = await recordFailedAuthAttempt(c.env.DB, ip);
       if (failure.locked) {
@@ -269,11 +327,39 @@ apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
 // -------------------------------------------------------------
 const tagsHandler = async (c: any) => {
   const tags = await getTags(c.env.DB);
+  c.header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
   return c.json(tags);
 };
 
 apiRouter.get('/api/tags', authMiddleware, tagsHandler);
 apiRouter.get('/api/tags.json', authMiddleware, tagsHandler);
+
+const createTagHandler = async (c: any) => {
+  let label = '';
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    const body = await c.req.json().catch(() => ({}));
+    label = body.label || body.tag || body.name || '';
+  } else {
+    const form = await c.req.parseBody().catch(() => ({}));
+    label = String(form.label || form.tag || form.name || '');
+  }
+
+  if (!label || !label.trim()) {
+    return c.json({ error: 'Tag label is required' }, 400);
+  }
+
+  const cleanLabel = label.trim();
+  const slug = slugify(cleanLabel);
+
+  await c.env.DB.prepare('INSERT OR IGNORE INTO tags (label, slug) VALUES (?, ?)').bind(cleanLabel, slug).run();
+  const tag = await c.env.DB.prepare('SELECT id, label, slug FROM tags WHERE slug = ? LIMIT 1').bind(slug).first<TagItem>();
+
+  return c.json(tag || { id: Date.now(), label: cleanLabel, slug, entry_count: 0 }, 200);
+};
+
+apiRouter.post('/api/tags', authMiddleware, createTagHandler);
+apiRouter.post('/api/tags.json', authMiddleware, createTagHandler);
 
 const deleteGlobalTagHandler = async (c: any) => {
   const id = Number(c.req.param('id').replace(/\.json$/, ''));
@@ -334,17 +420,26 @@ apiRouter.delete('/api/entries/:id/tags/:tag.json', authMiddleware, deleteEntryT
 // Check If Article Exists
 // -------------------------------------------------------------
 const checkExistsHandler = async (c: any) => {
-  const url = c.req.query('url');
+  const query = c.req.query();
+  const url = query.url || query['urls[]'] || query.urls;
+
   if (!url) {
-    return c.json({ exists: false });
+    return c.json(false);
   }
 
-  const existing = await getEntryByUrl(c.env.DB, url);
-  if (existing) {
-    return c.json({ exists: true, id: existing.id });
+  // If array of URLs requested
+  if (Array.isArray(url)) {
+    const results: Record<string, boolean> = {};
+    for (const u of url) {
+      const existing = await getEntryByUrl(c.env.DB, u);
+      results[u] = Boolean(existing);
+    }
+    return c.json(results);
   }
 
-  return c.json({ exists: false });
+  // Single URL query (standard Wallabag API returns JSON boolean)
+  const existing = await getEntryByUrl(c.env.DB, String(url));
+  return c.json(Boolean(existing));
 };
 
 apiRouter.get('/api/entries/exists', authMiddleware, checkExistsHandler);
@@ -413,8 +508,24 @@ const postEntryHandler = async (c: any) => {
   const content = body.content ? String(body.content).trim() : '';
   const rawTags = body.tags || body.tag || undefined;
 
-  let entryData: Partial<EntryRow> & { tags?: string | string[] } = {};
+  // Duplicate URL check: Return existing entry if already in library
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    const existing = await getEntryByUrl(c.env.DB, url);
+    if (existing) {
+      if (rawTags) {
+        await addTagsToEntry(c.env.DB, existing.id, rawTags);
+      }
+      const addedDate = existing.created_at 
+        ? new Date(existing.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : 'an earlier date';
+      const wallabagObj = entryRowToWallabag(existing);
+      (wallabagObj as any).already_exists = true;
+      (wallabagObj as any).added_date_str = addedDate;
+      return c.json(wallabagObj, 200);
+    }
+  }
 
+  let entryData: Partial<EntryRow> & { tags?: string | string[] } = {};
 
   if (title && content) {
     // Custom pasted / manual text entry
@@ -426,12 +537,16 @@ const postEntryHandler = async (c: any) => {
       previewPicture = await extractCoverImageFromUrl(url);
     }
 
+    const domainName = url && (url.startsWith('http://') || url.startsWith('https://'))
+      ? (extracted.domainName || extractDomain(url))
+      : 'direct-input';
+
     entryData = {
       url: url || undefined,
       title,
       content: extracted.content,
       preview_picture: previewPicture,
-      domain_name: 'direct-input',
+      domain_name: domainName,
       reading_time: extracted.readingTime,
       language: body.language || extracted.language || 'en',
       author: body.author ? String(body.author).trim() : (extracted.byline || null),
@@ -496,6 +611,159 @@ apiRouter.post('/api/entries', authMiddleware, postEntryHandler);
 apiRouter.post('/api/entries.json', authMiddleware, postEntryHandler);
 
 // -------------------------------------------------------------
+
+// -------------------------------------------------------------
+// Helper to extract Entry IDs from request (Body or Query)
+// -------------------------------------------------------------
+async function extractIdsFromRequest(c: any): Promise<number[]> {
+  let ids: any[] = [];
+  const queryIds = c.req.query('ids') || c.req.query('entries');
+  if (queryIds) {
+    if (Array.isArray(queryIds)) ids = queryIds;
+    else ids = String(queryIds).split(',').map((s: string) => s.trim());
+  } else {
+    const contentType = c.req.header('Content-Type') || '';
+    if (contentType.includes('application/json')) {
+      const body = await c.req.json().catch(() => ({}));
+      if (Array.isArray(body)) ids = body;
+      else if (Array.isArray(body.ids)) ids = body.ids;
+      else if (Array.isArray(body.entries)) ids = body.entries;
+      else if (typeof body.ids === 'string') ids = body.ids.split(',');
+      else if (typeof body.entries === 'string') ids = body.entries.split(',');
+    } else {
+      const form = await c.req.parseBody().catch(() => ({}));
+      if (Array.isArray(form['ids[]'])) ids = form['ids[]'];
+      else if (Array.isArray(form.ids)) ids = form.ids;
+      else if (typeof form.ids === 'string') ids = form.ids.split(',');
+      else if (typeof form.entries === 'string') ids = form.entries.split(',');
+    }
+  }
+  return ids.map(Number).filter(n => !isNaN(n) && n > 0);
+}
+
+// -------------------------------------------------------------
+// Mass Delete Entries: DELETE /api/entries/list(.json)
+// -------------------------------------------------------------
+const batchDeleteEntriesHandler = async (c: any) => {
+  const ids = await extractIdsFromRequest(c);
+  if (ids.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  const deletedCount = await deleteEntriesBatch(c.env.DB, ids);
+  return c.json({ ids, count: deletedCount, success: true, message: 'Entries deleted' });
+};
+
+apiRouter.delete('/api/entries/list', authMiddleware, batchDeleteEntriesHandler);
+apiRouter.delete('/api/entries/list.json', authMiddleware, batchDeleteEntriesHandler);
+
+// -------------------------------------------------------------
+// Mass Update Entries (Star/Archive): PATCH /api/entries/list(.json)
+// -------------------------------------------------------------
+const batchPatchEntriesHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  let ids: any[] = [];
+  if (Array.isArray(body.ids)) ids = body.ids;
+  else if (Array.isArray(body.entries)) ids = body.entries;
+  else if (typeof body.ids === 'string') ids = body.ids.split(',');
+  else if (c.req.query('ids')) ids = String(c.req.query('ids')).split(',');
+
+  const validIds = ids.map(Number).filter(n => !isNaN(n) && n > 0);
+  if (validIds.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  const updates: { is_starred?: number; is_archived?: number } = {};
+  if (body.starred !== undefined) updates.is_starred = Number(body.starred);
+  if (body.archive !== undefined) updates.is_archived = Number(body.archive);
+  if (body.is_starred !== undefined) updates.is_starred = Number(body.is_starred);
+  if (body.is_archived !== undefined) updates.is_archived = Number(body.is_archived);
+
+  const updatedCount = await updateEntriesBatch(c.env.DB, validIds, updates);
+  return c.json({ ids: validIds, count: updatedCount, success: true });
+};
+
+apiRouter.patch('/api/entries/list', authMiddleware, batchPatchEntriesHandler);
+apiRouter.patch('/api/entries/list.json', authMiddleware, batchPatchEntriesHandler);
+apiRouter.patch('/api/entries/lists', authMiddleware, batchPatchEntriesHandler);
+apiRouter.patch('/api/entries/lists.json', authMiddleware, batchPatchEntriesHandler);
+
+// -------------------------------------------------------------
+// Mass Add Tags to Entries: POST /api/entries/tags/lists(.json)
+// -------------------------------------------------------------
+const batchAddTagsHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  let ids: any[] = [];
+  if (Array.isArray(body.entries)) ids = body.entries;
+  else if (Array.isArray(body.ids)) ids = body.ids;
+  else if (typeof body.entries === 'string') ids = body.entries.split(',');
+  else if (typeof body.ids === 'string') ids = body.ids.split(',');
+
+  const validIds = ids.map(Number).filter(n => !isNaN(n) && n > 0);
+  const tags = body.tags || body.tag || '';
+
+  if (validIds.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  await addTagsToEntriesBatch(c.env.DB, validIds, tags);
+  return c.json({ ids: validIds, success: true, message: 'Tags added to entries' });
+};
+
+apiRouter.post('/api/entries/tags/lists', authMiddleware, batchAddTagsHandler);
+apiRouter.post('/api/entries/tags/lists.json', authMiddleware, batchAddTagsHandler);
+apiRouter.post('/api/entries/tags/list', authMiddleware, batchAddTagsHandler);
+apiRouter.post('/api/entries/tags/list.json', authMiddleware, batchAddTagsHandler);
+
+// -------------------------------------------------------------
+// Mass Remove Tag from Entries: DELETE /api/entries/tags/list(.json)
+// -------------------------------------------------------------
+const batchRemoveTagsHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  let ids: any[] = [];
+  if (Array.isArray(body.entries)) ids = body.entries;
+  else if (Array.isArray(body.ids)) ids = body.ids;
+  else if (typeof body.entries === 'string') ids = body.entries.split(',');
+  else if (c.req.query('entries')) ids = String(c.req.query('entries')).split(',');
+  else if (c.req.query('ids')) ids = String(c.req.query('ids')).split(',');
+
+  const validIds = ids.map(Number).filter(n => !isNaN(n) && n > 0);
+  const tagParam = body.tag || body.tag_id || c.req.query('tag') || c.req.query('tag_id') || '';
+
+  if (validIds.length === 0) {
+    return c.json({ error: 'No valid entry IDs provided' }, 400);
+  }
+
+  await removeTagFromEntriesBatch(c.env.DB, validIds, tagParam);
+  return c.json({ ids: validIds, success: true, message: 'Tags removed from entries' });
+};
+
+apiRouter.delete('/api/entries/tags/list', authMiddleware, batchRemoveTagsHandler);
+apiRouter.delete('/api/entries/tags/list.json', authMiddleware, batchRemoveTagsHandler);
+apiRouter.delete('/api/entries/tags/lists', authMiddleware, batchRemoveTagsHandler);
+apiRouter.delete('/api/entries/tags/lists.json', authMiddleware, batchRemoveTagsHandler);
+
 // Single Entry: GET /api/entries/:id(.json)
 // -------------------------------------------------------------
 const getSingleEntryHandler = async (c: any) => {
@@ -668,3 +936,18 @@ const exportEpubHandler = async (c: any) => {
 };
 
 apiRouter.get('/api/entries/:id/export.epub', authMiddleware, exportEpubHandler);
+
+
+// -------------------------------------------------------------
+// Client Info Endpoint (For KOReader & Sync Settings Modal)
+// -------------------------------------------------------------
+apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
+  const origin = new URL(c.req.url).origin;
+  const clientSecret = getClientSecret(c.env);
+  return c.json({
+    server_url: origin,
+    client_id: 'wallaflare',
+    client_secret: clientSecret,
+    username: 'wallaflare',
+  });
+});

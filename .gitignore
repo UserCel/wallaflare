@@ -21,9 +21,16 @@ wrangler.toml
 # Build & Test outputs
 dist/
 build/
+www/
 coverage/
 *.log
 *.epub
+*.apk
+*.aab
+
+# Android Local Config
+local.properties
+.gradle/
 
 # OS & Editor files
 .DS_Store
@@ -32,3 +39,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Keystores
+*.keystore
+*.jks

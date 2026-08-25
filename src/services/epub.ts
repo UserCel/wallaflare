@@ -1,6 +1,13 @@
 import { zipSync, strToU8 } from 'fflate';
 import { parseHTML } from 'linkedom';
 
+function parseHtmlDoc(html: string): any {
+  if (typeof DOMParser !== 'undefined') {
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+  return parseHTML(html).document;
+}
+
 export interface EpubArticleInput {
   id?: number | string;
   title: string;
@@ -32,6 +39,69 @@ export function isRtlLanguage(lang?: string | null, textSample?: string | null):
     return rtlRegex.test(textSample.slice(0, 800));
   }
   return false;
+}
+
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
+]);
+
+function serializeNodeToXhtml(node: any, out: string[]) {
+  if (!node) return;
+  const type = node.nodeType;
+  // Text node
+  if (type === 3) {
+    out.push(escapeXml(node.nodeValue || ''));
+    return;
+  }
+  // Comment node
+  if (type === 8) {
+    out.push('<!--', (node.nodeValue || '').replace(/--/g, '__'), '-->');
+    return;
+  }
+  // Element node
+  if (type === 1) {
+    const tag = (node.tagName || '').toLowerCase();
+    if (!tag) return;
+    out.push('<', tag);
+    const attrs = node.attributes;
+    if (attrs && attrs.length > 0) {
+      for (let i = 0; i < attrs.length; i++) {
+        const attr = attrs[i];
+        out.push(' ', attr.name, '="', escapeXml(attr.value || ''), '"');
+      }
+    }
+    if (VOID_ELEMENTS.has(tag)) {
+      out.push('/>');
+      return;
+    }
+    out.push('>');
+    const children = node.childNodes;
+    if (children && children.length > 0) {
+      for (let i = 0; i < children.length; i++) {
+        serializeNodeToXhtml(children[i], out);
+      }
+    }
+    out.push('</', tag, '>');
+    return;
+  }
+  // Document or DocumentFragment
+  const children = node.childNodes;
+  if (children && children.length > 0) {
+    for (let i = 0; i < children.length; i++) {
+      serializeNodeToXhtml(children[i], out);
+    }
+  }
+}
+
+export function bodyToXhtml(body: any): string {
+  const out: string[] = [];
+  const children = body.childNodes;
+  if (children && children.length > 0) {
+    for (let i = 0; i < children.length; i++) {
+      serializeNodeToXhtml(children[i], out);
+    }
+  }
+  return out.join('');
 }
 
 function escapeXml(unsafe: string): string {
@@ -141,7 +211,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
   }
 
   // 2. Parse & sanitize content HTML, fetching inline images
-  const { document } = parseHTML(`<!DOCTYPE html><html><body>${article.content || ''}</body></html>`);
+  const document = parseHtmlDoc(`<!DOCTYPE html><html><body>${article.content || ''}</body></html>`);
 
   // Remove unsafe elements
   const removeSelectors = ['script', 'style', 'iframe', 'noscript', 'object', 'embed'];
@@ -280,7 +350,7 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
     el.removeAttribute('style');
   });
 
-  const cleanBodyHtml = document.body.innerHTML;
+  const cleanBodyHtml = bodyToXhtml(document.body);
 
   // 3. Container XML
   const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
