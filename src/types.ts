@@ -1,3 +1,17 @@
+export interface AnnotationItem {
+  id: number;
+  entry_id: number;
+  annotator_schema_version?: string;
+  quote: string;
+  text?: string;
+  color?: string;
+  ranges?: any[];
+  target?: any;
+  created_at: string;
+  updated_at: string;
+  user?: string;
+}
+
 export interface Env {
   DB: D1Database;
   AUTH_TOKEN?: string;

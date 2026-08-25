@@ -1,4 +1,4 @@
-import { EntryRow, WallabagEntry } from '../types';
+import { EntryRow, WallabagEntry, AnnotationItem } from '../types';
 
 export interface TagItem {
   id: number;
@@ -28,6 +28,20 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
   const publishedAt = row?.published_at ? formatRfc3339(row.published_at) : null;
   const plainText = (row?.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
+  const rawAnnotations = (row as any)?.annotations || [];
+  const entryAnnotations = Array.isArray(rawAnnotations)
+    ? rawAnnotations.map((a: any) => ({
+        id: Number(a.id || 0),
+        annotator_schema_version: 'v1.0',
+        quote: String(a.quote || ''),
+        text: String(a.text || ''),
+        color: String(a.color || 'yellow'),
+        ranges: typeof a.ranges === 'string' ? JSON.parse(a.ranges || '[]') : (a.ranges || []),
+        created_at: formatRfc3339(a.created_at),
+        updated_at: formatRfc3339(a.updated_at),
+        user: 'wallaflare'
+      }))
+    : [];
   const rawTags = (row as any)?.tags || tags || [];
   const entryTags = Array.isArray(rawTags)
     ? rawTags.map((t: any) => ({
@@ -66,7 +80,7 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
     language: row?.language || 'en',
     mimetype: 'text/html',
     text: plainText,
-    annotations: [],
+    annotations: entryAnnotations,
     origin_url: row?.url || null,
   };
 }
@@ -115,6 +129,121 @@ export async function getEntryTags(db: D1Database, entryId: number): Promise<Tag
   } catch {
     return [];
   }
+}
+
+
+export function formatAnnotationResponse(row: any): AnnotationItem {
+  return {
+    id: Number(row.id || 0),
+    entry_id: Number(row.entry_id || 0),
+    annotator_schema_version: 'v1.0',
+    quote: String(row.quote || ''),
+    text: String(row.text || ''),
+    color: String(row.color || 'yellow'),
+    ranges: typeof row.ranges === 'string' ? JSON.parse(row.ranges || '[]') : (row.ranges || []),
+    target: row.target ? (typeof row.target === 'string' ? JSON.parse(row.target) : row.target) : undefined,
+    created_at: formatRfc3339(row.created_at),
+    updated_at: formatRfc3339(row.updated_at),
+    user: row.user_id || 'wallaflare'
+  };
+}
+
+export async function getAllEntryAnnotationsBatch(db: D1Database, entryIds: number[]): Promise<Map<number, AnnotationItem[]>> {
+  const map = new Map<number, AnnotationItem[]>();
+  if (entryIds.length === 0) return map;
+
+  try {
+    const placeholders = entryIds.map(() => '?').join(',');
+    const query = `
+      SELECT id, entry_id, user_id, quote, text, color, ranges, target, created_at, updated_at
+      FROM annotations
+      WHERE entry_id IN (${placeholders})
+      ORDER BY id ASC
+    `;
+    const { results } = await db.prepare(query).bind(...entryIds).all<any>();
+    if (results) {
+      for (const r of results) {
+        if (!map.has(r.entry_id)) map.set(r.entry_id, []);
+        map.get(r.entry_id)!.push(formatAnnotationResponse(r));
+      }
+    }
+  } catch {}
+  return map;
+}
+
+export async function getEntryAnnotations(db: D1Database, entryId: number): Promise<AnnotationItem[]> {
+  try {
+    const query = `
+      SELECT id, entry_id, user_id, quote, text, color, ranges, target, created_at, updated_at
+      FROM annotations
+      WHERE entry_id = ?
+      ORDER BY id ASC
+    `;
+    const { results } = await db.prepare(query).bind(entryId).all<any>();
+    return (results || []).map(formatAnnotationResponse);
+  } catch {
+    return [];
+  }
+}
+
+export async function createAnnotation(
+  db: D1Database,
+  entryId: number,
+  data: { quote: string; text?: string; color?: string; ranges?: any[]; target?: any; user_id?: string }
+): Promise<AnnotationItem> {
+  const now = new Date().toISOString();
+  const rangesStr = JSON.stringify(data.ranges || []);
+  const targetStr = data.target ? JSON.stringify(data.target) : null;
+  const color = data.color || 'yellow';
+  const text = data.text || '';
+  const quote = data.quote || '';
+  const userId = data.user_id || 'wallaflare';
+
+  const res = await db.prepare(`
+    INSERT INTO annotations (entry_id, user_id, quote, text, color, ranges, target, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(entryId, userId, quote, text, color, rangesStr, targetStr, now, now).run();
+
+  const id = res.meta.last_row_id || 0;
+  return formatAnnotationResponse({
+    id,
+    entry_id: entryId,
+    user_id: userId,
+    quote,
+    text,
+    color,
+    ranges: data.ranges || [],
+    target: data.target,
+    created_at: now,
+    updated_at: now
+  });
+}
+
+export async function updateAnnotation(db: D1Database, id: number, data: { text?: string; color?: string; target?: any }): Promise<AnnotationItem | null> {
+  const existing = await db.prepare('SELECT * FROM annotations WHERE id = ? LIMIT 1').bind(id).first<any>();
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+  const text = data.text !== undefined ? data.text : existing.text;
+  const color = data.color !== undefined ? data.color : existing.color;
+  const targetStr = data.target !== undefined ? (data.target ? JSON.stringify(data.target) : null) : existing.target;
+
+  await db.prepare(`
+    UPDATE annotations SET text = ?, color = ?, target = ?, updated_at = ? WHERE id = ?
+  `).bind(text, color, targetStr, now, id).run();
+
+  return formatAnnotationResponse({
+    ...existing,
+    text,
+    color,
+    target: targetStr,
+    updated_at: now
+  });
+}
+
+export async function deleteAnnotation(db: D1Database, id: number): Promise<boolean> {
+  const res = await db.prepare('DELETE FROM annotations WHERE id = ?').bind(id).run();
+  return (res.meta.changes || 0) > 0;
 }
 
 export async function getAllEntryTagsBatch(db: D1Database, entryIds: number[]): Promise<Map<number, TagItem[]>> {
@@ -274,12 +403,14 @@ export async function getEntries(
   const { results } = await db.prepare(selectQuery).bind(...params, limit, offset).all<EntryRow>();
   const entries = results || [];
 
-  // Batch populate tags
+  // Batch populate tags & annotations in 1 single pass
   if (entries.length > 0) {
     const entryIds = entries.map(e => e.id);
     const tagsMap = await getAllEntryTagsBatch(db, entryIds);
+    const annotationsMap = await getAllEntryAnnotationsBatch(db, entryIds);
     for (const entry of entries) {
       (entry as any).tags = tagsMap.get(entry.id) || [];
+      (entry as any).annotations = annotationsMap.get(entry.id) || [];
     }
   }
 
@@ -297,6 +428,7 @@ export async function getEntryById(db: D1Database, id: number): Promise<EntryRow
   const entry = await db.prepare(query).bind(id).first<EntryRow>();
   if (entry) {
     (entry as any).tags = await getEntryTags(db, entry.id);
+    (entry as any).annotations = await getEntryAnnotations(db, entry.id);
   }
   return entry;
 }
@@ -306,6 +438,7 @@ export async function getEntryByUrl(db: D1Database, url: string): Promise<EntryR
   const entry = await db.prepare(query).bind(url).first<EntryRow>();
   if (entry) {
     (entry as any).tags = await getEntryTags(db, entry.id);
+    (entry as any).annotations = await getEntryAnnotations(db, entry.id);
   }
   return entry;
 }

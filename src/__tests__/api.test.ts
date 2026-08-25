@@ -8,8 +8,10 @@ function createMockD1Database() {
   let tags: Array<{ id: number; label: string; slug: string }> = [];
   let entryTags: Array<{ entry_id: number; tag_id: number }> = [];
   let rateLimits: Map<string, { failed_attempts: number; last_attempt_at: number; locked_until: number }> = new Map();
+  let annotations: Array<{ id: number; entry_id: number; user_id: string; quote: string; text: string; color: string; ranges: string; target: string | null; created_at: string; updated_at: string }> = [];
   let autoId = 1;
   let autoTagId = 1;
+  let autoAnnotationId = 1;
 
   return {
     _entries: entries,
@@ -28,6 +30,11 @@ function createMockD1Database() {
               filtered = filtered.filter(e => e.is_archived === archiveVal);
             }
             return { total: filtered.length } as T;
+          }
+                    if (query.includes('FROM annotations WHERE id = ?')) {
+            const id = boundParams[0];
+            const found = annotations.find(a => a.id === id);
+            return (found || null) as T;
           }
           if (query.includes('FROM tags WHERE slug = ?')) {
             const slug = boundParams[0];
@@ -59,6 +66,19 @@ function createMockD1Database() {
           return null as T;
         },
         async all<T = any>() {
+                    if (query.includes('FROM annotations')) {
+            if (query.includes('WHERE entry_id = ?')) {
+              const entryId = boundParams[0];
+              const matched = annotations.filter(a => a.entry_id === entryId);
+              return { results: matched as T[] };
+            }
+            if (query.includes('WHERE entry_id IN')) {
+              const entryIds = boundParams;
+              const matched = annotations.filter(a => entryIds.includes(a.entry_id));
+              return { results: matched as T[] };
+            }
+            return { results: [...annotations] as T[] };
+          }
           if (query.includes('SELECT * FROM tags')) {
             return { results: [...tags] as T[] };
           }
@@ -101,6 +121,51 @@ function createMockD1Database() {
           return { results: [...entries] as T[] };
         },
         async run() {
+                    if (query.includes('INSERT INTO annotations')) {
+            const entryId = Number(boundParams[0]);
+            const userId = String(boundParams[1]);
+            const quote = String(boundParams[2]);
+            const text = String(boundParams[3] || '');
+            const color = String(boundParams[4] || 'yellow');
+            const ranges = String(boundParams[5] || '[]');
+            const target = boundParams[6] ? String(boundParams[6]) : null;
+            const createdAt = String(boundParams[7]);
+            const updatedAt = String(boundParams[8]);
+            const newAnn = {
+              id: autoAnnotationId++,
+              entry_id: entryId,
+              user_id: userId,
+              quote,
+              text,
+              color,
+              ranges,
+              target,
+              created_at: createdAt,
+              updated_at: updatedAt
+            };
+            annotations.push(newAnn);
+            return { meta: { last_row_id: newAnn.id, changes: 1 } };
+          }
+          if (query.includes('UPDATE annotations SET')) {
+            const id = Number(boundParams[boundParams.length - 1]);
+            const found = annotations.find(a => a.id === id);
+            if (found) {
+              if (boundParams[0] !== undefined) found.text = String(boundParams[0]);
+              if (boundParams[1] !== undefined) found.color = String(boundParams[1]);
+              if (boundParams[2] !== undefined) found.target = boundParams[2] ? String(boundParams[2]) : null;
+              found.updated_at = String(boundParams[3]);
+            }
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('DELETE FROM annotations WHERE id = ?')) {
+            const id = Number(boundParams[0]);
+            const idx = annotations.findIndex(a => a.id === id);
+            if (idx >= 0) {
+              annotations.splice(idx, 1);
+              return { meta: { changes: 1 } };
+            }
+            return { meta: { changes: 0 } };
+          }
           if (query.includes('INSERT INTO entries')) {
             const newEntry: EntryRow = {
               id: autoId++,
@@ -1179,5 +1244,151 @@ describe("Capacitor Android OTA Endpoints", () => {
     expect(res.headers.get("Cache-Control")).toContain("public, max-age=86400");
     const arrayBuffer = await res.arrayBuffer();
     expect(arrayBuffer.byteLength).toBeGreaterThan(1000);
+  });
+});
+
+
+describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
+  const SECRET = "test_secret_key_annotations";
+  let mockDb: any;
+  let createdEntryId: number;
+
+  beforeEach(async () => {
+    mockDb = createMockD1Database();
+    // Create an entry to test annotations
+    const res = await app.request("/api/entries.json", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${SECRET}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        url: "https://example.com/annotations-test",
+        title: "Annotations Test Article",
+        content: "<p>This is an important passage for testing highlights.</p>"
+      })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    const entry = await res.json<any>();
+    createdEntryId = entry.id;
+  });
+
+  it("creates a new annotation with W3C target and Wallabag fields on POST /api/annotations/:entryId", async () => {
+    const w3cTarget = {
+      source: "https://example.com/annotations-test",
+      selector: [
+        { type: "TextQuoteSelector", exact: "important passage", prefix: "This is an ", suffix: " for testing" },
+        { type: "TextPositionSelector", start: 11, end: 28 }
+      ]
+    };
+
+    const res = await app.request(`/api/annotations/${createdEntryId}.json`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${SECRET}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        quote: "important passage",
+        text: "Key finding to remember",
+        color: "green",
+        ranges: [{ start: "/p[1]", startOffset: 11, end: "/p[1]", endOffset: 28 }],
+        target: w3cTarget
+      })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+
+    expect(res.status).toBe(201);
+    const data = await res.json<any>();
+    expect(data.id).toBeGreaterThan(0);
+    expect(data.quote).toBe("important passage");
+    expect(data.text).toBe("Key finding to remember");
+    expect(data.color).toBe("green");
+    expect(data.target).toBeDefined();
+    expect(data.target.selector[0].exact).toBe("important passage");
+    expect(data.annotator_schema_version).toBe("v1.0");
+  });
+
+  it("lists all annotations on GET /api/annotations/:entryId.json", async () => {
+    // Create an annotation first
+    await app.request(`/api/annotations/${createdEntryId}.json`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quote: "First highlight", color: "yellow" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    const res = await app.request(`/api/annotations/${createdEntryId}.json`, {
+      headers: { "Authorization": `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBeGreaterThan(0);
+    expect(data[0].quote).toBe("First highlight");
+  });
+
+  it("updates annotation note and color on PATCH /api/annotations/:id.json", async () => {
+    const postRes = await app.request(`/api/annotations/${createdEntryId}.json`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quote: "Update me", color: "yellow", text: "Old note" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const created = await postRes.json<any>();
+
+    const patchRes = await app.request(`/api/annotations/${created.id}.json`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ color: "purple", text: "Updated personal comment" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(patchRes.status).toBe(200);
+    const updated = await patchRes.json<any>();
+    expect(updated.color).toBe("purple");
+    expect(updated.text).toBe("Updated personal comment");
+  });
+
+  it("deletes an annotation on DELETE /api/annotations/:id.json", async () => {
+    const postRes = await app.request(`/api/annotations/${createdEntryId}.json`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quote: "Delete me" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const created = await postRes.json<any>();
+
+    const delRes = await app.request(`/api/annotations/${created.id}.json`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(delRes.status).toBe(200);
+    const delData = await delRes.json<any>();
+    expect(delData.success).toBe(true);
+  });
+
+  it("embeds annotations array inside GET /api/entries.json and GET /api/entries/:id.json without extra requests", async () => {
+    // Add an annotation
+    await app.request(`/api/annotations/${createdEntryId}.json`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quote: "Embedded highlight", color: "blue" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    // Fetch entries
+    const listRes = await app.request("/api/entries.json", {
+      headers: { "Authorization": `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(listRes.status).toBe(200);
+    const listData = await listRes.json<any>();
+    const entry = listData._embedded.items.find((i: any) => i.id === createdEntryId);
+    expect(entry).toBeDefined();
+    expect(entry.annotations).toBeDefined();
+    expect(entry.annotations.length).toBeGreaterThan(0);
+    expect(entry.annotations[0].quote).toBe("Embedded highlight");
+    expect(entry.annotations[0].color).toBe("blue");
   });
 });
