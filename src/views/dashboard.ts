@@ -2798,10 +2798,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     let activeArticleId = null;
 
     
+    function getEffectiveServerUrl() {
+      const configured = localStorage.getItem('wf_server_url');
+      if (configured && configured.trim().startsWith('http')) {
+        return configured.trim().replace(new RegExp('/+$ '.trim()), '');
+      }
+      if (window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.startsWith('capacitor://') && !window.location.origin.startsWith('file://')) {
+        return window.location.origin;
+      }
+      return '';
+    }
+
     async function loadClientInfo() {
       const secretDisplay = document.getElementById('syncClientSecretDisplay');
       const serverUrlDisplay = document.getElementById('syncServerUrl');
-      if (serverUrlDisplay) serverUrlDisplay.textContent = window.location.origin;
+      const effectiveUrl = getEffectiveServerUrl();
+      if (serverUrlDisplay) {
+        serverUrlDisplay.textContent = effectiveUrl || 'Server not configured (set in Settings)';
+      }
 
       try {
         const res = await authFetch('/api/client-info');
@@ -2812,7 +2826,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           }
         }
       } catch (err) {
-        if (secretDisplay) secretDisplay.textContent = 'wallaflare_client_secret';
+        if (secretDisplay) secretDisplay.textContent = 'wallaflare';
       }
     }
 
@@ -2843,7 +2857,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    document.getElementById('syncServerUrl').textContent = window.location.origin;
+    const initSyncUrl = getEffectiveServerUrl(); if (document.getElementById('syncServerUrl')) document.getElementById('syncServerUrl').textContent = initSyncUrl || 'Server not configured';
 
     function getAuthToken() {
       return localStorage.getItem('wf_auth_token') || '';
@@ -4369,7 +4383,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           ? '<div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--border-color); overflow: hidden;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
           : '<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--border-color);"></div>';
 
-        return '<div class="article-card ' + (isChecked ? 'is-selected' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '"' + (isItemRtl ? ' dir="rtl"' : '') + ' onclick="handleCardClick(event, ' + item.id + ')">' +
+        return '<div class="article-card ' + (isChecked ? 'is-selected' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '" onclick="handleCardClick(event, ' + item.id + ')">' +
           selectCheckboxHtml +
           '<div class="card-main-content">' +
             '<div class="card-text-column">' +
