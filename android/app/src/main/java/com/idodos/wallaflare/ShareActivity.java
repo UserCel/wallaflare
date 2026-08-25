@@ -34,7 +34,7 @@ public class ShareActivity extends Activity {
     private Button btnOpenArticle;
     private Runnable autoDismissRunnable;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final ExecutorService bgExecutor = Executors.newCachedThreadPool();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,7 +122,8 @@ public class ShareActivity extends Activity {
         final String finalTargetUrl = targetUrl;
         final String finalToken = authToken;
 
-        executor.execute(() -> saveArticle(finalServerUrl, finalToken, finalTargetUrl));
+        final android.content.Context appContext = getApplicationContext();
+        bgExecutor.execute(() -> saveArticle(appContext, finalServerUrl, finalToken, finalTargetUrl));
     }
 
     private String extractUrl(String text) {
@@ -134,7 +135,7 @@ public class ShareActivity extends Activity {
         return null;
     }
 
-    private void saveArticle(String serverUrl, String token, String targetUrl) {
+    private void saveArticle(final android.content.Context appContext, String serverUrl, String token, String targetUrl) {
         try {
             URL url = new URL(serverUrl + "/api/entries.json");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -175,7 +176,7 @@ public class ShareActivity extends Activity {
 
                 // Buffer newly saved article in SharedPreferences for 0ms instant display in main app
                 if (articleId > 0) {
-                    getSharedPreferences("wallaflare_config", MODE_PRIVATE).edit()
+                    appContext.getSharedPreferences("wallaflare_config", android.content.Context.MODE_PRIVATE).edit()
                         .putString("last_saved_article_json", response.toString())
                         .apply();
                 }
@@ -243,6 +244,5 @@ public class ShareActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         cancelAutoDismiss();
-        executor.shutdown();
     }
 }
