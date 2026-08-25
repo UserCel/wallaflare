@@ -486,6 +486,52 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
     }
+    .hl-filter-pill {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 20px;
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .hl-filter-pill:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .hl-filter-pill.active {
+      background: var(--accent) !important;
+      color: #ffffff !important;
+      border-color: var(--accent) !important;
+      font-weight: 600;
+    }
+
+    .hl-sort-btn {
+      padding: 3px 9px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .hl-sort-btn:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .hl-sort-btn.active {
+      background: var(--accent) !important;
+      color: #ffffff !important;
+      border-color: var(--accent) !important;
+      font-weight: 600;
+    }
     .modal-hl-item {
       padding: 0.75rem 0.9rem;
       background: var(--card-bg, var(--bg-secondary));
@@ -2406,6 +2452,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
           </button>
           <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
+            <button class="menu-item" id="batchHighlightsBtn" onclick="closeBatchMenu(); batchOpenHighlights();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span id="batchHighlightsLabel">Highlights &amp; Notes</span></button>
+            <button class="menu-item" id="batchOpenOriginalBtn" onclick="closeBatchMenu(); batchOpenOriginal();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
             <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
                         <div class="menu-item-expandable" id="batchExportWrap">
               <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleBatchExportSubmenu()">
@@ -2693,18 +2741,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <button class="close-btn" onclick="closeModal('readerHighlightsModal')">&times;</button>
       </div>
 
-      <div style="padding: 0.65rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; background: var(--bg-primary);">
-        <div style="display: flex; gap: 0.4rem; overflow-x: auto; flex: 1;" id="highlightsFilterPills">
-          <button class="filter-pill active" onclick="filterHighlightsModalList('all', this)">All</button>
-          <button class="filter-pill" onclick="filterHighlightsModalList('yellow', this)">🟡 Yellow</button>
-          <button class="filter-pill" onclick="filterHighlightsModalList('green', this)">🟢 Green</button>
-          <button class="filter-pill" onclick="filterHighlightsModalList('blue', this)">🔵 Blue</button>
-          <button class="filter-pill" onclick="filterHighlightsModalList('purple', this)">🟣 Purple</button>
-          <button class="filter-pill" onclick="filterHighlightsModalList('notes', this)">💬 Notes</button>
+      <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem; background: var(--bg-secondary);">
+        <div style="display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 2px;" id="highlightsFilterPills">
+          <button class="hl-filter-pill active" onclick="filterHighlightsModalList('all', this)">All</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('yellow', this)">🟡 Yellow</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('green', this)">🟢 Green</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('blue', this)">🔵 Blue</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('purple', this)">🟣 Purple</button>
+          <button class="hl-filter-pill" onclick="filterHighlightsModalList('notes', this)">💬 With Notes</button>
         </div>
-        <div style="display: flex; gap: 0.25rem; flex-shrink: 0; align-items: center;" id="highlightsSortWrap">
-          <button class="btn btn-outline" id="btnSortPosition" style="padding: 2px 7px; font-size: 0.72rem; border-color: var(--accent); color: var(--accent);" onclick="setHighlightsSort('position', this)" title="Article Reading Order">📖 Order</button>
-          <button class="btn btn-outline" id="btnSortTime" style="padding: 2px 7px; font-size: 0.72rem;" onclick="setHighlightsSort('time', this)" title="Newest Highlights First">⏱️ Newest</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+          <span style="color: var(--text-muted); font-size: 0.75rem;">Sort Highlights:</span>
+          <div style="display: flex; gap: 0.35rem;" id="highlightsSortWrap">
+            <button class="hl-sort-btn active" id="btnSortPosition" onclick="setHighlightsSort('position', this)" title="Article Reading Order">📖 Article Order</button>
+            <button class="hl-sort-btn" id="btnSortTime" onclick="setHighlightsSort('time', this)" title="Newest Highlights First">⏱️ Newest First</button>
+          </div>
         </div>
       </div>
 
@@ -3804,13 +3855,32 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         closeAllCardMenus();
         if (!isOpen) {
           menu.classList.add('open');
+          const isSingle = selectedArticleIds.size === 1;
           const editBtn = document.getElementById('batchEditTitleBtn');
-          if (editBtn) {
-            editBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
-          }
+          if (editBtn) editBtn.style.display = isSingle ? 'flex' : 'none';
+
           const downloadBtn = document.getElementById('batchDownloadEpubBtn');
-          if (downloadBtn) {
-            downloadBtn.style.display = selectedArticleIds.size === 1 ? 'flex' : 'none';
+          if (downloadBtn) downloadBtn.style.display = isSingle ? 'flex' : 'none';
+
+          const hlBtn = document.getElementById('batchHighlightsBtn');
+          const origBtn = document.getElementById('batchOpenOriginalBtn');
+
+          if (isSingle) {
+            const singleId = Array.from(selectedArticleIds)[0];
+            const item = allEntries.find(e => e.id === singleId);
+            if (hlBtn) {
+              hlBtn.style.display = 'flex';
+              const hlCount = (item && item.annotations) ? item.annotations.length : 0;
+              const hlLabel = document.getElementById('batchHighlightsLabel');
+              if (hlLabel) hlLabel.textContent = 'Highlights & Notes' + (hlCount > 0 ? (' (' + hlCount + ')') : '');
+            }
+            if (origBtn) {
+              const hasUrl = Boolean(item && item.url && item.domain_name !== 'direct-input');
+              origBtn.style.display = hasUrl ? 'flex' : 'none';
+            }
+          } else {
+            if (hlBtn) hlBtn.style.display = 'none';
+            if (origBtn) origBtn.style.display = 'none';
           }
           const selectAllLabel = document.getElementById('batchMenuSelectAllLabel');
           const current = getCurrentlyFilteredEntries();
@@ -3825,6 +3895,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function closeBatchMenu() {
       const menu = document.getElementById('batchDropdownMenu');
       if (menu) menu.classList.remove('open');
+    }
+
+    function batchOpenHighlights() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      clearArticleSelection();
+      openArticleHighlightsModal(id);
+    }
+
+    function batchOpenOriginal() {
+      if (selectedArticleIds.size !== 1) return;
+      const id = Array.from(selectedArticleIds)[0];
+      const item = allEntries.find(e => e.id === id);
+      clearArticleSelection();
+      if (item && item.url) {
+        window.open(item.url, '_blank', 'noopener,noreferrer');
+      }
     }
 
     function batchEditTitle() {
@@ -6143,15 +6230,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       activeModalHighlightsSort = sortMode;
       const wrap = document.getElementById("highlightsSortWrap");
       if (wrap) {
-        wrap.querySelectorAll(".btn").forEach(b => {
-          b.style.borderColor = "var(--border-color)";
-          b.style.color = "var(--text-secondary)";
-        });
+        wrap.querySelectorAll(".hl-sort-btn").forEach(b => b.classList.remove("active"));
       }
-      if (btn) {
-        btn.style.borderColor = "var(--accent)";
-        btn.style.color = "var(--accent)";
-      }
+      if (btn) btn.classList.add("active");
       renderModalHighlightsList();
     }
 
@@ -6180,12 +6261,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         titleEl.textContent = "Highlights: " + shortTitle;
       }
 
-      // Reset filter pills
+      // Reset filter pills and sort buttons
       const pills = document.getElementById("highlightsFilterPills");
       if (pills) {
-        pills.querySelectorAll(".filter-pill").forEach((p, idx) => {
+        pills.querySelectorAll(".hl-filter-pill").forEach((p, idx) => {
           if (idx === 0) p.classList.add("active");
           else p.classList.remove("active");
+        });
+      }
+      const sortWrap = document.getElementById("highlightsSortWrap");
+      if (sortWrap) {
+        sortWrap.querySelectorAll(".hl-sort-btn").forEach(b => {
+          if (b.id === "btnSortPosition") b.classList.add("active");
+          else b.classList.remove("active");
         });
       }
 
@@ -6197,7 +6285,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       activeModalHighlightsFilter = filterType;
       const pills = document.getElementById("highlightsFilterPills");
       if (pills) {
-        pills.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+        pills.querySelectorAll(".hl-filter-pill").forEach(p => p.classList.remove("active"));
       }
       if (btn) btn.classList.add("active");
       renderModalHighlightsList();
