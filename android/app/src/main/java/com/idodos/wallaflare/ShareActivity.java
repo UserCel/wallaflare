@@ -12,15 +12,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,7 +26,6 @@ public class ShareActivity extends Activity {
     private Button btnOpenArticle;
     private Runnable autoDismissRunnable;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private static final ExecutorService bgExecutor = Executors.newCachedThreadPool();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,8 +113,59 @@ public class ShareActivity extends Activity {
         final String finalTargetUrl = targetUrl;
         final String finalToken = authToken;
 
-        final android.content.Context appContext = getApplicationContext();
-        bgExecutor.execute(() -> saveArticle(appContext, finalServerUrl, finalToken, finalTargetUrl));
+        SaveArticleService.setCallback((articleId, parsedTitle, alreadyExists, addedDateStr, errorMsg) -> {
+            mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                spinner.setVisibility(View.GONE);
+                statusIcon.setVisibility(View.VISIBLE);
+
+                if (errorMsg != null) {
+                    titleView.setText("Save failed");
+                    subtitleView.setText(errorMsg);
+                    actionButtons.setVisibility(View.VISIBLE);
+                    btnOpenArticle.setVisibility(View.GONE);
+                    scheduleAutoDismiss(4000);
+                    return;
+                }
+
+                if (alreadyExists) {
+                    titleView.setText("Article Already in Library");
+                    if (!addedDateStr.isEmpty()) {
+                        subtitleView.setText("Saved on " + addedDateStr + ": " + parsedTitle);
+                    } else {
+                        subtitleView.setText(parsedTitle);
+                    }
+                } else {
+                    titleView.setText("✓ Article Saved");
+                    subtitleView.setText(parsedTitle);
+                }
+
+                // Show action buttons: Read Article & Open Wallaflare
+                actionButtons.setVisibility(View.VISIBLE);
+                if (articleId > 0) {
+                    btnOpenArticle.setVisibility(View.VISIBLE);
+                    btnOpenArticle.setOnClickListener(v -> {
+                        cancelAutoDismiss();
+                        Intent openArticle = new Intent(ShareActivity.this, MainActivity.class);
+                        openArticle.putExtra("open_reader_id", articleId);
+                        openArticle.putExtra("refresh_library", true);
+                        openArticle.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        startActivity(openArticle);
+                        finish();
+                    });
+                } else {
+                    btnOpenArticle.setVisibility(View.GONE);
+                }
+
+                scheduleAutoDismiss(alreadyExists ? 6000 : 4500);
+            });
+        });
+
+        Intent serviceIntent = new Intent(this, SaveArticleService.class);
+        serviceIntent.putExtra("server_url", finalServerUrl);
+        serviceIntent.putExtra("token", finalToken);
+        serviceIntent.putExtra("target_url", finalTargetUrl);
+        startService(serviceIntent);
     }
 
     private String extractUrl(String text) {
@@ -135,135 +177,10 @@ public class ShareActivity extends Activity {
         return null;
     }
 
-    private void saveArticle(final android.content.Context appContext, String serverUrl, String token, String targetUrl) {
-        try {
-            URL url = new URL(serverUrl + "/api/entries.json");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            conn.setRequestProperty("Accept", "application/json");
-            conn.setConnectTimeout(15000);
-            conn.setReadTimeout(20000);
-            conn.setDoOutput(true);
-
-            if (token != null && !token.trim().isEmpty()) {
-                conn.setRequestProperty("Authorization", "Bearer " + token.trim());
-            }
-
-            JSONObject jsonPayload = new JSONObject();
-            jsonPayload.put("url", targetUrl);
-
-            byte[] input = jsonPayload.toString().getBytes("utf-8");
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(input, 0, input.length);
-            }
-
-            int code = conn.getResponseCode();
-            if (code >= 200 && code < 300) {
-                StringBuilder response = new StringBuilder();
-                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"))) {
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        response.append(line.trim());
-                    }
-                }
-
-                JSONObject respObj = new JSONObject(response.toString());
-                final long articleId = respObj.optLong("id", -1);
-                final String parsedTitle = respObj.optString("title", "Article");
-                final boolean alreadyExists = respObj.optBoolean("already_exists", false);
-                final String addedDateStr = respObj.optString("added_date_str", "");
-
-                // Buffer newly saved article in synchronized SharedPreferences queue for 0ms instant display in main app
-                if (articleId > 0) {
-                    synchronized (ShareActivity.class) {
-                        android.content.SharedPreferences sharedPrefs = appContext.getSharedPreferences("wallaflare_config", android.content.Context.MODE_PRIVATE);
-                        String existingQueueStr = sharedPrefs.getString("pending_saved_articles_json", "[]");
-                        try {
-                            org.json.JSONArray queue = new org.json.JSONArray(existingQueueStr);
-                            org.json.JSONArray updatedQueue = new org.json.JSONArray();
-                            for (int i = 0; i < queue.length(); i++) {
-                                org.json.JSONObject item = queue.optJSONObject(i);
-                                if (item != null && item.optLong("id") != articleId) {
-                                    updatedQueue.put(item);
-                                }
-                            }
-                            updatedQueue.put(respObj);
-                            sharedPrefs.edit()
-                                .putString("pending_saved_articles_json", updatedQueue.toString())
-                                .apply();
-                        } catch (Exception ignored) {
-                            org.json.JSONArray fallback = new org.json.JSONArray();
-                            fallback.put(respObj);
-                            sharedPrefs.edit()
-                                .putString("pending_saved_articles_json", fallback.toString())
-                                .apply();
-                        }
-                    }
-                }
-
-                mainHandler.post(() -> {
-                    spinner.setVisibility(View.GONE);
-                    statusIcon.setVisibility(View.VISIBLE);
-
-                    if (alreadyExists) {
-                        titleView.setText("Article Already in Library");
-                        if (!addedDateStr.isEmpty()) {
-                            subtitleView.setText("Saved on " + addedDateStr + ": " + parsedTitle);
-                        } else {
-                            subtitleView.setText(parsedTitle);
-                        }
-                    } else {
-                        titleView.setText("✓ Article Saved");
-                        subtitleView.setText(parsedTitle);
-                    }
-
-                    // Show action buttons: Read Article & Open Wallaflare
-                    actionButtons.setVisibility(View.VISIBLE);
-                    if (articleId > 0) {
-                        btnOpenArticle.setVisibility(View.VISIBLE);
-                        btnOpenArticle.setOnClickListener(v -> {
-                            cancelAutoDismiss();
-                            Intent openArticle = new Intent(ShareActivity.this, MainActivity.class);
-                            openArticle.putExtra("open_reader_id", articleId);
-                            openArticle.putExtra("refresh_library", true);
-                            openArticle.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                            startActivity(openArticle);
-                            finish();
-                        });
-                    } else {
-                        btnOpenArticle.setVisibility(View.GONE);
-                    }
-
-                    // Allow user enough time to interact with buttons
-                    scheduleAutoDismiss(alreadyExists ? 6000 : 4500);
-                });
-            } else {
-                mainHandler.post(() -> {
-                    spinner.setVisibility(View.GONE);
-                    statusIcon.setVisibility(View.VISIBLE);
-                    titleView.setText("Failed to save (HTTP " + code + ")");
-                    actionButtons.setVisibility(View.VISIBLE);
-                    btnOpenArticle.setVisibility(View.GONE);
-                    scheduleAutoDismiss(4000);
-                });
-            }
-        } catch (Exception e) {
-            mainHandler.post(() -> {
-                spinner.setVisibility(View.GONE);
-                statusIcon.setVisibility(View.VISIBLE);
-                titleView.setText("Save failed");
-                subtitleView.setText(e.getMessage());
-                actionButtons.setVisibility(View.VISIBLE);
-                btnOpenArticle.setVisibility(View.GONE);
-                scheduleAutoDismiss(4000);
-            });
-        }
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
         cancelAutoDismiss();
+        SaveArticleService.setCallback(null);
     }
 }

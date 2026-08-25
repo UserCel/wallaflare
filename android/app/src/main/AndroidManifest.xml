@@ -48,6 +48,9 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+            <service
+            android:name=".SaveArticleService"
+            android:exported="false" />
     </application>
 
     <!-- Permissions -->
