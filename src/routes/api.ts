@@ -20,7 +20,8 @@ import {
   checkAuthRateLimit,
   recordFailedAuthAttempt,
   resetAuthRateLimit,
-  timingSafeCompare
+  timingSafeCompare,
+  slugify
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain } from '../services/extractor';
 import { generateEpub } from '../services/epub';
@@ -294,11 +295,39 @@ apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
 // -------------------------------------------------------------
 const tagsHandler = async (c: any) => {
   const tags = await getTags(c.env.DB);
+  c.header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
   return c.json(tags);
 };
 
 apiRouter.get('/api/tags', authMiddleware, tagsHandler);
 apiRouter.get('/api/tags.json', authMiddleware, tagsHandler);
+
+const createTagHandler = async (c: any) => {
+  let label = '';
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    const body = await c.req.json().catch(() => ({}));
+    label = body.label || body.tag || body.name || '';
+  } else {
+    const form = await c.req.parseBody().catch(() => ({}));
+    label = String(form.label || form.tag || form.name || '');
+  }
+
+  if (!label || !label.trim()) {
+    return c.json({ error: 'Tag label is required' }, 400);
+  }
+
+  const cleanLabel = label.trim();
+  const slug = slugify(cleanLabel);
+
+  await c.env.DB.prepare('INSERT OR IGNORE INTO tags (label, slug) VALUES (?, ?)').bind(cleanLabel, slug).run();
+  const tag = await c.env.DB.prepare('SELECT id, label, slug FROM tags WHERE slug = ? LIMIT 1').bind(slug).first<TagItem>();
+
+  return c.json(tag || { id: Date.now(), label: cleanLabel, slug, entry_count: 0 }, 200);
+};
+
+apiRouter.post('/api/tags', authMiddleware, createTagHandler);
+apiRouter.post('/api/tags.json', authMiddleware, createTagHandler);
 
 const deleteGlobalTagHandler = async (c: any) => {
   const id = Number(c.req.param('id').replace(/\.json$/, ''));

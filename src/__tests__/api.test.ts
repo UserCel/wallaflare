@@ -79,6 +79,14 @@ function createMockD1Database() {
               }
               return { results: results as T[] };
             }
+            return {
+              results: tags.map(t => ({
+                id: t.id,
+                label: t.label,
+                slug: t.slug,
+                entry_count: entryTags.filter(et => et.tag_id === t.id).length
+              })) as T[]
+            };
           }
           if (query.includes('SELECT * FROM entries')) {
             if (query.includes('WHERE t.slug IN') || query.includes('entry_tags et')) {
@@ -1069,6 +1077,71 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(res.status).toBe(400);
     const data = await res.json<any>();
     expect(data.error).toBe("invalid_grant");
+  });
+
+
+  it('returns Cache-Control headers on /api/tags.json for extensions and supports live queries', async () => {
+    // 1. Check standard tags request contains Cache-Control header for extension caching
+    const tagsRes = await app.request('/api/tags.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(tagsRes.status).toBe(200);
+    expect(tagsRes.headers.get('Cache-Control')).toContain('private, max-age=300');
+
+    // 2. Add an article with a new tag
+    const createRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET}`
+      },
+      body: JSON.stringify({
+        title: 'Live Tag Article',
+        content: '<p>Content with tags</p>',
+        tags: 'urgent, breaking'
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(createRes.status).toBe(200);
+
+    // 3. Request with dashboard timestamp bypass pattern -> Returns fresh tags immediately
+    const liveTagsRes = await app.request('/api/tags.json?_t=' + Date.now(), {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Authorization': `Bearer ${SECRET}`
+      }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(liveTagsRes.status).toBe(200);
+    const tags = await liveTagsRes.json<any>();
+    expect(tags.some((t: any) => t.slug === 'urgent')).toBe(true);
+    expect(tags.some((t: any) => t.slug === 'breaking')).toBe(true);
+  });
+
+
+  it('creates standalone tags via POST /api/tags.json', async () => {
+    // 1. Create a new standalone tag
+    const createTagRes = await app.request('/api/tags.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET}`
+      },
+      body: JSON.stringify({ label: 'Science Fiction' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(createTagRes.status).toBe(200);
+    const tag = await createTagRes.json<any>();
+    expect(tag.label).toBe('Science Fiction');
+    expect(tag.slug).toBe('science-fiction');
+
+    // 2. Listing tags includes the newly created standalone tag
+    const listRes = await app.request('/api/tags.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(listRes.status).toBe(200);
+    const allTags = await listRes.json<any>();
+    expect(allTags.some((t: any) => t.slug === 'science-fiction')).toBe(true);
   });
 
   it("returns active client credentials on GET /api/client-info when authenticated", async () => {

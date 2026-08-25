@@ -2655,6 +2655,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <button class="action-btn" onclick="closeGlobalTagModal()">&times;</button>
       </div>
 
+      <form onsubmit="event.preventDefault(); submitCreateGlobalTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <input type="text" id="newGlobalTagInput" class="input" placeholder="Create new tag (e.g. tech, research)..." style="flex: 1;" />
+        <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; white-space: nowrap;">Create Tag</button>
+      </form>
+
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <span id="globalTagCountLabel" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
         <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.3rem 0.65rem;" onclick="cleanupUnusedTags()">Delete Unused Tags</button>
@@ -3002,20 +3007,107 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         document.getElementById('searchInput').focus();
       }
       if (e.key === 'Escape') {
-        const openMenu = document.querySelector('.card-dropdown-menu.open');
-        if (openMenu) {
+        // 1. Highest priority: Confirmation Dialog (Log out, Delete, Re-fetch, etc.)
+        const confirmModal = document.getElementById('confirmModal');
+        if (confirmModal && confirmModal.classList.contains('open')) {
+          e.preventDefault();
+          handleConfirmModalCancel();
+          return;
+        }
+
+        // 2. Open Menus and Drawers
+        const openCardMenu = document.querySelector('.card-dropdown-menu.open');
+        if (openCardMenu) {
+          e.preventDefault();
           closeAllCardMenus();
           return;
         }
+        const mobileNav = document.getElementById('mobileNavDropdown');
+        if (mobileNav && mobileNav.classList.contains('open')) {
+          e.preventDefault();
+          closeMobileNavMenu();
+          return;
+        }
+        const readerSidebar = document.getElementById('readerSidebar');
+        if (readerSidebar && readerSidebar.classList.contains('drawer-open')) {
+          e.preventDefault();
+          closeMobileReaderDrawer();
+          return;
+        }
+
+        // 3. Open Dialogs & Modals (Close modal while keeping selection / reader intact)
+        const tagModal = document.getElementById('tagModal');
+        if (tagModal && tagModal.classList.contains('open')) {
+          e.preventDefault();
+          closeTagModal();
+          return;
+        }
+        const globalTagModal = document.getElementById('globalTagModal');
+        if (globalTagModal && globalTagModal.classList.contains('open')) {
+          e.preventDefault();
+          closeGlobalTagModal();
+          return;
+        }
+        const editTitleModal = document.getElementById('editTitleModal');
+        if (editTitleModal && editTitleModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('editTitleModal');
+          return;
+        }
+        const addUrlModal = document.getElementById('addUrlModal');
+        if (addUrlModal && addUrlModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('addUrlModal');
+          return;
+        }
+        const addTextModal = document.getElementById('addTextModal');
+        if (addTextModal && addTextModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('addTextModal');
+          return;
+        }
+        const syncModal = document.getElementById('syncModal');
+        if (syncModal && syncModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('syncModal');
+          return;
+        }
+        const serverConnectModal = document.getElementById('serverConnectModal');
+        if (serverConnectModal && serverConnectModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('serverConnectModal');
+          return;
+        }
+
+        // 4. Reader View (Back to Dashboard)
+        if (activeArticleId) {
+          e.preventDefault();
+          handleReaderBack();
+          return;
+        }
+
+        // 5. Selection Mode (Clear Selection)
         if (isSelectionMode()) {
+          e.preventDefault();
           clearArticleSelection();
           return;
         }
-        closeModal('addUrlModal');
-        closeModal('addTextModal');
-        closeModal('syncModal');
-        if (activeArticleId) {
-          handleReaderBack();
+      }
+
+      // Desktop Delete / Backspace key shortcut to delete selected article(s)
+      if ((e.key === 'Delete' || e.key === 'Backspace') &&
+          document.activeElement.tagName !== 'INPUT' &&
+          document.activeElement.tagName !== 'TEXTAREA' &&
+          !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open, .confirm-modal-backdrop.open');
+        if (modalOpen) return;
+
+        if (isSelectionMode() && selectedArticleIds.size > 0) {
+          e.preventDefault();
+          batchDeleteArticles();
+        } else if (activeArticleId) {
+          e.preventDefault();
+          deleteEntryAction(activeArticleId);
         }
       }
     });
@@ -3488,7 +3580,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function loadGlobalTags() {
       try {
-        const res = await authFetch('/api/tags.json');
+        const res = await authFetch('/api/tags.json?_t=' + Date.now(), { cache: 'no-cache' });
         if (res.ok) {
           cachedGlobalTags = await res.json();
           try {
@@ -3710,10 +3802,35 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       filterByTag(slug);
     }
 
+    async function submitCreateGlobalTag() {
+      const input = document.getElementById('newGlobalTagInput');
+      const val = input ? input.value.trim() : '';
+      if (!val) return;
+
+      try {
+        const res = await authFetch('/api/tags.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: val })
+        });
+        if (res.ok) {
+          input.value = '';
+          await loadGlobalTags();
+          renderGlobalTagList();
+          showToast('Tag #' + val + ' created');
+        } else {
+          showToast('Failed to create tag');
+        }
+      } catch (err) {
+        showToast('Error creating tag: ' + err.message);
+      }
+    }
+
     function openGlobalTagManager() {
       clearActiveTextSelection();
       renderGlobalTagList();
       document.getElementById('globalTagModal').classList.add('open');
+      setTimeout(() => document.getElementById('newGlobalTagInput')?.focus(), 50);
       loadGlobalTags().then(() => renderGlobalTagList()).catch(() => {});
     }
 
@@ -4932,6 +5049,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     
     
+    // Clicking on empty background outside of article cards, batch toolbar, modals, or navigation exits selection mode
+    document.addEventListener("click", (e) => {
+      if (!isSelectionMode()) return;
+      if (justTriggeredLongPress) return;
+
+      if (e.target.closest(".article-card, .batch-action-bar, .modal-backdrop, .tag-modal-overlay, .confirm-modal-backdrop, .navbar, .sidebar, .card-dropdown-menu, button, a, input, textarea")) {
+        return;
+      }
+
+      clearArticleSelection();
+    });
+
     document.addEventListener('click', () => closeAllCardMenus());
 
     function closeAllCardMenus() {
