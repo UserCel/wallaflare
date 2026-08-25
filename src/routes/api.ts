@@ -359,17 +359,26 @@ apiRouter.delete('/api/entries/:id/tags/:tag.json', authMiddleware, deleteEntryT
 // Check If Article Exists
 // -------------------------------------------------------------
 const checkExistsHandler = async (c: any) => {
-  const url = c.req.query('url');
+  const query = c.req.query();
+  const url = query.url || query['urls[]'] || query.urls;
+
   if (!url) {
-    return c.json({ exists: false });
+    return c.json(false);
   }
 
-  const existing = await getEntryByUrl(c.env.DB, url);
-  if (existing) {
-    return c.json({ exists: true, id: existing.id });
+  // If array of URLs requested
+  if (Array.isArray(url)) {
+    const results: Record<string, boolean> = {};
+    for (const u of url) {
+      const existing = await getEntryByUrl(c.env.DB, u);
+      results[u] = Boolean(existing);
+    }
+    return c.json(results);
   }
 
-  return c.json({ exists: false });
+  // Single URL query (standard Wallabag API returns JSON boolean)
+  const existing = await getEntryByUrl(c.env.DB, String(url));
+  return c.json(Boolean(existing));
 };
 
 apiRouter.get('/api/entries/exists', authMiddleware, checkExistsHandler);
@@ -438,8 +447,24 @@ const postEntryHandler = async (c: any) => {
   const content = body.content ? String(body.content).trim() : '';
   const rawTags = body.tags || body.tag || undefined;
 
-  let entryData: Partial<EntryRow> & { tags?: string | string[] } = {};
+  // Duplicate URL check: Return existing entry if already in library
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    const existing = await getEntryByUrl(c.env.DB, url);
+    if (existing) {
+      if (rawTags) {
+        await addTagsToEntry(c.env.DB, existing.id, rawTags);
+      }
+      const addedDate = existing.created_at 
+        ? new Date(existing.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : 'an earlier date';
+      const wallabagObj = entryRowToWallabag(existing);
+      (wallabagObj as any).already_exists = true;
+      (wallabagObj as any).added_date_str = addedDate;
+      return c.json(wallabagObj, 200);
+    }
+  }
 
+  let entryData: Partial<EntryRow> & { tags?: string | string[] } = {};
 
   if (title && content) {
     // Custom pasted / manual text entry

@@ -239,11 +239,38 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     expect(info.version).toBe('2.6.9');
   });
 
-  it('checks article existence via /api/entries/exists.json', async () => {
-    const existsRes = await app.request('/api/entries/exists.json?url=https://example.com/notfound', {}, { DB: mockDb });
-    expect(existsRes.status).toBe(200);
-    const existsData = await existsRes.json<any>();
-    expect(existsData.exists).toBe(false);
+  it('checks article existence via /api/entries/exists.json conforming to Wallabag v2', async () => {
+    // 1. Not found -> returns false
+    const notFoundRes = await app.request('/api/entries/exists.json?url=https://example.com/notfound', {}, { DB: mockDb });
+    expect(notFoundRes.status).toBe(200);
+    expect(await notFoundRes.json()).toBe(false);
+
+    // 2. Create article
+    await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/exists-check', title: 'Exists Test' })
+    }, { DB: mockDb });
+
+    // 3. Found -> returns true
+    const foundRes = await app.request('/api/entries/exists.json?url=https://example.com/exists-check', {}, { DB: mockDb });
+    expect(foundRes.status).toBe(200);
+    expect(await foundRes.json()).toBe(true);
+
+    // 4. Duplicate prevention with title & content (Wallabagger browser mode)
+    const dupRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/exists-check',
+        title: 'Browser Extracted' ,
+        content: '<p>Browser content</p>'
+      })
+    }, { DB: mockDb });
+
+    expect(dupRes.status).toBe(200);
+    const dupData = await dupRes.json<any>();
+    expect(dupData.already_exists).toBe(true);
   });
 
   it('creates, retrieves, updates, and deletes articles', async () => {
