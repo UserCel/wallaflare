@@ -2670,7 +2670,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <div class="modal" style="max-width: 480px; text-align: left;">
       <div class="modal-header">
         <h3 class="modal-title">Highlight Note</h3>
-        <button class="close-btn" onclick="closeModal('annotationNoteModal')">&times;</button>
+        <button class="close-btn" onclick="closeAnnotationNoteModal()">&times;</button>
       </div>
       <form onsubmit="handleSaveAnnotationNoteForm(event)">
         <div style="margin-bottom: 0.85rem; padding: 0.65rem 0.85rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; max-height: 100px; overflow-y: auto;">
@@ -2691,7 +2691,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <textarea id="annotationNoteInput" class="form-input" rows="4" placeholder="Add your thoughts or notes on this highlight..." style="width: 100%; box-sizing: border-box; resize: vertical;"></textarea>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('annotationNoteModal')">Cancel</button>
+          <button type="button" class="btn btn-secondary" onclick="closeAnnotationNoteModal()">Cancel</button>
           <button type="submit" class="btn btn-primary" id="saveAnnotationNoteBtn">Save Note</button>
         </div>
       </form>
@@ -3406,6 +3406,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
 
         // 3. Open Dialogs & Modals (Close modal while keeping selection / reader intact)
+        const annotationNoteModal = document.getElementById('annotationNoteModal');
+        if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
+          e.preventDefault();
+          closeAnnotationNoteModal();
+          return;
+        }
         const tagModal = document.getElementById('tagModal');
         if (tagModal && tagModal.classList.contains('open')) {
           e.preventDefault();
@@ -6103,6 +6109,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (btn) btn.classList.add("active-color");
     }
 
+    function closeAnnotationNoteModal() {
+      activeModalAnnotation = null;
+      pendingHighlightData = null;
+      closeModal("annotationNoteModal");
+    }
+
     function openAnnotationNoteModal(ann, pendingData = null) {
       activeModalAnnotation = ann || null;
       pendingHighlightData = pendingData || null;
@@ -6194,7 +6206,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     // Android Back Button Navigation & Drawer Handling
     // -------------------------------------------------------------
     window.handleAndroidBackButton = function() {
-      // 0. If Highlight toolbar or popover or text selection is active, dismiss it first
+      // 0. If Annotation Note Modal is open, close it first
+      const annotationNoteModal = document.getElementById('annotationNoteModal');
+      if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
+        closeAnnotationNoteModal();
+        return true;
+      }
+
+      // 0.1 If Highlight toolbar or popover or text selection is active, dismiss it first
       const highlightToolbar = document.getElementById('readerHighlightToolbar');
       const highlightPopover = document.getElementById('highlightPopover');
       const sel = window.getSelection();
