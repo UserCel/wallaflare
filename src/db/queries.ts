@@ -314,7 +314,16 @@ export async function removeTagFromEntry(db: D1Database, entryId: number, tagIdO
   return await getEntryTags(db, entryId);
 }
 
-export async function deleteTag(db: D1Database, tagId: number): Promise<boolean> {
+export async function deleteTag(db: D1Database, tagIdOrSlug: number | string): Promise<boolean> {
+  let tagId: number | null = null;
+  const num = Number(tagIdOrSlug);
+  if (!isNaN(num) && num > 0) {
+    tagId = num;
+  } else {
+    const tag = await db.prepare('SELECT id FROM tags WHERE slug = ? OR label = ? LIMIT 1').bind(String(tagIdOrSlug), String(tagIdOrSlug)).first<{ id: number }>();
+    if (tag) tagId = tag.id;
+  }
+  if (!tagId) return false;
   await db.prepare('DELETE FROM entry_tags WHERE tag_id = ?').bind(tagId).run();
   const res = await db.prepare('DELETE FROM tags WHERE id = ?').bind(tagId).run();
   return (res.meta?.changes ?? 0) > 0;

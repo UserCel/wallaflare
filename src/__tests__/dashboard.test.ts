@@ -207,10 +207,35 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('scrollToAnnotation');
   });
 
+  it('includes desktop floating annotation toolbar and mobile contextual topbar annotation header', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="readerHighlightToolbar"');
+    expect(html).toContain('id="readerTopBarDefault"');
+    expect(html).toContain('id="readerTopBarAnnotation"');
+    expect(html).toContain('id="readerTopBarSelCount"');
+    expect(html).toContain('initReaderSelectionHandlers');
+    expect(html).toContain('handleCreateHighlight');
+    expect(html).toContain('handleCreateHighlightWithNote');
+    expect(html).toContain('clearActiveTextSelection');
+    expect(html).toContain('addQuickTagToActiveArticles');
+    expect(html).toContain('removeTagFromActiveArticles');
+    expect(html).toContain('deleteGlobalTag');
+    expect(html).toContain('submitCreateGlobalTag');
+  });
+
   it('supports hybrid Markdown formatting: inline ==highlights==, footnotes [^note-1], and summary block', () => {
     const html = renderDashboardHtml('Wallaflare');
     expect(html).toContain('==');
     expect(html).toContain('[^note-');
     expect(html).toContain('## 🖍️ Highlights & Notes');
+  });
+
+  it('includes right-click context menu for article cards with full actions', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="cardContextMenu"');
+    expect(html).toContain('handleCardContextMenu');
+    expect(html).toContain('openCardContextMenu');
+    expect(html).toContain('closeCardContextMenu');
+    expect(html).toContain('oncontextmenu="handleCardContextMenu(event, ');
   });
 });

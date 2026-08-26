@@ -1290,6 +1290,34 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       animation: menuFadeIn 0.15s ease-out;
     }
     .card-dropdown-menu.open { display: flex !important; }
+    #cardContextMenu {
+      position: fixed !important;
+      bottom: auto !important;
+      right: auto !important;
+      width: 225px !important;
+      min-width: 220px !important;
+      max-width: 260px !important;
+      z-index: 10050 !important;
+      border-radius: var(--radius-sm);
+      background: var(--bg-secondary) !important;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      padding: 0.35rem 0;
+      display: none;
+      flex-direction: column;
+      animation: menuFadeIn 0.15s ease-out;
+    }
+    #cardContextMenu.open { display: flex !important; }
+    #cardContextMenu .menu-item {
+      padding: 0.52rem 0.8rem;
+      font-size: 0.84rem;
+      border-radius: 4px;
+      margin: 0 0.25rem;
+      width: calc(100% - 0.5rem);
+    }
+    #cardContextMenu .menu-sub-items {
+      margin: 0.2rem 0.25rem;
+    }
     .card-dropdown-menu.open-down { bottom: auto !important; top: calc(100% + 6px) !important; }
     .menu-item {
       display: flex;
@@ -1647,56 +1675,86 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
         <!-- Unified Top Action Bar -->
         <div class="reader-top-bar" id="readerTopBar">
-          <div class="reader-top-bar-group">
-            <button class="btn-icon" onclick="handleReaderBack()" title="Back to library / Deselect (Esc)">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            </button>
-            <button class="btn-icon desktop-focus-btn" id="focusModeToggleBtn" onclick="toggleReaderFocusMode()" title="Toggle Focus Mode (f)">
-              <svg id="focusModeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-            </button>
+          <!-- 1. Standard Default Header -->
+          <div id="readerTopBarDefault" style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%;">
+            <div class="reader-top-bar-group">
+              <button class="btn-icon" onclick="handleReaderBack()" title="Back to library / Deselect (Esc)">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              </button>
+              <button class="btn-icon desktop-focus-btn" id="focusModeToggleBtn" onclick="toggleReaderFocusMode()" title="Toggle Focus Mode (f)">
+                <svg id="focusModeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              </button>
+            </div>
+
+            <div class="reader-top-bar-group" style="margin-left: auto;">
+              <button class="btn-icon" id="readerAppearanceBtn" onclick="toggleReaderAppearancePopover(event)" title="Typography &amp; Theme (Aa)">
+                <span style="font-family: serif; font-weight: bold; font-size: 1.05rem;">Aa</span>
+              </button>
+              <button class="btn-icon" id="readerMobileHighlightsBtn" onclick="toggleReaderHighlightsModal()" title="Highlights &amp; Notes" style="position: relative;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                <span id="readerHighlightsBadgeMobile" style="position: absolute; top: -2px; right: -2px; background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px;">0</span>
+              </button>
+              <button class="btn-icon" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Star (s)">
+                <svg width="17" height="17" id="readerStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              </button>
+              <button class="btn-icon" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive (e)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+              </button>
+              <button class="btn-icon" onclick="openTagModal(activeArticleId)" title="Edit Tags">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+              </button>
+              
+              <div class="card-menu-wrap" style="position: relative;">
+                <button class="btn-icon" id="readerMoreMenuBtn" onclick="toggleReaderMoreMenu(event)" title="More Actions">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </button>
+                <div class="card-dropdown-menu" id="readerMoreMenuDropdown" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 6px); bottom: auto !important; right: 0; left: auto; min-width: 205px;">
+                  <div class="menu-item-expandable" id="readerExportWrap">
+                    <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleReaderExportSubmenu()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                      <span>Export</span>
+                      <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="menu-sub-items" id="readerExportSub">
+                      <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); downloadActiveEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
+                      <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActiveMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
+                      <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActivePdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>
+                    </div>
+                  </div>
+                  <button class="menu-item" id="readerRefetchMenuItem" onclick="closeReaderMoreMenu(); refetchActiveArticleContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
+                  <button class="menu-item" id="readerOpenOriginalMenuItem" onclick="closeReaderMoreMenu(); openActiveOriginalLink();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
+                  <button class="menu-item" onclick="closeReaderMoreMenu(); openEditTitleModal(activeArticleId);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
+                  <div class="menu-divider"></div>
+                  <button class="menu-item menu-item-danger" onclick="closeReaderMoreMenu(); deleteActiveArticle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article</span></button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="reader-top-bar-group" style="margin-left: auto;">
-            <button class="btn-icon" id="readerAppearanceBtn" onclick="toggleReaderAppearancePopover(event)" title="Typography &amp; Theme (Aa)">
-              <span style="font-family: serif; font-weight: bold; font-size: 1.05rem;">Aa</span>
-            </button>
-            <button class="btn-icon" id="readerMobileHighlightsBtn" onclick="toggleReaderHighlightsModal()" title="Highlights &amp; Notes" style="position: relative;">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-              <span id="readerHighlightsBadgeMobile" style="position: absolute; top: -2px; right: -2px; background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px;">0</span>
-            </button>
-            <button class="btn-icon" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Star (s)">
-              <svg width="17" height="17" id="readerStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            </button>
-            <button class="btn-icon" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive (e)">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-            </button>
-            <button class="btn-icon" onclick="openTagModal(activeArticleId)" title="Edit Tags">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-            </button>
-            
-            <div class="card-menu-wrap" style="position: relative;">
-              <button class="btn-icon" id="readerMoreMenuBtn" onclick="toggleReaderMoreMenu(event)" title="More Actions">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+          <!-- 2. Mobile Contextual Text Selection & Annotation Header -->
+          <div id="readerTopBarAnnotation" style="display: none; align-items: center; justify-content: space-between; width: 100%; height: 100%; gap: 0.35rem;">
+            <div class="reader-top-bar-group" style="gap: 0.3rem; flex-shrink: 0;">
+              <button class="btn-icon" onclick="clearActiveTextSelection()" title="Cancel Selection" style="color: var(--text-secondary);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
-              <div class="card-dropdown-menu" id="readerMoreMenuDropdown" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 6px); bottom: auto !important; right: 0; left: auto; min-width: 205px;">
-                <div class="menu-item-expandable" id="readerExportWrap">
-                  <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleReaderExportSubmenu()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    <span>Export</span>
-                    <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                  </button>
-                  <div class="menu-sub-items" id="readerExportSub">
-                    <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); downloadActiveEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
-                    <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActiveMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
-                    <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActivePdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>
-                  </div>
-                </div>
-                <button class="menu-item" id="readerRefetchMenuItem" onclick="closeReaderMoreMenu(); refetchActiveArticleContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
-                <button class="menu-item" id="readerOpenOriginalMenuItem" onclick="closeReaderMoreMenu(); openActiveOriginalLink();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
-                <button class="menu-item" onclick="closeReaderMoreMenu(); openEditTitleModal(activeArticleId);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
-                <div class="menu-divider"></div>
-                <button class="menu-item menu-item-danger" onclick="closeReaderMoreMenu(); deleteActiveArticle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article</span></button>
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 68px;" id="readerTopBarSelCount">Highlight</div>
+            </div>
+
+            <div class="reader-top-bar-group" style="margin-left: auto; gap: 0.35rem;">
+              <div class="reader-topbar-hl-colors" style="display: flex; align-items: center; gap: 0.35rem;">
+                <button class="hl-color-btn hl-yellow" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('yellow')" title="Yellow Highlight"></button>
+                <button class="hl-color-btn hl-green" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('green')" title="Green Highlight"></button>
+                <button class="hl-color-btn hl-blue" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('blue')" title="Blue Highlight"></button>
+                <button class="hl-color-btn hl-purple" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('purple')" title="Purple Highlight"></button>
               </div>
+              <div class="hl-divider" style="height: 18px; width: 1px; background: var(--border-color); margin: 0 0.1rem;"></div>
+              <button class="btn-icon" onmousedown="event.preventDefault()" onclick="handleCreateHighlightWithNote()" title="Add Note" style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; padding: 0 0.45rem; width: auto; height: 32px; border-radius: 6px; background: var(--bg-tertiary);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                <span style="font-weight: 500;">Note</span>
+              </button>
+              <button class="btn-icon" onmousedown="event.preventDefault()" onclick="handleCopySelection()" title="Copy text" style="width: 32px; height: 32px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
             </div>
           </div>
         </div>
@@ -1878,19 +1936,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  <!-- Floating Highlight Toolbar -->
-  <div id="readerHighlightToolbar" class="highlight-toolbar" style="display: none;">
-    <button class="hl-color-btn hl-yellow" onclick="handleCreateHighlight('yellow')" title="Yellow Highlight"></button>
-    <button class="hl-color-btn hl-green" onclick="handleCreateHighlight('green')" title="Green Highlight"></button>
-    <button class="hl-color-btn hl-blue" onclick="handleCreateHighlight('blue')" title="Blue Highlight"></button>
-    <button class="hl-color-btn hl-purple" onclick="handleCreateHighlight('purple')" title="Purple Highlight"></button>
+  <!-- Floating Highlight Toolbar (Desktop) -->
+  <div id="readerHighlightToolbar" class="highlight-toolbar" style="display: none;" onmousedown="event.preventDefault()">
+    <button class="hl-color-btn hl-yellow" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('yellow')" title="Yellow Highlight"></button>
+    <button class="hl-color-btn hl-green" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('green')" title="Green Highlight"></button>
+    <button class="hl-color-btn hl-blue" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('blue')" title="Blue Highlight"></button>
+    <button class="hl-color-btn hl-purple" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('purple')" title="Purple Highlight"></button>
     <div class="hl-divider"></div>
-    <button class="hl-btn" onclick="handleCreateHighlightWithNote()" title="Highlight with Note">
+    <button class="hl-btn" onmousedown="event.preventDefault()" onclick="handleCreateHighlightWithNote()" title="Highlight with Note">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
       <span>Note</span>
     </button>
-    <button class="hl-btn" onclick="handleCopySelection()" title="Copy Selection">
+    <button class="hl-btn" onmousedown="event.preventDefault()" onclick="handleCopySelection()" title="Copy Selection">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
     </button>
   </div>
 
@@ -2338,7 +2397,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   </div>
 
   <!-- Backdrop for card menus -->
-  <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 90; display: none;" onclick="closeAllCardMenus()"></div>
+  <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 90; display: none;" onclick="closeAllCardMenus()" oncontextmenu="event.preventDefault(); closeAllCardMenus();"></div>
+
+  <!-- Floating Context Menu for Article Cards (Right Click) -->
+  <div id="cardContextMenu" class="card-dropdown-menu" style="position: fixed; display: none; z-index: 10050; width: 225px;" onclick="event.stopPropagation()" oncontextmenu="event.preventDefault(); event.stopPropagation();"></div>
 
   <!-- Toast -->
   <div class="toast" id="toast">
@@ -2762,10 +2824,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const sel = window.getSelection();
         const highlightToolbar = document.getElementById('readerHighlightToolbar');
         const highlightPopover = document.getElementById('highlightPopover');
+        const annHeader = document.getElementById('readerTopBarAnnotation');
         let dismissed = false;
         if (highlightToolbar && highlightToolbar.style.display !== 'none') {
           highlightToolbar.style.display = 'none';
           activeSelectionRange = null;
+          activeSelectedQuote = '';
+          dismissed = true;
+        }
+        if (annHeader && annHeader.style.display !== 'none') {
+          clearActiveTextSelection();
           dismissed = true;
         }
         if (highlightPopover && highlightPopover.style.display !== 'none') {
@@ -2773,7 +2841,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           dismissed = true;
         }
         if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
-          sel.removeAllRanges();
+          clearActiveTextSelection();
           dismissed = true;
         }
         if (dismissed) { e.preventDefault(); return; }
@@ -2984,11 +3052,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       // 1. Text Selection & Highlight Tools
       const highlightToolbar = document.getElementById('readerHighlightToolbar');
       const highlightPopover = document.getElementById('highlightPopover');
+      const annHeader = document.getElementById('readerTopBarAnnotation');
       const sel = window.getSelection();
       let dismissed = false;
       if (highlightToolbar && highlightToolbar.style.display !== 'none') {
         highlightToolbar.style.display = 'none';
         activeSelectionRange = null;
+        activeSelectedQuote = '';
+        dismissed = true;
+      }
+      if (annHeader && annHeader.style.display !== 'none') {
+        clearActiveTextSelection();
         dismissed = true;
       }
       if (highlightPopover && highlightPopover.style.display !== 'none') {
@@ -2996,7 +3070,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         dismissed = true;
       }
       if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
-        sel.removeAllRanges();
+        clearActiveTextSelection();
         dismissed = true;
       }
       if (dismissed) return true;
@@ -3397,7 +3471,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           ? '<div class="card-image-wrap"><img src="' + escapeHtml(item.preview_picture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
           : '';
 
-        return '<div class="article-card ' + (isChecked ? 'is-selected ' : '') + (isReading ? 'is-reading' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '" ontouchstart="handleCardTouchStart(event, ' + item.id + ')" ontouchmove="handleCardTouchMove(event)" ontouchend="handleCardTouchEnd(event)" ontouchcancel="handleCardTouchEnd(event)" onclick="handleCardClick(event, ' + item.id + ')">' +
+        return '<div class="article-card ' + (isChecked ? 'is-selected ' : '') + (isReading ? 'is-reading' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '" ontouchstart="handleCardTouchStart(event, ' + item.id + ')" ontouchmove="handleCardTouchMove(event)" ontouchend="handleCardTouchEnd(event)" ontouchcancel="handleCardTouchEnd(event)" oncontextmenu="handleCardContextMenu(event, ' + item.id + ')" onclick="handleCardClick(event, ' + item.id + ')">' +
           '<div class="card-select-wrap" onclick="event.stopPropagation(); toggleArticleSelection(' + item.id + ');">' +
             '<div class="card-checkbox ' + (isChecked ? 'checked' : '') + '">' +
               '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
@@ -3701,6 +3775,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       document.querySelectorAll('.article-card.is-reading').forEach(c => c.classList.remove('is-reading'));
       document.getElementById('readingProgress').style.width = '0%';
+      clearActiveTextSelection();
       closeReaderAppearancePopover();
       closeReaderMoreMenu();
 
@@ -4254,6 +4329,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     // Highlights DOM & Annotations Engine
     let activeSelectionRange = null;
+    let activeSelectedQuote = '';
     let activePopoverAnnotation = null;
 
     function applyAnnotationsToReader(item) {
@@ -4383,6 +4459,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       closeHighlightPopover();
     }
 
+
     async function changePopoverHighlightColor(color) {
       if (!activePopoverAnnotation || !activeArticleId) return;
       activePopoverAnnotation.color = color;
@@ -4419,7 +4496,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function handleCreateHighlight(color = 'yellow') {
       const sel = window.getSelection();
-      const quote = (sel ? sel.toString() : '').trim();
+      const selQuote = sel ? sel.toString().trim() : '';
+      const quote = (selQuote || activeSelectedQuote || (activeSelectionRange ? activeSelectionRange.toString().trim() : '')).trim();
       if (!quote || !activeArticleId) return;
 
       const item = allEntries.find(e => e.id === activeArticleId);
@@ -4436,8 +4514,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (!item.annotations) item.annotations = [];
       item.annotations.push(newAnn);
 
-      sel.removeAllRanges();
-      document.getElementById('readerHighlightToolbar').style.display = 'none';
+      clearActiveTextSelection();
       applyAnnotationsToReader(item);
       syncLocalEntriesCache(allEntries);
 
@@ -4454,18 +4531,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function handleCreateHighlightWithNote() {
       const sel = window.getSelection();
-      const quote = (sel ? sel.toString() : '').trim();
+      const selQuote = sel ? sel.toString().trim() : '';
+      const quote = (selQuote || activeSelectedQuote || (activeSelectionRange ? activeSelectionRange.toString().trim() : '')).trim();
       if (!quote || !activeArticleId) return;
-      document.getElementById('readerHighlightToolbar').style.display = 'none';
+      clearActiveTextSelection();
       openAnnotationNoteModal(null, { quote, color: 'yellow' });
     }
 
     function handleCopySelection() {
       const sel = window.getSelection();
-      const quote = (sel ? sel.toString() : '').trim();
+      const selQuote = sel ? sel.toString().trim() : '';
+      const quote = (selQuote || activeSelectedQuote || (activeSelectionRange ? activeSelectionRange.toString().trim() : '')).trim();
       if (quote) copyDirectText(quote);
-      document.getElementById('readerHighlightToolbar').style.display = 'none';
+      clearActiveTextSelection();
     }
+
 
     let activeModalAnnotation = null;
     let pendingHighlightData = null;
@@ -4547,10 +4627,132 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function clearActiveTextSelection() {
       const sel = window.getSelection();
-      if (sel) sel.removeAllRanges();
+      if (sel) {
+        try { sel.removeAllRanges(); } catch (e) {}
+      }
       const toolbar = document.getElementById('readerHighlightToolbar');
       if (toolbar) toolbar.style.display = 'none';
+
+      const defaultHeader = document.getElementById('readerTopBarDefault');
+      const annHeader = document.getElementById('readerTopBarAnnotation');
+      if (defaultHeader) defaultHeader.style.display = 'flex';
+      if (annHeader) annHeader.style.display = 'none';
+
       activeSelectionRange = null;
+      activeSelectedQuote = '';
+    }
+
+    function initReaderSelectionHandlers() {
+      const handleSelection = () => {
+        const readerView = document.getElementById('readerView');
+        const readerBody = document.getElementById('readerBody');
+        const desktopToolbar = document.getElementById('readerHighlightToolbar');
+        const defaultHeader = document.getElementById('readerTopBarDefault');
+        const annHeader = document.getElementById('readerTopBarAnnotation');
+
+        if (!activeArticleId || !readerView || readerView.style.display === 'none' || !readerBody) {
+          if (desktopToolbar) desktopToolbar.style.display = 'none';
+          if (defaultHeader) defaultHeader.style.display = 'flex';
+          if (annHeader) annHeader.style.display = 'none';
+          activeSelectionRange = null;
+          activeSelectedQuote = '';
+          return;
+        }
+
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) {
+          const noteModal = document.getElementById('annotationNoteModal');
+          if (noteModal && noteModal.classList.contains('open')) return;
+
+          if (desktopToolbar && desktopToolbar.style.display !== 'none') {
+            desktopToolbar.style.display = 'none';
+          }
+          if (annHeader && annHeader.style.display !== 'none') {
+            if (defaultHeader) defaultHeader.style.display = 'flex';
+            annHeader.style.display = 'none';
+          }
+          activeSelectionRange = null;
+          activeSelectedQuote = '';
+          return;
+        }
+
+        const range = sel.getRangeAt(0);
+        if (!readerBody.contains(range.commonAncestorContainer) && readerBody !== range.commonAncestorContainer) {
+          if (desktopToolbar) desktopToolbar.style.display = 'none';
+          if (defaultHeader) defaultHeader.style.display = 'flex';
+          if (annHeader) annHeader.style.display = 'none';
+          activeSelectionRange = null;
+          activeSelectedQuote = '';
+          return;
+        }
+
+        const text = sel.toString().trim();
+        if (!text) {
+          if (desktopToolbar) desktopToolbar.style.display = 'none';
+          if (defaultHeader) defaultHeader.style.display = 'flex';
+          if (annHeader) annHeader.style.display = 'none';
+          activeSelectionRange = null;
+          activeSelectedQuote = '';
+          return;
+        }
+
+        activeSelectionRange = range.cloneRange();
+        activeSelectedQuote = text;
+        closeHighlightPopover();
+
+        const isDesktop = window.innerWidth >= 1024;
+        if (isDesktop) {
+          if (defaultHeader) defaultHeader.style.display = 'flex';
+          if (annHeader) annHeader.style.display = 'none';
+          if (desktopToolbar) {
+            desktopToolbar.style.display = 'flex';
+            const rect = range.getBoundingClientRect();
+            const top = Math.max(10, rect.top - 48);
+            const left = Math.max(10, Math.min(window.innerWidth - 250, rect.left + (rect.width / 2) - 110));
+            desktopToolbar.style.top = top + 'px';
+            desktopToolbar.style.left = left + 'px';
+          }
+        } else {
+          if (desktopToolbar) desktopToolbar.style.display = 'none';
+          if (defaultHeader) defaultHeader.style.display = 'none';
+          if (annHeader) {
+            annHeader.style.display = 'flex';
+            const countEl = document.getElementById('readerTopBarSelCount');
+            if (countEl) {
+              countEl.textContent = text.length > 14 ? (text.slice(0, 13) + '…') : text;
+            }
+          }
+          showReaderTopBar(false);
+        }
+      };
+
+      document.addEventListener('selectionchange', handleSelection);
+      document.addEventListener('mouseup', () => {
+        setTimeout(handleSelection, 20);
+      });
+      document.addEventListener('touchend', () => {
+        setTimeout(handleSelection, 40);
+      });
+
+      document.addEventListener('mousedown', (e) => {
+        const insideToolbar = e.target.closest('#readerHighlightToolbar');
+        const insideTopBar = e.target.closest('#readerTopBar');
+        const insidePopover = e.target.closest('#highlightPopover');
+        const insideMark = e.target.closest('mark.reader-hl');
+        const insideModal = e.target.closest('.modal-backdrop');
+
+        const toolbar = document.getElementById('readerHighlightToolbar');
+        if (toolbar && toolbar.style.display !== 'none' && !insideToolbar && !insideTopBar) {
+          toolbar.style.display = 'none';
+          activeSelectionRange = null;
+          activeSelectedQuote = '';
+        }
+
+        const popover = document.getElementById('highlightPopover');
+        if (popover && popover.style.display !== 'none' && !insidePopover && !insideMark && !insideModal) {
+          closeHighlightPopover();
+        }
+      });
     }
 
     function copyDirectText(text, btn) {
@@ -5020,8 +5222,123 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function closeAllCardMenus() {
       document.getElementById('cardMenuBackdrop')?.style.setProperty('display', 'none');
       document.querySelectorAll('.card-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+      closeCardContextMenu();
       closeBatchMenu();
       closeReaderMoreMenu();
+    }
+
+    let contextMenuArticleId = null;
+
+    function handleCardContextMenu(e, id) {
+      e.preventDefault();
+      e.stopPropagation();
+      openCardContextMenu(e.clientX, e.clientY, id);
+    }
+
+    function openCardContextMenu(clientX, clientY, id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) return;
+      contextMenuArticleId = id;
+
+      closeAllCardMenus();
+      closeHighlightPopover();
+      closeReaderAppearancePopover();
+
+      const menu = document.getElementById('cardContextMenu');
+      if (!menu) return;
+
+      const starLabel = item.is_starred ? 'Unstar' : 'Star';
+      const archiveLabel = item.is_archived ? 'Move to Unread' : 'Archive';
+
+      const origLinkBtn = item.url
+        ? ('<button class="menu-item" onclick="closeCardContextMenu(); openArticleOriginalLink(' + id + ');"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>')
+        : '';
+
+      menu.innerHTML = 
+        '<div style="padding: 0.45rem 0.65rem 0.4rem 0.65rem; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px;">' +
+          escapeHtml(item.title) +
+        '</div>' +
+        '<button class="menu-item" onclick="closeCardContextMenu(); openReader(' + id + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>' +
+          '<span>Read Article</span>' +
+        '</button>' +
+        '<button class="menu-item" onclick="closeCardContextMenu(); toggleStar(' + id + ', ' + item.is_starred + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="' + (item.is_starred ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' +
+          '<span>' + starLabel + '</span>' +
+        '</button>' +
+        '<button class="menu-item" onclick="closeCardContextMenu(); toggleArchive(' + id + ', ' + item.is_archived + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>' +
+          '<span>' + archiveLabel + '</span>' +
+        '</button>' +
+        '<button class="menu-item" onclick="closeCardContextMenu(); openTagModal(' + id + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>' +
+          '<span>Edit Tags</span>' +
+        '</button>' +
+        '<button class="menu-item" onclick="closeCardContextMenu(); openArticleHighlightsModal(' + id + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' +
+          '<span>Highlights & Notes</span>' +
+        '</button>' +
+        '<div class="menu-item-expandable" id="contextExportWrap">' +
+          '<button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleContextExportSubmenu();">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+            '<span>Export</span>' +
+            '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+          '</button>' +
+          '<div class="menu-sub-items" id="contextExportSub">' +
+            '<button class="menu-item menu-sub-item" onclick="closeCardContextMenu(); downloadEpub(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>' +
+            '<button class="menu-item menu-sub-item" onclick="closeCardContextMenu(); exportMarkdown(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>' +
+            '<button class="menu-item menu-sub-item" onclick="closeCardContextMenu(); exportPdf(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>' +
+          '</div>' +
+        '</div>' +
+        origLinkBtn +
+        '<button class="menu-item" onclick="closeCardContextMenu(); openEditTitleModal(' + id + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' +
+          '<span>Edit Title</span>' +
+        '</button>' +
+        '<button class="menu-item" onclick="closeCardContextMenu(); refetchArticleContent(' + id + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>' +
+          '<span>Re-fetch Content</span>' +
+        '</button>' +
+        '<div class="menu-divider"></div>' +
+        '<button class="menu-item menu-item-danger" onclick="closeCardContextMenu(); deleteEntryAction(' + id + ');">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+          '<span>Delete Article</span>' +
+        '</button>';
+
+      menu.style.display = 'flex';
+      menu.classList.add('open');
+
+      const menuWidth = 225;
+      const menuHeight = 360;
+      const x = Math.min(clientX, window.innerWidth - menuWidth - 12);
+      const y = Math.min(clientY, window.innerHeight - menuHeight - 12);
+      menu.style.left = Math.max(8, x) + 'px';
+      menu.style.top = Math.max(8, y) + 'px';
+
+      const backdrop = document.getElementById('cardMenuBackdrop');
+      if (backdrop) backdrop.style.display = 'block';
+    }
+
+    function closeCardContextMenu() {
+      const menu = document.getElementById('cardContextMenu');
+      if (menu) {
+        menu.style.display = 'none';
+        menu.classList.remove('open');
+      }
+      contextMenuArticleId = null;
+      const backdrop = document.getElementById('cardMenuBackdrop');
+      if (backdrop) backdrop.style.display = 'none';
+    }
+
+    function toggleContextExportSubmenu() {
+      document.getElementById('contextExportWrap')?.classList.toggle('expanded');
+    }
+
+    function openArticleOriginalLink(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (item && item.url) {
+        window.open(item.url, '_blank', 'noopener,noreferrer');
+      }
     }
 
     // Ingest URL & Text Handlers
@@ -5179,7 +5496,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     function addQuickTagToActiveArticles(tagName) {
       if (!tagName || activeTagModalIds.length === 0) return;
-      for (const id of activeTagModalIds) {
+      const ids = [...activeTagModalIds];
+      for (const id of ids) {
         const item = allEntries.find(e => e.id === id);
         if (item) {
           if (!item.tags) item.tags = [];
@@ -5197,12 +5515,27 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       renderSidebarTags();
       filterArticles();
       showToast('Tag #' + tagName + ' added');
+
+      if (ids.length === 1) {
+        authFetch('/api/entries/' + ids[0] + '/tags.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: tagName })
+        }).then(() => loadGlobalTags()).catch(() => {});
+      } else {
+        authFetch('/api/entries/tags/lists.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entries: ids, tags: tagName })
+        }).then(() => loadGlobalTags()).catch(() => {});
+      }
     }
 
     function removeTagFromActiveArticles(tagName) {
       if (!tagName || activeTagModalIds.length === 0) return;
+      const ids = [...activeTagModalIds];
       const tagLower = tagName.toLowerCase();
-      for (const id of activeTagModalIds) {
+      for (const id of ids) {
         const item = allEntries.find(e => e.id === id);
         if (item && item.tags) {
           item.tags = item.tags.filter(t => {
@@ -5216,6 +5549,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       renderSidebarTags();
       filterArticles();
       showToast('Tag #' + tagName + ' removed');
+
+      if (ids.length === 1) {
+        authFetch('/api/entries/' + ids[0] + '/tags/' + encodeURIComponent(tagName) + '.json', {
+          method: 'DELETE'
+        }).then(() => loadGlobalTags()).catch(() => {});
+      } else {
+        authFetch('/api/entries/tags/lists.json', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entries: ids, tag: tagName })
+        }).then(() => loadGlobalTags()).catch(() => {});
+      }
     }
 
     function submitAddTag() {
@@ -5281,6 +5626,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           if (entry.tags.length !== prevLen) modified = true;
         }
       }
+      if (cachedGlobalTags) {
+        cachedGlobalTags = cachedGlobalTags.filter(t => (t.slug || '').toLowerCase() !== tagLower && (t.label || '').toLowerCase() !== tagLower);
+      }
       if (modified) {
         syncLocalEntriesCache(allEntries);
         renderSidebarTags();
@@ -5288,18 +5636,43 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
       renderGlobalTagManagerUI();
       showToast('Tag #' + tagSlugOrLabel + ' removed');
+
+      try {
+        await authFetch('/api/tags/' + encodeURIComponent(tagSlugOrLabel) + '.json', {
+          method: 'DELETE'
+        });
+        loadGlobalTags();
+      } catch (e) {}
     }
 
-    function submitCreateGlobalTag() {
+    async function submitCreateGlobalTag() {
       const input = document.getElementById('newGlobalTagInput');
       const val = input ? input.value.trim().replace(/^#/, '') : '';
       if (!val) return;
       if (!cachedGlobalTags) cachedGlobalTags = [];
-      cachedGlobalTags.push({ label: val, slug: val.toLowerCase(), count: 0 });
+      const exists = cachedGlobalTags.some(t => (t.label || '').toLowerCase() === val.toLowerCase() || (t.slug || '').toLowerCase() === val.toLowerCase());
+      if (!exists) {
+        cachedGlobalTags.push({ id: Date.now(), label: val, slug: val.toLowerCase(), count: 0 });
+      }
       input.value = '';
       renderSidebarTags();
       renderGlobalTagManagerUI();
       showToast('Tag #' + val + ' created');
+
+      try {
+        const res = await authFetch('/api/tags.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: val })
+        });
+        if (res.ok) {
+          const created = await res.json();
+          const idx = cachedGlobalTags.findIndex(t => t.slug === created.slug || t.label.toLowerCase() === created.label.toLowerCase());
+          if (idx >= 0) cachedGlobalTags[idx] = created;
+          else cachedGlobalTags.push(created);
+        }
+        loadGlobalTags();
+      } catch (e) {}
     }
 
     function cleanupUnusedTags() {
@@ -5585,11 +5958,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     function initSelectionDeselectListener() {
+      // 1. Deselect cards when clicking blank canvas
       document.addEventListener('click', (e) => {
         if (selectedArticleIds.size > 0) {
           if (!e.target.closest('.article-card, #batchActionHeader, #batchDropdownMenu, .tag-modal, .tag-modal-overlay, .confirm-modal-overlay, .modal-overlay, .sidebar-nav-item, #mobileNavDropdown, #cardMenuBackdrop')) {
             clearArticleSelection();
           }
+        }
+
+        // 2. Close modal when clicking dark backdrop directly
+        if (e.target.classList && (e.target.classList.contains('modal-backdrop') || e.target.classList.contains('tag-modal-overlay'))) {
+          const id = e.target.id;
+          if (id === 'annotationNoteModal') {
+            closeAnnotationNoteModal();
+          } else if (id) {
+            closeModal(id);
+          }
+        }
+      });
+
+      // 3. Dismiss highlight popover when tapping outside
+      const dismissPopover = (e) => {
+        const popover = document.getElementById('highlightPopover');
+        if (popover && popover.style.display !== 'none') {
+          if (!e.target.closest('#highlightPopover, mark.reader-hl')) {
+            closeHighlightPopover();
+          }
+        }
+      };
+      document.addEventListener('pointerdown', dismissPopover);
+
+      // 4. Right-click outside context menu closes it without opening native browser context menu
+      document.addEventListener('contextmenu', (e) => {
+        const card = e.target.closest('.article-card');
+        if (card) {
+          // Handled per-card by oncontextmenu
+          return;
+        }
+        const openMenu = document.querySelector('.card-dropdown-menu.open, #cardContextMenu.open');
+        if (openMenu) {
+          e.preventDefault();
+          closeAllCardMenus();
         }
       });
     }
@@ -5609,6 +6018,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     setupMobileDrawerSwipeTracking();
     initReaderHoverTopBar();
     initSelectionDeselectListener();
+    initReaderSelectionHandlers();
     initCapacitorOtaUpdater();
   </script>
 </body>

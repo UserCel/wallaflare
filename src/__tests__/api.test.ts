@@ -1207,6 +1207,15 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(listRes.status).toBe(200);
     const allTags = await listRes.json<any>();
     expect(allTags.some((t: any) => t.slug === 'science-fiction')).toBe(true);
+
+    // 3. Deleting tag by slug works and cleans up
+    const deleteSlugRes = await app.request('/api/tags/science-fiction.json', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(deleteSlugRes.status).toBe(200);
+    const deleteSlugJson = await deleteSlugRes.json<any>();
+    expect(deleteSlugJson.success).toBe(true);
   });
 
   it("returns active client credentials on GET /api/client-info when authenticated", async () => {

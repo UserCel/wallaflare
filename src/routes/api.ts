@@ -415,7 +415,13 @@ apiRouter.delete('/api/annotations/:id.json', authMiddleware, deleteAnnotationHa
 // -------------------------------------------------------------
 const tagsHandler = async (c: any) => {
   const tags = await getTags(c.env.DB);
-  c.header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
+  const cacheHeader = c.req.header('Cache-Control') || '';
+  const isNoCache = cacheHeader.includes('no-cache') || Boolean(c.req.query('_t')) || Boolean(c.req.query('t'));
+  if (isNoCache) {
+    c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  } else {
+    c.header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
+  }
   return c.json(tags);
 };
 
@@ -450,9 +456,8 @@ apiRouter.post('/api/tags', authMiddleware, createTagHandler);
 apiRouter.post('/api/tags.json', authMiddleware, createTagHandler);
 
 const deleteGlobalTagHandler = async (c: any) => {
-  const id = Number(c.req.param('id').replace(/\.json$/, ''));
-  if (isNaN(id)) return c.json({ error: 'Invalid Tag ID' }, 400);
-  const ok = await deleteTag(c.env.DB, id);
+  const param = decodeURIComponent(c.req.param('id').replace(/\.json$/, ''));
+  const ok = await deleteTag(c.env.DB, param);
   return c.json({ success: ok });
 };
 
