@@ -1366,6 +1366,82 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     /* Reading Progress Bar & Toasts */
     .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); z-index: 250; width: 0%; }
+
+    .articles-list-footer-status {
+      text-align: center;
+      padding: 1.25rem 1rem 2.5rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    /* Modern Minimal Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3.5rem 1.25rem;
+      text-align: center;
+      user-select: none;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    .empty-state-icon-wrap {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.85rem;
+      color: var(--accent);
+    }
+    .empty-state-icon-wrap svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 1.85;
+    }
+    .empty-state-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+    .empty-state-desc {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      max-width: 260px;
+      line-height: 1.45;
+      margin-bottom: 1.15rem;
+    }
+    .empty-state-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .empty-state-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .empty-state-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
     .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--bg-secondary); border: 1px solid var(--border-color); box-shadow: var(--shadow); padding: 0.75rem 1.25rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.5rem; z-index: 999; transform: translateY(100px); opacity: 0; transition: all 0.25s; }
     .toast.show { transform: translateY(0); opacity: 1; }
     .code-box { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; font-family: var(--font-reader-mono); font-size: 0.8rem; color: var(--accent); user-select: all; }
@@ -1639,11 +1715,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <!-- Articles Scroll Container -->
       <div class="articles-scroll-container" id="articlesScrollContainer">
         <div class="articles-grid" id="articlesGrid"></div>
-        <div class="empty-state" id="emptyState" style="display: none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-          <h3>No articles found</h3>
-          <p>Add a URL or custom text to start reading.</p>
-        </div>
+        <div class="empty-state" id="emptyState" style="display: none;"></div>
+        <div id="articlesListFooterStatus" class="articles-list-footer-status" style="display: none;"></div>
       </div>
     </section>
 
@@ -2691,7 +2764,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           input.value = '';
           showToast('✓ Library Unlocked');
           loadArticles(false);
-          loadGlobalTags();
         } else {
           setAuthToken('');
           if (errorBanner) {
@@ -2731,7 +2803,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (id === 'addUrlModal') {
           setTimeout(() => document.getElementById('urlInput')?.focus(), 60);
         } else if (id === 'addTextModal') {
-          loadGlobalTags().then(() => renderAddTextTagChips());
+          renderAddTextTagChips();
           setTimeout(() => document.getElementById('textTitle')?.focus(), 60);
         } else if (id === 'syncModal') {
           const syncUrlEl = document.getElementById('syncServerUrl');
@@ -2746,7 +2818,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const svg = btn?.querySelector('svg') || btn;
       if (svg) svg.classList.add('is-refreshing-spin');
       try {
-        await Promise.all([loadArticles(false), loadGlobalTags()]);
+        await loadArticles(false);
       } finally {
         if (svg) svg.classList.remove('is-refreshing-spin');
       }
@@ -3167,11 +3239,21 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       handleRouteState();
     }
 
-    // Article Loading & Caching
+    // Article Loading, Pagination & Caching
     let isLoadingArticles = false;
-    async function loadArticles(silent = false) {
+    let currentArticlesPage = 1;
+    let totalArticlesPages = 1;
+    let totalArticlesCount = 0;
+    let isLoadingMoreArticles = false;
+    let serverLibraryCounts = null;
+
+    async function loadArticles(silent = false, reset = true) {
       if (isLoadingArticles) return;
       isLoadingArticles = true;
+
+      if (reset) {
+        currentArticlesPage = 1;
+      }
 
       if (isCapacitorApp()) {
         const settingsBtn = document.getElementById('serverSettingsBtn');
@@ -3183,45 +3265,148 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
       }
 
-      renderFromInstantLocalCache();
+      if (reset && allEntries.length === 0) {
+        renderFromInstantLocalCache();
+      }
 
       try {
-        const res = await authFetch('/api/entries.json?perPage=50&_t=' + Date.now());
+        const sortParam = currentSortOrder || 'newest';
+        const res = await authFetch('/api/sync.json?page=1&perPage=50&sort=' + encodeURIComponent(sortParam) + '&_t=' + Date.now());
         if (res.ok) {
           const data = await res.json();
-          allEntries = Array.isArray(data) ? data : (data._embedded?.items || []);
-          syncLocalEntriesCache(allEntries);
+          allEntries = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : (data._embedded?.items || []));
+          if (Array.isArray(data.tags)) {
+            cachedGlobalTags = data.tags;
+          }
+          if (data.counts) {
+            serverLibraryCounts = data.counts;
+          }
+          currentArticlesPage = data.page || 1;
+          totalArticlesPages = data.pages || 1;
+          totalArticlesCount = data.total !== undefined ? data.total : allEntries.length;
+
+          syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
           updateCounts();
           renderSidebarTags();
           filterArticles();
         } else if (res.status !== 401) {
-          handleConnectionFailure(silent);
+          const sortParam = currentSortOrder || 'newest';
+          const fallbackRes = await authFetch('/api/entries.json?page=1&perPage=50&sort=' + encodeURIComponent(sortParam) + '&_t=' + Date.now()).catch(() => null);
+          if (fallbackRes && fallbackRes.ok) {
+            const data = await fallbackRes.json();
+            allEntries = Array.isArray(data) ? data : (data._embedded?.items || []);
+            currentArticlesPage = data.page || 1;
+            totalArticlesPages = data.pages || 1;
+            totalArticlesCount = data.total !== undefined ? data.total : allEntries.length;
+            syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+            updateCounts();
+            renderSidebarTags();
+            filterArticles();
+          } else {
+            handleConnectionFailure(silent);
+          }
         }
       } catch (err) {
         handleConnectionFailure(silent);
       } finally {
         isLoadingArticles = false;
+        updateArticlesFooterStatus();
+      }
+    }
+
+    async function loadMoreArticles() {
+      if (isLoadingMoreArticles || currentArticlesPage >= totalArticlesPages) return;
+      isLoadingMoreArticles = true;
+      const footerStatus = document.getElementById('articlesListFooterStatus');
+      if (footerStatus) {
+        footerStatus.innerHTML = '<span style="display:inline-block; margin-right: 6px;">⏳</span> Loading more articles...';
+        footerStatus.style.display = 'block';
+      }
+
+      try {
+        const nextPage = currentArticlesPage + 1;
+        const sortParam = currentSortOrder || 'newest';
+        const res = await authFetch('/api/entries.json?page=' + nextPage + '&perPage=50&sort=' + encodeURIComponent(sortParam) + '&_t=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          const newItems = Array.isArray(data) ? data : (data._embedded?.items || []);
+          if (newItems.length > 0) {
+            const existingIds = new Set(allEntries.map(e => e.id));
+            for (const item of newItems) {
+              if (!existingIds.has(item.id)) {
+                allEntries.push(item);
+                existingIds.add(item.id);
+              }
+            }
+            currentArticlesPage = nextPage;
+            totalArticlesPages = data.pages || totalArticlesPages;
+            totalArticlesCount = data.total !== undefined ? data.total : totalArticlesCount;
+            syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+            renderSidebarTags();
+            filterArticles();
+          } else {
+            totalArticlesPages = currentArticlesPage;
+          }
+        }
+      } catch (e) {
+      } finally {
+        isLoadingMoreArticles = false;
+        updateArticlesFooterStatus();
+      }
+    }
+
+    function updateArticlesFooterStatus() {
+      const footer = document.getElementById('articlesListFooterStatus');
+      if (!footer) return;
+      if (allEntries.length === 0) {
+        footer.style.display = 'none';
+        return;
+      }
+      if (currentArticlesPage < totalArticlesPages) {
+        footer.textContent = 'Showing ' + allEntries.length + ' of ' + totalArticlesCount + ' articles • Scroll for more';
+        footer.style.display = 'block';
+      } else if (allEntries.length > 30) {
+        footer.textContent = 'All ' + allEntries.length + ' articles loaded';
+        footer.style.display = 'block';
+      } else {
+        footer.style.display = 'none';
       }
     }
 
     function renderFromInstantLocalCache() {
       try {
-        const fast = localStorage.getItem('wf_cached_articles');
-        if (fast) {
-          const parsed = JSON.parse(fast);
+        const fastArticles = localStorage.getItem('wf_cached_articles');
+        if (fastArticles) {
+          const parsed = JSON.parse(fastArticles);
           if (Array.isArray(parsed) && parsed.length > 0 && allEntries.length === 0) {
             allEntries = parsed;
-            updateCounts();
-            renderSidebarTags();
-            filterArticles();
           }
         }
+        const fastTags = localStorage.getItem('wf_cached_tags');
+        if (fastTags) {
+          const parsedTags = JSON.parse(fastTags);
+          if (Array.isArray(parsedTags) && parsedTags.length > 0) {
+            cachedGlobalTags = parsedTags;
+          }
+        }
+        const fastCounts = localStorage.getItem('wf_cached_counts');
+        if (fastCounts) {
+          const parsedCounts = JSON.parse(fastCounts);
+          if (parsedCounts && typeof parsedCounts.total === 'number') {
+            serverLibraryCounts = parsedCounts;
+          }
+        }
+        updateCounts();
+        renderSidebarTags();
+        filterArticles();
       } catch (err) {}
     }
 
-    function syncLocalEntriesCache(entries) {
+    function syncLocalEntriesCache(entries, tags, counts) {
       try {
-        localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
+        if (entries !== undefined) localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
+        if (tags !== undefined) localStorage.setItem('wf_cached_tags', JSON.stringify(tags || []));
+        if (counts !== undefined) localStorage.setItem('wf_cached_counts', JSON.stringify(counts || null));
       } catch (err) {}
       saveArticlesToOfflineDb(entries || []);
     }
@@ -3236,8 +3421,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       (cachedGlobalTags || []).forEach(t => {
         const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
         const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
+        const count = (typeof t === 'object' && (t.entry_count !== undefined || t.count !== undefined)) ? (t.entry_count ?? t.count) : 0;
         const key = (slug || label).toLowerCase();
-        if (key) map.set(key, { id: t.id || Date.now(), label: label || slug, slug: slug || label, count: 0 });
+        if (key) map.set(key, { id: t.id || Date.now(), label: label || slug, slug: slug || label, count: count });
       });
 
       (allEntries || []).forEach(entry => {
@@ -3246,9 +3432,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
           const key = (slug || label).toLowerCase();
           if (key) {
-            if (map.has(key)) {
-              map.get(key).count++;
-            } else {
+            if (!map.has(key)) {
               map.set(key, { id: (typeof t === 'object' && t.id) ? t.id : Date.now(), label: label || slug, slug: slug || label, count: 1 });
             }
           }
@@ -3332,10 +3516,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     function updateCounts() {
-      const unread = allEntries.filter(e => !e.is_archived).length;
-      const starred = allEntries.filter(e => e.is_starred).length;
-      const archive = allEntries.filter(e => e.is_archived).length;
-      const total = allEntries.length;
+      let unread = 0;
+      let starred = 0;
+      let archive = 0;
+      let total = 0;
+
+      if (serverLibraryCounts && typeof serverLibraryCounts.total === 'number') {
+        unread = serverLibraryCounts.unread;
+        starred = serverLibraryCounts.starred;
+        archive = serverLibraryCounts.archive;
+        total = serverLibraryCounts.total;
+      } else {
+        allEntries.forEach(e => {
+          if (!e.is_archived) unread++;
+          if (e.is_starred) starred++;
+          if (e.is_archived) archive++;
+          total++;
+        });
+      }
 
       const unreadEl = document.getElementById('countUnread');
       const starredEl = document.getElementById('countStarred');
@@ -3424,6 +3622,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       renderArticles(filtered);
     }
 
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      if (input) input.value = '';
+      filterArticles();
+    }
+
     function renderArticles(entries) {
       const grid = document.getElementById('articlesGrid');
       const empty = document.getElementById('emptyState');
@@ -3431,7 +3635,50 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       if (!entries || entries.length === 0) {
         grid.innerHTML = '';
-        if (empty) empty.style.display = 'block';
+        if (empty) {
+          empty.style.display = 'flex';
+          const search = (document.getElementById('searchInput')?.value || '').trim();
+
+          let iconSvg = '';
+          let title = '';
+          let desc = '';
+          let actionsHtml = '';
+
+          if (search) {
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+            title = 'No matches found';
+            desc = 'No articles matching "' + escapeHtml(search) + '"';
+            actionsHtml = '<button type="button" class="empty-state-btn" onclick="clearSearch()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Clear Search</span></button>';
+          } else if (selectedTagFilter) {
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>';
+            title = 'No tagged articles';
+            desc = 'No articles tagged with #' + escapeHtml(selectedTagFilter);
+            actionsHtml = '<button type="button" class="empty-state-btn" onclick="filterByTag(null)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Clear Tag Filter</span></button>';
+          } else if (currentFilter === 'starred') {
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
+            title = 'No starred articles';
+            desc = 'Star articles to keep your favorite reads accessible.';
+            actionsHtml = '';
+          } else if (currentFilter === 'archive') {
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>';
+            title = 'Archive is empty';
+            desc = 'Articles you archive after reading will appear here.';
+            actionsHtml = '';
+          } else {
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            title = 'All caught up!';
+            desc = 'Your reading queue is clear. Save a new link or write a note.';
+            actionsHtml = 
+              '<button type="button" class="empty-state-btn" onclick="handleAddArticleBtnClick()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg><span>Add URL</span></button>' +
+              '<button type="button" class="empty-state-btn" onclick="handleAddTextBtnClick()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Write Note</span></button>';
+          }
+
+          empty.innerHTML =
+            '<div class="empty-state-icon-wrap">' + iconSvg + '</div>' +
+            '<div class="empty-state-title">' + title + '</div>' +
+            '<div class="empty-state-desc">' + desc + '</div>' +
+            (actionsHtml ? ('<div class="empty-state-actions">' + actionsHtml + '</div>') : '');
+        }
         return;
       }
 
@@ -3872,7 +4119,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (res.ok) {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_starred = next;
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         updateCounts();
         filterArticles();
         if (activeArticleId === id) {
@@ -3900,7 +4147,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (res.ok) {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_archived = next;
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         updateCounts();
         filterArticles();
         if (activeArticleId === id) {
@@ -3930,7 +4177,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
       if (res.ok) {
         allEntries = allEntries.filter(e => e.id !== id);
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         updateCounts();
         filterArticles();
         showToast('Article deleted');
@@ -4466,7 +4713,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const item = allEntries.find(e => e.id === activeArticleId);
       if (item) {
         applyAnnotationsToReader(item);
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       }
       closeHighlightPopover();
       try {
@@ -4485,7 +4732,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (item && item.annotations) {
         item.annotations = item.annotations.filter(a => a.id !== annId);
         applyAnnotationsToReader(item);
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       }
       closeHighlightPopover();
       try {
@@ -4516,7 +4763,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       clearActiveTextSelection();
       applyAnnotationsToReader(item);
-      syncLocalEntriesCache(allEntries);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
 
       authFetch('/api/annotations/' + item.id + '.json', {
         method: 'POST',
@@ -4525,7 +4772,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }).then(res => res.json()).then(saved => {
         const idx = item.annotations.findIndex(a => a.id === newAnn.id);
         if (idx >= 0) item.annotations[idx] = saved;
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       }).catch(() => {});
     }
 
@@ -4596,7 +4843,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (!item.annotations) item.annotations = [];
         item.annotations.push(newAnn);
         applyAnnotationsToReader(item);
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         authFetch('/api/annotations/' + item.id + '.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -4604,7 +4851,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }).then(res => res.json()).then(saved => {
           const idx = item.annotations.findIndex(a => a.id === newAnn.id);
           if (idx >= 0) item.annotations[idx] = saved;
-          syncLocalEntriesCache(allEntries);
+          syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         }).catch(() => {});
         return;
       }
@@ -4613,7 +4860,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         activeModalAnnotation.text = text;
         activeModalAnnotation.color = color;
         applyAnnotationsToReader(item);
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         closeAnnotationNoteModal();
         try {
           await authFetch('/api/annotations/' + activeModalAnnotation.id + '.json', {
@@ -4800,7 +5047,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       currentSortOrder = order;
       localStorage.setItem('wf_sort_order', order);
       closeAllCardMenus();
-      filterArticles();
+      loadArticles(false, true);
       showToast('Sorted by: ' + order);
     }
 
@@ -5077,7 +5324,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_starred = item.is_starred ? 0 : 1;
       }
-      syncLocalEntriesCache(allEntries);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       filterArticles();
       clearArticleSelection();
     }
@@ -5090,7 +5337,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const item = allEntries.find(e => e.id === id);
         if (item) item.is_archived = item.is_archived ? 0 : 1;
       }
-      syncLocalEntriesCache(allEntries);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       filterArticles();
       clearArticleSelection();
     }
@@ -5106,7 +5353,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to delete ' + ids.length + ' articles?', 'Delete', true);
       if (!ok) return;
       allEntries = allEntries.filter(e => !selectedArticleIds.has(e.id));
-      syncLocalEntriesCache(allEntries);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       clearArticleSelection();
       filterArticles();
       showToast('Articles deleted');
@@ -5346,6 +5593,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       openModal('addUrlModal');
     }
 
+    function handleAddTextBtnClick() {
+      openModal('addTextModal');
+    }
+
     async function handleIngestUrl(e) {
       e.preventDefault();
       const input = document.getElementById('urlInput');
@@ -5367,10 +5618,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         closeModal('addUrlModal');
         input.value = '';
         allEntries.unshift(item);
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         updateCounts();
+        renderSidebarTags();
         filterArticles();
-        loadGlobalTags();
         showToast('✓ Article saved successfully!');
         openReader(item.id);
       } catch (err) {
@@ -5404,10 +5655,10 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const item = await res.json();
         closeModal('addTextModal');
         allEntries.unshift(item);
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         updateCounts();
+        renderSidebarTags();
         filterArticles();
-        loadGlobalTags();
         showToast('✓ Custom entry saved');
         openReader(item.id);
       } catch (err) {
@@ -5510,7 +5761,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           }
         }
       }
-      syncLocalEntriesCache(allEntries);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       renderTagModalUI();
       renderSidebarTags();
       filterArticles();
@@ -5544,7 +5795,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           });
         }
       }
-      syncLocalEntriesCache(allEntries);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       renderTagModalUI();
       renderSidebarTags();
       filterArticles();
@@ -5581,6 +5832,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function openGlobalTagManager() {
       renderGlobalTagManagerUI();
       openModal('globalTagModal');
+      loadGlobalTags().then(() => renderGlobalTagManagerUI());
     }
 
     function closeGlobalTagModal() {
@@ -5615,13 +5867,26 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function deleteGlobalTag(tagSlugOrLabel) {
       const tagLower = tagSlugOrLabel.toLowerCase();
+      const tags = getEffectiveGlobalTags();
+      const tagObj = tags.find(t => (t.slug || '').toLowerCase() === tagLower || (t.label || '').toLowerCase() === tagLower);
+      const label = tagObj ? tagObj.label : tagSlugOrLabel;
+      const count = tagObj ? tagObj.count : 0;
+
+      let confirmMsg = 'Are you sure you want to delete tag "#' + label + '" from your library?';
+      if (count > 0) {
+        confirmMsg = 'Are you sure you want to delete "#' + label + '"? This will untag ' + count + ' article' + (count === 1 ? '' : 's') + ' across your library.';
+      }
+
+      const confirmed = await showConfirmDialog('Delete Tag', confirmMsg, 'Delete Tag', true);
+      if (!confirmed) return;
+
       let modified = false;
       for (const entry of allEntries) {
         if (entry.tags && entry.tags.length > 0) {
           const prevLen = entry.tags.length;
           entry.tags = entry.tags.filter(t => {
-            const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
-            return label !== tagLower;
+            const l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
+            return l !== tagLower;
           });
           if (entry.tags.length !== prevLen) modified = true;
         }
@@ -5630,18 +5895,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         cachedGlobalTags = cachedGlobalTags.filter(t => (t.slug || '').toLowerCase() !== tagLower && (t.label || '').toLowerCase() !== tagLower);
       }
       if (modified) {
-        syncLocalEntriesCache(allEntries);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         renderSidebarTags();
         filterArticles();
       }
       renderGlobalTagManagerUI();
-      showToast('Tag #' + tagSlugOrLabel + ' removed');
+      showToast('Tag #' + label + ' deleted');
 
       try {
         await authFetch('/api/tags/' + encodeURIComponent(tagSlugOrLabel) + '.json', {
           method: 'DELETE'
         });
-        loadGlobalTags();
       } catch (e) {}
     }
 
@@ -5675,7 +5939,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       } catch (e) {}
     }
 
-    function cleanupUnusedTags() {
+    async function cleanupUnusedTags() {
       const usedTags = new Set();
       (allEntries || []).forEach(e => {
         (e.tags || []).forEach(t => {
@@ -5683,13 +5947,40 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           if (l) usedTags.add(l);
         });
       });
+
+      const unusedList = (cachedGlobalTags || []).filter(t => {
+        const l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
+        return !usedTags.has(l);
+      });
+
+      if (unusedList.length === 0) {
+        showToast('No unused tags in library');
+        return;
+      }
+
+      const confirmed = await showConfirmDialog(
+        'Clean Up Unused Tags',
+        'Are you sure you want to delete ' + unusedList.length + ' unused tag' + (unusedList.length === 1 ? '' : 's') + ' from your library?',
+        'Delete Unused Tags',
+        true
+      );
+      if (!confirmed) return;
+
       cachedGlobalTags = (cachedGlobalTags || []).filter(t => {
         const l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
         return usedTags.has(l);
       });
+
       renderSidebarTags();
       renderGlobalTagManagerUI();
-      showToast('Unused tags cleaned');
+      showToast(unusedList.length + ' unused tag' + (unusedList.length === 1 ? '' : 's') + ' cleaned');
+
+      for (const t of unusedList) {
+        const idOrSlug = t.id || t.slug || t.label;
+        if (idOrSlug) {
+          authFetch('/api/tags/' + encodeURIComponent(idOrSlug) + '.json', { method: 'DELETE' }).catch(() => {});
+        }
+      }
     }
 
     function openEditTitleModal(id) {
@@ -5732,7 +6023,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (token) setAuthToken(token);
       closeModal('serverConnectModal');
       loadArticles(false);
-      loadGlobalTags();
     }
 
     // Offline DB placeholder
@@ -5791,7 +6081,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             ptrSvg.classList.add('is-refreshing-spin');
           }
           try {
-            await Promise.all([loadArticles(false), loadGlobalTags()]);
+            await loadArticles(false);
           } finally {
             setTimeout(() => {
               if (ptrWrap) {
@@ -5822,7 +6112,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (now - lastRefreshTime > 4000) {
           lastRefreshTime = now;
           loadArticles(true);
-          loadGlobalTags();
         }
       };
 
@@ -6010,11 +6299,24 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     initAppearanceSettings();
     setViewMode(localStorage.getItem('wf_view_mode') || 'list');
     updateVersionDisplay();
+    renderFromInstantLocalCache();
     handleRouteState();
     loadArticles(true);
-    loadGlobalTags();
+    function initInfiniteScroll() {
+      const scrollContainer = document.getElementById('articlesScrollContainer');
+      if (!scrollContainer) return;
+      scrollContainer.addEventListener('scroll', () => {
+        if (isLoadingMoreArticles || currentArticlesPage >= totalArticlesPages) return;
+        const remaining = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
+        if (remaining < 300) {
+          loadMoreArticles();
+        }
+      });
+    }
+
     initPullToRefresh();
     initRefocusRefresh();
+    initInfiniteScroll();
     setupMobileDrawerSwipeTracking();
     initReaderHoverTopBar();
     initSelectionDeselectListener();

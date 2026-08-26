@@ -64,11 +64,13 @@ webRouter.get('/sw.js', (c) => {
 
 webRouter.get('/img/logo-wallabag.svg', (c) => {
   c.header('Content-Type', 'image/svg+xml');
+  c.header('Cache-Control', 'public, max-age=31536000, immutable');
   return c.body(WALLABAG_SVG_LOGO);
 });
 
 webRouter.get('/favicon.ico', (c) => {
   c.header('Content-Type', 'image/svg+xml');
+  c.header('Cache-Control', 'public, max-age=31536000, immutable');
   return c.body(WALLABAG_SVG_LOGO);
 });
 

@@ -314,6 +314,31 @@ export async function removeTagFromEntry(db: D1Database, entryId: number, tagIdO
   return await getEntryTags(db, entryId);
 }
 
+export interface LibraryCounts {
+  unread: number;
+  starred: number;
+  archive: number;
+  total: number;
+}
+
+export async function getLibraryCounts(db: D1Database): Promise<LibraryCounts> {
+  const row = await db.prepare(`
+    SELECT 
+      SUM(CASE WHEN is_archived = 0 THEN 1 ELSE 0 END) as unread,
+      SUM(CASE WHEN is_starred = 1 THEN 1 ELSE 0 END) as starred,
+      SUM(CASE WHEN is_archived = 1 THEN 1 ELSE 0 END) as archive,
+      COUNT(*) as total
+    FROM entries
+  `).first<{ unread: number | null; starred: number | null; archive: number | null; total: number | null }>();
+
+  return {
+    unread: row?.unread || 0,
+    starred: row?.starred || 0,
+    archive: row?.archive || 0,
+    total: row?.total || 0,
+  };
+}
+
 export async function deleteTag(db: D1Database, tagIdOrSlug: number | string): Promise<boolean> {
   let tagId: number | null = null;
   const num = Number(tagIdOrSlug);
@@ -399,8 +424,31 @@ export async function getEntries(
   const page = Math.max(1, filter.page || 1);
   const limit = Math.max(1, Math.min(100, filter.perPage || 30));
   const offset = (page - 1) * limit;
-  const sortCol = filter.sort === 'updated' ? 'updated_at' : 'created_at';
-  const sortOrder = (filter.order || 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  let sortCol = 'created_at';
+  let sortOrder = (filter.order || 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  const rawSort = String(filter.sort || '').toLowerCase();
+  if (rawSort === 'updated' || rawSort === 'updated_at') {
+    sortCol = 'updated_at';
+  } else if (rawSort === 'title') {
+    sortCol = 'title COLLATE NOCASE';
+    if (!filter.order) sortOrder = 'ASC';
+  } else if (rawSort === 'shortest') {
+    sortCol = 'reading_time';
+    sortOrder = 'ASC';
+  } else if (rawSort === 'longest') {
+    sortCol = 'reading_time';
+    sortOrder = 'DESC';
+  } else if (rawSort === 'reading_time') {
+    sortCol = 'reading_time';
+  } else if (rawSort === 'oldest') {
+    sortCol = 'created_at';
+    sortOrder = 'ASC';
+  } else if (rawSort === 'newest') {
+    sortCol = 'created_at';
+    sortOrder = 'DESC';
+  }
 
   const selectQuery = `
     SELECT * FROM entries 

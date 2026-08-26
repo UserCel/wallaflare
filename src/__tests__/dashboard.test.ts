@@ -238,4 +238,15 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('closeCardContextMenu');
     expect(html).toContain('oncontextmenu="handleCardContextMenu(event, ');
   });
+
+  it('renders modern minimal dynamic empty state with quick action chips', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="emptyState"');
+    expect(html).toContain('empty-state-icon-wrap');
+    expect(html).toContain('empty-state-title');
+    expect(html).toContain('empty-state-actions');
+    expect(html).toContain('handleAddArticleBtnClick');
+    expect(html).toContain('handleAddTextBtnClick');
+    expect(html).toContain('clearSearch');
+  });
 });

@@ -22,6 +22,7 @@ import {
   addTagsToEntry,
   removeTagFromEntry,
   deleteTag,
+  getLibraryCounts,
   checkAuthRateLimit,
   recordFailedAuthAttempt,
   resetAuthRateLimit,
@@ -582,6 +583,42 @@ const getEntriesHandler = async (c: any) => {
 
 apiRouter.get('/api/entries', authMiddleware, getEntriesHandler);
 apiRouter.get('/api/entries.json', authMiddleware, getEntriesHandler);
+
+// -------------------------------------------------------------
+// Unified Dashboard & App Sync: GET /api/sync(.json)
+// Returns entries, all tags (including unused), and counts in 1 handshake
+// -------------------------------------------------------------
+const syncHandler = async (c: any) => {
+  const query = c.req.query();
+  const perPage = query.perPage ? Number(query.perPage) : 50;
+  const page = query.page ? Number(query.page) : 1;
+  const sort = query.sort || undefined;
+  const order = query.order || undefined;
+  const search = query.search || undefined;
+  const tags = query.tags || query.tag || undefined;
+  const is_archived = query.archive !== undefined ? Number(query.archive) : undefined;
+  const is_starred = query.starred !== undefined ? Number(query.starred) : undefined;
+
+  const [entriesResult, allTags, counts] = await Promise.all([
+    getEntries(c.env.DB, { page, perPage, order, sort, search, tags, is_archived, is_starred }),
+    getTags(c.env.DB),
+    getLibraryCounts(c.env.DB),
+  ]);
+
+  c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  return c.json({
+    entries: entriesResult.entries.map(e => entryRowToWallabag(e)),
+    tags: allTags,
+    counts: counts,
+    total: entriesResult.total,
+    page: entriesResult.page,
+    limit: entriesResult.limit,
+    pages: entriesResult.pages,
+  });
+};
+
+apiRouter.get('/api/sync', authMiddleware, syncHandler);
+apiRouter.get('/api/sync.json', authMiddleware, syncHandler);
 
 // -------------------------------------------------------------
 // Ingest Article: POST /api/entries(.json)

@@ -23,6 +23,13 @@ function createMockD1Database() {
           return stmt;
         },
         async first<T = any>() {
+          if (query.includes('SUM(CASE WHEN is_archived = 0')) {
+            const unread = entries.filter(e => !e.is_archived).length;
+            const starred = entries.filter(e => e.is_starred).length;
+            const archive = entries.filter(e => e.is_archived).length;
+            const total = entries.length;
+            return { unread, starred, archive, total } as T;
+          }
           if (query.includes('SELECT COUNT(*)')) {
             let filtered = [...entries];
             if (query.includes('is_archived = ?')) {
@@ -109,14 +116,29 @@ function createMockD1Database() {
             };
           }
           if (query.includes('SELECT * FROM entries')) {
+            let matched = [...entries];
             if (query.includes('WHERE t.slug IN') || query.includes('entry_tags et')) {
               const tagVal = boundParams[0];
               const matchedTagIds = tags.filter(t => t.slug === tagVal || t.label === tagVal).map(t => t.id);
               const matchedEntryIds = entryTags.filter(et => matchedTagIds.includes(et.tag_id)).map(et => et.entry_id);
-              const matchedEntries = entries.filter(e => matchedEntryIds.includes(e.id));
-              return { results: matchedEntries as T[] };
+              matched = entries.filter(e => matchedEntryIds.includes(e.id));
             }
-            return { results: [...entries] as T[] };
+            if (query.includes('title COLLATE NOCASE ASC') || (query.includes('title COLLATE NOCASE') && query.includes('ASC'))) {
+              matched.sort((a, b) => a.title.localeCompare(b.title));
+            } else if (query.includes('ORDER BY created_at ASC')) {
+              matched.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            } else if (query.includes('ORDER BY created_at DESC')) {
+              matched.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            }
+
+            if (query.includes('LIMIT ? OFFSET ?') && boundParams.length >= 2) {
+              const limit = boundParams[boundParams.length - 2];
+              const offset = boundParams[boundParams.length - 1];
+              if (typeof limit === 'number' && typeof offset === 'number') {
+                matched = matched.slice(offset, offset + limit);
+              }
+            }
+            return { results: matched as T[] };
           }
           return { results: [...entries] as T[] };
         },
@@ -1216,6 +1238,91 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(deleteSlugRes.status).toBe(200);
     const deleteSlugJson = await deleteSlugRes.json<any>();
     expect(deleteSlugJson.success).toBe(true);
+  });
+
+  it("returns entries, all tags, and counts in a single handshake on GET /api/sync.json", async () => {
+    // 1. Create a standalone tag (unused by any entry)
+    await app.request('/api/tags.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET}`
+      },
+      body: JSON.stringify({ label: 'Unused Standalone Tag' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    // 2. Call /api/sync.json
+    const syncRes = await app.request('/api/sync.json?perPage=10', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(syncRes.status).toBe(200);
+    expect(syncRes.headers.get('Cache-Control')).toContain('no-cache');
+    const syncData = await syncRes.json<any>();
+
+    expect(Array.isArray(syncData.entries)).toBe(true);
+    expect(Array.isArray(syncData.tags)).toBe(true);
+    expect(typeof syncData.total).toBe('number');
+    expect(syncData.counts).toBeDefined();
+    expect(typeof syncData.counts.unread).toBe('number');
+    expect(typeof syncData.counts.starred).toBe('number');
+    expect(typeof syncData.counts.archive).toBe('number');
+    expect(typeof syncData.counts.total).toBe('number');
+    expect(syncData.tags.some((t: any) => t.slug === 'unused-standalone-tag')).toBe(true);
+  });
+
+  it("handles large database pagination, sorting by title / date, and live library counts", async () => {
+    // Ingest 60 items with distinctive titles to test multi-page database pagination
+    for (let i = 1; i <= 60; i++) {
+      const padded = String(i).padStart(3, '0');
+      await app.request('/api/entries.json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SECRET}`
+        },
+        body: JSON.stringify({
+          title: `Book Article ${padded}`,
+          content: `<p>Content for book article ${padded}</p>`,
+          url: `https://example.com/book/${padded}`,
+          tags: i % 2 === 0 ? 'even-tag' : 'odd-tag'
+        })
+      }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    }
+
+    // 1. Fetch Page 1 (50 items) sorted by title ASC
+    const page1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=title&order=asc', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(page1Res.status).toBe(200);
+    const page1Data = await page1Res.json<any>();
+    expect(page1Data.entries.length).toBe(50);
+    expect(page1Data.total).toBeGreaterThanOrEqual(60);
+    expect(page1Data.pages).toBeGreaterThanOrEqual(2);
+    expect(page1Data.page).toBe(1);
+    expect(page1Data.counts.total).toBeGreaterThanOrEqual(60);
+    expect(page1Data.counts.unread).toBeGreaterThanOrEqual(60);
+
+    // Verify alphabetical sort from Cloudflare database
+    expect(page1Data.entries[0].title).toBe('Book Article 001');
+    expect(page1Data.entries[1].title).toBe('Book Article 002');
+
+    // 2. Fetch Page 2 (remaining items)
+    const page2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=title&order=asc', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(page2Res.status).toBe(200);
+    const page2Data = await page2Res.json<any>();
+    const page2Items = page2Data._embedded?.items || page2Data;
+    expect(page2Items.length).toBeGreaterThanOrEqual(10);
+    expect(page2Items[0].title).toBe('Book Article 051');
+
+    // 3. Verify tag entry counts accurately reflect database counts across all pages
+    const tagEven = page1Data.tags.find((t: any) => t.slug === 'even-tag');
+    expect(tagEven).toBeDefined();
+    expect(tagEven.entry_count).toBeGreaterThanOrEqual(30);
   });
 
   it("returns active client credentials on GET /api/client-info when authenticated", async () => {

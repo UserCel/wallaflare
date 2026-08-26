@@ -255,10 +255,18 @@ async function main() {
   console.log('🚀 Starting mock server on port', PORT);
   const server = await createMockServer();
 
-  console.log('🌐 Launching headless Chrome...');
+  console.log('🌐 Launching headless Chrome (using iGPU / SwiftShader)...');
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-web-security',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--disable-vulkan',
+      '--disable-features=Vulkan'
+    ]
   });
 
   try {
