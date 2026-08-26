@@ -23,7 +23,9 @@ async function main() {
   const otaVersion = `${baseVersion}-${contentHash}`;
   const minNativeVersion = "1.0.0";
 
-  const capacitorHtml = rawHtml.replace('<head>', `<head>\n  <script>window.IS_CAPACITOR_APP = true; window.WF_BUILD_VERSION = "${otaVersion}"; window.WF_NATIVE_VERSION = "1.0.0";</script>`);
+  const capacitorHtml = rawHtml
+    .replace('<html lang="en"', '<html lang="en" class="is-capacitor-app"')
+    .replace('<head>', `<head>\n  <script>window.IS_CAPACITOR_APP = true; window.WF_BUILD_VERSION = "${otaVersion}"; window.WF_NATIVE_VERSION = "1.0.0"; document.documentElement.classList.add("is-capacitor-app");</script>`);
   fs.writeFileSync(path.join(wwwDir, 'index.html'), capacitorHtml, 'utf8');
 
   // Zip index.html for OTA

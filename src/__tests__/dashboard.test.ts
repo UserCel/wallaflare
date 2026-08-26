@@ -33,6 +33,55 @@ describe('Dashboard HTML & Client Script Syntax Validation', () => {
   });
 });
 
+describe('3-Pane Desktop Workspace & Typography Popover Architecture', () => {
+  it('includes 3-pane workspace container, sidebar, articles list, and reader panes', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('class="app-workspace"');
+    expect(html).toContain('class="pane-sidebar"');
+    expect(html).toContain('class="pane-articles"');
+    expect(html).toContain('class="pane-reader"');
+    expect(html).toContain('id="readerEmptyPane"');
+    expect(html).toContain('id="paneSidebar"');
+    expect(html).toContain('id="paneArticles"');
+    expect(html).toContain('id="paneReader"');
+  });
+
+  it('includes live typography popover controls, CSS variables, and OLED theme support', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="readerAppearancePopover"');
+    expect(html).toContain('id="readerAppearanceBtn"');
+    expect(html).toContain('--reader-font-family');
+    expect(html).toContain('--reader-font-size');
+    expect(html).toContain('--reader-line-height');
+    expect(html).toContain('--reader-content-max-width');
+    expect(html).toContain('html.oled');
+    expect(html).toContain('setReaderFontFamily');
+    expect(html).toContain('setReaderFontSize');
+    expect(html).toContain('setReaderLineHeight');
+    expect(html).toContain('setReaderContentWidth');
+    expect(html).toContain('setTheme');
+  });
+
+  it('includes focus / zen mode toggle and keyboard navigation handlers', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('toggleReaderFocusMode');
+    expect(html).toContain('focus-mode');
+    expect(html).toContain('handleAndroidBackButton');
+  });
+
+  it('includes collapsible dynamic sidebar tag manager and navigation live counts', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="sidebarTagList"');
+    expect(html).toContain('id="sidebarTagCount"');
+    expect(html).toContain('toggleSidebarTagsCollapse');
+    expect(html).toContain('renderSidebarTags');
+    expect(html).toContain('id="countUnread"');
+    expect(html).toContain('id="countStarred"');
+    expect(html).toContain('id="countArchive"');
+    expect(html).toContain('id="countAll"');
+  });
+});
+
 describe('Markdown Export Engine & Text Integrity Validation', () => {
   it('converts HTML to Markdown without corrupting letter s or stripping whitespace words', () => {
     const html = renderDashboardHtml('Wallaflare');

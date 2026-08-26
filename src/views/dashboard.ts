@@ -1,5 +1,6 @@
 import { OTA_VERSION } from './ota-bundle';
 import { clientEpubJs } from './epub-client-bundle';
+
 export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -9,11 +10,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <meta name="generator" content="wallabag">
   <meta name="wallabag:version" content="2.6.9">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
-  <title>${appName} - Read-it-Later &amp; E-ink Sync</title>
+  <title>${appName} - Modern 3-Pane Reader &amp; E-ink Sync</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    @font-face {
+      font-family: 'OpenDyslexic';
+      src: url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/OpenDyslexic-Regular.woff2') format('woff2'),
+           url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/OpenDyslexic-Regular.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
       --bg-primary: #0f172a;
       --bg-secondary: #1e293b;
@@ -31,26 +41,40 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       --danger: #ef4444;
       --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-reader-serif: 'Newsreader', Georgia, serif;
-      --font-reader-sans: 'Inter', sans-serif;
+      --font-reader-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-reader-mono: 'JetBrains Mono', monospace;
+      --font-reader-dyslexic: 'OpenDyslexic', sans-serif;
+
+      --reader-font-family: var(--font-reader-serif);
+      --reader-font-size: 18px;
+      --reader-line-height: 1.68;
+      --reader-content-max-width: 740px;
+      --app-safe-top: env(safe-area-inset-top, 0px);
+
       --radius: 12px;
       --radius-sm: 8px;
       --radius-lg: 18px;
       --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
       --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+      --shadow-lg: 0 20px 30px -10px rgba(0, 0, 0, 0.6);
+    }
+
+    html.is-capacitor-app {
+      --app-safe-top: max(28px, env(safe-area-inset-top, 0px));
     }
 
     html.light {
       --bg-primary: #f8fafc;
       --bg-secondary: #ffffff;
       --bg-tertiary: #f1f5f9;
-      --bg-card: rgba(255, 255, 255, 0.9);
+      --bg-card: rgba(255, 255, 255, 0.92);
       --border-color: rgba(0, 0, 0, 0.08);
       --text-primary: #0f172a;
       --text-secondary: #475569;
       --text-muted: #94a3b8;
       --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
       --shadow-sm: 0 2px 4px rgba(0,0,0,0.04);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
     }
 
     html.sepia {
@@ -67,6 +91,19 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       --shadow: 0 10px 25px -5px rgba(67, 52, 34, 0.08);
     }
 
+    html.oled {
+      --bg-primary: #000000;
+      --bg-secondary: #0a0a0a;
+      --bg-tertiary: #171717;
+      --bg-card: #050505;
+      --border-color: rgba(255, 255, 255, 0.12);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -77,17 +114,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       user-select: none;
       -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent !important;
-      tap-highlight-color: transparent !important;
     }
 
-    img, a, button {
-      -webkit-user-drag: none;
-      -webkit-touch-callout: none;
-      -webkit-tap-highlight-color: transparent !important;
-    }
-
-    /* Allow standard text selection in input controls */
-    input, textarea, [contenteditable="true"], [contenteditable=""], select {
+    input, textarea, [contenteditable="true"], select {
       -webkit-user-select: text;
       -moz-user-select: text;
       -ms-user-select: text;
@@ -95,9 +124,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       -webkit-touch-callout: default;
     }
 
-    /* Allow rich text selection exclusively within the actual article content text */
-    .reader-body,
-    .reader-body * {
+    .reader-body, .reader-body * {
       -webkit-user-select: text;
       -moz-user-select: text;
       -ms-user-select: text;
@@ -105,28 +132,17 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       -webkit-touch-callout: default;
     }
 
-    /* Strictly disallow text selection on Reader titles, meta, covers, and card elements */
-    .reader-title,
-    .reader-meta,
-    .reader-meta *,
-    .reader-domain,
-    .reader-cover,
-    .reader-cover-img,
-    .reader-lead-image-caption,
-    .article-card,
-    .article-card *,
-    .card-image-wrap,
-    .card-image,
-    .card-title {
+    .reader-title, .reader-meta, .reader-domain, .reader-cover, .article-card, .article-card * {
       -webkit-user-select: none !important;
       -moz-user-select: none !important;
       -ms-user-select: none !important;
       user-select: none !important;
-      -webkit-touch-callout: none !important;
-      -webkit-tap-highlight-color: transparent !important;
     }
 
     html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
       overscroll-behavior-y: contain;
     }
 
@@ -134,7 +150,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       font-family: var(--font-ui);
       background-color: var(--bg-primary);
       color: var(--text-primary);
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
       line-height: 1.5;
@@ -142,24 +157,84 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       transition: background-color 0.25s ease, color 0.25s ease;
     }
 
-    /* Top Navbar */
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 150;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      background-color: rgba(15, 23, 42, 0.82);
-      border-bottom: 1px solid var(--border-color);
-      padding: 0.75rem 1.25rem;
-      padding-top: max(0.75rem, calc(0.75rem + env(safe-area-inset-top, 0px)));
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.85rem;
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
-    html.light header { background-color: rgba(248, 250, 252, 0.85); }
-    html.sepia header { background-color: rgba(244, 236, 216, 0.9); }
+    .is-refreshing-spin {
+      animation: spin 0.75s linear infinite !important;
+      transform-origin: center center !important;
+    }
+
+    button, .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 0.45rem 0.8rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .btn-secondary {
+      background: var(--bg-secondary);
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-tertiary);
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+    .btn-outline:hover {
+      color: var(--text-primary);
+      border-color: var(--accent);
+      background: var(--bg-tertiary);
+    }
+    .btn-icon, .action-btn {
+      padding: 0.45rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .btn-icon:hover, .action-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .action-btn.active-star, .btn-icon.active-star {
+      color: var(--star-color) !important;
+    }
+    .action-btn.active-star svg, .btn-icon.active-star svg {
+      fill: var(--star-color) !important;
+      stroke: var(--star-color) !important;
+    }
+    .action-btn.active-archive, .btn-icon.active-archive {
+      color: var(--success) !important;
+    }
 
     .brand {
       display: flex;
@@ -168,7 +243,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       text-decoration: none;
       color: var(--text-primary);
       font-weight: 700;
-      font-size: 1.2rem;
+      font-size: 1.15rem;
       letter-spacing: -0.02em;
       cursor: pointer;
       flex-shrink: 0;
@@ -183,6 +258,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       justify-content: center;
       color: white;
       box-shadow: 0 0 15px var(--accent-glow);
+      flex-shrink: 0;
     }
     .brand-tag {
       font-size: 0.65rem;
@@ -195,17 +271,266 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       letter-spacing: 0.05em;
     }
 
+    .badge-count {
+      font-size: 0.7rem;
+      padding: 0.1rem 0.45rem;
+      background: var(--bg-tertiary);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* -------------------------------------------------------------
+       3-PANE WORKSPACE LAYOUT (.app-workspace)
+       ------------------------------------------------------------- */
+    .app-workspace {
+      display: flex;
+      flex-direction: row;
+      width: 100vw;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Pane 1: Left Navigation Sidebar (250px fixed) */
+    .pane-sidebar {
+      width: 250px;
+      min-width: 250px;
+      max-width: 250px;
+      height: 100%;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 1.15rem 0.85rem;
+      box-sizing: border-box;
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 50;
+      flex-shrink: 0;
+      gap: 0.85rem;
+    }
+    .sidebar-brand-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .sidebar-nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.55rem 0.75rem;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      background: transparent;
+      border: 1px solid transparent;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .sidebar-nav-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    .sidebar-nav-item.active {
+      background: var(--bg-tertiary);
+      color: var(--accent);
+      font-weight: 600;
+      border-color: rgba(249, 115, 22, 0.2);
+    }
+    .sidebar-nav-item.active .badge-count {
+      background: rgba(249, 115, 22, 0.2);
+      color: var(--accent);
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 0.75rem;
+    }
+    .sidebar-section-header {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      padding: 0.2rem 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .sidebar-section-header:hover {
+      color: var(--text-primary);
+    }
+    .sidebar-tag-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      max-height: 190px;
+      overflow-y: auto;
+      padding: 0.1rem 0;
+    }
+    .sidebar-tag-list.collapsed {
+      display: none !important;
+    }
+    .sidebar-tag-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 0.65rem;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid transparent;
+      width: 100%;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .sidebar-tag-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    .sidebar-tag-item.active {
+      background: rgba(249, 115, 22, 0.15);
+      color: var(--accent);
+      border-color: rgba(249, 115, 22, 0.3);
+      font-weight: 600;
+    }
+    .sidebar-sub-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      padding: 0.35rem 0.5rem;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+    }
+    .sidebar-sub-action-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+    .sidebar-footer-actions {
+      margin-top: auto;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .sidebar-theme-picker {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.35rem;
+      padding: 0.35rem 0.2rem;
+      margin-bottom: 0.35rem;
+      background: var(--bg-primary);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+    }
+    .theme-swatch-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      padding: 0.35rem 0.15rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .theme-swatch-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    .theme-swatch-btn.active {
+      background: var(--bg-tertiary);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .theme-swatch-circle {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+      transition: transform 0.15s ease;
+    }
+    .theme-swatch-btn.active .theme-swatch-circle {
+      transform: scale(1.15);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .theme-swatch-label {
+      font-size: 0.68rem;
+      line-height: 1;
+    }
+
+    /* Pane 2: Middle Articles Column (380px fixed / flex) */
+    .pane-articles {
+      width: 380px;
+      min-width: 330px;
+      max-width: 480px;
+      height: 100%;
+      background: var(--bg-primary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .pane-articles-toolbar {
+      box-sizing: border-box;
+      height: calc(54px + var(--app-safe-top));
+      min-height: calc(54px + var(--app-safe-top));
+      max-height: calc(54px + var(--app-safe-top));
+      padding: 0 0.85rem;
+      padding-top: var(--app-safe-top);
+      padding-left: max(0.85rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.85rem, env(safe-area-inset-right, 0px));
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      z-index: 120;
+      position: relative;
+    }
     .nav-search {
       flex: 1;
-      max-width: 460px;
       position: relative;
       display: flex;
       align-items: center;
-      background: var(--bg-secondary);
+      background: var(--bg-primary);
       border: 1px solid var(--border-color);
       border-radius: 9999px;
       padding: 0.15rem 0.35rem 0.15rem 0.65rem;
       transition: all 0.2s;
+      z-index: 125;
     }
     .nav-search:focus-within {
       border-color: var(--accent);
@@ -224,16 +549,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       border: none;
       padding: 0.35rem 0.4rem;
       color: var(--text-primary);
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       outline: none;
-      min-width: 50px;
+      min-width: 40px;
     }
     .search-ctrl-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       background: transparent;
       border: none;
@@ -242,637 +567,366 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       flex-shrink: 0;
       padding: 0;
       transition: all 0.15s;
+      pointer-events: auto;
     }
     .search-ctrl-btn:hover {
       color: var(--text-primary);
       background: var(--bg-tertiary);
     }
-    .search-ctrl-btn.active {
-      color: var(--accent);
-    }
     .search-ctrl-divider {
       width: 1px;
-      height: 18px;
+      height: 16px;
       background: var(--border-color);
-      margin: 0 0.2rem;
+      margin: 0 0.15rem;
       flex-shrink: 0;
     }
+    .articles-scroll-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0.85rem;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+
+    /* Pane 3: Right Active Reader Pane (flex: 1) */
+    .pane-reader {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      background: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .reader-empty-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      user-select: none;
+    }
+    .reader-empty-pane svg {
+      width: 54px;
+      height: 54px;
+      margin-bottom: 1rem;
+      color: var(--accent);
+      opacity: 0.55;
+    }
+    .reader-empty-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.35rem;
+    }
+    .reader-empty-desc {
+      font-size: 0.88rem;
+      max-width: 360px;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+      color: var(--text-secondary);
+    }
+    .reader-shortcuts-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      max-width: 350px;
+      width: 100%;
+      text-align: left;
+      box-shadow: var(--shadow-sm);
+    }
+    .reader-shortcuts-box-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+    .shortcut-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      padding: 0.25rem 0;
+    }
+    .shortcut-kbd {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: var(--font-reader-mono);
+      font-size: 0.75rem;
+      color: var(--text-primary);
+    }
+
+    /* Reader Top Bar & Filled Status Bar Clearance */
+    .reader-safe-top-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--app-safe-top);
+      min-height: var(--app-safe-top);
+      background: var(--bg-primary);
+      z-index: 115;
+      pointer-events: none;
+    }
+    .reader-top-bar {
+      box-sizing: border-box;
+      height: calc(54px + var(--app-safe-top));
+      min-height: calc(54px + var(--app-safe-top));
+      max-height: calc(54px + var(--app-safe-top));
+      padding: 0 0.85rem;
+      padding-top: var(--app-safe-top);
+      padding-left: max(0.85rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.85rem, env(safe-area-inset-right, 0px));
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      z-index: 120;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .reader-top-hover-trigger {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 35px;
+      z-index: 119;
+      pointer-events: auto;
+    }
+    .reader-top-bar.is-hidden {
+      transform: translateY(-100%) !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    .reader-top-bar-group {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      height: 100%;
+    }
+
+    /* Live Floating Typography Popover */
+    .reader-appearance-popover {
+      position: absolute;
+      top: calc(54px + var(--app-safe-top) + 8px);
+      right: 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      padding: 1.15rem;
+      width: 320px;
+      max-width: calc(100vw - 32px);
+      z-index: 250;
+      display: flex;
+      flex-direction: column;
+      gap: 0.95rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      animation: menuFadeIn 0.15s ease-out;
+    }
+
+    /* Focus Mode (Zen Mode) */
+    .focus-mode .pane-sidebar,
+    .focus-mode .pane-articles {
+      display: none !important;
+    }
+    .focus-mode .pane-reader {
+      width: 100vw !important;
+      max-width: 100vw !important;
+    }
+
+    /* Mobile Viewport (< 1024px) */
+    .mobile-menu-btn { display: none; }
+    .mobile-quick-add-btn { display: none; }
+
+    @media (max-width: 1023px) {
+      .pane-sidebar {
+        display: none !important;
+      }
+      .mobile-menu-btn {
+        display: inline-flex !important;
+      }
+      .mobile-quick-add-btn {
+        display: inline-flex !important;
+      }
+      .pane-articles {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        border-right: none;
+      }
+      .pane-reader {
+        display: none !important;
+        width: 100vw !important;
+      }
+      body.is-reading-mobile .pane-articles {
+        display: none !important;
+      }
+      body.is-reading-mobile .pane-reader {
+        display: flex !important;
+      }
+      .desktop-focus-btn {
+        display: none !important;
+      }
+    }
+
+    .articles-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      width: 100%;
+    }
+    .card-main-content {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.85rem;
+      width: 100%;
+    }
+    .card-text-column {
+      flex: 1;
+      min-width: 0;
+    }
+    .card-image-wrap {
+      width: 88px;
+      height: 88px;
+      min-width: 88px;
+      max-width: 88px;
+      border-radius: calc(var(--radius) - 4px);
+      overflow: hidden;
+      margin: 0;
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.25s ease;
+    }
+    .article-card:hover .card-image {
+      transform: scale(1.04);
+    }
+
+    /* Grid View: Cards are vertical, image is at top full width */
+    .articles-grid.view-grid {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+      gap: 0.85rem !important;
+    }
+    .articles-grid.view-grid .article-card {
+      margin-bottom: 0 !important;
+    }
+    .articles-grid.view-grid .card-main-content {
+      flex-direction: column !important;
+      gap: 0.55rem !important;
+    }
+    .articles-grid.view-grid .card-image-wrap {
+      order: -1 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: 140px !important;
+      margin-bottom: 0.35rem !important;
+    }
+
+    /* Compact View: dense rows, no images or excerpts */
+    .articles-grid.view-compact {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.35rem !important;
+    }
+    .articles-grid.view-compact .article-card {
+      padding: 0.55rem 0.75rem !important;
+      margin-bottom: 0 !important;
+      border-radius: var(--radius-sm) !important;
+    }
+    .articles-grid.view-compact .card-image-wrap,
+    .articles-grid.view-compact .card-excerpt,
+    .articles-grid.view-compact .card-tags {
+      display: none !important;
+    }
+    .articles-grid.view-compact .card-title {
+      font-size: 0.88rem !important;
+      white-space: nowrap !important;
+      text-overflow: ellipsis !important;
+      display: block !important;
+      margin-bottom: 0.2rem !important;
+    }
+    .articles-grid.view-compact .card-footer {
+      padding-top: 0.2rem !important;
+    }
+
     .search-dropdown-menu {
       position: absolute !important;
       top: calc(100% + 8px) !important;
       bottom: auto !important;
       right: 0 !important;
       left: auto !important;
-      background: var(--bg-primary) !important;
-      border: 1px solid var(--border-color) !important;
-      border-radius: var(--radius-sm) !important;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
-      min-width: 185px !important;
-      padding: 0.4rem 0 !important;
-      z-index: 1000 !important;
-      display: none;
-      flex-direction: column;
-      animation: menuFadeIn 0.15s ease-out;
-    }
-    .search-dropdown-menu.open {
-      display: flex !important;
+      z-index: 300 !important;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6) !important;
     }
 
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      flex-shrink: 0;
-    }
-
-    button, .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      font-family: inherit;
-      font-size: 0.85rem;
-      font-weight: 500;
-      padding: 0.45rem 0.8rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      cursor: pointer;
-      transition: all 0.18s ease;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-
-    .btn-offline-mode {
-      background: rgba(245, 158, 11, 0.16) !important;
-      color: #f59e0b !important;
-      border: 1px solid rgba(245, 158, 11, 0.4) !important;
-      cursor: pointer;
-    }
-    .btn-offline-mode:hover {
-      background: rgba(245, 158, 11, 0.25) !important;
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-hover);
-      box-shadow: 0 0 12px var(--accent-glow);
-    }
-    .btn-secondary {
-      background: var(--bg-secondary);
-      border-color: var(--border-color);
-      color: var(--text-primary);
-    }
-    .btn-secondary:hover {
-      background: var(--bg-tertiary);
-    }
-    .btn-icon {
-      padding: 0.5rem;
-      border-radius: var(--radius-sm);
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      color: var(--text-secondary);
-    }
-    .btn-icon:hover {
-      color: var(--text-primary);
-      background: var(--bg-tertiary);
-    }
-
-    /* Main Container */
-    main {
-      flex: 1;
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 1.25rem 1rem 4rem 1rem;
-    }
-
-    /* Filter Bar */
-    .filter-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.25rem;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-    .tab-group {
-      display: flex;
-      background: var(--bg-secondary);
-      padding: 0.25rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-color);
-      gap: 0.2rem;
-      overflow-x: auto;
-      max-width: 100%;
-    }
-    .tab-btn {
-      padding: 0.35rem 0.75rem;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      background: transparent;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      transition: all 0.15s;
-      white-space: nowrap;
-    }
-    .tab-btn.active {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-    .badge-count {
-      font-size: 0.7rem;
-      padding: 0.1rem 0.4rem;
-      background: rgba(0,0,0,0.2);
-      border-radius: 999px;
-      color: var(--text-muted);
-    }
-    .tab-btn.active .badge-count {
-      color: var(--accent);
-      background: rgba(249, 115, 22, 0.15);
-    }
-
-    /* View Mode Switcher */
-    .view-mode-toggle {
-      display: flex;
-      background: var(--bg-secondary);
-      padding: 2px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-color);
-      gap: 2px;
-    }
-    .view-btn {
-      padding: 0.3rem 0.5rem;
-      color: var(--text-secondary);
-      background: transparent;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s;
-    }
-    .view-btn.active {
-      background: var(--bg-tertiary);
-      color: var(--accent);
-    }
-    .view-btn:hover {
-      color: var(--text-primary);
-    }
-
-
-
-    /* -------------------------------------------------------------
-       HIGHLIGHTS & ANNOTATIONS (W3C + Wallabag v2)
-       ------------------------------------------------------------- */
-    mark.reader-hl {
-      border-radius: 3px;
-      padding: 0.12em 0.18em;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      box-decoration-break: clone;
-      -webkit-box-decoration-break: clone;
-    }
-    mark.reader-hl:hover {
-      filter: brightness(1.15);
-    }
-    mark.reader-hl-yellow {
-      background-color: rgba(234, 179, 8, 0.35);
-      border-bottom: 2px solid #eab308;
-      color: inherit;
-    }
-    mark.reader-hl-green {
-      background-color: rgba(34, 197, 94, 0.32);
-      border-bottom: 2px solid #22c55e;
-      color: inherit;
-    }
-    mark.reader-hl-blue {
-      background-color: rgba(59, 130, 246, 0.32);
-      border-bottom: 2px solid #3b82f6;
-      color: inherit;
-    }
-    mark.reader-hl-purple {
-      background-color: rgba(168, 85, 247, 0.32);
-      border-bottom: 2px solid #a855f7;
-      color: inherit;
-    }
-    mark.reader-hl.has-note::after {
-      content: " 💬";
-      font-size: 0.75em;
-      opacity: 0.85;
-      vertical-align: super;
-    }
-
-    .highlight-toolbar {
-      position: fixed;
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-lg);
-      border-radius: 2rem;
-      padding: 0.3rem 0.5rem;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
-    .hl-filter-pill {
-      padding: 4px 10px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      border-radius: 20px;
-      background: var(--bg-primary);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-color);
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-    .hl-filter-pill:hover {
-      border-color: var(--accent);
-      color: var(--text-primary);
-    }
-    .hl-filter-pill.active {
-      background: var(--accent) !important;
-      color: #ffffff !important;
-      border-color: var(--accent) !important;
-      font-weight: 600;
-    }
-
-    .hl-sort-btn {
-      padding: 3px 9px;
-      font-size: 0.72rem;
-      font-weight: 500;
-      border-radius: var(--radius-sm);
-      background: var(--bg-primary);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-color);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-    .hl-sort-btn:hover {
-      border-color: var(--accent);
-      color: var(--text-primary);
-    }
-    .hl-sort-btn.active {
-      background: var(--accent) !important;
-      color: #ffffff !important;
-      border-color: var(--accent) !important;
-      font-weight: 600;
-    }
-    .modal-hl-item {
-      padding: 0.75rem 0.9rem;
-      background: var(--card-bg, var(--bg-secondary));
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      cursor: pointer;
-      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
-    }
-    .modal-hl-item:hover {
-      border-color: var(--accent) !important;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    }
-    .hl-color-btn {
-      width: 22px !important;
-      height: 22px !important;
-      min-width: 22px !important;
-      min-height: 22px !important;
-      max-width: 22px !important;
-      max-height: 22px !important;
-      border-radius: 50% !important;
-      aspect-ratio: 1 / 1 !important;
-      border: 2px solid transparent;
-      cursor: pointer;
-      flex-shrink: 0;
-      padding: 0;
-      margin: 0;
-      box-sizing: border-box;
-      display: inline-block;
-      transition: transform 0.15s, border-color 0.15s;
-    }
-    .hl-color-btn:hover {
-      transform: scale(1.2);
-    }
-    .hl-color-btn.active-color {
-      border-color: var(--text-primary) !important;
-      transform: scale(1.1);
-    }
-    .hl-color-btn.hl-yellow { background: #eab308; }
-    .hl-color-btn.hl-green { background: #22c55e; }
-    .hl-color-btn.hl-blue { background: #3b82f6; }
-    .hl-color-btn.hl-purple { background: #a855f7; }
-
-    .hl-divider {
-      width: 1px;
-      height: 18px;
-      background: var(--border-color);
-      margin: 0 0.2rem;
-    }
-    .hl-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      background: none;
-      border: none;
-      color: var(--text-primary);
-      font-size: 0.78rem;
-      font-weight: 500;
-      padding: 0.25rem 0.45rem;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .hl-btn:hover {
-      background: var(--bg-tertiary);
-    }
-
-    .highlight-popover {
-      position: fixed;
-      z-index: 10001;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow-lg);
-      padding: 0.75rem;
-      width: 280px;
-      max-width: 90vw;
-      font-size: 0.85rem;
-      backdrop-filter: blur(12px);
+    @media (max-width: 1023px) {
+      .desktop-refresh-btn {
+        display: none !important;
+      }
     }
 
     /* -------------------------------------------------------------
-       SKELETON PLACEHOLDER LOADER (High-Contrast Dynamic Wave Shimmer)
+       ARTICLE CARDS & HIGHLIGHTS
        ------------------------------------------------------------- */
-    @keyframes skeletonWave {
-      0% {
-        transform: translateX(-100%);
-      }
-      100% {
-        transform: translateX(100%);
-      }
-    }
-    @keyframes skeletonPulse {
-      0%, 100% { opacity: 0.38; }
-      50% { opacity: 1; }
-    }
-    .skeleton-card {
-      position: relative;
-      overflow: hidden;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 1.25rem;
-      pointer-events: none;
-      box-shadow: var(--shadow-sm);
-    }
-    .skeleton-card::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      transform: translateX(-100%);
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.08) 25%,
-        rgba(255, 255, 255, 0.30) 50%,
-        rgba(255, 255, 255, 0.08) 75%,
-        transparent 100%
-      );
-      animation: skeletonWave 1.1s infinite cubic-bezier(0.4, 0, 0.2, 1);
-      pointer-events: none;
-    }
-    [data-theme="light"] .skeleton-card::after {
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(0, 0, 0, 0.04) 25%,
-        rgba(0, 0, 0, 0.18) 50%,
-        rgba(0, 0, 0, 0.04) 75%,
-        transparent 100%
-      );
-    }
-    .skeleton-box {
-      background: var(--bg-tertiary);
-      border-radius: var(--radius-sm);
-      min-height: 10px;
-      animation: skeletonPulse 1.1s infinite ease-in-out;
-    }
-
-    /* -------------------------------------------------------------
-       ARTICLE VIEW MODES (List, Grid, Compact)
-       ------------------------------------------------------------- */
-    .articles-grid {
-      transition: opacity 0.15s ease;
-    }
-
-    /* 1. Default: List View (Horizontal Card with Right Thumbnail) */
-    .articles-grid.view-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-    .articles-grid.view-list .card-main-content {
-      display: flex;
-      gap: 1rem;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    .articles-grid.view-list .card-text-column {
-      flex: 1;
-      min-width: 0;
-    }
-    .articles-grid.view-list .card-image-wrap {
-      width: 88px;
-      height: 88px;
-      aspect-ratio: 1 / 1;
-      flex-shrink: 0;
-      border-radius: var(--radius-sm);
-      margin: 0 0 0 0.85rem;
-      overflow: hidden;
-      background: var(--bg-tertiary);
-    }
-    @media (max-width: 768px) {
-      .articles-grid.view-list .card-image-wrap {
-        width: 76px;
-        height: 76px;
-        margin: 0 0 0 0.65rem;
-      }
-    }
-    .articles-grid.view-list .article-card[dir="rtl"] .card-image-wrap {
-      margin: 0 0.75rem 0 0;
-    }
-    .articles-grid.view-list .card-excerpt {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      margin-bottom: 0.5rem;
-    }
-
-    /* 2. Grid View (Magazine Hero Cards with Top Image) */
-    .articles-grid.view-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-      gap: 1.15rem;
-    }
-    .articles-grid.view-grid .card-main-content {
-      display: flex;
-      flex-direction: column;
-    }
-    .articles-grid.view-grid .card-image-wrap {
-      order: -1;
-      width: calc(100% + 2.3rem);
-      margin: -1.15rem -1.15rem 0.85rem -1.15rem;
-      height: 155px;
-      overflow: hidden;
-      background: var(--bg-tertiary);
-    }
-    .articles-grid.view-grid .card-excerpt {
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      margin-bottom: 1.1rem;
-    }
-
-    /* 3. Compact View (Headlines / Dense Rows) */
-    .articles-grid.view-compact {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      max-width: 100%;
-    }
-    .articles-grid.view-compact .article-card {
-      padding: 0.6rem 0.85rem;
-      min-height: auto;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-    }
-    .articles-grid.view-compact .card-main-content {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex: 1;
-      min-width: 0;
-    }
-    .articles-grid.view-compact .card-text-column {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex: 1;
-      min-width: 0;
-    }
-    .articles-grid.view-compact .card-meta {
-      margin-bottom: 0;
-      flex-shrink: 0;
-    }
-    .articles-grid.view-compact .card-title {
-      font-size: 0.95rem;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex: 1;
-      margin: 0;
-    }
-    .articles-grid.view-compact .card-excerpt,
-    .articles-grid.view-compact .card-image-wrap,
-    .articles-grid.view-compact .card-tags,
-    .articles-grid.view-compact .card-progress-center {
-      display: none !important;
-    }
-    .articles-grid.view-compact .card-footer {
-      padding-top: 0;
-      border: none;
-      flex-shrink: 0;
-      gap: 0.5rem;
-    }
-    .articles-grid.view-compact .card-select-wrap {
-      position: static;
-      margin-right: 0.35rem;
-    }
-
-    /* Intelligent 2-Row Responsive Layout for Mobile Portrait */
-    @media (max-width: 768px) {
-      .articles-grid.view-compact .article-card {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 0.65rem 0.85rem;
-        gap: 0.4rem;
-      }
-      .articles-grid.view-compact .card-main-content {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.25rem;
-      }
-      .articles-grid.view-compact .card-text-column {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.25rem;
-      }
-      .articles-grid.view-compact .card-title {
-        white-space: normal;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        font-size: 0.92rem;
-        line-height: 1.35;
-      }
-      .articles-grid.view-compact .card-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding-top: 0.3rem;
-        border-top: 1px solid var(--border-color);
-        font-size: 0.72rem;
-      }
-      .articles-grid.view-compact .card-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        font-size: 0.72rem;
-      }
-    }
-
     .article-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: var(--radius);
-      padding: 1.15rem;
+      padding: 1.1rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       box-shadow: var(--shadow-sm);
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
+      transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s, background-color 0.18s;
       position: relative;
       overflow: hidden;
       cursor: pointer;
+      margin-bottom: 0.85rem;
+    }
+    .article-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(249, 115, 22, 0.4);
+      box-shadow: var(--shadow);
+    }
+    .article-card.is-reading {
+      border-color: var(--accent) !important;
+      background: var(--bg-card) !important;
+      box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-sm);
     }
     .article-card.is-selected {
       border-color: var(--accent) !important;
@@ -887,11 +941,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       padding: 4px;
       cursor: pointer;
       opacity: 0;
-      transition: opacity 0.15s ease, transform 0.15s ease;
-    }
-    .article-card[dir="rtl"] .card-select-wrap {
-      right: auto;
-      left: 0.65rem;
+      transition: opacity 0.15s ease;
     }
     .article-card:hover .card-select-wrap,
     body.selection-mode-active .card-select-wrap,
@@ -909,13 +959,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       align-items: center;
       justify-content: center;
       color: transparent;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      transition: all 0.15s ease;
-    }
-    html.light .card-checkbox {
-      border-color: rgba(0, 0, 0, 0.25);
-      background: rgba(255, 255, 255, 0.85);
     }
     .card-checkbox.checked {
       background: var(--accent) !important;
@@ -923,133 +966,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       color: white !important;
       transform: scale(1.05);
     }
-    .article-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(249, 115, 22, 0.4);
-      box-shadow: var(--shadow);
-    }
-
-    .card-image-wrap {
-      width: calc(100% + 2.3rem);
-      margin: -1.15rem -1.15rem 0.85rem -1.15rem;
-      height: 155px;
-      overflow: hidden;
-      background: var(--bg-tertiary);
-      cursor: pointer;
-      position: relative;
-    }
-    .card-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.3s ease;
-      display: block;
-    }
-    .article-card:hover .card-image {
-      transform: scale(1.04);
-    }
-
-    
-    /* Tag Badges & Filtering */
-    .card-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      margin-top: 0.5rem;
-      margin-bottom: 0.4rem;
-    }
-    .tag-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      padding: 0.2rem 0.6rem;
-      border-radius: 9999px;
-      background: var(--bg-tertiary);
-      color: var(--accent);
-      border: 1px solid rgba(249, 115, 22, 0.25);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      text-decoration: none;
-      line-height: 1.3;
-    }
-    .tag-badge:hover {
-      background: var(--accent);
-      color: #ffffff;
-      border-color: var(--accent);
-    }
-    .tag-badge.active-tag {
-      background: var(--accent);
-      color: #ffffff;
-    }
-    .tag-badge .tag-remove-btn {
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.15);
-      font-size: 1.1rem;
-      font-weight: 700;
-      line-height: 1;
-      margin-left: 0.2rem;
-      transition: all 0.15s ease;
-      flex-shrink: 0;
-    }
-    html.light .tag-badge .tag-remove-btn {
-      background: rgba(0, 0, 0, 0.08);
-    }
-    .tag-badge .tag-remove-btn:hover {
-      background: rgba(239, 68, 68, 0.9);
-      color: #ffffff;
-      transform: scale(1.1);
-    }
-    .tag-badge-partial {
-      background: rgba(249, 115, 22, 0.1) !important;
-      border: 1.5px dashed var(--accent) !important;
-      cursor: pointer;
-    }
-    .tag-badge-partial:hover {
-      background: rgba(249, 115, 22, 0.22) !important;
-      border-style: solid !important;
-    }
-
-    /* Tag Modal (z-index 400 to show above reader-view) */
-    .tag-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.68);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      z-index: 400;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-    .tag-modal-overlay.open {
-      display: flex;
-    }
-    .tag-modal {
-      background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius);
-      width: 100%;
-      max-width: 440px;
-      padding: 1.5rem;
-      box-shadow: var(--shadow-lg);
-    }
-
     .card-meta {
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-size: 0.75rem;
       color: var(--text-muted);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.45rem;
     }
     .card-domain {
       font-weight: 600;
@@ -1060,542 +983,126 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .card-reading-time {
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-
     .card-title {
-      text-align: start;
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: 600;
       line-height: 1.35;
       color: var(--text-primary);
-      margin-bottom: 0.5rem;
-      cursor: pointer;
+      margin-bottom: 0.4rem;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    .card-title:hover {
-      color: var(--accent);
-    }
-
     .card-excerpt {
-      text-align: start;
       font-size: 0.825rem;
       color: var(--text-secondary);
       line-height: 1.45;
-      margin-bottom: 1.1rem;
+      margin-bottom: 0.85rem;
       display: -webkit-box;
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-
     .card-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-top: 0.65rem;
+      padding-top: 0.55rem;
       position: relative;
       font-size: 0.75rem;
       color: var(--text-muted);
     }
-
-    .card-actions {
+    .card-tags {
       display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-    .article-card.menu-open {
-      z-index: 120 !important;
-      position: relative;
-      overflow: visible !important;
-    }
-    .card-menu-wrap {
-      position: relative;
-    }
-    .article-card.menu-open .card-menu-wrap {
-      z-index: 150 !important;
-    }
-    .card-dropdown-menu {
-      position: absolute;
-      bottom: calc(100% + 6px);
-      right: 0;
-      background: var(--bg-primary) !important;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45) !important;
-      min-width: 195px;
-      padding: 0.4rem 0;
-      z-index: 102 !important;
-      display: none;
-      flex-direction: column;
-      opacity: 1 !important;
-      animation: menuFadeIn 0.15s ease-out;
-    }
-    .card-dropdown-menu.open {
-      display: flex !important;
-    }
-    .card-dropdown-menu.open-down {
-      bottom: auto !important;
-      top: calc(100% + 6px) !important;
-    }
-    .action-btn.card-more-btn {
-      opacity: 1 !important;
-    }
-    .article-card[dir="rtl"] .card-dropdown-menu {
-      right: auto;
-      left: 0;
-    }
-    .menu-item {
-      display: flex !important;
-      align-items: center !important;
-      justify-content: flex-start !important;
-      gap: 0.75rem;
-      width: 100%;
-      padding: 0.6rem 0.95rem;
-      border: none;
-      background: transparent;
-      color: var(--text-primary) !important;
-      font-size: 0.85rem;
-      font-weight: 450;
-      cursor: pointer;
-      text-align: left !important;
-      text-decoration: none;
-      opacity: 1 !important;
-      transition: background-color 0.15s ease, color 0.15s ease;
-      white-space: nowrap;
-      box-sizing: border-box;
-    }
-    .menu-item svg {
-      width: 16px;
-      height: 16px;
-      opacity: 0.85;
-      color: var(--text-secondary);
-      flex-shrink: 0;
-      display: inline-block;
-    }
-    .menu-item span {
-      text-align: left !important;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .menu-item:hover {
-      background: var(--bg-secondary) !important;
-      color: var(--text-primary) !important;
-    }
-    .menu-item:hover svg {
-      opacity: 1;
-      color: var(--accent);
-    }
-    .menu-item.active {
-      color: var(--accent) !important;
-      font-weight: 600;
-      background: rgba(99, 102, 241, 0.08) !important;
-    }
-    .menu-item.active svg {
-      color: var(--accent) !important;
-      opacity: 1;
-    }
-    .menu-item-danger {
-      color: #ef4444 !important;
-    }
-    .menu-item-danger svg {
-      color: #ef4444 !important;
-    }
-    .menu-item-danger:hover {
-      background: rgba(239, 68, 68, 0.12) !important;
-      color: #f87171 !important;
-    }
-    .menu-item-danger:hover svg {
-      color: #f87171 !important;
-    }
-    [dir="rtl"] .menu-item,
-    .article-card[dir="rtl"] .menu-item {
-      text-align: right !important;
-      justify-content: flex-start !important;
-    }
-    [dir="rtl"] .menu-item span,
-    .article-card[dir="rtl"] .menu-item span {
-      text-align: right !important;
-    }
-
-    /* Expandable Submenus for Card Menus & Batch Menu */
-    .chevron-icon {
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      margin-left: auto;
-      opacity: 0.7;
-    }
-    [dir="rtl"] .chevron-icon {
-      margin-left: 0;
-      margin-right: auto;
-    }
-    .menu-item-expandable {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-    }
-    .menu-item-expandable.expanded .chevron-icon {
-      transform: rotate(180deg);
-    }
-    .menu-sub-items {
-      display: none;
-      flex-direction: column;
-      background: var(--bg-secondary);
-      border-radius: var(--radius-sm);
-      margin: 0.2rem 0.4rem;
-      padding: 0.2rem 0;
-      border: 1px solid var(--border-color);
-    }
-    .menu-item-expandable.expanded .menu-sub-items {
-      display: flex;
-    }
-    .menu-sub-item {
-      padding-left: 1.5rem !important;
-      font-size: 0.8rem !important;
-      gap: 0.55rem !important;
-    }
-    [dir="rtl"] .menu-sub-item {
-      padding-left: 0.85rem !important;
-      padding-right: 1.5rem !important;
-    }
-
-    /* Reader sidebar expandable submenu */
-    .reader-sub-menu {
-      display: none;
-      flex-direction: column;
-      gap: 0.25rem;
-      padding: 0.2rem 0 0.4rem 0;
-      margin-top: -0.1rem;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.4rem;
       margin-bottom: 0.35rem;
-      width: 100%;
-      box-sizing: border-box;
     }
-    .reader-sub-menu.open {
-      display: flex;
-    }
-    .reader-sub-item {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start !important;
-      gap: 0.65rem;
-      padding: 0.45rem 0.65rem 0.45rem 1.85rem !important;
-      border-radius: var(--radius-sm);
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-      font-weight: 500;
-      cursor: pointer;
-      text-align: left !important;
-      transition: all 0.15s ease;
-      width: 100%;
-      box-sizing: border-box;
-      white-space: nowrap;
-    }
-    .reader-sub-item span {
-      text-align: left !important;
-    }
-    .reader-sub-item:hover {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border-color: var(--border-color);
-    }
-    .reader-sub-item svg {
-      flex-shrink: 0;
-      width: 14px;
-      height: 14px;
-      opacity: 0.85;
-    }
-    .reader-sub-item:hover svg {
-      opacity: 1;
-      color: var(--text-primary);
-    }
-    [dir="rtl"] .reader-sub-item {
-      padding-left: 0.65rem !important;
-      padding-right: 1.85rem !important;
-      text-align: right !important;
-    }
-    [dir="rtl"] .reader-sub-item span {
-      text-align: right !important;
-    }
-
-    /* Print Stylesheet for PDF Export */
-    @media print {
-      body {
-        background: #fff !important;
-        color: #000 !important;
-        overflow: visible !important;
-      }
-      #mainHeader,
-      .filter-bar,
-      .articles-grid,
-      #emptyState,
-      #bottomNav,
-      #mobileNavDropdown,
-      #mobileNavBackdrop,
-      #readerSidebar,
-      #readerBottomNav,
-      #readerHeader,
-      #readerNavHeader,
-      #readerDrawerBackdrop,
-      .reader-progress-wrap,
-      .reader-fab-scroll,
-      .card-dropdown-menu,
-      .toast,
-      .modal-backdrop,
-      #authOverlay,
-      #confirmBackdrop,
-      #addTextTagPickerModal {
-        display: none !important;
-      }
-      #readerView {
-        display: block !important;
-        position: static !important;
-        inset: auto !important;
-        background: #fff !important;
-        color: #000 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-        z-index: auto !important;
-      }
-      .reader-container {
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-      .reader-title {
-        font-size: 22pt !important;
-        line-height: 1.25 !important;
-        color: #000 !important;
-        margin-bottom: 0.5rem !important;
-      }
-      .reader-meta {
-        font-size: 10pt !important;
-        color: #444 !important;
-        border-bottom: 1px solid #ccc !important;
-        padding-bottom: 0.5rem !important;
-        margin-bottom: 1.5rem !important;
-      }
-      .reader-body {
-        color: #000 !important;
-        font-size: 12pt !important;
-        line-height: 1.6 !important;
-      }
-      .reader-body a {
-        color: #000 !important;
-        text-decoration: underline !important;
-      }
-      .reader-body img {
-        max-width: 100% !important;
-        page-break-inside: avoid;
-      }
-      .reader-body pre,
-      .reader-body blockquote {
-        page-break-inside: avoid;
-      }
-    }
-
-    .menu-divider {
-      height: 1px;
-      background: var(--border-color);
-      margin: 0.25rem 0;
-    }
-    @keyframes menuFadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .action-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      padding: 0.35rem;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .action-btn:hover {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-    }
-    .action-btn.active-star {
-      color: #eab308 !important;
-    }
-    .action-btn.active-star svg {
-      fill: #eab308 !important;
-      stroke: #eab308 !important;
-    }
-    .card-star-pill {
+    .tag-badge {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      color: #eab308;
-      margin-right: 0.25rem;
-      vertical-align: middle;
-      flex-shrink: 0;
-    }
-    [dir="rtl"] .card-star-pill {
-      margin-right: 0;
-      margin-left: 0.25rem;
-    }
-    .action-btn.active-archive {
-      color: var(--success);
-    }
-    .action-btn.btn-delete:hover {
-      color: var(--danger);
-    }
-
-    /* -------------------------------------------------------------
-       READER VIEW: Full-Height Sidebar Layout (Maximizes Vertical Space)
-       ------------------------------------------------------------- */
-    .reader-view {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: var(--bg-primary);
-      display: none;
-      flex-direction: row;
-      overflow: hidden;
-    }
-    .reader-view.open {
-      display: flex;
-    }
-
-    /* -------------------------------------------------------------
-       READER VIEW: Full-Height Sidebar (Desktop Default)
-       ------------------------------------------------------------- */
-    .reader-mobile-bar {
-      display: none !important;
-    }
-    .reader-sidebar-backdrop {
-      display: none !important;
-    }
-
-    .reader-sidebar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: 60px;
-      background: var(--bg-secondary);
-      border-right: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: flex-start;
-      padding: 1rem 0.4rem;
-      z-index: 60;
       gap: 0.35rem;
-      transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
-      overflow-x: hidden;
-      overflow-y: auto;
-    }
-    .reader-sidebar:hover {
-      width: 175px;
-      box-shadow: none;
-    }
-
-    .reader-sidebar-group {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.35rem;
-      width: 100%;
-    }
-    .reader-sidebar-divider {
-      width: 100%;
-      height: 1px;
-      background: var(--border-color);
-      margin: 0.35rem 0;
-    }
-
-    .reader-tool-btn {
-      width: 100%;
-      height: 38px;
-      min-height: 38px;
-      border-radius: var(--radius-sm);
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 0 0.65rem;
-      gap: 0.75rem;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      text-align: left;
-      white-space: nowrap;
-    }
-    .reader-tool-btn:hover {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border-color: var(--border-color);
-    }
-    .reader-tool-btn svg, .reader-tool-btn .btn-icon-symbol {
-      flex-shrink: 0;
-      width: 18px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .reader-tool-btn .btn-label {
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 500;
-      color: var(--text-primary);
-      opacity: 0;
-      transform: translateX(-4px);
-      transition: opacity 0.18s ease, transform 0.18s ease;
-      pointer-events: none;
-    }
-    .reader-sidebar:hover .reader-tool-btn .btn-label {
-      opacity: 1;
-      transform: translateX(0);
-    }
-    .reader-tool-btn.btn-back-tool {
-      background: transparent;
-      color: var(--text-secondary);
-      border-color: transparent;
-    }
-    .reader-tool-btn.btn-back-tool:hover {
+      padding: 0.15rem 0.55rem;
+      border-radius: 9999px;
       background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border-color: var(--border-color);
+      color: var(--accent);
+      border: 1px solid rgba(249, 115, 22, 0.25);
+      cursor: pointer;
+      text-decoration: none;
     }
-    .reader-tool-btn.btn-delete-tool {
-      color: #ef4444;
+    .tag-badge:hover {
+      background: var(--accent);
+      color: #ffffff;
     }
-    .reader-tool-btn.btn-delete-tool:hover {
-      background: rgba(239, 68, 68, 0.12);
-      border-color: rgba(239, 68, 68, 0.25);
+    .tag-badge.active-tag {
+      background: var(--accent);
+      color: #ffffff;
     }
 
-
-
-    /* Reader Main Scroll Area */
+    /* -------------------------------------------------------------
+       READER CONTENT & TYPOGRAPHY
+       ------------------------------------------------------------- */
     .reader-main-scroll {
       flex: 1;
       width: 100%;
+      height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 2.5rem 1.5rem 6rem calc(60px + 1.5rem);
+      padding: 1.5rem 1.5rem 6rem 1.5rem;
+      padding-top: calc(58px + var(--app-safe-top));
+      padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
       -webkit-overflow-scrolling: touch;
       position: relative;
+      background: var(--bg-primary);
     }
-
     .reader-content-wrap {
-      max-width: 720px;
+      max-width: var(--reader-content-max-width, 740px);
       width: 100%;
       margin: 0 auto;
+      transition: max-width 0.2s ease;
     }
-
+    .reader-title {
+      font-size: 1.85rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text-primary);
+      margin-bottom: 0.85rem;
+    }
+    .reader-meta {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .reader-meta a, .reader-original-link {
+      color: var(--accent) !important;
+      text-decoration: none !important;
+      font-weight: 500 !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-subtle, rgba(59, 130, 246, 0.12));
+      border: 1px solid rgba(59, 130, 246, 0.22);
+      transition: all 0.2s ease;
+      vertical-align: middle;
+    }
+    .reader-meta a:hover, .reader-original-link:hover {
+      background: var(--accent);
+      color: #ffffff !important;
+      border-color: var(--accent);
+      text-decoration: none !important;
+    }
     .reader-cover {
       margin-bottom: 2rem;
       border-radius: var(--radius);
@@ -1612,100 +1119,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       object-fit: contain;
       border-radius: var(--radius);
     }
-
-
-
-    /* Standard LTR Reader Body (Default) */
     .reader-body {
       direction: ltr;
       text-align: left;
-      font-family: var(--font-reader-serif);
-      font-size: 1.15rem;
-      line-height: 1.75;
+      font-family: var(--reader-font-family, var(--font-reader-serif));
+      font-size: var(--reader-font-size, 18px);
+      line-height: var(--reader-line-height, 1.68);
       color: var(--text-primary);
       word-wrap: break-word;
       overflow-wrap: break-word;
-    }
-    #readerTitle {
-      text-align: left;
-      direction: ltr;
-    }
-    #readerMeta {
-      text-align: left;
-      direction: ltr;
-    }
-
-    /* Universal Content Resets */
-    .reader-body * {
-      position: static;
-      height: auto;
-      max-height: none;
-      overflow: visible;
-      opacity: 1;
-      visibility: visible;
-      color: inherit;
-    }
-    .reader-body p,
-    .reader-body span,
-    .reader-body div,
-    .reader-body h1,
-    .reader-body h2,
-    .reader-body h3,
-    .reader-body h4,
-    .reader-body li {
-      color: var(--text-primary);
-    }
-    .reader-body img {
-      max-width: 100% !important;
-      height: auto !important;
-      display: block !important;
-      margin: 1.5rem auto !important;
-      border-radius: var(--radius-sm);
-    }
-    .reader-body .mobileView,
-    .reader-body span.mobileView,
-    .reader-body div.mobileView,
-    .reader-body .gallery-indication {
-      display: none !important;
-    }
-
-    /* RTL / Hebrew / Arabic Typography & Alignment (Only when RTL) */
-    .reader-body[dir="rtl"],
-    .reader-content-wrap.is-rtl .reader-body {
-      direction: rtl !important;
-      text-align: right !important;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Alef", "Assistant", "Rubik", "David Libre", sans-serif;
-    }
-    .reader-body[dir="rtl"] p,
-    .reader-body[dir="rtl"] div,
-    .reader-body[dir="rtl"] span,
-    .reader-body[dir="rtl"] h1,
-    .reader-body[dir="rtl"] h2,
-    .reader-body[dir="rtl"] h3,
-    .reader-body[dir="rtl"] h4,
-    .reader-body[dir="rtl"] li,
-    .reader-body[dir="rtl"] section,
-    .reader-body[dir="rtl"] article {
-      direction: rtl !important;
-      text-align: right !important;
-    }
-    .reader-content-wrap.is-rtl #readerTitle {
-      text-align: right !important;
-      direction: rtl !important;
-    }
-    .reader-content-wrap.is-rtl #readerMeta {
-      text-align: right !important;
-      direction: rtl !important;
-    }
-    .reader-body[dir="rtl"] blockquote {
-      border-left: none !important;
-      border-right: 3px solid var(--accent) !important;
-      padding-left: 0 !important;
-      padding-right: 1.25rem !important;
-    }
-    .reader-body[dir="rtl"] ul, .reader-body[dir="rtl"] ol {
-      padding-left: 0 !important;
-      padding-right: 1.5rem !important;
     }
     .reader-body p {
       margin-bottom: 1.35rem;
@@ -1717,12 +1139,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       margin: 1.5rem auto;
       display: block;
     }
-    .reader-body h1, .reader-body h2, .reader-body h3 {
-      font-family: var(--font-ui);
-      margin-top: 2rem;
-      margin-bottom: 0.75rem;
-      line-height: 1.3;
-    }
     .reader-body pre {
       background: var(--bg-secondary);
       padding: 1rem;
@@ -1732,37 +1148,16 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       font-size: 0.875rem;
       margin: 1.5rem 0;
     }
-    
-    .reader-body a {
-      color: #38bdf8;
-      text-decoration: underline;
-      text-decoration-color: rgba(56, 189, 248, 0.45);
+    .reader-body a, .reader-meta a {
+      color: #38bdf8 !important;
+      text-decoration: underline !important;
+      text-decoration-color: rgba(56, 189, 248, 0.55) !important;
       text-underline-offset: 3px;
-      transition: all 0.15s ease;
+      font-weight: 500;
     }
-    .reader-body a:hover {
-      color: #7dd3fc;
-      text-decoration-color: #38bdf8;
+    .reader-meta a:hover, .reader-body a:hover {
+      color: #7dd3fc !important;
     }
-
-    html.light .reader-body a {
-      color: #0284c7;
-      text-decoration-color: rgba(2, 132, 199, 0.45);
-    }
-    html.light .reader-body a:hover {
-      color: #0369a1;
-      text-decoration-color: #0284c7;
-    }
-
-    html.sepia .reader-body a {
-      color: #b45309;
-      text-decoration-color: rgba(180, 83, 9, 0.45);
-    }
-    html.sepia .reader-body a:hover {
-      color: #78350f;
-      text-decoration-color: #b45309;
-    }
-
     .reader-body blockquote {
       border-left: 3px solid var(--accent);
       padding-left: 1.25rem;
@@ -1770,22 +1165,82 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       font-style: italic;
       color: var(--text-secondary);
     }
-
-    /* Reading Progress Bar */
-    .reading-progress-bar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: var(--accent);
-      z-index: 250;
-      width: 0%;
-      transition: width 0.1s ease-out;
+    .reader-body[dir="rtl"], .reader-content-wrap.is-rtl .reader-body {
+      direction: rtl !important;
+      text-align: right !important;
     }
 
-    /* Modals (Higher than reader-view and mobile drawers) */
-    .modal-backdrop {
+    /* Highlights & Notes */
+    mark.reader-hl {
+      border-radius: 3px;
+      padding: 0.12em 0.18em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    mark.reader-hl:hover { filter: brightness(1.15); }
+    mark.reader-hl-yellow { background-color: rgba(234, 179, 8, 0.35); border-bottom: 2px solid #eab308; color: inherit; }
+    mark.reader-hl-green { background-color: rgba(34, 197, 94, 0.32); border-bottom: 2px solid #22c55e; color: inherit; }
+    mark.reader-hl-blue { background-color: rgba(59, 130, 246, 0.32); border-bottom: 2px solid #3b82f6; color: inherit; }
+    mark.reader-hl-purple { background-color: rgba(168, 85, 247, 0.32); border-bottom: 2px solid #a855f7; color: inherit; }
+    mark.reader-hl.has-note::after { content: " 💬"; font-size: 0.75em; opacity: 0.85; vertical-align: super; }
+
+    .highlight-toolbar {
+      position: fixed;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-lg);
+      border-radius: 2rem;
+      padding: 0.3rem 0.5rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .highlight-popover {
+      position: fixed;
+      z-index: 10001;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg);
+      padding: 0.75rem;
+      width: 280px;
+      max-width: 90vw;
+      font-size: 0.85rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .hl-color-btn {
+      width: 22px !important;
+      height: 22px !important;
+      border-radius: 50% !important;
+      border: 2px solid transparent;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+    }
+    .hl-color-btn.active-color { border-color: var(--text-primary) !important; transform: scale(1.1); }
+    .hl-color-btn.hl-yellow { background: #eab308; }
+    .hl-color-btn.hl-green { background: #22c55e; }
+    .hl-color-btn.hl-blue { background: #3b82f6; }
+    .hl-color-btn.hl-purple { background: #a855f7; }
+    .hl-divider { width: 1px; height: 18px; background: var(--border-color); margin: 0 0.2rem; }
+    .hl-btn { display: inline-flex; align-items: center; gap: 0.25rem; background: none; border: none; color: var(--text-primary); font-size: 0.78rem; padding: 0.25rem 0.45rem; border-radius: var(--radius-sm); cursor: pointer; }
+    .hl-btn:hover { background: var(--bg-tertiary); }
+    .hl-filter-pill { padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; }
+    .hl-filter-pill.active { background: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; font-weight: 600; }
+    .hl-sort-btn { padding: 3px 9px; font-size: 0.72rem; border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; }
+    .hl-sort-btn.active { background: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; font-weight: 600; }
+    .modal-hl-item { padding: 0.75rem 0.9rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.35rem; cursor: pointer; }
+    .modal-hl-item:hover { border-color: var(--accent) !important; transform: translateY(-1px); }
+
+    /* Modals & Dropdowns */
+    .modal-backdrop, .tag-modal-overlay {
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.68);
@@ -1797,505 +1252,110 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       justify-content: center;
       padding: 1rem;
     }
-    .modal-backdrop.open {
-      display: flex;
-    }
-    .modal {
+    .modal-backdrop.open, .tag-modal-overlay.open { display: flex; }
+    .modal, .tag-modal {
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       width: 100%;
-      max-width: 540px;
+      max-width: 520px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow-lg);
       padding: 1.5rem;
       display: flex;
       flex-direction: column;
       gap: 1.15rem;
       animation: modalFadeIn 0.2s ease-out;
     }
-    @keyframes modalFadeIn {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .modal-title {
-      font-size: 1.15rem;
-      font-weight: 700;
-    }
-    .close-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 1.25rem;
-      padding: 0.25rem;
-    }
+    @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-size: 1.15rem; font-weight: 700; }
+    .close-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem; padding: 0.25rem; }
     .close-btn:hover { color: var(--text-primary); }
 
-    .form-grid-2col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.85rem;
-    }
-    @media (max-width: 768px) {
-      .form-grid-2col {
-        grid-template-columns: 1fr !important;
-        gap: 0.95rem;
-      }
-    }
-    .form-group input[type="date"] {
-      width: 100%;
-      min-width: 0;
-      box-sizing: border-box;
-    }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .form-group label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-    .form-group input, .form-group textarea {
-      background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      padding: 0.6rem 0.8rem;
-      color: var(--text-primary);
-      font-family: inherit;
-      font-size: 0.875rem;
-      outline: none;
-    }
-    .form-group textarea {
-      min-height: 160px;
-      resize: vertical;
-      font-family: var(--font-reader-serif);
-      font-size: 0.95rem;
-      line-height: 1.5;
-    }
-    .form-group input:focus, .form-group textarea:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent-glow);
-    }
-
-    /* Auth Lock Overlay */
-    
-    .auth-error-banner {
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid rgba(239, 68, 68, 0.35);
-      color: #f87171;
-      border-radius: var(--radius-sm);
-      padding: 0.65rem 0.85rem;
-      font-size: 0.825rem;
-      line-height: 1.4;
-      text-align: left;
-      display: none;
-    }
-    .auth-error-banner.show {
-      display: block;
-    }
-    .auth-error-banner.lockout {
-      background: rgba(220, 38, 38, 0.22);
-      border-color: #ef4444;
-      color: #fca5a5;
-      font-weight: 500;
-    }
-
-    .auth-overlay {
-      position: fixed;
-      inset: 0;
-      background: var(--bg-primary);
-      z-index: 300;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
-    }
-    .auth-card {
+    .card-dropdown-menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      width: 100%;
-      max-width: 400px;
-      padding: 2rem;
-      box-shadow: var(--shadow);
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-    }
-
-    /* Empty state */
-    .empty-state {
-      text-align: center;
-      padding: 4rem 1rem;
-      color: var(--text-muted);
-    }
-    .empty-state svg {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 1rem;
-      color: var(--accent);
-      opacity: 0.7;
-    }
-    .empty-state h3 {
-      font-size: 1.2rem;
-      color: var(--text-primary);
-      margin-bottom: 0.4rem;
-    }
-
-    /* Toast Notification */
-    .toast {
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow);
-      padding: 0.75rem 1.25rem;
       border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      z-index: 999;
-      font-size: 0.875rem;
-      transform: translateY(100px);
-      opacity: 0;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .toast.show {
-      transform: translateY(0);
-      opacity: 1;
-    }
-    .code-box {
-      background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      padding: 0.75rem;
-      font-family: var(--font-reader-mono);
-      font-size: 0.8rem;
-      color: var(--accent);
-      user-select: all;
-      word-break: break-all;
-    }
-
-    
-    /* Mobile Header Drawer & Items */
-    .mobile-menu-btn {
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.55);
+      min-width: 205px;
+      padding: 0.4rem 0;
+      z-index: 150;
       display: none;
-    }
-    .mobile-nav-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
-      z-index: 340;
-    }
-    .mobile-nav-backdrop.open {
-      display: block;
-    }
-    .mobile-nav-dropdown {
-      display: flex;
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: 270px;
-      max-height: 100vh;
-      max-height: 100dvh;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-      background: var(--bg-secondary);
-      border-right: 1px solid var(--border-color);
-      box-shadow: none;
-      visibility: hidden;
-      pointer-events: none;
-      padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem;
-      z-index: 350;
       flex-direction: column;
-      gap: 0.35rem;
-      transform: translateX(-100%);
-      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s ease, box-shadow 0.25s ease;
+      animation: menuFadeIn 0.15s ease-out;
     }
-    .mobile-nav-dropdown.open {
-      transform: translateX(0);
-      visibility: visible;
-      pointer-events: auto;
-      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
-    }
-    .mobile-nav-item {
+    .card-dropdown-menu.open { display: flex !important; }
+    .card-dropdown-menu.open-down { bottom: auto !important; top: calc(100% + 6px) !important; }
+    .menu-item {
       display: flex;
       align-items: center;
       justify-content: flex-start;
       gap: 0.75rem;
-      padding: 0.7rem 0.85rem;
-      border-radius: var(--radius-sm);
-      color: var(--text-primary);
+      width: 100%;
+      padding: 0.6rem 0.95rem;
+      border: none;
       background: transparent;
-      border: 1px solid transparent;
-      font-size: 0.9rem;
-      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 0.85rem;
       cursor: pointer;
       text-align: left;
-      width: 100%;
       box-sizing: border-box;
-      transition: all 0.15s ease;
     }
-    .mobile-nav-item svg {
-      flex-shrink: 0;
-      width: 18px;
-      height: 18px;
+    .menu-item.is-hidden {
+      display: none !important;
     }
-    .mobile-nav-item span {
-      text-align: left;
-      flex: 1;
-      white-space: nowrap;
-    }
-    .mobile-nav-item:hover {
-      background: var(--bg-tertiary);
-      border-color: var(--border-color);
-    }
-    .mobile-nav-divider {
-      height: 1px;
-      background: var(--border-color);
-      margin: 0.4rem 0;
-    }
+    .menu-item:hover { background: var(--bg-tertiary); }
+    .menu-item-danger { color: #ef4444; }
+    .menu-item-danger:hover { background: rgba(239, 68, 68, 0.15); }
+    .menu-divider { height: 1px; background: var(--border-color); margin: 0.25rem 0; }
+    .chevron-icon { transition: transform 0.2s ease; margin-left: auto; }
+    .menu-item-expandable.expanded .chevron-icon { transform: rotate(180deg); }
+    .menu-sub-items { display: none; flex-direction: column; background: var(--bg-primary); border-radius: var(--radius-sm); margin: 0.2rem 0.4rem; padding: 0.2rem 0; border: 1px solid var(--border-color); }
+    .menu-item-expandable.expanded .menu-sub-items { display: flex; }
+    .menu-sub-item { padding-left: 1.5rem !important; font-size: 0.8rem !important; }
 
-    /* -------------------------------------------------------------
-       RESPONSIVE HEADER & NAVIGATION BREAKPOINTS
-       ------------------------------------------------------------- */
-    @media (max-width: 1150px) {
-      .brand-tag {
-        display: none !important;
-      }
-      .desktop-nav-btn span {
-        display: none !important;
-      }
-      .desktop-nav-btn {
-        padding: 0.45rem !important;
-      }
+    /* Mobile Drawer */
+    .mobile-nav-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 340; display: none; opacity: 1; transition: opacity 0.25s ease; }
+    .mobile-nav-backdrop.open { display: block; }
+    .mobile-nav-dropdown {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 285px; max-width: 85vw;
+      background: var(--bg-secondary); border-right: 1px solid var(--border-color);
+      z-index: 350; display: flex; flex-direction: column; padding: 1.15rem 0.85rem;
+      padding-top: max(1.5rem, calc(1.15rem + env(safe-area-inset-top, 0px)));
+      padding-bottom: max(1.15rem, calc(0.85rem + env(safe-area-inset-bottom, 0px)));
+      transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-y: auto; gap: 0.75rem;
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
     }
+    .mobile-nav-dropdown.open { transform: translateX(0); box-shadow: 4px 0 25px rgba(0,0,0,0.5); }
+    .mobile-nav-divider { height: 1px; background: var(--border-color); margin: 0.35rem 0; }
 
-    @media (max-width: 960px) {
-      .desktop-nav-btn {
-        display: none !important;
-      }
-      .mobile-menu-btn {
-        display: flex !important;
-      }
-      header .brand {
-        display: none !important;
-      }
-      .brand-tag {
-        display: none !important;
-      }
-      .nav-search {
-        max-width: none !important;
-        flex: 1 !important;
-        margin: 0 0.5rem !important;
-      }
-      .nav-actions button span {
-        display: none !important;
-      }
-      .nav-actions button {
-        padding: 0.45rem !important;
-      }
-    }
-
-    @media (max-width: 768px) {
-      header {
-        padding: 0.6rem 0.85rem;
-        padding-top: max(0.6rem, calc(0.6rem + env(safe-area-inset-top, 0px)));
-      }
-      .brand span:nth-child(2) {
-        font-size: 1.05rem;
-      }
-      main {
-        padding: 1rem 0.75rem 4rem 0.75rem;
-      }
-      .articles-grid {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
-      .card-image-wrap {
-        height: 140px;
-        width: calc(100% + 2rem);
-        margin: -1rem -1rem 0.75rem -1rem;
-      }
-      .article-card {
-        padding: 1rem;
-      }
-      /* Clean mobile cards: Hide busy button row in favor of full card tap & long-press selection */
-      .article-card .card-actions {
-        display: none !important;
-      }
-      .card-select-wrap {
-        display: none;
-      }
-      body.selection-mode-active .card-select-wrap {
-        display: flex;
-        opacity: 1;
-      }
-
-    }
-
-    /* -------------------------------------------------------------
-       MOBILE & LANDSCAPE READER LAYOUT (Phones, Landscape & Tablets)
-       ------------------------------------------------------------- */
-    @media (max-width: 960px), (max-height: 550px) {
-      .reader-view {
-        flex-direction: column !important;
-      }
-      .reader-notch-shield {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: env(safe-area-inset-top, 0px);
-        background: var(--bg-primary) !important;
-        z-index: 260;
-        pointer-events: none;
-        display: block;
-        transition: background-color 0.25s ease;
-      }
-      .reader-mobile-bar {
-        display: flex !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        box-sizing: border-box !important;
-        padding: 0.6rem 0.85rem !important;
-        padding-top: max(0.6rem, calc(0.6rem + env(safe-area-inset-top, 0px))) !important;
-        min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
-        background: var(--bg-secondary) !important;
-        border-bottom: 1px solid var(--border-color) !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        z-index: 150 !important;
-        transition: transform 0.52s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
-      }
-      .reader-mobile-bar.bar-hidden {
-        transform: translateY(-100%) !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-      }
-      .reader-mobile-bar-group {
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.5rem !important;
-      }
-      .reader-mobile-bar-group.right-actions {
-        margin-left: auto !important;
-      }
-      .reader-sidebar-backdrop {
-        position: fixed !important;
-        inset: 0 !important;
-        background: rgba(0, 0, 0, 0.6) !important;
-        backdrop-filter: blur(3px) !important;
-        -webkit-backdrop-filter: blur(3px) !important;
-        z-index: 240 !important;
-        display: none !important;
-      }
-      .reader-sidebar-backdrop.open {
-        display: block !important;
-      }
-      .reader-sidebar {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        bottom: 0 !important;
-        width: 260px !important;
-        max-height: 100vh !important;
-        max-height: 100dvh !important;
-        overflow-y: auto !important;
-        overscroll-behavior: contain !important;
-        -webkit-overflow-scrolling: touch !important;
-        transform: translateX(-100%);
-        box-shadow: none !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s ease;
-        z-index: 250 !important;
-        padding: max(1.25rem, calc(1.25rem + env(safe-area-inset-top, 0px))) 0.75rem 1.25rem 0.75rem !important;
-        background: var(--bg-secondary) !important;
-        border-right: 1px solid var(--border-color) !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        justify-content: flex-start !important;
-      }
-      .reader-sidebar.drawer-open {
-        transform: translateX(0) !important;
-        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
-        visibility: visible !important;
-        pointer-events: auto !important;
-      }
-      .reader-sidebar .reader-tool-btn {
-        width: 100% !important;
-        height: 44px !important;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        padding: 0 0.85rem !important;
-        gap: 0.85rem !important;
-      }
-      .reader-sidebar .reader-tool-btn .btn-label {
-        opacity: 1 !important;
-        transform: translateX(0) !important;
-        font-size: 0.9rem !important;
-        color: var(--text-primary) !important;
-        pointer-events: auto !important;
-        display: inline-block !important;
-        white-space: nowrap !important;
-      }
-      .reader-sidebar .reader-sub-item {
-        height: 38px !important;
-        padding-left: 2.25rem !important;
-        font-size: 0.85rem !important;
-        color: var(--text-secondary) !important;
-        justify-content: flex-start !important;
-        text-align: left !important;
-      }
-      [dir="rtl"] .reader-sidebar .reader-sub-item {
-        padding-left: 0.85rem !important;
-        padding-right: 2.25rem !important;
-        text-align: right !important;
-      }
-      .reader-sidebar .btn-back-tool {
-        display: none !important;
-      }
-      .reader-main-scroll {
-        padding: calc(4rem + env(safe-area-inset-top, 0px)) 1rem 3rem 1rem !important;
-      }
-      #readerTitle {
-        font-size: 1.6rem !important;
-      }
-    }
-    .ptr-spinning {
-      animation: ptrSpin 0.75s linear infinite !important;
-    }
-    @keyframes ptrSpin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
+    /* Reading Progress Bar & Toasts */
+    .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); z-index: 250; width: 0%; }
+    .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--bg-secondary); border: 1px solid var(--border-color); box-shadow: var(--shadow); padding: 0.75rem 1.25rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.5rem; z-index: 999; transform: translateY(100px); opacity: 0; transition: all 0.25s; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .code-box { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; font-family: var(--font-reader-mono); font-size: 0.8rem; color: var(--accent); user-select: all; }
+    .auth-overlay { position: fixed; inset: 0; background: var(--bg-primary); z-index: 300; display: none; align-items: center; justify-content: center; padding: 1.5rem; }
+    .auth-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 100%; max-width: 400px; padding: 2rem; box-shadow: var(--shadow); text-align: center; display: flex; flex-direction: column; gap: 1.25rem; }
+    .auth-error-banner { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; font-size: 0.825rem; display: none; }
+    .auth-error-banner.show { display: block; }
+    .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+    .form-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+    .form-group input, .form-group textarea { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; color: var(--text-primary); font-family: inherit; font-size: 0.875rem; outline: none; }
+    .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+    .form-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+    @keyframes menuFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
 
-  <!-- WallabagWebService Matcher Elements (Satisfies isRegularPage() directly) -->
+  <!-- WallabagWebService Matcher Elements -->
   <div style="display:none;" aria-hidden="true">
     <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
     <a href="/logout">Logout</a>
@@ -2309,19 +1369,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     <div class="auth-card">
       <div style="display: flex; justify-content: center;">
         <div class="brand-icon" style="width: 44px; height: 44px;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-          </svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         </div>
       </div>
       <div>
         <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.3rem;">Protected Library</h2>
         <p style="font-size: 0.85rem; color: var(--text-secondary);">Enter your Wallaflare Access Token or Password</p>
       </div>
-
       <div class="auth-error-banner" id="authErrorMsg"></div>
-
       <form id="authForm" action="/login_check" method="post" name="loginform" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
         <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
         <input type="hidden" id="username" name="_username" value="wallaflare" autocomplete="username" />
@@ -2336,7 +1391,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
   <!-- Pull to Refresh Spinner -->
   <div id="pullToRefreshWrap" style="position: fixed; top: calc(56px + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -20px); z-index: 300; opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;">
     <div id="pullToRefreshCard" style="background: var(--bg-card); border: 1.5px solid var(--border-color); box-shadow: 0 8px 25px rgba(0,0,0,0.55); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-      <svg id="pullToRefreshSvg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" style="transition: transform 0.15s ease;">
+      <svg id="pullToRefreshSvg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5">
         <polyline points="23 4 23 10 17 10"></polyline>
         <polyline points="1 20 1 14 7 14"></polyline>
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
@@ -2344,16 +1399,13 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  <!-- Top Header -->
-  <header>
-    <!-- Standard Nav Header Elements -->
-    <div id="standardNavHeader" style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 0.85rem;">
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <!-- Mobile Left Menu Trigger Button (3 lines / hamburger) -->
-        <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        </button>
-
+  <!-- -------------------------------------------------------------
+       MAIN 3-PANE WORKSPACE (.app-workspace)
+       ------------------------------------------------------------- -->
+  <div class="app-workspace" id="appWorkspace">
+    <!-- Pane 1: Left Navigation Sidebar (.pane-sidebar, 250px fixed, desktop only) -->
+    <aside class="pane-sidebar" id="paneSidebar">
+      <div class="sidebar-brand-wrap">
         <div class="brand" onclick="navigateTo('/')">
           <div class="brand-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -2366,121 +1418,370 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </div>
       </div>
 
-      <div class="nav-search">
-        <svg class="search-magnifier" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="handleSearchInput()">
-        <button type="button" class="search-ctrl-btn" id="searchClearBtn" onclick="clearSearchInput()" title="Clear Search" style="display: none;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      <button class="btn btn-primary" id="sidebarAddArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL" style="width: 100%; justify-content: center; padding: 0.55rem 0.85rem; font-weight: 600;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Add URL</span>
+      </button>
+
+      <div class="sidebar-nav-group">
+        <button class="sidebar-nav-item active" id="tabUnread" onclick="setFilter('unread')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            <span>Unread</span>
+          </div>
+          <span class="badge-count" id="countUnread">0</span>
         </button>
-        <div class="search-ctrl-divider"></div>
-        <button type="button" class="search-ctrl-btn" id="cycleLayoutBtn" onclick="cycleViewMode()" title="Toggle View Layout (List / Grid / Compact)">
-          <span id="cycleLayoutIcon" style="display: flex; align-items: center; justify-content: center;">
+        <button class="sidebar-nav-item" id="tabStarred" onclick="setFilter('starred')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>Starred</span>
+          </div>
+          <span class="badge-count" id="countStarred">0</span>
+        </button>
+        <button class="sidebar-nav-item" id="tabArchive" onclick="setFilter('archive')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+            <span>Archive</span>
+          </div>
+          <span class="badge-count" id="countArchive">0</span>
+        </button>
+        <button class="sidebar-nav-item" id="tabAll" onclick="setFilter('all')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-          </span>
+            <span>All Articles</span>
+          </div>
+          <span class="badge-count" id="countAll">0</span>
         </button>
-        <div class="card-menu-wrap" style="position: relative;">
-          <button type="button" class="search-ctrl-btn" id="sortBtn" onclick="event.stopPropagation(); toggleSortMenu()" title="Sort Articles">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="4" x2="12" y2="20"></line><polyline points="18 14 12 20 6 14"></polyline><polyline points="6 10 12 4 18 10"></polyline></svg>
+      </div>
+
+      <!-- Collapsible Tag List -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-header" onclick="toggleSidebarTagsCollapse()">
+          <span>Tags</span>
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <span class="badge-count" id="sidebarTagCount">0</span>
+            <svg class="chevron-icon" id="sidebarTagChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+        </div>
+        <div class="sidebar-tag-list" id="sidebarTagList"></div>
+        <button class="sidebar-sub-action-btn" onclick="openGlobalTagManager()" title="Manage &amp; Clean Tags">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          <span>Manage Tags</span>
+        </button>
+      </div>
+
+      <!-- Bottom Utility Actions -->
+      <div class="sidebar-footer-actions">
+        <div class="sidebar-theme-picker" id="sidebarThemePicker" title="Theme Selector">
+          <button type="button" class="theme-swatch-btn" data-theme="dark" onclick="setTheme('dark')" title="Dark Theme">
+            <span class="theme-swatch-circle" style="background: #0f172a; border: 1.5px solid #475569;"></span>
+            <span class="theme-swatch-label">Dark</span>
           </button>
-          <div class="search-dropdown-menu card-dropdown-menu" id="sortDropdownMenu" onclick="event.stopPropagation()">
-            <button class="menu-item" id="sortOptNewest" onclick="setSortOrder('newest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span>Newest First</span></button>
-            <button class="menu-item" id="sortOptOldest" onclick="setSortOrder('oldest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg><span>Oldest First</span></button>
-            <button class="menu-item" id="sortOptShortest" onclick="setSortOrder('shortest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="12" y2="12"></line><line x1="4" y1="6" x2="8" y2="6"></line><line x1="4" y1="18" x2="16" y2="18"></line></svg><span>Shortest Read</span></button>
-            <button class="menu-item" id="sortOptLongest" onclick="setSortOrder('longest')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="18" x2="12" y2="18"></line></svg><span>Longest Read</span></button>
-            <button class="menu-item" id="sortOptTitle" onclick="setSortOrder('title')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"></path><line x1="12" y1="4" x2="12" y2="20"></line></svg><span>Title (A-Z)</span></button>
+          <button type="button" class="theme-swatch-btn" data-theme="light" onclick="setTheme('light')" title="Light Theme">
+            <span class="theme-swatch-circle" style="background: #ffffff; border: 1.5px solid #cbd5e1;"></span>
+            <span class="theme-swatch-label">Light</span>
+          </button>
+          <button type="button" class="theme-swatch-btn" data-theme="sepia" onclick="setTheme('sepia')" title="Sepia Theme">
+            <span class="theme-swatch-circle" style="background: #f4ecd8; border: 1.5px solid #d97706;"></span>
+            <span class="theme-swatch-label">Sepia</span>
+          </button>
+          <button type="button" class="theme-swatch-btn" data-theme="oled" onclick="setTheme('oled')" title="OLED Black Theme">
+            <span class="theme-swatch-circle" style="background: #000000; border: 1.5px solid #334155;"></span>
+            <span class="theme-swatch-label">OLED</span>
+          </button>
+        </div>
+
+        <button class="sidebar-nav-item" id="sidebarSettingsBtn" onclick="openModal('settingsModal')" title="Settings">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
+          </div>
+        </button>
+
+        <div style="font-size: 0.7rem; color: var(--text-muted); padding: 0.35rem 0.5rem 0 0.5rem; text-align: center;">
+          <span id="sidebarVersionLabel">Wallaflare v1.0.0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Pane 2: Middle Articles Column (.pane-articles, 380px fixed / flex) -->
+    <section class="pane-articles" id="paneArticles">
+      <div class="pane-articles-toolbar" id="standardNavHeader">
+        <button class="btn-icon mobile-menu-btn" id="mobileNavMenuBtn" onclick="toggleMobileNavMenu(event)" title="Open Menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+
+        <div class="nav-search">
+          <svg class="search-magnifier" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="searchInput" placeholder="Search articles or /..." oninput="handleSearchInput()">
+          <button type="button" class="search-ctrl-btn" id="searchClearBtn" onclick="clearSearchInput()" title="Clear Search" style="display: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+          <div class="search-ctrl-divider"></div>
+          <button type="button" class="search-ctrl-btn" id="cycleLayoutBtn" onclick="cycleViewMode()" title="Toggle View Layout (List / Grid / Compact)">
+            <span id="cycleLayoutIcon" style="display: flex; align-items: center; justify-content: center; pointer-events: none;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </span>
+          </button>
+          <button type="button" class="search-ctrl-btn desktop-refresh-btn" id="desktopRefreshBtn" onclick="handleManualRefresh(this)" title="Refresh Library">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events: none;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </button>
+          <div class="card-menu-wrap" style="position: relative;">
+            <button type="button" class="search-ctrl-btn" id="sortBtn" onclick="event.stopPropagation(); toggleSortMenu()" title="Sort Articles">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events: none;"><line x1="12" y1="4" x2="12" y2="20"></line><polyline points="18 14 12 20 6 14"></polyline><polyline points="6 10 12 4 18 10"></polyline></svg>
+            </button>
+            <div class="search-dropdown-menu card-dropdown-menu" id="sortDropdownMenu" onclick="event.stopPropagation()">
+              <button class="menu-item" id="sortOptNewest" onclick="setSortOrder('newest')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span>Newest First</span></button>
+              <button class="menu-item" id="sortOptOldest" onclick="setSortOrder('oldest')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg><span>Oldest First</span></button>
+              <button class="menu-item" id="sortOptShortest" onclick="setSortOrder('shortest')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="12" y2="12"></line><line x1="4" y1="6" x2="8" y2="6"></line><line x1="4" y1="18" x2="16" y2="18"></line></svg><span>Shortest Read</span></button>
+              <button class="menu-item" id="sortOptLongest" onclick="setSortOrder('longest')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="18" x2="12" y2="18"></line></svg><span>Longest Read</span></button>
+              <button class="menu-item" id="sortOptTitle" onclick="setSortOrder('title')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"></path><line x1="12" y1="4" x2="12" y2="20"></line></svg><span>Title (A-Z)</span></button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-icon mobile-quick-add-btn" id="addArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL">
+          <svg id="addArticleBtnIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span id="addArticleBtnLabel" style="display: none;">Add URL</span>
+        </button>
+      </div>
+
+      <!-- Batch Selection Contextual Action Header -->
+      <div id="batchActionHeader" class="pane-articles-toolbar" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 0.65rem;">
+          <button class="btn-icon" onclick="clearArticleSelection()" title="Cancel Selection" style="flex-shrink: 0;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+          <span id="batchSelectedCount" style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary); white-space: nowrap;">0 selected</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.35rem; margin-left: auto;">
+          <button class="btn-icon" onclick="batchToggleStar()" title="Toggle Star" id="batchStarBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </button>
+          <button class="btn-icon" onclick="batchToggleArchive()" title="Toggle Archive" id="batchArchiveBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+          </button>
+          <button class="btn-icon" onclick="batchManageTags()" title="Add / Manage Tags">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          </button>
+          <div class="card-menu-wrap" style="position: relative;">
+            <button class="btn-icon" title="More Options" onclick="event.stopPropagation(); toggleBatchMenu()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+            </button>
+            <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 215px;">
+              <button class="menu-item" id="batchTagMenuItem" onclick="closeBatchMenu(); batchManageTags();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Edit Tags</span></button>
+              <button class="menu-item" id="batchHighlightsBtn" onclick="closeBatchMenu(); batchOpenHighlights();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span id="batchHighlightsLabel">Highlights &amp; Notes</span></button>
+              <button class="menu-item" id="batchOpenOriginalBtn" onclick="closeBatchMenu(); batchOpenOriginal();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
+              <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
+              <div class="menu-item-expandable" id="batchExportWrap">
+                <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleBatchExportSubmenu()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                  <span>Export</span>
+                  <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <div class="menu-sub-items" id="batchExportSub">
+                  <button class="menu-item menu-sub-item" id="batchExportEpubBtn" onclick="closeBatchMenu(); handleBatchExportEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span id="batchExportEpubLabel">EPUB (.epub)</span></button>
+                  <button class="menu-item menu-sub-item" id="batchExportMdBtn" onclick="closeBatchMenu(); handleBatchExportMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span id="batchExportMdLabel">Markdown (.md)</span></button>
+                  <button class="menu-item menu-sub-item" id="batchExportPdfBtn" onclick="closeBatchMenu(); handleBatchExportPdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span id="batchExportPdfLabel">PDF (.pdf)</span></button>
+                  <button class="menu-item menu-sub-item" id="batchExportJsonBtn" onclick="closeBatchMenu(); handleBatchExportJson();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg><span id="batchExportJsonLabel">JSON (.json)</span></button>
+                </div>
+              </div>
+              <button class="menu-item" onclick="closeBatchMenu(); batchRefetchContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
+              <button class="menu-item" onclick="closeBatchMenu(); toggleSelectAllArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg><span id="batchMenuSelectAllLabel">Select All</span></button>
+              <div class="menu-divider"></div>
+              <button class="menu-item menu-item-danger" onclick="closeBatchMenu(); batchDeleteArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article(s)</span></button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="nav-actions">
-        <button class="btn btn-primary" id="addArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL">
-          <svg id="addArticleBtnIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span id="addArticleBtnLabel">Add URL</span>
-        </button>
-
-        <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('addTextModal')" title="Add Text">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-          <span>Add Text</span>
-        </button>
-
-        <button class="btn btn-secondary desktop-nav-btn" onclick="openGlobalTagManager()" title="Manage & Clean Tags">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-          <span>Tags</span>
-        </button>
-
-        <button class="btn btn-secondary desktop-nav-btn" onclick="openModal('syncModal')" title="KOReader &amp; API Setup">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-          <span>KOReader</span>
-        </button>
-
-        <button class="btn-icon desktop-nav-btn" id="desktopRefreshBtn" onclick="handleDesktopRefresh(this)" title="Refresh Articles">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-        </button>
-
-        <button class="btn-icon desktop-nav-btn" onclick="toggleTheme()" title="Toggle Light/Dark/Sepia">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-        </button>
-
-        <button class="btn-icon desktop-nav-btn" onclick="handleLogout()" title="Log Out">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Batch Selection Contextual Action Header -->
-    <div id="batchActionHeader" style="display: none; align-items: center; justify-content: space-between; width: 100%; gap: 0.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <button class="btn-icon" onclick="clearArticleSelection()" title="Cancel Selection" style="flex-shrink: 0;">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-        <span id="batchSelectedCount" style="font-weight: 700; font-size: 1.05rem; color: var(--text-primary); white-space: nowrap;">0 selected</span>
+      <!-- Active Tag Filter Banner -->
+      <div id="activeTagFilterBanner" style="display: none; align-items: center; justify-content: space-between; background: var(--bg-secondary); border-bottom: 1px solid var(--accent); padding: 0.45rem 0.85rem;">
+        <div style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden;">
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">Tag:</span>
+          <span class="tag-badge" id="activeTagName" style="font-size: 0.8rem;"></span>
+        </div>
+        <button class="btn btn-outline" style="font-size: 0.72rem; padding: 0.15rem 0.45rem;" onclick="filterByTag(null)">Clear</button>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.35rem;">
-        <button class="btn-icon" onclick="batchToggleStar()" title="Toggle Star for Selected" id="batchStarBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-        </button>
-        <button class="btn-icon" onclick="batchToggleArchive()" title="Toggle Archive for Selected" id="batchArchiveBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-        </button>
-        <button class="btn-icon" onclick="batchManageTags()" title="Add / Manage Tags">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-        </button>
+      <!-- Status Indicator -->
+      <div id="statusIndicator" style="font-size: 0.75rem; color: var(--text-muted); padding: 0.2rem 0.85rem; display: none;"></div>
 
-        <div class="card-menu-wrap">
-          <button class="btn-icon" title="More Options" onclick="event.stopPropagation(); toggleBatchMenu()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
-          </button>
-          <div class="card-dropdown-menu" id="batchDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 8px); bottom: auto !important; right: 0; left: auto; min-width: 195px;">
-            <button class="menu-item" id="batchHighlightsBtn" onclick="closeBatchMenu(); batchOpenHighlights();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span id="batchHighlightsLabel">Highlights &amp; Notes</span></button>
-            <button class="menu-item" id="batchOpenOriginalBtn" onclick="closeBatchMenu(); batchOpenOriginal();" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
-            <button class="menu-item" id="batchEditTitleBtn" onclick="closeBatchMenu(); batchEditTitle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
-                        <div class="menu-item-expandable" id="batchExportWrap">
-              <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleBatchExportSubmenu()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                <span>Export</span>
-                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      <!-- Articles Scroll Container -->
+      <div class="articles-scroll-container" id="articlesScrollContainer">
+        <div class="articles-grid" id="articlesGrid"></div>
+        <div class="empty-state" id="emptyState" style="display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <h3>No articles found</h3>
+          <p>Add a URL or custom text to start reading.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pane 3: Right Active Reader Pane (.pane-reader, flex 1) -->
+    <main class="pane-reader" id="paneReader">
+      <!-- Empty state when no article is active -->
+      <div class="reader-empty-pane" id="readerEmptyPane">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+        <div class="reader-empty-title">Select an article to read</div>
+        <div class="reader-empty-desc">Choose any story from your library on the left, or use quick keyboard navigation.</div>
+        
+        <div class="reader-shortcuts-box">
+          <div class="reader-shortcuts-box-title">Keyboard Shortcuts</div>
+          <div class="shortcut-row"><span>Next article</span><span><kbd class="shortcut-kbd">j</kbd> or <kbd class="shortcut-kbd">↓</kbd></span></div>
+          <div class="shortcut-row"><span>Previous article</span><span><kbd class="shortcut-kbd">k</kbd> or <kbd class="shortcut-kbd">↑</kbd></span></div>
+          <div class="shortcut-row"><span>Focus / Zen Mode</span><kbd class="shortcut-kbd">f</kbd></div>
+          <div class="shortcut-row"><span>Archive / Unarchive</span><kbd class="shortcut-kbd">e</kbd></div>
+          <div class="shortcut-row"><span>Star / Unstar</span><kbd class="shortcut-kbd">s</kbd></div>
+          <div class="shortcut-row"><span>Search library</span><kbd class="shortcut-kbd">/</kbd></div>
+          <div class="shortcut-row"><span>Close / Deselect</span><kbd class="shortcut-kbd">Esc</kbd></div>
+        </div>
+      </div>
+
+      <!-- Active Reader Content View (#readerView) -->
+      <div class="reader-view" id="readerView" style="display: none; width: 100%; height: 100%; flex-direction: column; overflow: hidden; position: relative;">
+        <!-- Filled Status Bar Clearance for Punch-Hole and Notch -->
+        <div class="reader-safe-top-fill" id="readerSafeTopFill"></div>
+        <div class="reader-top-hover-trigger" onmouseenter="showReaderTopBar(true)"></div>
+
+        <!-- Unified Top Action Bar -->
+        <div class="reader-top-bar" id="readerTopBar">
+          <div class="reader-top-bar-group">
+            <button class="btn-icon" onclick="handleReaderBack()" title="Back to library / Deselect (Esc)">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <button class="btn-icon desktop-focus-btn" id="focusModeToggleBtn" onclick="toggleReaderFocusMode()" title="Toggle Focus Mode (f)">
+              <svg id="focusModeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+            </button>
+          </div>
+
+          <div class="reader-top-bar-group" style="margin-left: auto;">
+            <button class="btn-icon" id="readerAppearanceBtn" onclick="toggleReaderAppearancePopover(event)" title="Typography &amp; Theme (Aa)">
+              <span style="font-family: serif; font-weight: bold; font-size: 1.05rem;">Aa</span>
+            </button>
+            <button class="btn-icon" id="readerMobileHighlightsBtn" onclick="toggleReaderHighlightsModal()" title="Highlights &amp; Notes" style="position: relative;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              <span id="readerHighlightsBadgeMobile" style="position: absolute; top: -2px; right: -2px; background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px;">0</span>
+            </button>
+            <button class="btn-icon" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Star (s)">
+              <svg width="17" height="17" id="readerStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            </button>
+            <button class="btn-icon" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive (e)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+            </button>
+            <button class="btn-icon" onclick="openTagModal(activeArticleId)" title="Edit Tags">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+            </button>
+            
+            <div class="card-menu-wrap" style="position: relative;">
+              <button class="btn-icon" id="readerMoreMenuBtn" onclick="toggleReaderMoreMenu(event)" title="More Actions">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
               </button>
-              <div class="menu-sub-items" id="batchExportSub">
-                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchDownloadEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
-                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchExportMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
-                <button class="menu-item menu-sub-item" onclick="closeBatchMenu(); batchExportPdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>
+              <div class="card-dropdown-menu" id="readerMoreMenuDropdown" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 6px); bottom: auto !important; right: 0; left: auto; min-width: 205px;">
+                <div class="menu-item-expandable" id="readerExportWrap">
+                  <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleReaderExportSubmenu()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Export</span>
+                    <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </button>
+                  <div class="menu-sub-items" id="readerExportSub">
+                    <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); downloadActiveEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
+                    <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActiveMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
+                    <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActivePdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>
+                  </div>
+                </div>
+                <button class="menu-item" id="readerRefetchMenuItem" onclick="closeReaderMoreMenu(); refetchActiveArticleContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
+                <button class="menu-item" id="readerOpenOriginalMenuItem" onclick="closeReaderMoreMenu(); openActiveOriginalLink();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
+                <button class="menu-item" onclick="closeReaderMoreMenu(); openEditTitleModal(activeArticleId);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
+                <div class="menu-divider"></div>
+                <button class="menu-item menu-item-danger" onclick="closeReaderMoreMenu(); deleteActiveArticle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article</span></button>
               </div>
             </div>
-            <button class="menu-item" onclick="closeBatchMenu(); batchRefetchContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
-            <button class="menu-item" onclick="closeBatchMenu(); toggleSelectAllArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 11 12 14 22 4"></polyline></svg><span id="batchMenuSelectAllLabel">Select All</span></button>
-            <div class="menu-divider"></div>
-            <button class="menu-item menu-item-danger" onclick="closeBatchMenu(); batchDeleteArticles();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article(s)</span></button>
           </div>
         </div>
-      </div>
-    </div>
-  </header>
 
-  <!-- Mobile Nav Backdrop & Slide-out Drawer -->
+        <!-- Live Floating Typography Popover -->
+        <div class="reader-appearance-popover" id="readerAppearancePopover" style="display: none;" onclick="event.stopPropagation()">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
+            <span style="font-weight: 700; font-size: 0.92rem;">Typography &amp; Theme</span>
+            <button class="close-btn" onclick="toggleReaderAppearancePopover()">&times;</button>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Font Family</label>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem;" id="popoverFontFamilyBtns">
+              <button class="btn btn-outline opt-font-btn" data-font="sans" onclick="setReaderFontFamily('sans')">Sans</button>
+              <button class="btn btn-outline opt-font-btn" data-font="serif" onclick="setReaderFontFamily('serif')">Serif</button>
+              <button class="btn btn-outline opt-font-btn" data-font="mono" onclick="setReaderFontFamily('mono')">Mono</button>
+              <button class="btn btn-outline opt-font-btn" data-font="dyslexic" onclick="setReaderFontFamily('dyslexic')">Dyslexic</button>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Font Size</label>
+              <span id="fontSizeDisplay" style="font-size: 0.8rem; font-weight: 700; color: var(--accent);">18px</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-weight: bold;" onclick="adjustReaderFontSize(-1)">A-</button>
+              <input type="range" id="fontSizeRange" min="12" max="32" step="1" style="flex: 1; accent-color: var(--accent); cursor: pointer;" oninput="setReaderFontSize(parseInt(this.value, 10))">
+              <button class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-weight: bold;" onclick="adjustReaderFontSize(1)">A+</button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Line Spacing</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem;" id="popoverLineHeightBtns">
+              <button class="btn btn-outline opt-lh-btn" data-lh="1.4" onclick="setReaderLineHeight('1.4')">Compact</button>
+              <button class="btn btn-outline opt-lh-btn" data-lh="1.68" onclick="setReaderLineHeight('1.68')">Normal</button>
+              <button class="btn btn-outline opt-lh-btn" data-lh="1.9" onclick="setReaderLineHeight('1.9')">Relaxed</button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Content Width</label>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem;" id="popoverContentWidthBtns">
+              <button class="btn btn-outline opt-width-btn" data-width="620px" onclick="setReaderContentWidth('620px')">Narrow</button>
+              <button class="btn btn-outline opt-width-btn" data-width="740px" onclick="setReaderContentWidth('740px')">Medium</button>
+              <button class="btn btn-outline opt-width-btn" data-width="880px" onclick="setReaderContentWidth('880px')">Wide</button>
+              <button class="btn btn-outline opt-width-btn" data-width="100%" onclick="setReaderContentWidth('100%')">Full</button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Theme</label>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.45rem;" id="popoverThemeBtns">
+              <button class="btn btn-outline opt-theme-btn" data-theme="light" onclick="setTheme('light')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffffff;border:1px solid #94a3b8;flex-shrink:0;"></span><span>Light</span></button>
+              <button class="btn btn-outline opt-theme-btn" data-theme="sepia" onclick="setTheme('sepia')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f4ecd8;border:1px solid #b45309;flex-shrink:0;"></span><span>Sepia</span></button>
+              <button class="btn btn-outline opt-theme-btn" data-theme="dark" onclick="setTheme('dark')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#0f172a;border:1px solid #475569;flex-shrink:0;"></span><span>Dark</span></button>
+              <button class="btn btn-outline opt-theme-btn" data-theme="oled" onclick="setTheme('oled')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#000000;border:1px solid #334155;flex-shrink:0;"></span><span>OLED</span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reader Scroll Area -->
+        <section class="reader-main-scroll" id="readerScrollContainer" onscroll="handleReaderScroll()" onclick="handleReaderBodyClick(event)">
+          <div class="reader-content-wrap">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
+              <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin: 0; flex: 1;"></h1>
+              <button class="action-btn" id="readerEditTitleBtn" onclick="openEditTitleModal(activeArticleId)" title="Edit Article Title" style="margin-top: 0.3rem; padding: 0.4rem; opacity: 0.75;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              </button>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.8rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
+            <div id="readerCoverWrap"></div>
+            <article class="reader-body" id="readerBody"></article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Mobile Slide-out Drawer (Mirrors Desktop Sidebar) -->
   <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileNavMenu()"></div>
   <div class="mobile-nav-dropdown" id="mobileNavDropdown">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0.25rem 1rem 0.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.75rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0.25rem 0.75rem 0.25rem; border-bottom: 1px solid var(--border-color);">
       <div class="brand" style="cursor: pointer;" onclick="navigateTo('/'); closeMobileNavMenu();">
         <div class="brand-icon" style="width: 32px; height: 32px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -2489,102 +1790,134 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           </svg>
         </div>
         <span style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">${appName}</span>
-        <span class="brand-tag" style="display: inline-block;">Edge E-ink</span>
+        <span class="brand-tag">Edge E-ink</span>
       </div>
-      <button class="action-btn" onclick="closeMobileNavMenu()" style="font-size: 1.25rem;">&times;</button>
+      <button class="close-btn" onclick="closeMobileNavMenu()">&times;</button>
     </div>
-    <button class="mobile-nav-item" id="serverSettingsBtn" onclick="openServerConnectModal(); closeMobileNavMenu();" style="color: var(--accent); display: none;">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-      <span>Server Settings</span>
+
+    <button class="btn btn-primary" onclick="handleAddArticleBtnClick(); closeMobileNavMenu();" title="Add URL" style="width: 100%; justify-content: center; padding: 0.55rem 0.85rem; font-weight: 600;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      <span>Add URL</span>
     </button>
-    <button class="mobile-nav-item" onclick="openGlobalTagManager(); closeMobileNavMenu();">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-      <span>Manage Tags</span>
-    </button>
-    <button class="mobile-nav-item" onclick="openModal('addTextModal'); closeMobileNavMenu();">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-      <span>Add Custom Text</span>
-    </button>
-    <button class="mobile-nav-item" onclick="openModal('syncModal'); closeMobileNavMenu();">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-      <span>KOReader Sync</span>
-    </button>
-    <div class="mobile-nav-divider"></div>
-    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); padding: 0.4rem 0.75rem 0.2rem 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">View Layout</div>
-    <div style="display: flex; gap: 0.4rem; padding: 0.2rem 0.75rem 0.6rem 0.75rem;">
-      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('list'); closeMobileNavMenu();">List</button>
-      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('grid'); closeMobileNavMenu();">Grid</button>
-      <button class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;" onclick="setViewMode('compact'); closeMobileNavMenu();">Compact</button>
+
+    <div class="sidebar-nav-group">
+      <button class="sidebar-nav-item active" id="tabUnreadMobile" onclick="setFilter('unread'); closeMobileNavMenu();">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span>Unread</span>
+        </div>
+        <span class="badge-count" id="countUnreadMobile">0</span>
+      </button>
+      <button class="sidebar-nav-item" id="tabStarredMobile" onclick="setFilter('starred'); closeMobileNavMenu();">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span>Starred</span>
+        </div>
+        <span class="badge-count" id="countStarredMobile">0</span>
+      </button>
+      <button class="sidebar-nav-item" id="tabArchiveMobile" onclick="setFilter('archive'); closeMobileNavMenu();">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+          <span>Archive</span>
+        </div>
+        <span class="badge-count" id="countArchiveMobile">0</span>
+      </button>
+      <button class="sidebar-nav-item" id="tabAllMobile" onclick="setFilter('all'); closeMobileNavMenu();">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          <span>All Articles</span>
+        </div>
+        <span class="badge-count" id="countAllMobile">0</span>
+      </button>
     </div>
-    <div class="mobile-nav-divider"></div>
-    <button class="mobile-nav-item" onclick="toggleTheme();">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-      <span>Toggle Theme</span>
+
+    <!-- Mobile Collapsible Tag List -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-header" onclick="toggleSidebarTagsCollapse()">
+        <span>Tags</span>
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
+          <span class="badge-count" id="sidebarTagCountMobile">0</span>
+          <svg class="chevron-icon" id="sidebarTagChevronMobile" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+      </div>
+      <div class="sidebar-tag-list" id="sidebarTagListMobile"></div>
+      <button class="sidebar-sub-action-btn" onclick="openGlobalTagManager(); closeMobileNavMenu();" title="Manage Tags">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+        <span>Manage Tags</span>
+      </button>
+    </div>
+    
+    <div class="sidebar-theme-picker" id="mobileThemePicker" title="Theme Selector" style="margin-top: auto; padding: 0.5rem 0.25rem;">
+      <button type="button" class="theme-swatch-btn" data-theme="dark" onclick="setTheme('dark')" title="Dark Theme">
+        <span class="theme-swatch-circle" style="background: #0f172a; border: 1.5px solid #475569;"></span>
+        <span class="theme-swatch-label">Dark</span>
+      </button>
+      <button type="button" class="theme-swatch-btn" data-theme="light" onclick="setTheme('light')" title="Light Theme">
+        <span class="theme-swatch-circle" style="background: #ffffff; border: 1.5px solid #cbd5e1;"></span>
+        <span class="theme-swatch-label">Light</span>
+      </button>
+      <button type="button" class="theme-swatch-btn" data-theme="sepia" onclick="setTheme('sepia')" title="Sepia Theme">
+        <span class="theme-swatch-circle" style="background: #f4ecd8; border: 1.5px solid #d97706;"></span>
+        <span class="theme-swatch-label">Sepia</span>
+      </button>
+      <button type="button" class="theme-swatch-btn" data-theme="oled" onclick="setTheme('oled')" title="OLED Black Theme">
+        <span class="theme-swatch-circle" style="background: #000000; border: 1.5px solid #334155;"></span>
+        <span class="theme-swatch-label">OLED</span>
+      </button>
+    </div>
+
+    <button class="sidebar-nav-item" onclick="closeMobileNavMenu(); openModal('settingsModal');" title="Settings">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>Settings</span>
+      </div>
     </button>
-    <button class="mobile-nav-item" onclick="handleLogout(); closeMobileNavMenu();">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-      <span>Log Out</span>
-    </button>
-    <div style="margin-top: auto; padding: 1.25rem 0.75rem 0.75rem 0.75rem; font-size: 0.72rem; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border-color);">
+
+    <div style="padding: 0.75rem 0.5rem 0.5rem 0.5rem; font-size: 0.72rem; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border-color);">
       <span id="mobileVersionLabel">Wallaflare v1.0.0</span>
     </div>
   </div>
 
-  <!-- Main Content -->
-  <main>
-    <div class="filter-bar">
-      <div class="tab-group">
-        <button class="tab-btn active" id="tabUnread" onclick="setFilter('unread')">
-          <span>Unread</span>
-          <span class="badge-count" id="countUnread">0</span>
+  <!-- Floating Highlight Toolbar -->
+  <div id="readerHighlightToolbar" class="highlight-toolbar" style="display: none;">
+    <button class="hl-color-btn hl-yellow" onclick="handleCreateHighlight('yellow')" title="Yellow Highlight"></button>
+    <button class="hl-color-btn hl-green" onclick="handleCreateHighlight('green')" title="Green Highlight"></button>
+    <button class="hl-color-btn hl-blue" onclick="handleCreateHighlight('blue')" title="Blue Highlight"></button>
+    <button class="hl-color-btn hl-purple" onclick="handleCreateHighlight('purple')" title="Purple Highlight"></button>
+    <div class="hl-divider"></div>
+    <button class="hl-btn" onclick="handleCreateHighlightWithNote()" title="Highlight with Note">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+      <span>Note</span>
+    </button>
+    <button class="hl-btn" onclick="handleCopySelection()" title="Copy Selection">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+    </button>
+  </div>
+
+  <!-- Highlight Popover -->
+  <div id="highlightPopover" class="highlight-popover" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <div style="display: flex; gap: 0.35rem; align-items: center;" id="popoverColors">
+        <button class="hl-color-btn hl-yellow" onclick="changePopoverHighlightColor('yellow')" title="Yellow"></button>
+        <button class="hl-color-btn hl-green" onclick="changePopoverHighlightColor('green')" title="Green"></button>
+        <button class="hl-color-btn hl-blue" onclick="changePopoverHighlightColor('blue')" title="Blue"></button>
+        <button class="hl-color-btn hl-purple" onclick="changePopoverHighlightColor('purple')" title="Purple"></button>
+      </div>
+      <div style="display: flex; gap: 0.25rem; align-items: center;">
+        <button class="btn-icon" onclick="copyPopoverQuote()" title="Copy Quote" style="padding: 3px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
         </button>
-        <button class="tab-btn" id="tabStarred" onclick="setFilter('starred')">
-          <span>Starred</span>
-          <span class="badge-count" id="countStarred">0</span>
-        </button>
-        <button class="tab-btn" id="tabArchive" onclick="setFilter('archive')">
-          <span>Archive</span>
-          <span class="badge-count" id="countArchive">0</span>
-        </button>
-        <button class="tab-btn" id="tabAll" onclick="setFilter('all')">
-          <span>All</span>
-          <span class="badge-count" id="countAll">0</span>
+        <button class="btn-icon" onclick="deletePopoverHighlight()" title="Delete Highlight" style="color: var(--danger); padding: 3px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
         </button>
       </div>
-
     </div>
-
-    <!-- Article Grid -->
-    
-    <!-- Active Tag Filter Banner -->
-    <div id="activeTagFilterBanner" style="display: none; align-items: center; justify-content: space-between; background: var(--bg-secondary); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 0.5rem 0.85rem; margin-bottom: 1.25rem;">
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-size: 0.85rem; color: var(--text-secondary);">Filtered by tag:</span>
-        <span class="tag-badge" id="activeTagName" style="font-size: 0.85rem;"></span>
-      </div>
-      <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="filterByTag(null)">Clear Filter</button>
-        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="openGlobalTagManager()">Manage Tags</button>
-      </div>
+    <div id="popoverNoteText" style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.8rem; font-style: italic; line-height: 1.35; max-height: 80px; overflow-y: auto; word-break: break-word;"></div>
+    <div style="display: flex; justify-content: flex-end; gap: 0.4rem;">
+      <button class="btn btn-outline" style="font-size: 0.75rem; padding: 2px 8px;" onclick="openAnnotationNoteModal(activePopoverAnnotation)">Edit Note</button>
+      <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 2px 8px;" onclick="closeHighlightPopover()">Close</button>
     </div>
-
-    <div class="articles-grid" id="articlesGrid">
-      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:32%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:88%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:60%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:55px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:42px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
-      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:38%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:92%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:50%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:60px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:38px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
-      <div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:28%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:84%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:68%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:50px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:48px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>
-    </div>
-
-    <!-- Empty State -->
-    <div class="empty-state" id="emptyState" style="display: none;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-      <h3>No articles found</h3>
-      <p>Add a URL or text using the buttons in the top navbar.</p>
-    </div>
-
-
-  </main>
-
-
+  </div>
 
   <!-- Modal: Confirmation Dialog -->
   <div class="modal-backdrop" id="confirmModal" style="z-index: 9999 !important;">
@@ -2601,7 +1934,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  <!-- Server Connection Modal (for Android Capacitor App) -->
+  <!-- Modal: Server Connection Modal -->
   <div class="modal-backdrop" id="serverConnectModal">
     <div class="modal" style="max-width: 480px;">
       <div class="modal-header">
@@ -2611,21 +1944,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <form onsubmit="handleSaveServerConnection(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
         <div class="form-group">
           <label for="serverUrlInput">Wallaflare Server URL *</label>
-          <input type="url" id="serverUrlInput" placeholder="https://wallaflare.example.com" required>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Enter your Cloudflare Worker URL or custom domain</div>
+          <input type="url" id="serverUrlInput" placeholder="https://wallaflare.idodos.org" required>
         </div>
-
         <div class="form-group">
           <label for="serverTokenInput">API Auth Token / Password (Optional)</label>
           <input type="password" id="serverTokenInput" placeholder="Your AUTH_TOKEN if configured">
         </div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('serverConnectModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="saveServerBtn">Connect &amp; Sync</button>
-        </div>
-        <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.75rem;">
-          Wallaflare v1.0.0 (Capacitor Android &bull; Auto-OTA Enabled)
         </div>
       </form>
     </div>
@@ -2643,7 +1970,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <label for="urlInput">Article URL</label>
           <input type="url" id="urlInput" placeholder="https://example.com/article" required autofocus>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('addUrlModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="ingestUrlBtn">Fetch &amp; Save</button>
         </div>
@@ -2663,10 +1990,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <label for="textTitle">Title *</label>
           <input type="text" id="textTitle" placeholder="Article or Chapter Title" required autofocus>
         </div>
-
         <div class="form-grid-2col">
           <div class="form-group">
-            <label for="textAuthor">Author / Published By (Optional)</label>
+            <label for="textAuthor">Author (Optional)</label>
             <input type="text" id="textAuthor" placeholder="e.g. Brandon Sanderson">
           </div>
           <div class="form-group">
@@ -2674,32 +2000,26 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             <input type="date" id="textPublishedAt">
           </div>
         </div>
-
         <div class="form-group">
           <label for="textTags">Tags (Optional, comma-separated)</label>
           <input type="text" id="textTags" placeholder="e.g. fantasy, novel" oninput="syncAddTextTagChips()">
           <div id="addTextTagsContainer" style="display: none; margin-top: 0.45rem;">
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem;">Quick select from existing library tags:</div>
             <div class="card-tags" id="addTextAvailableTags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;"></div>
           </div>
         </div>
-
         <div class="form-group">
           <label for="textUrl">Source URL (Optional)</label>
           <input type="url" id="textUrl" placeholder="https://original-source.com/article">
         </div>
-
         <div class="form-group">
           <label for="textPreviewPicture">Preview / Cover Image URL (Optional)</label>
           <input type="url" id="textPreviewPicture" placeholder="https://example.com/cover.jpg">
         </div>
-
         <div class="form-group">
           <label for="textContent">Content (HTML or Markdown) *</label>
           <textarea id="textContent" placeholder="Paste your text, chapter, or markdown here..." rows="7" required></textarea>
         </div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('addTextModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="ingestTextBtn">Save Entry</button>
         </div>
@@ -2707,7 +2027,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  
   <!-- Modal: Edit Title -->
   <div class="modal-backdrop" id="editTitleModal">
     <div class="modal" style="max-width: 480px;">
@@ -2759,8 +2078,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         </div>
       </div>
 
-      <div id="modalHighlightsList" style="flex: 1; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
-      </div>
+      <div id="modalHighlightsList" style="flex: 1; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
 
       <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-primary);">
         <span style="font-size: 0.78rem; color: var(--text-muted);">💡 Tap any highlight to jump directly to it</span>
@@ -2802,6 +2120,127 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
+  <!-- Modal: Unified App Settings -->
+  <div class="modal-backdrop" id="settingsModal" onclick="if(event.target === this) closeModal('settingsModal')">
+    <div class="modal" style="max-width: 520px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <h3 class="modal-title">Settings</h3>
+        </div>
+        <button class="close-btn" onclick="closeModal('settingsModal')">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1.15rem; font-size: 0.88rem; max-height: 72vh; overflow-y: auto; padding-right: 0.25rem;">
+        <!-- Appearance & Theme Section -->
+        <div>
+          <div style="font-weight: 700; font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.55rem;">Theme &amp; Appearance</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45rem; margin-bottom: 0.75rem;">
+            <button class="btn btn-outline opt-theme-btn" data-theme="dark" onclick="setTheme('dark')" style="flex-direction: column; gap: 0.35rem; padding: 0.55rem 0.35rem; justify-content: center;">
+              <span class="theme-swatch-circle" style="background:#0f172a;border:1.5px solid #475569;width:16px;height:16px;"></span>
+              <span style="font-size: 0.78rem;">Dark</span>
+            </button>
+            <button class="btn btn-outline opt-theme-btn" data-theme="light" onclick="setTheme('light')" style="flex-direction: column; gap: 0.35rem; padding: 0.55rem 0.35rem; justify-content: center;">
+              <span class="theme-swatch-circle" style="background:#ffffff;border:1.5px solid #cbd5e1;width:16px;height:16px;"></span>
+              <span style="font-size: 0.78rem;">Light</span>
+            </button>
+            <button class="btn btn-outline opt-theme-btn" data-theme="sepia" onclick="setTheme('sepia')" style="flex-direction: column; gap: 0.35rem; padding: 0.55rem 0.35rem; justify-content: center;">
+              <span class="theme-swatch-circle" style="background:#f4ecd8;border:1.5px solid #d97706;width:16px;height:16px;"></span>
+              <span style="font-size: 0.78rem;">Sepia</span>
+            </button>
+            <button class="btn btn-outline opt-theme-btn" data-theme="oled" onclick="setTheme('oled')" style="flex-direction: column; gap: 0.35rem; padding: 0.55rem 0.35rem; justify-content: center;">
+              <span class="theme-swatch-circle" style="background:#000000;border:1.5px solid #334155;width:16px;height:16px;"></span>
+              <span style="font-size: 0.78rem;">OLED</span>
+            </button>
+          </div>
+
+          <div>
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Reader Font Family</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem;" id="settingsFontBtns">
+              <button class="btn btn-outline opt-font-btn" data-font="sans" onclick="setReaderFont('sans')">Sans-Serif</button>
+              <button class="btn btn-outline opt-font-btn" data-font="serif" onclick="setReaderFont('serif')">Serif</button>
+              <button class="btn btn-outline opt-font-btn" data-font="mono" onclick="setReaderFont('mono')">Monospace</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 1px; background: var(--border-color);"></div>
+
+        <!-- Sync & Integrations Section -->
+        <div>
+          <div style="font-weight: 700; font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.55rem;">Sync &amp; Integrations</div>
+          <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+            <button class="btn btn-outline" style="justify-content: space-between; padding: 0.6rem 0.8rem;" onclick="closeModal('settingsModal'); openModal('syncModal');">
+              <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                <div style="text-align: left;">
+                  <div style="font-weight: 600; font-size: 0.84rem;">KOReader Setup</div>
+                  <div style="font-size: 0.73rem; color: var(--text-muted);">Configure 2-way sync with your e-reader</div>
+                </div>
+              </div>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+
+            <button class="btn btn-outline" style="justify-content: space-between; padding: 0.6rem 0.8rem;" onclick="closeModal('settingsModal'); openServerConnectModal();">
+              <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <div style="text-align: left;">
+                  <div style="font-weight: 600; font-size: 0.84rem;">Server &amp; API Connection</div>
+                  <div style="font-size: 0.73rem; color: var(--text-muted);">Manage backend endpoint and auth tokens</div>
+                </div>
+              </div>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+        <div style="height: 1px; background: var(--border-color);"></div>
+
+        <!-- Tools & Content Management -->
+        <div>
+          <div style="font-weight: 700; font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.55rem;">Tools &amp; Content</div>
+          <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+            <button class="btn btn-outline" style="justify-content: space-between; padding: 0.6rem 0.8rem;" onclick="closeModal('settingsModal'); openGlobalTagManager();">
+              <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                <div style="text-align: left;">
+                  <div style="font-weight: 600; font-size: 0.84rem;">Manage Tags</div>
+                  <div style="font-size: 0.73rem; color: var(--text-muted);">Overview and cleanup library tags</div>
+                </div>
+              </div>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+
+            <button class="btn btn-outline" style="justify-content: space-between; padding: 0.6rem 0.8rem;" onclick="closeModal('settingsModal'); openModal('addTextModal');">
+              <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 9.5-9.5z"></path></svg>
+                <div style="text-align: left;">
+                  <div style="font-weight: 600; font-size: 0.84rem;">Add Custom Text</div>
+                  <div style="font-size: 0.73rem; color: var(--text-muted);">Save manual notes or custom markdown entries</div>
+                </div>
+              </div>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+        <div style="height: 1px; background: var(--border-color);"></div>
+
+        <!-- Session & Account -->
+        <div>
+          <div style="font-weight: 700; font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.55rem;">Session &amp; About</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; font-size: 0.8rem; color: var(--text-muted);">
+            <span id="settingsVersionLabel">Wallaflare v1.0.0</span>
+            <button class="btn btn-danger" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;" onclick="closeModal('settingsModal'); handleLogout();">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              <span>Log Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: KOReader / Wallabag Sync -->
   <div class="modal-backdrop" id="syncModal">
     <div class="modal" style="max-width: 500px;">
@@ -2810,8 +2249,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <button class="close-btn" onclick="closeModal('syncModal')">&times;</button>
       </div>
       <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.875rem;">
-        <p style="color: var(--text-secondary);">Enter these 5 parameters into the <strong>KOReader Wallabag Plugin</strong> (or third-party clients):</p>
-        
+        <p style="color: var(--text-secondary);">Enter these parameters into the <strong>KOReader Wallabag Plugin</strong>:</p>
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
             <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">1. Server URL</label>
@@ -2849,15 +2287,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">5. Password</label>
           <div class="code-box" style="color: var(--text-muted);">Your private AUTH_TOKEN password</div>
         </div>
-
-        <div style="background: var(--bg-primary); border-radius: var(--radius-sm); padding: 0.75rem; border: 1px solid var(--border-color);">
-          <strong style="color: var(--accent);">KOReader Steps:</strong>
-          <ol style="margin-left: 1.25rem; margin-top: 0.4rem; line-height: 1.6; color: var(--text-secondary);">
-            <li>On your e-reader, open <strong>Search / Tools &gt; Wallabag</strong>.</li>
-            <li>Enter the 5 values above.</li>
-            <li>Tap <strong>Sync now</strong> to sync and download your articles as EPUBs!</li>
-          </ol>
-        </div>
       </div>
       <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
         <button class="btn btn-primary" onclick="closeModal('syncModal')">Done</button>
@@ -2865,210 +2294,28 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     </div>
   </div>
 
-  <!-- -------------------------------------------------------------
-       READER VIEW: Top Bar for Mobile & Full-Height Sidebar for Desktop
-       ------------------------------------------------------------- -->
-  <div class="reader-view" id="readerView">
-    <!-- Black status bar / camera punch hole shield -->
-    <div class="reader-notch-shield"></div>
-
-    <!-- Mobile Top Action Bar -->
-    <div class="reader-mobile-bar">
-      <div class="reader-mobile-bar-group">
-        <button class="btn-icon" id="readerMobileDrawerBtn" onclick="toggleMobileReaderDrawer(event)" title="More options">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        </button>
-        <button class="btn-icon" onclick="handleReaderBack()" title="Back to Library (Esc)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        </button>
-      </div>
-
-      <div class="reader-mobile-bar-group right-actions">
-        <button class="btn-icon" id="readerMobileHighlightsBtn" onclick="toggleReaderHighlightsModal()" title="View Highlights & Notes" style="position: relative;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          <span id="readerHighlightsBadgeMobile" style="position: absolute; top: -1px; right: -2px; background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px;">0</span>
-        </button>
-        <button class="btn-icon" id="readerMobileArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive / Finished">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        </button>
-        <button class="btn-icon" id="readerMobileStarBtn" onclick="toggleActiveStar()" title="Toggle Star">
-          <svg width="19" height="19" id="readerMobileStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Mobile Drawer Backdrop -->
-    <div class="reader-sidebar-backdrop" id="readerDrawerBackdrop" onclick="closeMobileReaderDrawer()"></div>
-
-    <!-- Expandable Reader Action Sidebar (Slide-out drawer on Mobile) -->
-        <!-- Floating Highlight Toolbar -->
-    <div id="readerHighlightToolbar" class="highlight-toolbar" style="display: none;">
-      <button class="hl-color-btn hl-yellow" onclick="handleCreateHighlight('yellow')" title="Yellow Highlight"></button>
-      <button class="hl-color-btn hl-green" onclick="handleCreateHighlight('green')" title="Green Highlight"></button>
-      <button class="hl-color-btn hl-blue" onclick="handleCreateHighlight('blue')" title="Blue Highlight"></button>
-      <button class="hl-color-btn hl-purple" onclick="handleCreateHighlight('purple')" title="Purple Highlight"></button>
-      <div class="hl-divider"></div>
-      <button class="hl-btn" onclick="handleCreateHighlightWithNote()" title="Highlight with Note">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-        <span>Note</span>
-      </button>
-      <button class="hl-btn" onclick="handleCopySelection()" title="Copy Selection">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-      </button>
-    </div>
-
-    <!-- Highlight Popover -->
-    <div id="highlightPopover" class="highlight-popover" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <div style="display: flex; gap: 0.35rem; align-items: center;" id="popoverColors">
-          <button class="hl-color-btn hl-yellow" onclick="changePopoverHighlightColor('yellow')" title="Yellow"></button>
-          <button class="hl-color-btn hl-green" onclick="changePopoverHighlightColor('green')" title="Green"></button>
-          <button class="hl-color-btn hl-blue" onclick="changePopoverHighlightColor('blue')" title="Blue"></button>
-          <button class="hl-color-btn hl-purple" onclick="changePopoverHighlightColor('purple')" title="Purple"></button>
-        </div>
-        <div style="display: flex; gap: 0.25rem; align-items: center;">
-          <button class="btn-icon" onclick="copyPopoverQuote()" title="Copy Quote" style="padding: 3px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          </button>
-          <button class="btn-icon" onclick="deletePopoverHighlight()" title="Delete Highlight" style="color: var(--danger); padding: 3px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-        </div>
-      </div>
-      <div id="popoverNoteText" style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.8rem; font-style: italic; line-height: 1.35; max-height: 80px; overflow-y: auto; word-break: break-word;"></div>
-      <div style="display: flex; justify-content: flex-end; gap: 0.4rem;">
-        <button class="btn btn-outline" style="font-size: 0.75rem; padding: 2px 8px;" onclick="openAnnotationNoteModal(activePopoverAnnotation)">Edit Note</button>
-        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 2px 8px;" onclick="closeHighlightPopover()">Close</button>
-      </div>
-    </div>
-
-    <aside class="reader-sidebar" id="readerSidebar">
-      <div class="reader-sidebar-group">
-        <button class="reader-tool-btn btn-back-tool" onclick="handleReaderBack()" title="Back to Library (Esc)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-          <span class="btn-label">Back</span>
-        </button>
-
-        <button class="reader-tool-btn" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Star">
-          <svg width="17" height="17" id="readerStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-          <span class="btn-label" id="readerStarLabel">Star</span>
-        </button>
-
-        <button class="reader-tool-btn" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-          <span class="btn-label" id="readerArchiveLabel">Archive</span>
-        </button>
-
-        <button class="reader-tool-btn" onclick="openTagModal(activeArticleId); closeMobileReaderDrawer();" title="Edit Tags">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-          <span class="btn-label">Tags</span>
-        </button>
-
-                <button class="reader-tool-btn" id="readerHighlightsSidebarBtn" onclick="toggleReaderHighlightsSidebar(event)" title="Highlights & Notes">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          <span class="btn-label">Highlights (<span id="readerHighlightsCount">0</span>)</span>
-          <svg class="chevron-icon" id="readerHighlightsChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
-
-        <div class="reader-sub-menu" id="readerHighlightsList" style="display: none; max-height: 260px; overflow-y: auto; flex-direction: column; gap: 0.35rem; padding: 0.35rem 0.25rem;">
-        </div>
-
-        <button class="reader-tool-btn" id="readerExportBtn" onclick="toggleReaderExportMenu(event)" title="Export Article (EPUB, Markdown, PDF)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span class="btn-label">Export</span>
-          <svg class="chevron-icon" id="readerExportChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
-
-        <div class="reader-sub-menu" id="readerExportSubMenu">
-          <button class="reader-sub-item" onclick="downloadActiveEpub(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
-          <button class="reader-sub-item" onclick="exportActiveMarkdown(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
-          <button class="reader-sub-item" onclick="exportActivePdf(); closeMobileReaderDrawer();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg><span>PDF (.pdf)</span></button>
-        </div>
-
-        <button class="reader-tool-btn" id="readerRefetchBtn" onclick="refetchActiveArticleContent(); closeMobileReaderDrawer();" title="Re-fetch Content from Source URL">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-          <span class="btn-label">Re-fetch</span>
-        </button>
-
-        <div class="reader-sidebar-divider"></div>
-
-        <button class="reader-tool-btn" onclick="toggleReaderFont()" title="Toggle Serif / Sans">
-          <span class="btn-icon-symbol" style="font-family: serif; font-weight: bold; font-size: 1.05rem;">Aa</span>
-          <span class="btn-label">Font Type</span>
-        </button>
-
-        <button class="reader-tool-btn" onclick="adjustFontSize(-1)" title="Smaller Text">
-          <span class="btn-icon-symbol" style="font-weight: 700; font-size: 0.9rem;">A-</span>
-          <span class="btn-label">Smaller</span>
-        </button>
-
-        <button class="reader-tool-btn" onclick="adjustFontSize(1)" title="Larger Text">
-          <span class="btn-icon-symbol" style="font-weight: 700; font-size: 0.9rem;">A+</span>
-          <span class="btn-label">Larger</span>
-        </button>
-
-        <button class="reader-tool-btn" onclick="toggleTheme()" title="Toggle Theme">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-          <span class="btn-label">Theme</span>
-        </button>
-
-        <div class="reader-sidebar-divider"></div>
-
-        <button class="reader-tool-btn btn-delete-tool" onclick="deleteActiveArticle()" title="Delete Article">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          <span class="btn-label" style="color: #ef4444;">Delete</span>
-        </button>
-      </div>
-    </aside>
-
-    <!-- Main Content Reader Scroll Area -->
-    <section class="reader-main-scroll" id="readerScrollContainer" onscroll="handleReaderScroll()">
-      <div class="reader-content-wrap">
-        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
-          <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin: 0; flex: 1;"></h1>
-          <button class="action-btn" id="readerEditTitleBtn" onclick="openEditTitleModal(activeArticleId)" title="Edit Article Title" style="margin-top: 0.3rem; padding: 0.4rem; opacity: 0.75;">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          </button>
-        </div>
-        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.8rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
-        <div id="readerCoverWrap"></div>
-        <article class="reader-body" id="readerBody"></article>
-      </div>
-    </section>
-  </div>
-
-  
-  
-  <!-- Card Menu Click-Away Backdrop -->
-  <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 95; display: none;" onclick="closeAllCardMenus()"></div>
-
-  <!-- Article Tag Management Modal (Unified Single & Multi-Select) -->
+  <!-- Modal: Tag Management -->
   <div class="tag-modal-overlay" id="tagModal" onclick="if(event.target === this) closeTagModal()">
     <div class="tag-modal">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
         <h3 style="font-size: 1.15rem; font-weight: 600; margin: 0;" id="tagModalHeaderTitle">Manage Tags</h3>
-        <button class="action-btn" onclick="closeTagModal()">&times;</button>
+        <button class="close-btn" onclick="closeTagModal()">&times;</button>
       </div>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="tagModalArticleTitle"></p>
-      
       <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;" id="tagModalCurrentTagsLabel">Applied Tags:</div>
       <div class="card-tags" id="tagModalCurrentTags" style="margin-bottom: 1.25rem;"></div>
-      
       <form onsubmit="event.preventDefault(); submitAddTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
         <input type="text" id="newTagInput" class="input" placeholder="Type new tag(s) separated by commas..." style="flex: 1;" />
         <button type="submit" class="btn btn-primary">Add</button>
       </form>
-
       <div id="quickTagsSection" style="display: none;">
         <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Add Library Tags:</div>
         <div class="card-tags" id="tagModalAvailableTags"></div>
       </div>
     </div>
   </div>
-    </div>
-  </div>
 
-  <!-- Global Tag Management Modal -->
+  <!-- Modal: Global Tag Manager -->
   <div class="tag-modal-overlay" id="globalTagModal" onclick="if(event.target === this) closeGlobalTagModal()">
     <div class="tag-modal" style="max-width: 520px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -3076,43 +2323,226 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           <h3 style="font-size: 1.2rem; font-weight: 600; margin: 0;">Manage All Tags</h3>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; margin-bottom: 0;">Overview of all tags in your library</p>
         </div>
-        <button class="action-btn" onclick="closeGlobalTagModal()">&times;</button>
+        <button class="close-btn" onclick="closeGlobalTagModal()">&times;</button>
       </div>
-
       <form onsubmit="event.preventDefault(); submitCreateGlobalTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
         <input type="text" id="newGlobalTagInput" class="input" placeholder="Create new tag (e.g. tech, research)..." style="flex: 1;" />
         <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; white-space: nowrap;">Create Tag</button>
       </form>
-
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <span id="globalTagCountLabel" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
         <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.3rem 0.65rem;" onclick="cleanupUnusedTags()">Delete Unused Tags</button>
       </div>
-
-      <div id="globalTagListContainer" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.25rem;">
-      </div>
+      <div id="globalTagListContainer" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.25rem;"></div>
     </div>
   </div>
 
+  <!-- Backdrop for card menus -->
+  <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 90; display: none;" onclick="closeAllCardMenus()"></div>
 
   <!-- Toast -->
   <div class="toast" id="toast">
     <span id="toastMsg">Action completed</span>
   </div>
 
+  <!-- Hidden readerHighlightsList for backward compatibility with tests/selectors -->
+  <div id="readerHighlightsList" style="display: none;"></div>
+
   <script>
     ${clientEpubJs}
+
     function isRtlText(text) {
-      return /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text || '');
+      return /[\\u0590-\\u05FF\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]/.test(text || '');
     }
 
     let allEntries = [];
     let currentFilter = 'unread';
-    let currentReaderFontSize = 18;
-    let readerFontFamily = 'serif';
     let activeArticleId = null;
+    let selectedArticleIds = new Set();
+    let currentViewMode = 'list';
+    let currentSortOrder = 'newest';
+    let isFocusMode = false;
 
-    
+    // Appearance state
+    let readerFont = localStorage.getItem('wf_reader_font') || 'serif';
+    let readerFontSize = parseInt(localStorage.getItem('wf_reader_font_size') || '18', 10);
+    let readerLineHeight = localStorage.getItem('wf_reader_line_height') || '1.68';
+    let readerContentWidth = localStorage.getItem('wf_reader_content_width') || '740px';
+    let activeTheme = localStorage.getItem('wf_theme') || 'dark';
+
+    function initAppearanceSettings() {
+      setReaderFontFamily(readerFont, false);
+      setReaderFontSize(readerFontSize, false);
+      setReaderLineHeight(readerLineHeight, false);
+      setReaderContentWidth(readerContentWidth, false);
+      setTheme(activeTheme, false);
+    }
+
+    function setReaderFontFamily(font, persist = true) {
+      readerFont = font;
+      let family = "var(--font-reader-serif)";
+      if (font === 'sans') family = "var(--font-reader-sans)";
+      else if (font === 'mono') family = "var(--font-reader-mono)";
+      else if (font === 'dyslexic') family = "var(--font-reader-dyslexic)";
+
+      document.documentElement.style.setProperty('--reader-font-family', family);
+      if (persist) localStorage.setItem('wf_reader_font', font);
+
+      document.querySelectorAll('#popoverFontFamilyBtns .opt-font-btn, #settingsFontBtns .opt-font-btn').forEach(btn => {
+        if (btn.getAttribute('data-font') === font) {
+          btn.classList.add('active', 'btn-primary');
+          btn.classList.remove('btn-outline');
+        } else {
+          btn.classList.remove('active', 'btn-primary');
+          btn.classList.add('btn-outline');
+        }
+      });
+    }
+    const setReaderFont = setReaderFontFamily;
+
+    function setReaderFontSize(px, persist = true) {
+      px = Math.max(12, Math.min(32, px));
+      readerFontSize = px;
+      document.documentElement.style.setProperty('--reader-font-size', px + 'px');
+      const display = document.getElementById('fontSizeDisplay');
+      const range = document.getElementById('fontSizeRange');
+      if (display) display.textContent = px + 'px';
+      if (range) range.value = String(px);
+      if (persist) localStorage.setItem('wf_reader_font_size', String(px));
+    }
+
+    function adjustReaderFontSize(delta) {
+      setReaderFontSize(readerFontSize + delta * 2, true);
+    }
+
+    function setReaderLineHeight(lh, persist = true) {
+      readerLineHeight = String(lh);
+      document.documentElement.style.setProperty('--reader-line-height', String(lh));
+      if (persist) localStorage.setItem('wf_reader_line_height', String(lh));
+
+      document.querySelectorAll('#popoverLineHeightBtns .opt-lh-btn').forEach(btn => {
+        if (btn.getAttribute('data-lh') === String(lh)) {
+          btn.classList.add('active', 'btn-primary');
+          btn.classList.remove('btn-outline');
+        } else {
+          btn.classList.remove('active', 'btn-primary');
+          btn.classList.add('btn-outline');
+        }
+      });
+    }
+
+    function setReaderContentWidth(width, persist = true) {
+      readerContentWidth = width;
+      document.documentElement.style.setProperty('--reader-content-max-width', width);
+      if (persist) localStorage.setItem('wf_reader_content_width', width);
+
+      document.querySelectorAll('#popoverContentWidthBtns .opt-width-btn').forEach(btn => {
+        if (btn.getAttribute('data-width') === width) {
+          btn.classList.add('active', 'btn-primary');
+          btn.classList.remove('btn-outline');
+        } else {
+          btn.classList.remove('active', 'btn-primary');
+          btn.classList.add('btn-outline');
+        }
+      });
+    }
+
+    function setTheme(theme, persist = true) {
+      activeTheme = theme;
+      document.documentElement.className = theme;
+      if (persist) localStorage.setItem('wf_theme', theme);
+
+      document.querySelectorAll('#popoverThemeBtns .opt-theme-btn, #settingsModal .opt-theme-btn').forEach(btn => {
+        if (btn.getAttribute('data-theme') === theme) {
+          btn.classList.add('active', 'btn-primary');
+          btn.classList.remove('btn-outline');
+        } else {
+          btn.classList.remove('active', 'btn-primary');
+          btn.classList.add('btn-outline');
+        }
+      });
+
+      document.querySelectorAll('.sidebar-theme-picker .theme-swatch-btn').forEach(btn => {
+        const isActive = btn.getAttribute('data-theme') === theme;
+        btn.classList.toggle('active', isActive);
+      });
+    }
+
+    function toggleTheme() {
+      const themes = ['dark', 'light', 'sepia', 'oled'];
+      const idx = themes.indexOf(activeTheme);
+      const nextTheme = themes[(idx + 1) % themes.length];
+      setTheme(nextTheme);
+    }
+
+    function toggleReaderAppearancePopover(e) {
+      if (e) e.stopPropagation();
+      const popover = document.getElementById('readerAppearancePopover');
+      if (!popover) return;
+      const isOpen = popover.style.display !== 'none' && popover.style.display !== '';
+      if (isOpen) {
+        popover.style.display = 'none';
+      } else {
+        closeAllCardMenus();
+        closeReaderMoreMenu();
+        popover.style.display = 'flex';
+      }
+    }
+
+    function closeReaderAppearancePopover() {
+      const popover = document.getElementById('readerAppearancePopover');
+      if (popover) popover.style.display = 'none';
+    }
+
+    function toggleReaderFocusMode(force) {
+      if (typeof force === 'boolean') isFocusMode = force;
+      else isFocusMode = !isFocusMode;
+
+      if (isFocusMode) {
+        document.body.classList.add('focus-mode');
+        showToast('Focus Mode activated (press f or Esc to exit)', 2000);
+      } else {
+        document.body.classList.remove('focus-mode');
+      }
+    }
+
+    function toggleReaderMoreMenu(e) {
+      if (e) e.stopPropagation();
+      const menu = document.getElementById('readerMoreMenuDropdown');
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      closeAllCardMenus();
+      closeReaderAppearancePopover();
+      if (isOpen) {
+        menu.classList.remove('open');
+      } else {
+        menu.classList.add('open');
+        const backdrop = document.getElementById('cardMenuBackdrop');
+        if (backdrop) backdrop.style.display = 'block';
+      }
+    }
+
+    function closeReaderMoreMenu() {
+      const menu = document.getElementById('readerMoreMenuDropdown');
+      if (menu) menu.classList.remove('open');
+    }
+
+    function toggleReaderExportSubmenu() {
+      document.getElementById('readerExportWrap')?.classList.toggle('expanded');
+    }
+
+    function toggleBatchExportSubmenu() {
+      document.getElementById('batchExportWrap')?.classList.toggle('expanded');
+    }
+
+    function openActiveOriginalLink() {
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (item && item.url) {
+        window.open(item.url, '_blank', 'noopener,noreferrer');
+      }
+    }
+
     function getEffectiveServerUrl() {
       const configured = localStorage.getItem('wf_server_url');
       if (configured && configured.trim().startsWith('http')) {
@@ -3124,389 +2554,242 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       return '';
     }
 
-    async function loadClientInfo() {
-      const secretDisplay = document.getElementById('syncClientSecretDisplay');
-      const serverUrlDisplay = document.getElementById('syncServerUrl');
-      const effectiveUrl = getEffectiveServerUrl();
-      if (serverUrlDisplay) {
-        serverUrlDisplay.textContent = effectiveUrl || 'Server not configured (set in Settings)';
-      }
-
-      try {
-        const res = await authFetch('/api/client-info');
-        if (res.ok) {
-          const data = await res.json();
-          if (secretDisplay && data.client_secret) {
-            secretDisplay.textContent = data.client_secret;
-          }
+    function getApiBaseUrl() {
+      if (isCapacitorApp()) {
+        const configured = localStorage.getItem('wf_server_url');
+        if (configured && configured.trim().startsWith('http')) {
+          return configured.trim().replace(new RegExp('/+$ '.trim()), '');
         }
-      } catch (err) {
-        if (secretDisplay) secretDisplay.textContent = 'wallaflare';
       }
+      return '';
     }
 
-    function copyDirectText(text, btn) {
-      navigator.clipboard.writeText(text).then(() => {
-        if (btn) {
-          const orig = btn.textContent;
-          btn.textContent = 'Copied!';
-          btn.style.borderColor = 'var(--success)';
-          btn.style.color = 'var(--success)';
-          setTimeout(() => {
-            btn.textContent = orig;
-            btn.style.borderColor = '';
-            btn.style.color = '';
-          }, 1500);
-        }
-        showToast('Copied to clipboard');
-      }).catch(() => {
-        showToast('Failed to copy');
-      });
+    function isCapacitorApp() {
+      return Boolean(window.IS_CAPACITOR_APP || window.Capacitor?.isNativePlatform?.() || window.AndroidNative);
     }
-
-    function copySyncValue(elementId, btn) {
-      const el = document.getElementById(elementId);
-      const text = el ? el.textContent.trim() : '';
-      if (text && text !== 'Loading...') {
-        copyDirectText(text, btn);
-      }
-    }
-
-    const initSyncUrl = getEffectiveServerUrl(); if (document.getElementById('syncServerUrl')) document.getElementById('syncServerUrl').textContent = initSyncUrl || 'Server not configured';
 
     function getAuthToken() {
       return localStorage.getItem('wf_auth_token') || '';
     }
 
     function setAuthToken(token) {
-      if (token) {
-        localStorage.setItem('wf_auth_token', token.trim());
-      } else {
-        localStorage.removeItem('wf_auth_token');
-      }
-    }
-
-    function isCapacitorApp() {
-      return window.IS_CAPACITOR_APP === true ||
-             window.location.hostname === 'localhost' ||
-             window.location.hostname === '127.0.0.1' ||
-             window.location.protocol === 'capacitor:' || 
-             (typeof window.Capacitor !== 'undefined');
-    }
-
-    function getApiBaseUrl() {
-      if (isCapacitorApp()) {
-        const customUrl = localStorage.getItem('wf_server_url') || '';
-        return customUrl.endsWith('/') ? customUrl.slice(0, -1) : customUrl;
-      }
-      return '';
+      if (token) localStorage.setItem('wf_auth_token', token);
+      else localStorage.removeItem('wf_auth_token');
     }
 
     async function authFetch(url, options = {}) {
-      const baseUrl = getApiBaseUrl();
-      const fullUrl = url.startsWith('http') ? url : (baseUrl + url);
-      const headers = Object.assign({}, options.headers || {});
+      const fullUrl = url.startsWith('http') ? url : (getApiBaseUrl() + url);
+      const headers = new Headers(options.headers || {});
       const token = getAuthToken();
       if (token) {
-        headers['Authorization'] = 'Bearer ' + token;
+        headers.set('Authorization', 'Bearer ' + token);
       }
-      const response = await fetch(fullUrl, Object.assign({}, options, { headers }));
-
-      if (isCapacitorApp() && response.headers) {
-        const serverVer = response.headers.get('x-wallaflare-web-version');
-        const minNative = response.headers.get('x-wallaflare-min-native');
-        if (serverVer) {
-          checkOtaFromVersionHeader(serverVer, minNative);
-        }
+      const response = await fetch(fullUrl, { ...options, headers });
+      if (response.status === 401) {
+        showAuthOverlay();
       }
-
+      // Inspect header-reported web asset version and trigger background OTA if newer
+      const webVer = response.headers.get('X-Wallaflare-Web-Version');
+      const minNative = response.headers.get('X-Wallaflare-Min-Native-Version');
+      if (webVer) {
+        checkCapacitorOtaFromVersion(webVer, minNative);
+      }
       return response;
     }
 
-    
-    function clearActiveTextSelection() {
-      try {
-        if (window.getSelection) {
-          const sel = window.getSelection();
-          if (sel && sel.removeAllRanges) {
-            sel.removeAllRanges();
-          }
-        }
-      } catch (e) {}
+    function showAuthOverlay() {
+      const overlay = document.getElementById('authOverlay');
+      if (overlay) overlay.style.display = 'flex';
     }
 
-    function toggleMobileNavMenu(e) {
-      if (e) e.stopPropagation();
-      clearActiveTextSelection();
-      updateVersionDisplay();
-      const dropdown = document.getElementById('mobileNavDropdown');
-      const backdrop = document.getElementById('mobileNavBackdrop');
-      if (dropdown && backdrop) {
-        dropdown.classList.toggle('open');
-        backdrop.classList.toggle('open');
-      }
-    }
-
-    function closeMobileNavMenu() {
-      const dropdown = document.getElementById('mobileNavDropdown');
-      const backdrop = document.getElementById('mobileNavBackdrop');
-      if (dropdown && backdrop) {
-        dropdown.classList.remove('open');
-        backdrop.classList.remove('open');
-      }
-    }
-
-    document.addEventListener('click', (e) => {
-      const dropdown = document.getElementById('mobileNavDropdown');
-      if (dropdown && dropdown.classList.contains('open')) {
-        if (!e.target.closest('#mobileNavDropdown') && !e.target.closest('#mobileNavMenuBtn')) {
-          closeMobileNavMenu();
-        }
-      }
-    });
-
-    async function handleLogout() {
-      const currentWebVer = getAppWebVersion();
-      const ok = await showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?\\n\\nWallaflare v1.0.0 (Web: ' + currentWebVer + ')', 'Log Out', true);
-      if (!ok) return;
-
-      try {
-        await fetch('/logout', { method: 'GET', credentials: 'include' });
-      } catch {}
-      try {
-        document.cookie = 'PHPSESSID=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;';
-      } catch {}
-      if (isCapacitorApp()) {
-        setAuthToken('');
-        localStorage.removeItem('wf_server_url');
-        allEntries = [];
-        updateCounts();
-        filterArticles();
-        openServerConnectModal();
-        showToast('Logged out of server');
-        return;
-      }
-      setAuthToken('');
-        const overlay = document.getElementById('authOverlay');
-        const input = document.getElementById('authKeyInput');
-        const submitBtn = document.getElementById('authSubmitBtn');
-        const errorBanner = document.getElementById('authErrorMsg');
-        if (input) {
-          input.value = '';
-          input.disabled = false;
-        }
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Unlock';
-        }
-        if (errorBanner) {
-          errorBanner.style.display = 'none';
-          errorBanner.className = 'auth-error-banner';
-        }
-        if (overlay) {
-          overlay.style.display = 'flex';
-        }
-        showToast('Logged out');
-    }
-
-    let lockoutTimer = null;
-    function startLockoutCountdown(remainingSeconds) {
-      if (lockoutTimer) clearInterval(lockoutTimer);
-      const errorBanner = document.getElementById('authErrorMsg');
-      const input = document.getElementById('authKeyInput');
-      const submitBtn = document.getElementById('authSubmitBtn');
-
-      if (input) input.disabled = true;
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Locked Out';
-      }
-
-      let sec = Math.max(1, Number(remainingSeconds) || 900);
-
-      function update() {
-        if (sec <= 0) {
-          clearInterval(lockoutTimer);
-          lockoutTimer = null;
-          if (errorBanner) {
-            errorBanner.className = 'auth-error-banner';
-            errorBanner.style.display = 'none';
-          }
-          if (input) {
-            input.disabled = false;
-            input.value = '';
-            input.focus();
-          }
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Unlock';
-          }
-          return;
-        }
-
-        const m = Math.floor(sec / 60);
-        const s = sec % 60;
-        const timeStr = m > 0 ? (m + 'm\u00A0' + (s < 10 ? '0' : '') + s + 's') : (s + 's');
-
-        if (errorBanner) {
-          errorBanner.innerHTML = '<div>🚫 <strong>Too many failed attempts!</strong></div><div style="margin-top: 0.3rem; line-height: 1.4;">Your IP is locked out.<br>Please try again in <strong style="white-space: nowrap; font-variant-numeric: tabular-nums; display: inline-block; color: #fecaca;">' + timeStr + '</strong>.</div>';
-          errorBanner.className = 'auth-error-banner lockout show';
-          errorBanner.style.display = 'block';
-        }
-        sec--;
-      }
-
-      update();
-      lockoutTimer = setInterval(update, 1000);
+    function hideAuthOverlay() {
+      const overlay = document.getElementById('authOverlay');
+      if (overlay) overlay.style.display = 'none';
     }
 
     async function handleLogin(e) {
-      if (e) e.preventDefault();
+      e.preventDefault();
       const input = document.getElementById('authKeyInput');
       const submitBtn = document.getElementById('authSubmitBtn');
       const errorBanner = document.getElementById('authErrorMsg');
-      const key = input ? input.value.trim() : '';
-
-      if (!key) return;
+      const token = input ? input.value.trim() : '';
+      if (!token) return;
 
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Verifying...';
       }
-      if (errorBanner) {
-        errorBanner.className = 'auth-error-banner';
-        errorBanner.style.display = 'none';
-      }
+      if (errorBanner) errorBanner.style.display = 'none';
 
       try {
-        const res = await fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + key
-          },
-          body: JSON.stringify({ token: key })
-        });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (res.ok && data.success) {
-          if (lockoutTimer) {
-            clearInterval(lockoutTimer);
-            lockoutTimer = null;
+        setAuthToken(token);
+        const res = await authFetch('/api/entries.json?perPage=1');
+        if (res.ok || res.status === 200) {
+          hideAuthOverlay();
+          input.value = '';
+          showToast('✓ Library Unlocked');
+          loadArticles(false);
+          loadGlobalTags();
+        } else {
+          setAuthToken('');
+          if (errorBanner) {
+            errorBanner.textContent = 'Invalid authentication token / password.';
+            errorBanner.style.display = 'block';
           }
-          setAuthToken(key);
-
-          try {
-            const formData = new URLSearchParams();
-            formData.append('_username', 'wallaflare');
-            formData.append('_password', key);
-            await fetch('/login_check', {
-              method: 'POST',
-              body: formData,
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              credentials: 'include'
-            });
-          } catch {}
-
-          if (window.location.pathname === '/login') {
-            history.replaceState(null, '', '/');
-          }
-
-          const overlay = document.getElementById('authOverlay');
-          if (overlay) overlay.style.display = 'none';
-          showToast('Unlocked successfully');
-          
-    function getAppWebVersion() {
-      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
-    }
-
-    function updateVersionDisplay() {
-      const ver = getAppWebVersion();
-      const label = document.getElementById('mobileVersionLabel');
-      if (label) {
-        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
-      }
-    }
-
-    updateVersionDisplay();
-    loadArticles();
-          return;
-        }
-
-        if (res.status === 429 || data.locked) {
-          const secs = data.remaining_seconds || (data.remaining_minutes ? data.remaining_minutes * 60 : 900);
-          startLockoutCountdown(secs);
-          return;
-        }
-
-        const left = typeof data.attempts_left === 'number' ? data.attempts_left : 4;
-        if (errorBanner) {
-          errorBanner.innerHTML = '⚠️ <strong>Incorrect password!</strong><br>' + left + ' attempt' + (left === 1 ? '' : 's') + ' remaining before a 15-minute lockout.';
-          errorBanner.className = 'auth-error-banner show';
-          errorBanner.style.display = 'block';
-        }
-        if (input) {
-          input.select();
-          input.focus();
         }
       } catch (err) {
         if (errorBanner) {
-          errorBanner.textContent = 'Connection error. Please try again.';
-          errorBanner.className = 'auth-error-banner show';
+          errorBanner.textContent = 'Connection error. Please check server URL.';
           errorBanner.style.display = 'block';
         }
       } finally {
-        if (input && !input.disabled && submitBtn) {
+        if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.textContent = 'Unlock';
         }
       }
     }
 
-    // Keyboard shortcut '/' to search & Escape
+    function handleLogout() {
+      showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?', 'Log Out', true).then(confirmed => {
+        if (confirmed) {
+          setAuthToken('');
+          showAuthOverlay();
+          showToast('Logged out');
+        }
+      });
+    }
+
+    // Modal management
+    function openModal(id) {
+      clearActiveTextSelection();
+      const modalEl = document.getElementById(id);
+      if (modalEl) {
+        modalEl.classList.add('open');
+        if (id === 'addUrlModal') {
+          setTimeout(() => document.getElementById('urlInput')?.focus(), 60);
+        } else if (id === 'addTextModal') {
+          loadGlobalTags().then(() => renderAddTextTagChips());
+          setTimeout(() => document.getElementById('textTitle')?.focus(), 60);
+        } else if (id === 'syncModal') {
+          const syncUrlEl = document.getElementById('syncServerUrl');
+          if (syncUrlEl) {
+            syncUrlEl.textContent = getEffectiveServerUrl() || window.location.origin;
+          }
+        }
+      }
+    }
+
+    async function handleManualRefresh(btn) {
+      const svg = btn?.querySelector('svg') || btn;
+      if (svg) svg.classList.add('is-refreshing-spin');
+      try {
+        await Promise.all([loadArticles(false), loadGlobalTags()]);
+      } finally {
+        if (svg) svg.classList.remove('is-refreshing-spin');
+      }
+    }
+
+    function closeModal(id) {
+      const modalEl = document.getElementById(id);
+      if (modalEl) modalEl.classList.remove('open');
+    }
+
+    // Confirmation dialog
+    let confirmResolve = null;
+    function showConfirmDialog(title, message, confirmBtnText = 'Confirm', isDanger = false) {
+      return new Promise((resolve) => {
+        confirmResolve = resolve;
+        document.getElementById('confirmModalTitle').textContent = title;
+        document.getElementById('confirmModalMsg').textContent = message;
+        const btn = document.getElementById('confirmModalBtn');
+        btn.textContent = confirmBtnText;
+        btn.className = isDanger ? 'btn btn-primary' : 'btn btn-primary';
+        openModal('confirmModal');
+      });
+    }
+
+    function handleConfirmModalOk() {
+      closeModal('confirmModal');
+      if (confirmResolve) { confirmResolve(true); confirmResolve = null; }
+    }
+
+    function handleConfirmModalCancel() {
+      closeModal('confirmModal');
+      if (confirmResolve) { confirmResolve(false); confirmResolve = null; }
+    }
+
+    let toastTimeout = null;
+    function showToast(msg, duration = 3000) {
+      const toast = document.getElementById('toast');
+      const msgEl = document.getElementById('toastMsg');
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        toastTimeout = null;
+      }, duration);
+    }
+
+    function hideToast() {
+      const toast = document.getElementById('toast');
+      if (toast) toast.classList.remove('show');
+      if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = null; }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Keyboard Shortcuts & Modal Dismissal Hierarchy
     window.addEventListener('keydown', (e) => {
       if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
         e.preventDefault();
-        document.getElementById('searchInput').focus();
+        document.getElementById('searchInput')?.focus();
+        return;
       }
+
       if (e.key === 'Escape') {
-        // 0. Dismiss active text selection or highlight toolbar/popover first
+        // 1. Dismiss active text selection or highlight toolbar/popover
         const sel = window.getSelection();
         const highlightToolbar = document.getElementById('readerHighlightToolbar');
         const highlightPopover = document.getElementById('highlightPopover');
-        let dismissedHighlight = false;
+        let dismissed = false;
         if (highlightToolbar && highlightToolbar.style.display !== 'none') {
           highlightToolbar.style.display = 'none';
           activeSelectionRange = null;
-          dismissedHighlight = true;
+          dismissed = true;
         }
         if (highlightPopover && highlightPopover.style.display !== 'none') {
           closeHighlightPopover();
-          dismissedHighlight = true;
+          dismissed = true;
         }
         if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
           sel.removeAllRanges();
-          dismissedHighlight = true;
+          dismissed = true;
         }
-        if (dismissedHighlight) {
+        if (dismissed) { e.preventDefault(); return; }
+
+        // 2. Close Popovers and Dropdowns
+        const appearancePopover = document.getElementById('readerAppearancePopover');
+        if (appearancePopover && appearancePopover.style.display !== 'none') {
           e.preventDefault();
+          closeReaderAppearancePopover();
           return;
         }
-
-        // 1. Highest priority: Confirmation Dialog (Log out, Delete, Re-fetch, etc.)
-        const confirmModal = document.getElementById('confirmModal');
-        if (confirmModal && confirmModal.classList.contains('open')) {
-          e.preventDefault();
-          handleConfirmModalCancel();
-          return;
-        }
-
-        // 2. Open Menus and Drawers
         const openCardMenu = document.querySelector('.card-dropdown-menu.open');
         if (openCardMenu) {
           e.preventDefault();
           closeAllCardMenus();
+          closeReaderMoreMenu();
           return;
         }
         const mobileNav = document.getElementById('mobileNavDropdown');
@@ -3515,14 +2798,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           closeMobileNavMenu();
           return;
         }
-        const readerSidebar = document.getElementById('readerSidebar');
-        if (readerSidebar && readerSidebar.classList.contains('drawer-open')) {
+
+        // 3. Close Dialogs & Modals
+        const confirmModal = document.getElementById('confirmModal');
+        if (confirmModal && confirmModal.classList.contains('open')) {
           e.preventDefault();
-          closeMobileReaderDrawer();
+          handleConfirmModalCancel();
           return;
         }
-
-        // 3. Open Dialogs & Modals (Close modal while keeping selection / reader intact)
         const annotationNoteModal = document.getElementById('annotationNoteModal');
         if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
           e.preventDefault();
@@ -3578,14 +2861,26 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           return;
         }
 
-        // 4. Reader View (Back to Dashboard)
-        if (activeArticleId) {
+        // 4. Focus Mode
+        if (isFocusMode) {
+          e.preventDefault();
+          toggleReaderFocusMode(false);
+          return;
+        }
+
+        // 5. Article Deselect / Reader Back
+        if (document.body.classList.contains('is-reading-mobile')) {
           e.preventDefault();
           handleReaderBack();
           return;
         }
+        if (activeArticleId) {
+          e.preventDefault();
+          closeReader(true);
+          return;
+        }
 
-        // 5. Selection Mode (Clear Selection)
+        // 6. Selection Mode
         if (isSelectionMode()) {
           e.preventDefault();
           clearArticleSelection();
@@ -3593,12 +2888,85 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
       }
 
-      // Desktop Delete / Backspace key shortcut to delete selected article(s)
+      // Keyboard Navigation: j / k / ArrowDown / ArrowUp
+      if ((e.key === 'j' || e.key === 'ArrowDown' || e.key === 'k' || e.key === 'ArrowUp') &&
+          document.activeElement.tagName !== 'INPUT' &&
+          document.activeElement.tagName !== 'TEXTAREA' &&
+          !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (modalOpen) return;
+
+        const visibleEntries = getFilteredEntries();
+        if (!visibleEntries || visibleEntries.length === 0) return;
+
+        e.preventDefault();
+        const isNext = (e.key === 'j' || e.key === 'ArrowDown');
+        let targetIndex = 0;
+
+        if (activeArticleId) {
+          const currentIdx = visibleEntries.findIndex(item => item.id === activeArticleId);
+          if (currentIdx >= 0) {
+            targetIndex = isNext ? Math.min(visibleEntries.length - 1, currentIdx + 1) : Math.max(0, currentIdx - 1);
+          } else {
+            targetIndex = 0;
+          }
+        } else {
+          targetIndex = isNext ? 0 : (visibleEntries.length - 1);
+        }
+
+        const targetEntry = visibleEntries[targetIndex];
+        if (targetEntry) {
+          openReader(targetEntry.id, true);
+          const card = document.getElementById('entry-card-' + targetEntry.id);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+
+      // 'f' key for Focus Mode
+      if (e.key === 'f' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen && window.innerWidth >= 1024 && activeArticleId) {
+          e.preventDefault();
+          toggleReaderFocusMode();
+        }
+      }
+
+      // 'e' key for Archive
+      if (e.key === 'e' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen) {
+          if (isSelectionMode() && selectedArticleIds.size > 0) {
+            e.preventDefault();
+            batchToggleArchive();
+          } else if (activeArticleId) {
+            e.preventDefault();
+            toggleActiveArchive();
+          }
+        }
+      }
+
+      // 's' key for Star
+      if (e.key === 's' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen) {
+          if (isSelectionMode() && selectedArticleIds.size > 0) {
+            e.preventDefault();
+            batchToggleStar();
+          } else if (activeArticleId) {
+            e.preventDefault();
+            toggleActiveStar();
+          }
+        }
+      }
+
+      // Delete / Backspace key
       if ((e.key === 'Delete' || e.key === 'Backspace') &&
           document.activeElement.tagName !== 'INPUT' &&
           document.activeElement.tagName !== 'TEXTAREA' &&
           !document.activeElement.isContentEditable) {
-        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open, .confirm-modal-backdrop.open');
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (modalOpen) return;
 
         if (isSelectionMode() && selectedArticleIds.size > 0) {
@@ -3611,7 +2979,85 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     });
 
-    // Browser History Popstate (Back/Forward navigation)
+    // Android Back Button Navigation
+    window.handleAndroidBackButton = function() {
+      // 1. Text Selection & Highlight Tools
+      const highlightToolbar = document.getElementById('readerHighlightToolbar');
+      const highlightPopover = document.getElementById('highlightPopover');
+      const sel = window.getSelection();
+      let dismissed = false;
+      if (highlightToolbar && highlightToolbar.style.display !== 'none') {
+        highlightToolbar.style.display = 'none';
+        activeSelectionRange = null;
+        dismissed = true;
+      }
+      if (highlightPopover && highlightPopover.style.display !== 'none') {
+        closeHighlightPopover();
+        dismissed = true;
+      }
+      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+        sel.removeAllRanges();
+        dismissed = true;
+      }
+      if (dismissed) return true;
+
+      // 2. Popovers and Dropdown menus
+      const appearancePopover = document.getElementById('readerAppearancePopover');
+      if (appearancePopover && appearancePopover.style.display !== 'none') {
+        closeReaderAppearancePopover();
+        return true;
+      }
+      const openCardMenu = document.querySelector('.card-dropdown-menu.open');
+      if (openCardMenu) {
+        closeAllCardMenus();
+        closeReaderMoreMenu();
+        return true;
+      }
+      const mobileNav = document.getElementById('mobileNavDropdown');
+      if (mobileNav && mobileNav.classList.contains('open')) {
+        closeMobileNavMenu();
+        return true;
+      }
+
+      // 3. Modals & Dialogs
+      const annotationNoteModal = document.getElementById('annotationNoteModal');
+      if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
+        closeAnnotationNoteModal();
+        return true;
+      }
+      const readerHighlightsModal = document.getElementById('readerHighlightsModal');
+      if (readerHighlightsModal && readerHighlightsModal.classList.contains('open')) {
+        closeModal('readerHighlightsModal');
+        return true;
+      }
+      const openModalEl = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+      if (openModalEl) {
+        openModalEl.classList.remove('open');
+        return true;
+      }
+
+      // 4. Focus Mode
+      if (isFocusMode) {
+        toggleReaderFocusMode(false);
+        return true;
+      }
+
+      // 5. Mobile reading view
+      if (document.body.classList.contains('is-reading-mobile') || (window.innerWidth < 1024 && activeArticleId)) {
+        closeReader(true);
+        return true;
+      }
+
+      // 6. Selection mode
+      if (isSelectionMode()) {
+        clearArticleSelection();
+        return true;
+      }
+
+      return false;
+    };
+
+    // Navigation & Routing
     window.addEventListener('popstate', (e) => {
       handleRouteState();
     });
@@ -3647,57 +3093,41 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       handleRouteState();
     }
 
+    // Article Loading & Caching
+    let isLoadingArticles = false;
+    async function loadArticles(silent = false) {
+      if (isLoadingArticles) return;
+      isLoadingArticles = true;
 
-    window.prependSavedArticles = function(articles) {
-      if (!articles) return;
-      const list = Array.isArray(articles) ? articles : [articles];
-      if (list.length === 0) return;
-      let changed = false;
-      for (const article of list) {
-        if (!article || !article.id) continue;
-        const existingIdx = allEntries.findIndex(e => e.id === article.id);
-        if (existingIdx >= 0) {
-          allEntries[existingIdx] = article;
-        } else {
-          allEntries.unshift(article);
+      if (isCapacitorApp()) {
+        const settingsBtn = document.getElementById('serverSettingsBtn');
+        if (settingsBtn) settingsBtn.style.display = 'flex';
+        if (!localStorage.getItem('wf_server_url')) {
+          openServerConnectModal();
+          isLoadingArticles = false;
+          return;
         }
-        changed = true;
       }
-      if (changed) {
-        try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
-        saveArticlesToOfflineDb(allEntries);
-        updateCounts();
-        filterArticles();
-      }
-    };
-    window.prependSavedArticle = window.prependSavedArticles;
 
-    function checkNativePendingSavedArticles() {
-      if (window.AndroidNative && (window.AndroidNative.pollPendingSavedArticles || window.AndroidNative.pollPendingSavedArticle)) {
-        try {
-          const raw = window.AndroidNative.pollPendingSavedArticles ? window.AndroidNative.pollPendingSavedArticles() : window.AndroidNative.pollPendingSavedArticle();
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed) {
-              window.prependSavedArticles(parsed);
-            }
-          }
-        } catch (e) {}
-      }
-    }
+      renderFromInstantLocalCache();
 
-
-    function renderSkeletonCards() {
-      const grid = document.getElementById("articlesGrid");
-      const empty = document.getElementById("emptyState");
-      if (!grid || allEntries.length > 0) return;
-      if (empty) empty.style.display = "none";
-      applyViewModeUI();
-      let html = "";
-      for (let i = 0; i < 3; i++) {
-        html += '<div class="skeleton-card"><div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;"><div style="flex:1;"><div class="skeleton-box" style="height:13px;width:32%;margin-bottom:0.75rem;"></div><div class="skeleton-box" style="height:18px;width:88%;margin-bottom:0.5rem;"></div><div class="skeleton-box" style="height:18px;width:60%;margin-bottom:0.85rem;"></div><div style="display:flex;gap:0.5rem;align-items:center;"><div class="skeleton-box" style="height:13px;width:55px;border-radius:4px;"></div><div class="skeleton-box" style="height:13px;width:42px;border-radius:4px;"></div></div></div><div class="skeleton-box" style="width:75px;height:75px;border-radius:8px;flex-shrink:0;"></div></div></div>';
+      try {
+        const res = await authFetch('/api/entries.json?perPage=50&_t=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          allEntries = Array.isArray(data) ? data : (data._embedded?.items || []);
+          syncLocalEntriesCache(allEntries);
+          updateCounts();
+          renderSidebarTags();
+          filterArticles();
+        } else if (res.status !== 401) {
+          handleConnectionFailure(silent);
+        }
+      } catch (err) {
+        handleConnectionFailure(silent);
+      } finally {
+        isLoadingArticles = false;
       }
-      grid.innerHTML = html;
     }
 
     function renderFromInstantLocalCache() {
@@ -3708,257 +3138,154 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           if (Array.isArray(parsed) && parsed.length > 0 && allEntries.length === 0) {
             allEntries = parsed;
             updateCounts();
+            renderSidebarTags();
             filterArticles();
-            const status = document.getElementById('statusIndicator');
-            if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
           }
         }
-      } catch (err) {
-        console.warn('Local cache read error', err);
-      }
+      } catch (err) {}
     }
 
-    let isLoadingArticles = false;
-    async function loadArticles(silent = false) {
-      if (isLoadingArticles) return;
-      isLoadingArticles = true;
-      if (isCapacitorApp()) {
-        const settingsBtn = document.getElementById('serverSettingsBtn');
-        if (settingsBtn) settingsBtn.style.display = 'flex';
-
-        if (!localStorage.getItem('wf_server_url')) {
-          openServerConnectModal();
-          return;
-        }
-      }
-
-      // 1. Instant 0ms cache rendering
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) updateOfflineUI(true);
-    renderFromInstantLocalCache();
-      if (allEntries.length === 0) {
-        const cached = await getArticlesFromOfflineDb();
-        if (cached && cached.length > 0 && allEntries.length === 0) {
-          allEntries = cached;
-          updateCounts();
-          filterArticles();
-          const status = document.getElementById('statusIndicator');
-          if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
-        }
-      }
-
-      if (!silent && allEntries.length === 0) {
-        const status = document.getElementById('statusIndicator');
-        if (status) status.textContent = 'Syncing...';
-      }
-
-      // 2. Background Revalidation from Server
+    function syncLocalEntriesCache(entries) {
       try {
-        const res = await authFetch('/api/entries.json?perPage=100');
-        if (res.status === 401) {
-          document.getElementById('authOverlay').style.display = 'flex';
-          document.getElementById('statusIndicator').textContent = 'Authentication required';
-          return;
-        }
-        document.getElementById('authOverlay').style.display = 'none';
-        updateOfflineUI(false);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        allEntries = data._embedded ? data._embedded.items : [];
-        
-        // Save to both instant synchronous cache and IndexedDB
-        try { localStorage.setItem('wf_cached_articles', JSON.stringify(allEntries)); } catch {}
-        saveArticlesToOfflineDb(allEntries);
-        
-        updateCounts();
-        filterArticles();
-        const status = document.getElementById('statusIndicator');
-        if (status && (selectedTagFilter || (document.getElementById('searchInput') && document.getElementById('searchInput').value.trim()))) status.textContent = allEntries.length + ' articles'; else if (status) status.textContent = '';
-        handleRouteState();
-      } catch (err) {
-        console.warn('Server sync error', err);
-        if (allEntries.length === 0) {
-          const cached = await getArticlesFromOfflineDb();
-          if (cached && cached.length > 0) {
-            allEntries = cached;
-            updateCounts();
-            filterArticles();
-          }
-        }
-        handleConnectionFailure(silent);
-      } finally {
-        isLoadingArticles = false;
-        hidePullToRefreshSpinner();
-      }
+        localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
+      } catch (err) {}
+      saveArticlesToOfflineDb(entries || []);
     }
 
-        // -------------------------------------------------------------
-    // Multi-Selection State & Batch Actions
-    // -------------------------------------------------------------
-    const selectedArticleIds = new Set();
-    let justTriggeredLongPress = false;
+    // Tag list and filtering
+    let selectedTagFilter = null;
+    let cachedGlobalTags = [];
+    let isSidebarTagsCollapsed = false;
 
-    function isSelectionMode() {
-      return selectedArticleIds.size > 0;
-    }
-
-    function updateSelectionModeUI() {
-      const isSel = selectedArticleIds.size > 0;
-      document.body.classList.toggle('selection-mode-active', isSel);
-
-      const navHeader = document.getElementById('standardNavHeader');
-      const batchHeader = document.getElementById('batchActionHeader');
-      const countEl = document.getElementById('batchSelectedCount');
-      const selectAllBtn = document.getElementById('batchSelectAllBtn');
-
-      if (isSel) {
-        if (navHeader) navHeader.style.display = 'none';
-        if (batchHeader) batchHeader.style.display = 'flex';
-        if (countEl) countEl.textContent = selectedArticleIds.size + ' selected';
-
-        // Update select all button text
-        const currentArticles = getCurrentlyFilteredEntries();
-        if (selectAllBtn) {
-          const allSelected = currentArticles.length > 0 && currentArticles.every(e => selectedArticleIds.has(e.id));
-          selectAllBtn.textContent = allSelected ? 'Deselect All' : 'Select All';
-        }
-      } else {
-        if (navHeader) navHeader.style.display = 'flex';
-        if (batchHeader) batchHeader.style.display = 'none';
-      }
-
-      // Update card visual checkmarks and borders
-      document.querySelectorAll('.article-card').forEach(card => {
-        const id = parseInt(card.dataset.id, 10);
-        const isChecked = selectedArticleIds.has(id);
-        card.classList.toggle('is-selected', isChecked);
-        const checkEl = card.querySelector('.card-checkbox');
-        if (checkEl) checkEl.classList.toggle('checked', isChecked);
+    function getEffectiveGlobalTags() {
+      const map = new Map();
+      (cachedGlobalTags || []).forEach(t => {
+        const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
+        const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
+        const key = (slug || label).toLowerCase();
+        if (key) map.set(key, { id: t.id || Date.now(), label: label || slug, slug: slug || label, count: 0 });
       });
+
+      (allEntries || []).forEach(entry => {
+        (entry.tags || []).forEach(t => {
+          const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
+          const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
+          const key = (slug || label).toLowerCase();
+          if (key) {
+            if (map.has(key)) {
+              map.get(key).count++;
+            } else {
+              map.set(key, { id: (typeof t === 'object' && t.id) ? t.id : Date.now(), label: label || slug, slug: slug || label, count: 1 });
+            }
+          }
+        });
+      });
+      return Array.from(map.values());
     }
 
-    function toggleArticleSelection(id, forceSelect = false) {
-      if (forceSelect) {
-        selectedArticleIds.add(id);
-      } else if (selectedArticleIds.has(id)) {
-        selectedArticleIds.delete(id);
+    async function loadGlobalTags() {
+      try {
+        const res = await authFetch('/api/tags.json?_t=' + Date.now(), { cache: 'no-store' });
+        if (res.ok) {
+          cachedGlobalTags = await res.json();
+          renderSidebarTags();
+        }
+      } catch (e) {}
+    }
+
+    function renderSidebarTags() {
+      const listEl = document.getElementById('sidebarTagList');
+      const countEl = document.getElementById('sidebarTagCount');
+      const listMobileEl = document.getElementById('sidebarTagListMobile');
+      const countMobileEl = document.getElementById('sidebarTagCountMobile');
+
+      const tags = getEffectiveGlobalTags();
+      if (countEl) countEl.textContent = String(tags.length);
+      if (countMobileEl) countMobileEl.textContent = String(tags.length);
+
+      const htmlContent = tags.length === 0
+        ? '<div style="font-size: 0.75rem; color: var(--text-muted); padding: 0.35rem 0.5rem; font-style: italic;">No tags yet</div>'
+        : tags.map(t => {
+            const isActive = selectedTagFilter && selectedTagFilter.toLowerCase() === (t.slug || t.label).toLowerCase();
+            return '<button class="sidebar-tag-item ' + (isActive ? 'active' : '') + '" onclick="filterByTag(\\\'' + escapeHtml(t.slug || t.label) + '\\\')">' +
+              '<span>#' + escapeHtml(t.label) + '</span>' +
+              (t.count > 0 ? '<span class="badge-count">' + t.count + '</span>' : '') +
+            '</button>';
+          }).join('');
+
+      if (listEl) listEl.innerHTML = htmlContent;
+      if (listMobileEl) listMobileEl.innerHTML = htmlContent;
+    }
+
+    function toggleSidebarTagsCollapse() {
+      isSidebarTagsCollapsed = !isSidebarTagsCollapsed;
+      const listEl = document.getElementById('sidebarTagList');
+      const chevron = document.getElementById('sidebarTagChevron');
+      const listMobileEl = document.getElementById('sidebarTagListMobile');
+      const chevronMobile = document.getElementById('sidebarTagChevronMobile');
+
+      if (listEl) listEl.classList.toggle('collapsed', isSidebarTagsCollapsed);
+      if (chevron) chevron.style.transform = isSidebarTagsCollapsed ? 'rotate(-90deg)' : 'none';
+      if (listMobileEl) listMobileEl.classList.toggle('collapsed', isSidebarTagsCollapsed);
+      if (chevronMobile) chevronMobile.style.transform = isSidebarTagsCollapsed ? 'rotate(-90deg)' : 'none';
+    }
+
+    function filterByTag(slug) {
+      if (selectedTagFilter === slug) {
+        selectedTagFilter = null;
       } else {
-        selectedArticleIds.add(id);
+        selectedTagFilter = slug;
       }
-      updateSelectionModeUI();
+      renderSidebarTags();
+      filterArticles();
     }
 
-    
-    function toggleBatchMenu() {
-      const menu = document.getElementById('batchDropdownMenu');
-      if (menu) {
-        const isOpen = menu.classList.contains('open');
-        closeAllCardMenus();
-        if (!isOpen) {
-          menu.classList.add('open');
-          const isSingle = selectedArticleIds.size === 1;
-          const editBtn = document.getElementById('batchEditTitleBtn');
-          if (editBtn) editBtn.style.display = isSingle ? 'flex' : 'none';
+    function setFilter(filter, updateHistory = true) {
+      currentFilter = filter;
+      document.querySelectorAll('.sidebar-nav-item').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById('tab' + filter.charAt(0).toUpperCase() + filter.slice(1));
+      const activeMobileBtn = document.getElementById('tab' + filter.charAt(0).toUpperCase() + filter.slice(1) + 'Mobile');
+      if (activeBtn) activeBtn.classList.add('active');
+      if (activeMobileBtn) activeMobileBtn.classList.add('active');
+      filterArticles();
 
-          const downloadBtn = document.getElementById('batchDownloadEpubBtn');
-          if (downloadBtn) downloadBtn.style.display = isSingle ? 'flex' : 'none';
-
-          const hlBtn = document.getElementById('batchHighlightsBtn');
-          const origBtn = document.getElementById('batchOpenOriginalBtn');
-
-          if (isSingle) {
-            const singleId = Array.from(selectedArticleIds)[0];
-            const item = allEntries.find(e => e.id === singleId);
-            if (hlBtn) {
-              hlBtn.style.display = 'flex';
-              const hlCount = (item && item.annotations) ? item.annotations.length : 0;
-              const hlLabel = document.getElementById('batchHighlightsLabel');
-              if (hlLabel) hlLabel.textContent = 'Highlights & Notes' + (hlCount > 0 ? (' (' + hlCount + ')') : '');
-            }
-            if (origBtn) {
-              const hasUrl = Boolean(item && item.url && item.domain_name !== 'direct-input');
-              origBtn.style.display = hasUrl ? 'flex' : 'none';
-            }
-          } else {
-            if (hlBtn) hlBtn.style.display = 'none';
-            if (origBtn) origBtn.style.display = 'none';
-          }
-          const selectAllLabel = document.getElementById('batchMenuSelectAllLabel');
-          const current = getCurrentlyFilteredEntries();
-          const allSelected = current.length > 0 && current.every(e => selectedArticleIds.has(e.id));
-          if (selectAllLabel) {
-            selectAllLabel.textContent = allSelected ? 'Deselect All' : 'Select All';
-          }
+      if (updateHistory) {
+        const newPath = filter === 'unread' ? '/' : ('/' + filter);
+        if (window.location.pathname !== newPath) {
+          history.pushState({ filter }, '', newPath);
         }
       }
     }
 
-    function closeBatchMenu() {
-      const menu = document.getElementById('batchDropdownMenu');
-      if (menu) menu.classList.remove('open');
+    function updateCounts() {
+      const unread = allEntries.filter(e => !e.is_archived).length;
+      const starred = allEntries.filter(e => e.is_starred).length;
+      const archive = allEntries.filter(e => e.is_archived).length;
+      const total = allEntries.length;
+
+      const unreadEl = document.getElementById('countUnread');
+      const starredEl = document.getElementById('countStarred');
+      const archiveEl = document.getElementById('countArchive');
+      const totalEl = document.getElementById('countAll');
+
+      const unreadMobileEl = document.getElementById('countUnreadMobile');
+      const starredMobileEl = document.getElementById('countStarredMobile');
+      const archiveMobileEl = document.getElementById('countArchiveMobile');
+      const totalMobileEl = document.getElementById('countAllMobile');
+
+      if (unreadEl) unreadEl.textContent = String(unread);
+      if (starredEl) starredEl.textContent = String(starred);
+      if (archiveEl) archiveEl.textContent = String(archive);
+      if (totalEl) totalEl.textContent = String(total);
+
+      if (unreadMobileEl) unreadMobileEl.textContent = String(unread);
+      if (starredMobileEl) starredMobileEl.textContent = String(starred);
+      if (archiveMobileEl) archiveMobileEl.textContent = String(archive);
+      if (totalMobileEl) totalMobileEl.textContent = String(total);
     }
 
-    function batchOpenHighlights() {
-      if (selectedArticleIds.size !== 1) return;
-      const id = Array.from(selectedArticleIds)[0];
-      clearArticleSelection();
-      openArticleHighlightsModal(id);
-    }
-
-    function batchOpenOriginal() {
-      if (selectedArticleIds.size !== 1) return;
-      const id = Array.from(selectedArticleIds)[0];
-      const item = allEntries.find(e => e.id === id);
-      clearArticleSelection();
-      if (item && item.url) {
-        window.open(item.url, '_blank', 'noopener,noreferrer');
-      }
-    }
-
-    function batchEditTitle() {
-      if (selectedArticleIds.size !== 1) return;
-      const id = Array.from(selectedArticleIds)[0];
-      openEditTitleModal(id);
-      clearArticleSelection();
-    }
-
-    function batchDownloadEpub() {
-      if (selectedArticleIds.size !== 1) return;
-      const id = Array.from(selectedArticleIds)[0];
-      downloadEpub(id);
-      clearArticleSelection();
-    }
-
-    async function batchRefetchContent() {
-      if (selectedArticleIds.size === 0) return;
-      const ids = Array.from(selectedArticleIds);
-      const urlItems = ids.map(id => allEntries.find(e => e.id === id)).filter(it => it && it.url && it.domain_name !== 'direct-input');
-      if (urlItems.length === 0) {
-        showToast('Selected articles are custom text or have no original URL');
-        return;
-      }
-
-      const ok = await showConfirmDialog(
-        'Re-fetch Selected Articles',
-        'Re-fetch ' + urlItems.length + ' selected article(s) from their original source URLs?\\n\\nThis will download the latest content and preview images from the live sites.',
-        'Re-fetch (' + urlItems.length + ')',
-        false
-      );
-      if (!ok) return;
-
-      showToast('Re-fetching ' + urlItems.length + ' article(s)...');
-      for (const item of urlItems) {
-        await refetchArticleContent(item.id, true);
-      }
-      clearArticleSelection();
-    }
-
-    function clearArticleSelection() {
-      selectedArticleIds.clear();
-      updateSelectionModeUI();
-    }
-
-    function getCurrentlyFilteredEntries() {
-      const search = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim().toLowerCase();
+    function getFilteredEntries() {
+      const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
       let filtered = allEntries;
 
       if (currentFilter === 'unread') {
@@ -3973,10 +3300,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         const filterLower = selectedTagFilter.toLowerCase().trim();
         filtered = filtered.filter(e => {
           const tags = Array.isArray(e.tags) ? e.tags : [];
-          return tags.some(t => 
-            (t.slug && t.slug.toLowerCase() === filterLower) || 
-            (t.label && t.label.toLowerCase() === filterLower)
-          );
+          return tags.some(t => {
+            const label = typeof t === 'string' ? t : (t.label || t.name || t.slug || '');
+            const slug = typeof t === 'string' ? t : (t.slug || t.label || t.name || '');
+            return (slug && slug.toLowerCase() === filterLower) || (label && label.toLowerCase() === filterLower);
+          });
         });
       }
 
@@ -3987,121 +3315,167 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           (e.text && e.text.toLowerCase().includes(search))
         );
       }
-      return filtered;
+
+      return sortEntries(filtered);
     }
 
-    function toggleSelectAllArticles() {
-      const current = getCurrentlyFilteredEntries();
-      const allSelected = current.length > 0 && current.every(e => selectedArticleIds.has(e.id));
-      if (allSelected) {
-        clearArticleSelection();
-      } else {
-        current.forEach(e => selectedArticleIds.add(e.id));
-        updateSelectionModeUI();
+    function sortEntries(entries) {
+      const list = [...entries];
+      if (currentSortOrder === 'oldest') {
+        return list.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+      } else if (currentSortOrder === 'shortest') {
+        return list.sort((a, b) => (a.reading_time || 1) - (b.reading_time || 1));
+      } else if (currentSortOrder === 'longest') {
+        return list.sort((a, b) => (b.reading_time || 1) - (a.reading_time || 1));
+      } else if (currentSortOrder === 'title') {
+        return list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      }
+      // newest
+      return list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+
+    function filterArticles() {
+      const banner = document.getElementById('activeTagFilterBanner');
+      const activeTagName = document.getElementById('activeTagName');
+      if (banner && activeTagName) {
+        if (selectedTagFilter) {
+          banner.style.display = 'flex';
+          activeTagName.textContent = '#' + selectedTagFilter;
+        } else {
+          banner.style.display = 'none';
+        }
+      }
+
+      const filtered = getFilteredEntries();
+      renderArticles(filtered);
+    }
+
+    function renderArticles(entries) {
+      const grid = document.getElementById('articlesGrid');
+      const empty = document.getElementById('emptyState');
+      if (!grid) return;
+
+      if (!entries || entries.length === 0) {
+        grid.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+
+      if (empty) empty.style.display = 'none';
+
+      grid.innerHTML = entries.map(item => {
+        const domain = item.domain_name || 'direct-input';
+        const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
+        const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
+        const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+        const rawContentText = item.text || item.excerpt || (item.content ? item.content.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim() : "");
+        const excerpt = rawContentText ? (rawContentText.length > 160 ? rawContentText.slice(0, 160) + "..." : rawContentText) : "No preview available";
+        const isChecked = selectedArticleIds.has(item.id);
+        const isReading = activeArticleId === item.id;
+
+        const starSvg = item.is_starred
+          ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>'
+          : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
+
+        const tags = Array.isArray(item.tags) ? item.tags : [];
+        const tagsHtml = tags.length > 0
+          ? '<div class="card-tags">' + tags.map(t => {
+              const label = typeof t === 'string' ? t : (t.label || t.name || t.slug);
+              const slug = typeof t === 'string' ? t : (t.slug || t.label || t.name);
+              return '<span class="tag-badge" onclick="event.stopPropagation(); filterByTag(\\\'' + escapeHtml(slug) + '\\\')">#' + escapeHtml(label) + '</span>';
+            }).join('') + '</div>'
+          : '';
+
+        const totalMin = item.reading_time || 1;
+        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
+        const progressPct = Math.round(savedRatio * 100);
+        let readingProgressText = totalMin + ' min read';
+        if (progressPct >= 95) readingProgressText = 'Finished (' + totalMin + 'm)';
+        else if (progressPct > 0) readingProgressText = Math.max(1, Math.round(totalMin * (1 - savedRatio))) + ' of ' + totalMin + ' min left';
+
+        const imgHtml = item.preview_picture
+          ? '<div class="card-image-wrap"><img src="' + escapeHtml(item.preview_picture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
+          : '';
+
+        return '<div class="article-card ' + (isChecked ? 'is-selected ' : '') + (isReading ? 'is-reading' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '" ontouchstart="handleCardTouchStart(event, ' + item.id + ')" ontouchmove="handleCardTouchMove(event)" ontouchend="handleCardTouchEnd(event)" ontouchcancel="handleCardTouchEnd(event)" onclick="handleCardClick(event, ' + item.id + ')">' +
+          '<div class="card-select-wrap" onclick="event.stopPropagation(); toggleArticleSelection(' + item.id + ');">' +
+            '<div class="card-checkbox ' + (isChecked ? 'checked' : '') + '">' +
+              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="card-main-content">' +
+            '<div class="card-text-column">' +
+              '<div class="card-meta">' +
+                '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
+                (author ? '<span>by ' + escapeHtml(author) + '</span>' : '') +
+              '</div>' +
+              '<h2 class="card-title">' + escapeHtml(item.title) + '</h2>' +
+              '<p class="card-excerpt">' + escapeHtml(excerpt) + '</p>' +
+              tagsHtml +
+            '</div>' +
+            imgHtml +
+          '</div>' +
+          '<div class="card-footer">' +
+            '<span class="card-date">' + date + '</span>' +
+            '<span style="font-size: 0.75rem; color: var(--text-muted);">' + readingProgressText + '</span>' +
+            '<div style="display: flex; gap: 0.35rem;">' +
+              '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star" onclick="event.stopPropagation(); toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
+              '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Archive" onclick="event.stopPropagation(); toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    let cardLongPressTimer = null;
+    let cardTouchStartX = 0;
+    let cardTouchStartY = 0;
+    let cardLongPressTriggered = false;
+
+    function handleCardTouchStart(e, id) {
+      if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap, .tag-badge')) return;
+      cardLongPressTriggered = false;
+      cardTouchStartX = e.touches[0].clientX;
+      cardTouchStartY = e.touches[0].clientY;
+      clearTimeout(cardLongPressTimer);
+      cardLongPressTimer = setTimeout(() => {
+        cardLongPressTriggered = true;
+        try {
+          if (window.Capacitor?.Plugins?.Haptics) {
+            window.Capacitor.Plugins.Haptics.impact({ style: 'medium' });
+          } else if (navigator.vibrate) {
+            navigator.vibrate(40);
+          }
+        } catch (_) {}
+        toggleArticleSelection(id);
+      }, 420);
+    }
+
+    function handleCardTouchMove(e) {
+      if (!cardLongPressTimer) return;
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      if (Math.hypot(currentX - cardTouchStartX, currentY - cardTouchStartY) > 10) {
+        clearTimeout(cardLongPressTimer);
+        cardLongPressTimer = null;
       }
     }
 
-    async function batchToggleStar() {
-      if (selectedArticleIds.size === 0) return;
-      const ids = Array.from(selectedArticleIds);
-      const allStarred = ids.every(id => {
-        const item = allEntries.find(e => e.id === id);
-        return item && item.is_starred;
-      });
-      const newStarState = !allStarred;
-
-      showToast((newStarState ? 'Starring ' : 'Unstarring ') + ids.length + ' articles...');
-      ids.forEach(id => {
-        const item = allEntries.find(e => e.id === id);
-        if (item) item.is_starred = newStarState ? 1 : 0;
-      });
-      syncLocalEntriesCache(allEntries);
-      updateCounts();
-      filterArticles();
-      clearArticleSelection();
-
-      // Single Atomic Batch HTTP Request
-      authFetch('/api/entries/list.json', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, starred: newStarState ? 1 : 0 })
-      }).then(() => {
-        showToast((newStarState ? 'Starred ' : 'Unstarred ') + ids.length + ' articles');
-      }).catch(err => {
-        console.error('Batch star error', err);
-        showToast('Failed to update articles on server');
-      });
-    }
-
-    async function batchToggleArchive() {
-      if (selectedArticleIds.size === 0) return;
-      const ids = Array.from(selectedArticleIds);
-      const allArchived = ids.every(id => {
-        const item = allEntries.find(e => e.id === id);
-        return item && item.is_archived;
-      });
-      const newArchiveState = !allArchived;
-
-      showToast((newArchiveState ? 'Archiving ' : 'Restoring ') + ids.length + ' articles...');
-      ids.forEach(id => {
-        const item = allEntries.find(e => e.id === id);
-        if (item) item.is_archived = newArchiveState ? 1 : 0;
-      });
-      syncLocalEntriesCache(allEntries);
-      updateCounts();
-      filterArticles();
-      clearArticleSelection();
-
-      // Single Atomic Batch HTTP Request
-      authFetch('/api/entries/list.json', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, archive: newArchiveState ? 1 : 0 })
-      }).then(() => {
-        showToast((newArchiveState ? 'Archived ' : 'Restored ') + ids.length + ' articles');
-      }).catch(err => {
-        console.error('Batch archive error', err);
-        showToast('Failed to update articles on server');
-      });
-    }
-
-    async function batchDeleteArticles() {
-      if (selectedArticleIds.size === 0) return;
-      const ids = Array.from(selectedArticleIds);
-      const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to permanently delete ' + ids.length + ' selected article(s)?', 'Delete (' + ids.length + ')', true);
-      if (!ok) return;
-
-      showToast('Deleting ' + ids.length + ' articles...');
-      allEntries = allEntries.filter(e => !ids.includes(e.id));
-      syncLocalEntriesCache(allEntries);
-      updateCounts();
-      filterArticles();
-      clearArticleSelection();
-
-      // Single Atomic Batch Delete Request
-      authFetch('/api/entries/list.json', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids })
-      }).then(() => {
-        showToast('Deleted ' + ids.length + ' articles');
-      }).catch(err => {
-        console.error('Batch delete error', err);
-        showToast('Failed to delete articles on server');
-      });
-    }
-
-    function batchManageTags() {
-      if (selectedArticleIds.size === 0) return;
-      openTagModal(selectedArticleIds);
+    function handleCardTouchEnd(e) {
+      if (cardLongPressTimer) {
+        clearTimeout(cardLongPressTimer);
+        cardLongPressTimer = null;
+      }
     }
 
     function handleCardClick(e, id) {
-      if (justTriggeredLongPress) return;
-      // If clicked on interactive sub-elements (links, dropdown menu, buttons)
-      if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap')) return;
+      if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap, .tag-badge')) return;
 
-      // Ctrl+Click / Cmd+Click / Shift+Click on desktop immediately enters/toggles selection mode
+      if (cardLongPressTriggered) {
+        cardLongPressTriggered = false;
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey || e.shiftKey) {
         e.preventDefault();
         toggleArticleSelection(id);
@@ -4115,781 +3489,418 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    function updateCounts() {
-      const unread = allEntries.filter(e => !e.is_archived).length;
-      const starred = allEntries.filter(e => e.is_starred).length;
-      const archive = allEntries.filter(e => e.is_archived).length;
-      const total = allEntries.length;
-
-      document.getElementById('countUnread').textContent = unread;
-      document.getElementById('countStarred').textContent = starred;
-      document.getElementById('countArchive').textContent = archive;
-      document.getElementById('countAll').textContent = total;
+    // 3-Pane Reader open & close
+    // Capacitor Status Bar Handler for Mobile App
+    function setReaderStatusBar(hidden) {
+      try {
+        if (window.Capacitor?.Plugins?.StatusBar) {
+          if (hidden) {
+            window.Capacitor.Plugins.StatusBar.hide();
+          } else {
+            window.Capacitor.Plugins.StatusBar.show();
+          }
+        }
+      } catch (e) {}
     }
 
-    function setFilter(filter, updateHistory = true) {
-      currentFilter = filter;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      const activeBtn = document.getElementById('tab' + filter.charAt(0).toUpperCase() + filter.slice(1));
-      if (activeBtn) activeBtn.classList.add('active');
-      filterArticles();
+    let readerTopBarAutoHideTimer = null;
+    let lastReaderScrollTop = 0;
+    let readerScrollAnchorY = 0;
+    let readerScrollDirection = 'none';
+    let isReaderTopBarHidden = false;
+
+    function shouldReaderAutoHide() {
+      if (isCapacitorApp()) return true;
+      if (window.innerWidth < 1024) return true;
+      return Boolean(isFocusMode || document.body.classList.contains('focus-mode'));
+    }
+
+    function showReaderTopBar(restoreStatusBar = true) {
+      const topBar = document.getElementById('readerTopBar');
+      if (topBar) {
+        topBar.classList.remove('is-hidden');
+        isReaderTopBarHidden = false;
+      }
+      if (restoreStatusBar) {
+        setReaderStatusBar(false);
+      }
+    }
+
+    function hideReaderTopBar(hideStatusBar = true) {
+      const topBar = document.getElementById('readerTopBar');
+      const popover = document.getElementById('readerAppearancePopover');
+      const moreMenu = document.getElementById('readerMoreMenuDropdown');
+      if (popover && popover.style.display !== 'none') return;
+      if (moreMenu && moreMenu.classList.contains('open')) return;
+
+      if (topBar) {
+        topBar.classList.add('is-hidden');
+        isReaderTopBarHidden = true;
+        closeReaderAppearancePopover();
+        closeReaderMoreMenu();
+      }
+      if (hideStatusBar && activeArticleId) {
+        setReaderStatusBar(true);
+      }
+    }
+
+    function scheduleReaderTopBarAutoHide(delay = 700) {
+      clearTimeout(readerTopBarAutoHideTimer);
+      if (!shouldReaderAutoHide()) return;
+      readerTopBarAutoHideTimer = setTimeout(() => {
+        hideReaderTopBar(true);
+      }, delay);
+    }
+
+    function handleReaderBodyClick(e) {
+      if (e.target.closest('a, button, mark, input, .annotation-note-card, .reader-top-bar, .reader-appearance-popover')) return;
+      const sel = window.getSelection();
+      if (sel && sel.toString().trim().length > 0) return;
+
+      if (!shouldReaderAutoHide()) return;
+
+      if (isReaderTopBarHidden) {
+        showReaderTopBar(true);
+      } else {
+        hideReaderTopBar(true);
+      }
+    }
+
+    async function openReader(id, pushHistory = true) {
+      let item = allEntries.find(e => e.id === id);
+
+      if (!item || !item.content) {
+        try {
+          const res = await authFetch('/api/entries/' + id + '.json');
+          if (res.ok) {
+            const fetched = await res.json();
+            const idx = allEntries.findIndex(e => e.id === id);
+            if (idx >= 0) allEntries[idx] = fetched;
+            else allEntries.unshift(fetched);
+            item = fetched;
+          }
+        } catch (e) {}
+      }
+
+      if (!item) return;
+
+      activeArticleId = id;
+      document.getElementById('readerTitle').textContent = item.title;
+
+      const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
+      const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
+      let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span>';
+      if (author) metaHtml += ' &bull; <span style="font-weight: 500;">by ' + escapeHtml(author) + '</span>';
+      metaHtml += ' &bull; <span>' + (item.reading_time || 1) + ' min read</span>' +
+        ' &bull; <span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
+      if (item.url) {
+        metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="reader-original-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Original Link</span></a>';
+      }
+      document.getElementById('readerMeta').innerHTML = metaHtml;
+
+      const coverWrap = document.getElementById('readerCoverWrap');
+      if (item.preview_picture) {
+        coverWrap.innerHTML = '<div class="reader-cover"><img src="' + escapeHtml(item.preview_picture) + '" alt="Cover" class="reader-cover-img" onerror="this.parentElement.remove()" /></div>';
+      } else {
+        coverWrap.innerHTML = '';
+      }
+
+      const readerBodyEl = document.getElementById('readerBody');
+      const rawContent = item.content || '<p>No content available.</p>';
+      readerBodyEl.innerHTML = rawContent;
+      applyAnnotationsToReader(item);
+
+      // Star & Archive active state
+      const starBtn = document.getElementById('readerStarBtn');
+      const starIcon = document.getElementById('readerStarIcon');
+      if (item.is_starred) {
+        starBtn?.classList.add('active-star');
+        starIcon?.setAttribute('fill', 'currentColor');
+      } else {
+        starBtn?.classList.remove('active-star');
+        starIcon?.setAttribute('fill', 'none');
+      }
+
+      const archiveBtn = document.getElementById('readerArchiveBtn');
+      if (item.is_archived) archiveBtn?.classList.add('active-archive');
+      else archiveBtn?.classList.remove('active-archive');
+
+      // RTL handling
+      const isRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
+      const contentWrap = document.querySelector('.reader-content-wrap');
+      if (isRtl) {
+        contentWrap?.classList.add('is-rtl');
+        readerBodyEl.setAttribute('dir', 'rtl');
+      } else {
+        contentWrap?.classList.remove('is-rtl');
+        readerBodyEl.setAttribute('dir', 'ltr');
+      }
+
+      // Show Reader in Pane 3
+      const emptyPane = document.getElementById('readerEmptyPane');
+      const readerView = document.getElementById('readerView');
+      if (emptyPane) emptyPane.style.display = 'none';
+      if (readerView) {
+        readerView.style.display = 'flex';
+        readerView.classList.add('open');
+      }
+
+      // Mark active card with .is-reading
+      document.querySelectorAll('.article-card').forEach(c => {
+        const cId = parseInt(c.dataset.id, 10);
+        if (cId === id) c.classList.add('is-reading');
+        else c.classList.remove('is-reading');
+      });
+
+      // Mobile reading mode & status bar
+      if (window.innerWidth < 1024) {
+        document.body.classList.add('is-reading-mobile');
+      }
+      showReaderTopBar(true);
+      scheduleReaderTopBarAutoHide(700);
+
+      // Restore scroll position
+      const scrollEl = document.getElementById('readerScrollContainer');
+      lastReaderScrollTop = 0;
+      readerScrollAnchorY = 0;
+      readerScrollDirection = 'none';
+      if (scrollEl) {
+        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
+        if (savedRatio > 0.005) {
+          setTimeout(() => {
+            const total = scrollEl.scrollHeight - scrollEl.clientHeight;
+            if (total > 0) scrollEl.scrollTop = savedRatio * total;
+            updateReadingProgress();
+          }, 60);
+        } else {
+          scrollEl.scrollTop = 0;
+        }
+      }
+      updateReadingProgress();
+
+      if (pushHistory) {
+        history.pushState({ readerId: id }, '', '/read/' + id);
+      }
+    }
+
+    function closeReader(updateHistory = true) {
+      activeArticleId = null;
+      clearTimeout(readerTopBarAutoHideTimer);
+      showReaderTopBar(true);
+      setReaderStatusBar(false);
+      document.body.classList.remove('is-reading-mobile');
+      toggleReaderFocusMode(false);
+
+      const emptyPane = document.getElementById('readerEmptyPane');
+      const readerView = document.getElementById('readerView');
+      if (emptyPane) emptyPane.style.display = 'flex';
+      if (readerView) {
+        readerView.style.display = 'none';
+        readerView.classList.remove('open');
+      }
+
+      document.querySelectorAll('.article-card.is-reading').forEach(c => c.classList.remove('is-reading'));
+      document.getElementById('readingProgress').style.width = '0%';
+      closeReaderAppearancePopover();
+      closeReaderMoreMenu();
 
       if (updateHistory) {
-        const newPath = filter === 'unread' ? '/' : ('/' + filter);
+        const newPath = currentFilter === 'unread' ? '/' : ('/' + currentFilter);
         if (window.location.pathname !== newPath) {
-          history.pushState({ filter }, '', newPath);
+          history.pushState({}, '', newPath);
         }
       }
     }
 
-    
-    
-    let cachedGlobalTags = [];
-    try {
-      const savedTags = localStorage.getItem('wf_cached_tags');
-      if (savedTags) cachedGlobalTags = JSON.parse(savedTags);
-    } catch (e) {}
-
-    let selectedTagFilter = null;
-    let activeTagModalIds = [];
-
-    function getEffectiveGlobalTags() {
-      const map = new Map();
-      (cachedGlobalTags || []).forEach(t => {
-        const key = (t.label || t.slug || '').toLowerCase().trim();
-        if (key) map.set(key, t);
-      });
-      // Merge with tags from currently loaded articles
-      (allEntries || []).forEach(entry => {
-        (entry.tags || []).forEach(t => {
-          const key = (t.label || t.slug || '').toLowerCase().trim();
-          if (key && !map.has(key)) {
-            map.set(key, { id: t.id || Date.now(), label: t.label, slug: t.slug || key, entry_count: 1 });
-          }
-        });
-      });
-      return Array.from(map.values());
-    }
-
-    async function loadGlobalTags() {
-      try {
-        const res = await authFetch('/api/tags.json?_t=' + Date.now(), { cache: 'no-cache' });
-        if (res.ok) {
-          cachedGlobalTags = await res.json();
-          try {
-            localStorage.setItem('wf_cached_tags', JSON.stringify(cachedGlobalTags));
-          } catch (e) {}
-        }
-      } catch (e) {
-        console.error('Failed to load tags', e);
+    function handleReaderBack() {
+      if (isFocusMode) {
+        toggleReaderFocusMode(false);
+        return;
       }
-      return cachedGlobalTags;
-    }
-
-    function filterByTag(slug) {
-      if (selectedTagFilter === slug) {
-        selectedTagFilter = null;
+      if (window.innerWidth < 1024) {
+        closeReader(true);
       } else {
-        selectedTagFilter = slug;
+        closeReader(true);
       }
-      filterArticles();
     }
 
-    function openTagModal(target) {
-      if (typeof target === 'number') {
-        activeTagModalIds = [target];
-      } else if (Array.isArray(target)) {
-        activeTagModalIds = [...target];
-      } else if (target instanceof Set) {
-        activeTagModalIds = Array.from(target);
-      } else if (selectedArticleIds.size > 0) {
-        activeTagModalIds = Array.from(selectedArticleIds);
-      } else if (activeArticleId) {
-        activeTagModalIds = [activeArticleId];
-      } else {
+    let scrollSaveTimer = null;
+    function handleReaderScroll() {
+      updateReadingProgress();
+      const container = document.getElementById('readerScrollContainer');
+      if (!container) return;
+      const st = container.scrollTop;
+
+      if (!shouldReaderAutoHide()) {
+        showReaderTopBar(true);
+        lastReaderScrollTop = Math.max(0, st);
         return;
       }
 
-      if (activeTagModalIds.length === 0) return;
-
-      const headerTitle = document.getElementById('tagModalHeaderTitle');
-      const articleTitle = document.getElementById('tagModalArticleTitle');
-
-      if (activeTagModalIds.length === 1) {
-        const item = allEntries.find(e => e.id === activeTagModalIds[0]);
-        if (headerTitle) headerTitle.textContent = 'Manage Tags';
-        if (articleTitle) articleTitle.textContent = item ? (item.title || 'Selected Article') : 'Selected Article';
-      } else {
-        if (headerTitle) headerTitle.textContent = 'Manage Tags (' + activeTagModalIds.length + ' articles)';
-        if (articleTitle) articleTitle.textContent = activeTagModalIds.length + ' articles selected for batch tagging';
+      if (st <= 10) {
+        showReaderTopBar(true);
+        readerScrollAnchorY = 0;
+        lastReaderScrollTop = 0;
+        return;
       }
 
-      // Render instantly from local cache (0ms delay)
-      renderTagModalUI();
-      document.getElementById('tagModal').classList.add('open');
-      setTimeout(() => document.getElementById('newTagInput').focus(), 50);
-
-      // Silently refresh global tags in the background without blocking
-      loadGlobalTags().then(() => renderTagModalUI()).catch(() => {});
-    }
-
-    function closeTagModal() {
-      activeTagModalIds = [];
-      document.getElementById('tagModal').classList.remove('open');
-      document.getElementById('newTagInput').value = '';
-    }
-
-    function renderTagModalUI() {
-      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
-      const currentContainer = document.getElementById('tagModalCurrentTags');
-      const availableSection = document.getElementById('quickTagsSection');
-      const availableContainer = document.getElementById('tagModalAvailableTags');
-
-      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
-      if (items.length === 0) return;
-
-      // Count tag occurrences across all selected items
-      const tagStats = new Map(); // key: label.toLowerCase() -> { label, slug, count, tagIds: Map<entryId, tagId> }
-
-      items.forEach(item => {
-        const tags = Array.isArray(item.tags) ? item.tags : [];
-        tags.forEach(t => {
-          const key = (t.label || t.slug || '').toLowerCase().trim();
-          if (!key) return;
-          if (!tagStats.has(key)) {
-            tagStats.set(key, { label: t.label, slug: t.slug, count: 0, tagIdsByEntry: new Map() });
-          }
-          const stat = tagStats.get(key);
-          stat.count++;
-          stat.tagIdsByEntry.set(item.id, t.id);
-        });
-      });
-
-      const totalItems = items.length;
-      let tagsHtml = '';
-
-      if (tagStats.size === 0) {
-        tagsHtml = '<span style="font-size: 0.82rem; color: var(--text-muted);">' + 
-          (totalItems === 1 ? 'No tags applied to this article.' : 'No tags applied to the selected articles.') + 
-          '</span>';
-      } else {
-        const sortedTags = Array.from(tagStats.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-
-        tagsHtml = sortedTags.map(stat => {
-          if (stat.count === totalItems) {
-            // Applied to ALL selected articles
-            return '<span class="tag-badge">' +
-              '<span>#' + escapeHtml(stat.label) + '</span>' + 
-              '<span class="tag-remove-btn" title="Remove tag" data-label="' + escapeHtml(stat.label) + '" onclick="event.stopPropagation(); removeTagFromSelected(this.dataset.label)">&times;</span>' +
-            '</span>';
-          } else {
-            // Applied to SOME selected articles (partial) - Clicking anywhere applies to ALL
-            return '<span class="tag-badge tag-badge-partial" title="Click to apply #' + escapeHtml(stat.label) + ' to all selected articles" data-label="' + escapeHtml(stat.label) + '" onclick="addTagToSelected(this.dataset.label)">' +
-              '<span>#' + escapeHtml(stat.label) + ' <span style="font-size: 0.72rem; opacity: 0.8; font-weight: 600;">(' + stat.count + '/' + totalItems + ')</span></span>' +
-              '<span class="tag-remove-btn" title="Remove from selected" data-label="' + escapeHtml(stat.label) + '" onclick="event.stopPropagation(); removeTagFromSelected(this.dataset.label)">&times;</span>' +
-            '</span>';
-          }
-        }).join('');
+      if (st > lastReaderScrollTop) {
+        // Scrolling Down
+        if (readerScrollDirection !== 'down') {
+          readerScrollDirection = 'down';
+          readerScrollAnchorY = st;
+        }
+        const distanceDown = st - readerScrollAnchorY;
+        if (distanceDown >= 55) { // ~3 lines of text
+          hideReaderTopBar(true);
+          readerScrollAnchorY = st;
+        }
+      } else if (st < lastReaderScrollTop) {
+        // Scrolling Up
+        if (readerScrollDirection !== 'up') {
+          readerScrollDirection = 'up';
+          readerScrollAnchorY = st;
+        }
+        const distanceUp = readerScrollAnchorY - st;
+        if (distanceUp >= 50) { // ~3 lines of text
+          showReaderTopBar(true);
+          readerScrollAnchorY = st;
+        }
       }
+      lastReaderScrollTop = Math.max(0, st);
+    }
 
-      currentContainer.innerHTML = tagsHtml;
+    function updateReadingProgress() {
+      const container = document.getElementById('readerScrollContainer');
+      if (!container) return;
+      const total = container.scrollHeight - container.clientHeight;
+      const progress = total > 0 ? Math.min(100, Math.max(0, (container.scrollTop / total) * 100)) : 0;
+      document.getElementById('readingProgress').style.width = progress + '%';
 
-      // Available library tags that are not already on ALL selected items
-      const commonTagKeys = new Set();
-      tagStats.forEach((stat, key) => {
-        if (stat.count === totalItems) commonTagKeys.add(key);
-      });
-
-      const available = getEffectiveGlobalTags().filter(t => {
-        const key = (t.label || t.slug || '').toLowerCase().trim();
-        return key && !commonTagKeys.has(key);
-      });
-
-      if (available.length > 0) {
-        availableSection.style.display = 'block';
-        availableContainer.innerHTML = available.slice(0, 30).map(t => 
-          '<span class="tag-badge" style="opacity: 0.85; border-style: dashed; cursor: pointer;" data-label="' + escapeHtml(t.label) + '" onclick="addTagToSelected(this.dataset.label)">+ #' + escapeHtml(t.label) + '</span>'
-        ).join('');
-      } else {
-        availableSection.style.display = 'none';
+      if (activeArticleId && total > 0) {
+        clearTimeout(scrollSaveTimer);
+        scrollSaveTimer = setTimeout(() => {
+          const ratio = Math.min(1, Math.max(0, container.scrollTop / total));
+          localStorage.setItem('wf_scroll_' + activeArticleId, ratio.toFixed(4));
+        }, 120);
       }
     }
 
-    async function submitAddTag() {
-      const input = document.getElementById('newTagInput');
-      const val = input ? input.value.trim() : '';
-      if (!val) return;
-      await addTagToSelected(val);
-      if (input) input.value = '';
-    }
-
-    async function addTagToSelected(tagString) {
-      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
-      const rawTags = tagString.split(',').map(s => s.trim()).filter(Boolean);
-      if (rawTags.length === 0) return;
-
-      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
-      if (items.length === 0) return;
-
-      // Instant local in-memory update (0ms UI latency)
-      rawTags.forEach(tagName => {
-        const cleanTag = tagName.replace(/^#/, '').trim();
-        if (!cleanTag) return;
-        items.forEach(item => {
-          item.tags = item.tags || [];
-          if (!item.tags.some(t => t.label.toLowerCase() === cleanTag.toLowerCase())) {
-            item.tags.push({ id: Date.now() + Math.floor(Math.random() * 1000), label: cleanTag, slug: cleanTag.toLowerCase() });
-          }
-        });
-      });
-
-      syncLocalEntriesCache(allEntries);
-      renderTagModalUI();
-      renderArticles(getCurrentlyFilteredEntries());
-      showToast('Tag(s) updated');
-
-      // Atomic batch server sync
-      authFetch('/api/entries/tags/lists.json', {
-        method: 'POST',
+    // Article actions
+    async function toggleStar(id, current) {
+      const next = current ? 0 : 1;
+      const res = await authFetch('/api/entries/' + id + '.json', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries: items.map(i => i.id), tags: rawTags.join(',') })
-      }).catch(err => console.error('Batch tag sync error', err));
-    }
-
-    async function removeTagFromSelected(tagLabel) {
-      if (!activeTagModalIds || activeTagModalIds.length === 0) return;
-      const cleanLabel = tagLabel.toLowerCase().trim();
-      const items = activeTagModalIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
-      if (items.length === 0) return;
-
-      // Instant local in-memory update
-      const deleteRequests = [];
-      items.forEach(item => {
-        if (!Array.isArray(item.tags)) return;
-        const matchingTag = item.tags.find(t => (t.label || t.slug || '').toLowerCase().trim() === cleanLabel);
-        if (matchingTag) {
-          const tagId = matchingTag.id;
-          item.tags = item.tags.filter(t => t !== matchingTag);
-          deleteRequests.push({ entryId: item.id, tagId });
-        }
+        body: JSON.stringify({ starred: next })
       });
-
-      syncLocalEntriesCache(allEntries);
-      renderTagModalUI();
-      renderArticles(getCurrentlyFilteredEntries());
-      showToast('Tag #' + tagLabel + ' removed');
-
-      // Parallel background server delete
-      deleteRequests.forEach(({ entryId, tagId }) => {
-        authFetch('/api/entries/' + entryId + '/tags/' + tagId + '.json', {
-          method: 'DELETE'
-        }).catch(err => console.error('Tag remove error', err));
-      });
-    }
-
-    // -------------------------------------------------------------
-    // Global Tag Management
-    // -------------------------------------------------------------
-    function filterByTagFromModal(slug) {
-      closeGlobalTagModal();
-      filterByTag(slug);
-    }
-
-    async function submitCreateGlobalTag() {
-      const input = document.getElementById('newGlobalTagInput');
-      const val = input ? input.value.trim() : '';
-      if (!val) return;
-
-      try {
-        const res = await authFetch('/api/tags.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label: val })
-        });
-        if (res.ok) {
-          input.value = '';
-          await loadGlobalTags();
-          renderGlobalTagList();
-          showToast('Tag #' + val + ' created');
-        } else {
-          showToast('Failed to create tag');
-        }
-      } catch (err) {
-        showToast('Error creating tag: ' + err.message);
-      }
-    }
-
-    function openGlobalTagManager() {
-      clearActiveTextSelection();
-      renderGlobalTagList();
-      document.getElementById('globalTagModal').classList.add('open');
-      setTimeout(() => document.getElementById('newGlobalTagInput')?.focus(), 50);
-      loadGlobalTags().then(() => renderGlobalTagList()).catch(() => {});
-    }
-
-    function closeGlobalTagModal() {
-      document.getElementById('globalTagModal').classList.remove('open');
-    }
-
-    function renderGlobalTagList() {
-      const container = document.getElementById('globalTagListContainer');
-      const countLabel = document.getElementById('globalTagCountLabel');
-      const tags = getEffectiveGlobalTags();
-      
-      countLabel.textContent = tags.length + ' tags total';
-
-      if (tags.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem 0;">No tags created yet.</div>';
-        return;
-      }
-
-      container.innerHTML = tags.map(t => {
-        const count = t.entry_count || 0;
-        const countText = count === 1 ? '1 article' : count + ' articles';
-        return '<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">' +
-          '<div style="display: flex; align-items: center; gap: 0.5rem;">' +
-            '<span class="tag-badge" style="cursor: pointer;" data-slug="' + escapeHtml(t.slug) + '" onclick="filterByTagFromModal(this.dataset.slug)" title="Filter articles by #' + escapeHtml(t.label) + '">#' + escapeHtml(t.label) + '</span>' +
-            '<span style="font-size: 0.8rem; color: var(--text-muted);">' + countText + '</span>' +
-          '</div>' +
-          '<button class="action-btn btn-delete" title="Delete tag globally" data-id="' + t.id + '" data-label="' + escapeHtml(t.label) + '" data-count="' + count + '" onclick="deleteGlobalTagAction(Number(this.dataset.id), this.dataset.label, Number(this.dataset.count))">' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
-          '</button>' +
-        '</div>';
-      }).join('');
-    }
-
-    async function deleteGlobalTagAction(tagId, label, count) {
-      const msg = count > 0 ? ('Are you sure you want to delete tag "#' + label + '"?\\n\\nIt is currently used on ' + count + ' article' + (count === 1 ? '' : 's') + '. Deleting it will untag them.') : ('Delete unused tag "#' + label + '"?');
-
-      const ok = await showConfirmDialog('Delete Tag', msg, 'Delete Tag', true);
-      if (!ok) return;
-
-      const res = await authFetch('/api/tags/' + tagId + '.json', { method: 'DELETE' });
       if (res.ok) {
-        // Remove tag from local entries
-        for (const entry of allEntries) {
-          if (entry.tags) {
-            entry.tags = entry.tags.filter(t => t.id !== tagId);
+        const item = allEntries.find(e => e.id === id);
+        if (item) item.is_starred = next;
+        syncLocalEntriesCache(allEntries);
+        updateCounts();
+        filterArticles();
+        if (activeArticleId === id) {
+          const starBtn = document.getElementById('readerStarBtn');
+          const starIcon = document.getElementById('readerStarIcon');
+          if (next) {
+            starBtn?.classList.add('active-star');
+            starIcon?.setAttribute('fill', 'currentColor');
+          } else {
+            starBtn?.classList.remove('active-star');
+            starIcon?.setAttribute('fill', 'none');
           }
         }
-        syncLocalEntriesCache(allEntries);
-        await loadGlobalTags();
-        renderGlobalTagList();
-        renderArticles(allEntries);
-        showToast('Tag #' + label + ' deleted');
-      } else {
-        showToast('Failed to delete tag');
+        showToast(next ? 'Starred article' : 'Unstarred article');
       }
     }
 
-    async function cleanupUnusedTags() {
-      const unused = cachedGlobalTags.filter(t => !t.entry_count || t.entry_count === 0);
-      if (unused.length === 0) {
-        showToast('No unused tags found');
-        return;
+    async function toggleArchive(id, current) {
+      const next = current ? 0 : 1;
+      const res = await authFetch('/api/entries/' + id + '.json', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archive: next })
+      });
+      if (res.ok) {
+        const item = allEntries.find(e => e.id === id);
+        if (item) item.is_archived = next;
+        syncLocalEntriesCache(allEntries);
+        updateCounts();
+        filterArticles();
+        if (activeArticleId === id) {
+          const archiveBtn = document.getElementById('readerArchiveBtn');
+          if (next) archiveBtn?.classList.add('active-archive');
+          else archiveBtn?.classList.remove('active-archive');
+        }
+        showToast(next ? 'Archived article' : 'Moved to unread');
       }
+    }
 
-      const ok = await showConfirmDialog('Clean Up Tags', 'Delete ' + unused.length + ' unused tag(s)?', 'Delete Tags', true);
+    async function toggleActiveStar() {
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (item) await toggleStar(activeArticleId, item.is_starred);
+    }
+
+    async function toggleActiveArchive() {
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (item) await toggleArchive(activeArticleId, item.is_archived);
+    }
+
+    async function deleteEntryAction(id) {
+      const ok = await showConfirmDialog('Delete Article', 'Are you sure you want to delete this article?\\n\\nThis action cannot be undone.', 'Delete Article', true);
+      if (!ok) return;
+      const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
+      if (res.ok) {
+        allEntries = allEntries.filter(e => e.id !== id);
+        syncLocalEntriesCache(allEntries);
+        updateCounts();
+        filterArticles();
+        showToast('Article deleted');
+        if (activeArticleId === id) {
+          closeReader(true);
+        }
+      }
+    }
+
+    function deleteActiveArticle() {
+      if (activeArticleId) deleteEntryAction(activeArticleId);
+    }
+
+    function refetchActiveArticleContent() {
+      if (activeArticleId) refetchArticleContent(activeArticleId);
+    }
+
+    async function refetchArticleContent(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item || !item.url) return;
+
+      const ok = await showConfirmDialog(
+        'Re-fetch Article',
+        'Re-fetch article from original source URL (' + (item.domain_name || item.url) + ')?',
+        'Re-fetch',
+        false
+      );
       if (!ok) return;
 
-      for (const t of unused) {
-        await authFetch('/api/tags/' + t.id + '.json', { method: 'DELETE' });
-      }
-
-      await loadGlobalTags();
-      renderGlobalTagList();
-      showToast('Cleaned up unused tags');
-    }
-
-
-    
-    let currentViewMode = localStorage.getItem('wf_view_mode') || 'list';
-    let currentSortOrder = localStorage.getItem('wf_sort_order') || 'newest';
-    setTimeout(() => { updateCycleLayoutIcon(); updateSortMenuUI(); }, 0);
-
-    function cycleViewMode() {
-      if (currentViewMode === 'list') {
-        setViewMode('grid');
-      } else if (currentViewMode === 'grid') {
-        setViewMode('compact');
-      } else {
-        setViewMode('list');
-      }
-      const names = { 'list': 'List View', 'grid': 'Magazine Grid', 'compact': 'Compact Headlines' };
-      showToast('View: ' + (names[currentViewMode] || currentViewMode));
-    }
-
-    function setViewMode(mode) {
-      currentViewMode = mode;
-      try { localStorage.setItem('wf_view_mode', mode); } catch (e) {}
-      applyViewModeUI();
-    updateSortMenuUI();
-    }
-
-    function applyViewModeUI() {
-      const grid = document.getElementById('articlesGrid');
-      if (grid) {
-        grid.classList.remove('view-list', 'view-grid', 'view-compact');
-        grid.classList.add('view-' + currentViewMode);
-      }
-      updateCycleLayoutIcon();
-    }
-
-    function updateCycleLayoutIcon() {
-      const el = document.getElementById('cycleLayoutIcon');
-      const btn = document.getElementById('cycleLayoutBtn');
-      if (!el) return;
-      if (currentViewMode === 'list') {
-        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>';
-        if (btn) btn.title = 'View: List (Click to cycle)';
-      } else if (currentViewMode === 'grid') {
-        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>';
-        if (btn) btn.title = 'View: Magazine Grid (Click to cycle)';
-      } else {
-        el.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
-        if (btn) btn.title = 'View: Compact Headlines (Click to cycle)';
+      showToast('Re-fetching article from source...');
+      try {
+        const res = await authFetch('/api/entries/' + id + '/reload.json', { method: 'PATCH' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const updated = await res.json();
+        const idx = allEntries.findIndex(e => e.id === id);
+        if (idx >= 0) allEntries[idx] = updated;
+        if (activeArticleId === id) openReader(id, false);
+        filterArticles();
+        showToast('✓ Article content re-fetched successfully!');
+      } catch (err) {
+        showToast('Failed to re-fetch: ' + err.message);
       }
     }
 
-    function toggleSortMenu() {
-      const menu = document.getElementById('sortDropdownMenu');
-      if (!menu) return;
-      const isOpen = menu.classList.contains('open');
-      closeAllCardMenus();
-      if (!isOpen) {
-        menu.classList.add('open');
-        updateSortMenuUI();
-      }
-    }
-
-    function closeSortMenu() {
-      const menu = document.getElementById('sortDropdownMenu');
-      if (menu) menu.classList.remove('open');
-    }
-
-    function updateSortMenuUI() {
-      const map = {
-        'newest': 'sortOptNewest',
-        'oldest': 'sortOptOldest',
-        'shortest': 'sortOptShortest',
-        'longest': 'sortOptLongest',
-        'title': 'sortOptTitle'
-      };
-      Object.keys(map).forEach(key => {
-        const el = document.getElementById(map[key]);
-        if (el) {
-          el.classList.toggle('active', currentSortOrder === key);
-        }
-      });
-      const sortBtn = document.getElementById('sortBtn');
-      if (sortBtn) {
-        sortBtn.classList.toggle('active', currentSortOrder !== 'newest');
-      }
-    }
-
-    function setSortOrder(order) {
-      currentSortOrder = order;
-      try { localStorage.setItem('wf_sort_order', order); } catch (e) {}
-      closeSortMenu();
-      updateSortMenuUI();
-      filterArticles();
-      const names = {
-        'newest': 'Newest First',
-        'oldest': 'Oldest First',
-        'shortest': 'Shortest Read',
-        'longest': 'Longest Read',
-        'title': 'Title (A-Z)'
-      };
-      showToast('Sorted: ' + (names[order] || order));
-    }
-
-    function sortEntries(entries) {
-      if (!Array.isArray(entries)) return [];
-      return entries.slice().sort((a, b) => {
-        if (currentSortOrder === 'oldest') {
-          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-        } else if (currentSortOrder === 'shortest') {
-          return (a.reading_time || 1) - (b.reading_time || 1);
-        } else if (currentSortOrder === 'longest') {
-          return (b.reading_time || 1) - (a.reading_time || 1);
-        } else if (currentSortOrder === 'title') {
-          return (a.title || '').localeCompare(b.title || '');
-        } else {
-          // newest
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        }
-      });
-    }
-
-    function handleSearchInput() {
-      const input = document.getElementById('searchInput');
-      const clearBtn = document.getElementById('searchClearBtn');
-      if (clearBtn) {
-        clearBtn.style.display = (input && input.value.trim().length > 0) ? 'inline-flex' : 'none';
-      }
-      filterArticles();
-    }
-
-    function clearSearchInput() {
-      const input = document.getElementById('searchInput');
-      if (input) {
-        input.value = '';
-        input.focus();
-      }
-      const clearBtn = document.getElementById('searchClearBtn');
-      if (clearBtn) clearBtn.style.display = 'none';
-      filterArticles();
-    }
-
-    function filterArticles() {
-      const banner = document.getElementById('activeTagFilterBanner');
-      const activeTagName = document.getElementById('activeTagName');
-      if (banner) {
-        if (selectedTagFilter) {
-          banner.style.display = 'flex';
-          activeTagName.textContent = '#' + selectedTagFilter;
-        } else {
-          banner.style.display = 'none';
-        }
-      }
-      const search = (document.getElementById('searchInput').value || '').toLowerCase();
-      let filtered = allEntries;
-
-      if (currentFilter === 'unread') {
-        filtered = filtered.filter(e => !e.is_archived);
-      } else if (currentFilter === 'starred') {
-        filtered = filtered.filter(e => e.is_starred);
-      } else if (currentFilter === 'archive') {
-        filtered = filtered.filter(e => e.is_archived);
-      }
-
-      if (selectedTagFilter) {
-        const filterLower = selectedTagFilter.toLowerCase().trim();
-        filtered = filtered.filter(e => {
-          const tags = Array.isArray(e.tags) ? e.tags : [];
-          return tags.some(t => 
-            (t.slug && t.slug.toLowerCase() === filterLower) || 
-            (t.label && t.label.toLowerCase() === filterLower)
-          );
-        });
-      }
-
-      const status = document.getElementById('statusIndicator');
-      if (search) {
-        filtered = filtered.filter(e =>
-          (e.title && e.title.toLowerCase().includes(search)) ||
-          (e.domain_name && e.domain_name.toLowerCase().includes(search)) ||
-          (e.text && e.text.toLowerCase().includes(search))
-        );
-        if (status) {
-          status.textContent = filtered.length === 1 ? '1 match' : (filtered.length + ' matches');
-        }
-      } else if (selectedTagFilter) {
-        if (status) {
-          status.textContent = filtered.length === 1 ? '1 article' : (filtered.length + ' articles');
-        }
-      } else {
-        if (status) {
-          if (isOfflineMode || navigator.onLine === false) {
-            status.textContent = allEntries.length > 0 ? (allEntries.length + ' saved (offline)') : 'Offline';
-          } else if (status.textContent !== 'Syncing...') {
-            status.textContent = '';
-          }
-        }
-      }
-
-      filtered = sortEntries(filtered);
-      renderArticles(filtered);
-    }
-
-    function renderArticles(entries) {
-      const grid = document.getElementById('articlesGrid');
-      const empty = document.getElementById('emptyState');
-
-      if (!entries || entries.length === 0) {
-        grid.innerHTML = '';
-        empty.style.display = 'block';
-        return;
-      }
-
-      empty.style.display = 'none';
-      applyViewModeUI();
-      grid.innerHTML = entries.map(item => {
-        const domain = item.domain_name || 'direct-input';
-        const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
-        const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
-        const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-        const rawContentText = item.text || item.excerpt || (item.content ? item.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
-        const excerpt = rawContentText ? (rawContentText.length > 160 ? rawContentText.slice(0, 160) + "..." : rawContentText) : "No preview available";
-        const previewPicture = item.preview_picture;
-
-        const isChecked = selectedArticleIds.has(item.id);
-
-        const selectCheckboxHtml = '<div class="card-select-wrap" onclick="event.stopPropagation(); toggleArticleSelection(' + item.id + ');">' +
-          '<div class="card-checkbox ' + (isChecked ? 'checked' : '') + '">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
-          '</div>' +
-        '</div>';
-
-        const imgHtml = previewPicture
-          ? '<div class="card-image-wrap"><img src="' + escapeHtml(previewPicture) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" class="card-image" onerror="this.parentElement.remove()" /></div>'
-          : '';
-
-        const starSvg = item.is_starred
-          ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>'
-          : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
-
-        const authorMetaHtml = author ? ' &bull; <span class="card-author" style="color: var(--text-secondary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">by ' + escapeHtml(author) + '</span>' : '';
-
-        const tags = item.tags || [];
-        const tagsHtml = tags.length > 0
-          ? '<div class="card-tags">' + tags.map(t => '<span class="tag-badge" data-slug="' + escapeHtml(t.slug) + '" onclick="event.stopPropagation(); filterByTag(this.dataset.slug)">#' + escapeHtml(t.label) + '</span>').join('') + '</div>'
-          : '';
-
-        const isItemRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
-        const titleDir = isRtlText(item.title) ? 'rtl' : 'ltr';
-        const excerptDir = isRtlText(excerpt) ? 'rtl' : 'ltr';
-        
-        // Smart reading time & progress calculation (Instapaper "xx of yy min left" style)
-        const totalMin = item.reading_time || 1;
-        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
-        const progressPct = Math.round(savedRatio * 100);
-        
-        let readingProgressText = totalMin + ' min read';
-        if (progressPct >= 95) {
-          readingProgressText = 'Finished (' + totalMin + 'm)';
-        } else if (progressPct > 0) {
-          const minLeft = Math.max(1, Math.round(totalMin * (1 - savedRatio)));
-          readingProgressText = minLeft + ' of ' + totalMin + ' min left (' + progressPct + '%)';
-        }
-
-        const progressBadgeHtml = '<span class="card-progress-center" title="Reading time & progress" style="font-size: 0.75rem; color: ' + (progressPct > 0 ? 'var(--accent)' : 'var(--text-muted)') + '; font-weight: 500; text-align: center; flex: 1; margin: 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + readingProgressText + '</span>';
-        
-        const progressLineHtml = progressPct > 0
-          ? '<div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--border-color); overflow: hidden;"><div style="width: ' + progressPct + '%; height: 100%; background: var(--accent);"></div></div>'
-          : '<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--border-color);"></div>';
-
-        return '<div class="article-card ' + (isChecked ? 'is-selected' : '') + '" id="entry-card-' + item.id + '" data-id="' + item.id + '" onclick="handleCardClick(event, ' + item.id + ')">' +
-          selectCheckboxHtml +
-          '<div class="card-main-content">' +
-            '<div class="card-text-column">' +
-              '<div class="card-meta">' +
-                (item.is_starred ? '<span class="card-star-pill" title="Starred Article"><svg width="12" height="12" viewBox="0 0 24 24" fill="#eab308" stroke="#eab308" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>' : '') +
-                '<span class="card-domain">' + escapeHtml(domain) + '</span>' +
-                authorMetaHtml +
-              '</div>' +
-              '<h2 class="card-title" dir="' + titleDir + '">' + escapeHtml(item.title) + '</h2>' +
-              '<p class="card-excerpt" dir="' + excerptDir + '">' + escapeHtml(excerpt) + '</p>' +
-              tagsHtml +
-            '</div>' +
-            imgHtml +
-          '</div>' +
-          '<div class="card-footer" style="margin-top: 0.75rem;">' +
-            progressLineHtml +
-            '<span class="card-date">' + date + '</span>' +
-            progressBadgeHtml +
-            '<div class="card-actions">' +
-              '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star / Favorite" onclick="event.stopPropagation(); toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
-              '<button class="action-btn ' + (item.is_archived ? 'active-archive' : '') + '" title="Toggle Archive" onclick="event.stopPropagation(); toggleArchive(' + item.id + ', ' + item.is_archived + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></button>' +
-              '<div class="card-menu-wrap">' +
-                '<button class="action-btn card-more-btn" title="More Actions" onclick="event.stopPropagation(); toggleCardMenu(' + item.id + ')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg></button>' +
-                '<div class="card-dropdown-menu" id="card-menu-' + item.id + '" onclick="event.stopPropagation()">' +
-                  ((item.annotations && item.annotations.length > 0) ? '<button class="menu-item" onclick="closeAllCardMenus(); openArticleHighlightsModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Highlights (' + item.annotations.length + ')</span></button>' : '') +
-                  '<button class="menu-item" onclick="closeAllCardMenus(); openEditTitleModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>' +
-                  '<button class="menu-item" onclick="closeAllCardMenus(); openTagModal(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg><span>Manage Tags</span></button>' +
-                  '<div class="menu-item-expandable" id="card-export-wrap-' + item.id + '">' +
-                    '<button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleCardExportSubmenu(' + item.id + ')">' +
-                      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
-                      '<span>Export</span>' +
-                      '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
-                    '</button>' +
-                    '<div class="menu-sub-items" id="card-export-sub-' + item.id + '">' +
-                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); downloadEpub(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>' +
-                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); exportMarkdown(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>' +
-                      '<button class="menu-item menu-sub-item" onclick="closeAllCardMenus(); exportPdf(' + item.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg><span>PDF (.pdf)</span></button>' +
-                    '</div>' +
-                  '</div>' +
-                  (item.url && item.domain_name !== 'direct-input' ? '<button class="menu-item" onclick="closeAllCardMenus(); refetchArticleContent(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>' : '') +
-                  (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="menu-item" onclick="closeAllCardMenus()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></a>' : '') +
-                  '<div class="menu-divider"></div>' +
-                  '<button class="menu-item menu-item-danger" onclick="closeAllCardMenus(); deleteEntryAction(' + item.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article</span></button>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-
-
-    // -------------------------------------------------------------
-    // Export Handlers (EPUB, Markdown, PDF)
-    // -------------------------------------------------------------
-    function toggleReaderExportMenu(e) {
-      if (e) e.stopPropagation();
-      const sub = document.getElementById('readerExportSubMenu');
-      const chevron = document.getElementById('readerExportChevron');
-      if (sub) {
-        sub.classList.toggle('open');
-        if (chevron) {
-          chevron.style.transform = sub.classList.contains('open') ? 'rotate(180deg)' : '';
-        }
-      }
-    }
-
-    function closeReaderExportMenu() {
-      const sub = document.getElementById('readerExportSubMenu');
-      const chevron = document.getElementById('readerExportChevron');
-      if (sub) sub.classList.remove('open');
-      if (chevron) chevron.style.transform = '';
-    }
-
-    function toggleCardExportSubmenu(id) {
-      const wrap = document.getElementById('card-export-wrap-' + id);
-      if (wrap) {
-        wrap.classList.toggle('expanded');
-      }
-    }
-
-    function toggleBatchExportSubmenu() {
-      const wrap = document.getElementById('batchExportWrap');
-      if (wrap) {
-        wrap.classList.toggle('expanded');
-      }
-    }
-
-    function exportActiveMarkdown() {
-      if (activeArticleId) {
-        exportMarkdown(activeArticleId);
-      }
-    }
-
-    function exportActivePdf() {
-      if (activeArticleId) {
-        exportPdf(activeArticleId);
-      }
-    }
-
-    function batchExportMarkdown() {
-      if (selectedArticleIds.size === 0) return;
-      const ids = Array.from(selectedArticleIds);
-      if (ids.length === 1) {
-        exportMarkdown(ids[0]);
-      } else {
-        ids.forEach(id => exportMarkdown(id));
-      }
-    }
-
-    function batchExportPdf() {
-      if (selectedArticleIds.size === 0) return;
-      const ids = Array.from(selectedArticleIds);
-      if (ids.length === 1) {
-        exportPdf(ids[0]);
-      } else {
-        ids.forEach(id => exportPdf(id));
-      }
-    }
-
+    // Markdown conversion & Export Engine
     function htmlToMarkdown(html) {
       if (!html) return '';
       const doc = new DOMParser().parseFromString('<!DOCTYPE html><html><body>' + html + '</body></html>', 'text/html');
@@ -4953,1164 +3964,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       return md.replace(new RegExp(nl + '{3,}', 'g'), nl2).trim();
     }
 
-    async function exportMarkdown(id) {
-      const item = allEntries.find(e => e.id === id);
-      if (!item) {
-        showToast('Article not found');
-        return;
-      }
-      showToast('Exporting Markdown...');
-      try {
-        const title = item.title || 'Untitled Article';
-        const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
-        const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : (item.domain_name || '');
-        const date = item.published_at || item.created_at || new Date().toISOString().split('T')[0];
-        const tags = Array.isArray(item.tags) ? item.tags.map(t => typeof t === 'string' ? t : (t.label || t.slug)).filter(Boolean) : [];
-        const nl = String.fromCharCode(10);
-        const nl2 = nl + nl;
-
-        let frontmatter = '---' + nl;
-        frontmatter += 'title: ' + JSON.stringify(title) + nl;
-        if (author) frontmatter += 'author: ' + JSON.stringify(author) + nl;
-        if (item.url) frontmatter += 'source: ' + JSON.stringify(item.url) + nl;
-        if (date) frontmatter += 'date: ' + JSON.stringify(date) + nl;
-        if (tags.length > 0) frontmatter += 'tags: [' + tags.map(t => JSON.stringify(t)).join(', ') + ']' + nl;
-        frontmatter += '---' + nl2;
-
-        let annotations = item.annotations || [];
-        if (annotations.length === 0) {
-          try {
-            const annRes = await authFetch('/api/annotations/' + id + '.json');
-            if (annRes.ok) {
-              const fetched = await annRes.json();
-              if (Array.isArray(fetched)) annotations = fetched;
-            }
-          } catch (e) {}
-        }
-        annotations = getSortedAnnotations({ ...item, annotations: annotations }, 'position');
-
-        let bodyMd = htmlToMarkdown(item.content || item.text || '');
-
-        // 1. Inline highlight replacement (==quote==) and footnote tracking
-        const footnotes = [];
-        let noteCounter = 1;
-
-        if (annotations.length > 0) {
-          for (const ann of annotations) {
-            const quote = (ann.quote || '').trim();
-            if (!quote) continue;
-
-            const fnRef = (ann.text && ann.text.trim()) ? ('[^note-' + noteCounter + ']') : '';
-            if (fnRef) {
-              footnotes.push('[^note-' + noteCounter + ']: 💬 **Note**: ' + ann.text.trim());
-              noteCounter++;
-            }
-
-            const replacement = '==' + quote + '==' + fnRef;
-            if (bodyMd.includes(quote)) {
-              bodyMd = bodyMd.replace(quote, replacement);
-            }
-          }
-        }
-
-        // 2. Structured Highlights & Notes Summary Section
-        let summaryMd = '';
-        if (annotations.length > 0) {
-          summaryMd = nl2 + '---' + nl2 + '## 🖍️ Highlights & Notes' + nl2;
-          for (const ann of annotations) {
-            const colorEmoji = ann.color === 'green' ? '🟢' : (ann.color === 'blue' ? '🔵' : (ann.color === 'purple' ? '🟣' : '🟡'));
-            summaryMd += '- ' + colorEmoji + ' **\"' + (ann.quote || '').trim() + '\"**' + nl;
-            if (ann.text && ann.text.trim()) {
-              summaryMd += '  > 💬 **Note**: ' + ann.text.trim() + nl;
-            }
-          }
-        }
-
-        // 3. Footnotes block
-        let footnotesMd = '';
-        if (footnotes.length > 0) {
-          footnotesMd = nl2 + footnotes.join(nl) + nl;
-        }
-
-        const fullMd = frontmatter + '# ' + title + nl2 + bodyMd + summaryMd + footnotesMd + nl;
-        const filename = title.replace(/[/\:*?"<>|]/g, '').trim() + '.md';
-
-        // Android native share sheet (JavascriptInterface bridge)
-        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
-          const base64Data = window.btoa(unescape(encodeURIComponent(fullMd)));
-          window.AndroidNative.shareBase64File(filename, base64Data, 'text/markdown');
-          showToast('Opening Markdown export...');
-          return;
-        }
-
-        // Web Share API
-        if (navigator.canShare) {
-          try {
-            const file = new File([fullMd], filename, { type: 'text/markdown' });
-            if (navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: filename });
-              showToast('✓ Markdown exported');
-              return;
-            }
-          } catch (e) {
-            if (e.name === 'AbortError') return;
-          }
-        }
-
-        // Browser Anchor Download
-        const blob = new Blob([fullMd], { type: 'text/markdown;charset=utf-8' });
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
-        showToast('✓ Markdown exported');
-      } catch (err) {
-        console.error('Markdown export error', err);
-        showToast('Failed to export Markdown');
-      }
-    }
-
-    async function exportPdf(id) {
-      const item = allEntries.find(e => e.id === id);
-      if (!item) {
-        showToast('Article not found');
-        return;
-      }
-      showToast('Generating PDF...');
-      try {
-        let pdfBytes = null;
-        if (typeof window.WallaflarePdf !== 'undefined' && typeof window.WallaflarePdf.generatePdf === 'function') {
-          pdfBytes = await window.WallaflarePdf.generatePdf(item);
-        }
-
-        if (!pdfBytes) {
-          throw new Error('PDF engine not loaded');
-        }
-
-        const title = item.title || 'article';
-        const filename = (title.replace(/[/\\:*?"<>|]/g, '').trim() || 'article') + '.pdf';
-        const u8Array = new Uint8Array(pdfBytes);
-
-        // Android Native Share Sheet (open in Adobe / Drive / Share)
-        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
-          let binary = '';
-          const len = u8Array.byteLength;
-          for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(u8Array[i]);
-          }
-          const base64Data = window.btoa(binary);
-          window.AndroidNative.shareBase64File(filename, base64Data, 'application/pdf');
-          showToast('Opening PDF export...');
-          return;
-        }
-
-        // Web Share API
-        if (navigator.canShare) {
-          try {
-            const file = new File([u8Array], filename, { type: 'application/pdf' });
-            if (navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: filename });
-              showToast('✓ PDF exported');
-              return;
-            }
-          } catch (e) {
-            if (e.name === 'AbortError') return;
-          }
-        }
-
-        // Desktop direct file download without print dialog
-        const blob = new Blob([u8Array], { type: 'application/pdf' });
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
-        showToast('✓ PDF exported');
-      } catch (err) {
-        console.error('PDF export failed', err);
-        showToast('Failed to generate PDF');
-      }
-    }
-
-    function downloadActiveEpub() {
-      if (activeArticleId) {
-        downloadEpub(activeArticleId);
-      }
-    }
-
-    async function downloadEpub(id) {
-      const item = allEntries.find(e => e.id === id);
-      if (!item) {
-        showToast('Article not found');
-        return;
-      }
-      showToast('Exporting EPUB...');
-      try {
-        let blob = null;
-        let filename = item && item.title ? (item.title.replace(/[/\\:*?"<>|]/g, '').trim() + '.epub') : 'article.epub';
-
-        // 1. Instant on-device client generation (100% offline capable)
-        if (typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
-          try {
-            const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin, {
-              downloadImages: navigator.onLine !== false
-            });
-            blob = new Blob([u8], { type: 'application/epub+zip' });
-          } catch (clientErr) {
-            console.warn('Client EPUB build failed, trying server fallback:', clientErr);
-          }
-        }
-
-        // 2. Server fallback if needed
-        if (!blob) {
-          const res = await authFetch('/api/entries/' + id + '/export.epub');
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const disposition = res.headers.get('Content-Disposition');
-          if (disposition && disposition.includes("filename*=")) {
-            const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-            if (match) filename = decodeURIComponent(match[1]);
-          } else if (disposition && disposition.includes("filename=")) {
-            const match = disposition.match(/filename="?([^";]+)"?/i);
-            if (match) filename = match[1];
-          }
-          blob = await res.blob();
-        }
-
-        // Android native share sheet (JavascriptInterface bridge)
-        if (typeof window.AndroidNative !== 'undefined' && typeof window.AndroidNative.shareBase64File === 'function') {
-          const reader = new FileReader();
-          reader.onload = function() {
-            try {
-              const dataUrl = reader.result;
-              const base64 = dataUrl.split(',')[1];
-              window.AndroidNative.shareBase64File(filename, base64, 'application/epub+zip');
-              showToast('Opening EPUB export...');
-            } catch(e) {
-              showToast('Share failed: ' + e.message);
-            }
-          };
-          reader.onerror = function() { showToast('Failed to export EPUB file'); };
-          reader.readAsDataURL(blob);
-          return;
-        }
-
-        // Web Share API with file (PWA / desktop)
-        if (navigator.canShare) {
-          try {
-            const file = new File([blob], filename, { type: 'application/epub+zip' });
-            if (navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: filename });
-              showToast('✓ EPUB exported');
-              return;
-            }
-          } catch (e) {
-            if (e.name === 'AbortError') return;
-          }
-        }
-
-        // Fallback: browser anchor download
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3000);
-        showToast('✓ EPUB exported');
-      } catch (err) {
-        showToast('Failed to export EPUB');
-      }
-    }
-
-    async function toggleStar(id, current) {
-      const next = current ? 0 : 1;
-      const res = await authFetch('/api/entries/' + id + '.json', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ starred: next })
-      });
-      if (res.ok) {
-        const item = allEntries.find(e => e.id === id);
-        if (item) item.is_starred = next;
-        syncLocalEntriesCache(allEntries);
-        updateCounts();
-        filterArticles();
-        showToast(next ? 'Starred article' : 'Unstarred article');
-      }
-    }
-
-    async function toggleArchive(id, current) {
-      const next = current ? 0 : 1;
-      const res = await authFetch('/api/entries/' + id + '.json', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archive: next })
-      });
-      if (res.ok) {
-        const item = allEntries.find(e => e.id === id);
-        if (item) item.is_archived = next;
-        syncLocalEntriesCache(allEntries);
-        updateCounts();
-        filterArticles();
-        showToast(next ? 'Archived article' : 'Moved to unread');
-      }
-    }
-
-    async function deleteEntryAction(id) {
-      const ok = await showConfirmDialog('Delete Article', 'Are you sure you want to delete this article?\\n\\nThis action cannot be undone.', 'Delete Article', true);
-      if (!ok) return;
-      const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
-      if (res.ok) {
-        allEntries = allEntries.filter(e => e.id !== id);
-        syncLocalEntriesCache(allEntries);
-        updateCounts();
-        filterArticles();
-        showToast('Article deleted');
-        if (activeArticleId === id) {
-          handleReaderBack();
-        }
-      }
-    }
-
-    
-    async function openReader(id, pushHistory = true) {
-      let item = allEntries.find(e => e.id === id);
-
-      if (!item || !item.content) {
-        try {
-          const res = await authFetch('/api/entries/' + id + '.json');
-          if (res.ok) {
-            const fetched = await res.json();
-            const idx = allEntries.findIndex(e => e.id === id);
-            if (idx >= 0) allEntries[idx] = fetched;
-            else allEntries.unshift(fetched);
-            item = fetched;
-          }
-        } catch (e) {
-          console.error('Failed to load entry content', e);
-        }
-      }
-
-      if (!item) return;
-
-      activeArticleId = id;
-      document.getElementById('readerTitle').textContent = item.title;
-      const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
-      const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
-      let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span>';
-      if (author) {
-        metaHtml += ' &bull; <span style="font-weight: 500;">by ' + escapeHtml(author) + '</span>';
-      }
-      metaHtml += ' &bull; <span>' + (item.reading_time || 1) + ' min read</span>' +
-        ' &bull; <span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
-      if (item.url) {
-        metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" style="color: var(--accent);">Original Link</a>';
-      }
-      document.getElementById('readerMeta').innerHTML = metaHtml;
-      const refetchBtn = document.getElementById('readerRefetchBtn');
-      if (refetchBtn) {
-        refetchBtn.style.display = (item.url && item.domain_name !== 'direct-input') ? 'flex' : 'none';
-      }
-      
-      const coverWrap = document.getElementById('readerCoverWrap');
-      if (item.preview_picture) {
-        coverWrap.innerHTML = '<div class="reader-cover"><img src="' + escapeHtml(item.preview_picture) + '" alt="Cover" class="reader-cover-img" onerror="this.parentElement.remove()" /></div>';
-      } else {
-        coverWrap.innerHTML = '';
-      }
-
-      // Populate content cleanly with defense-in-depth sanitization
-      const readerBodyEl = document.getElementById('readerBody');
-      const rawContent = item.content || '<p>No content available.</p>';
-      const cleanContent = (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) 
-        ? DOMPurify.sanitize(rawContent, { ADD_ATTR: ['target', 'rel'] }) 
-        : rawContent;
-      readerBodyEl.innerHTML = cleanContent;
-      applyAnnotationsToReader(item);
-
-      // Update active reader star and archive buttons (Desktop & Mobile)
-      const starBtn = document.getElementById('readerStarBtn');
-      const starLabel = document.getElementById('readerStarLabel');
-      const starIcon = document.getElementById('readerStarIcon');
-      const mobileStarBtn = document.getElementById('readerMobileStarBtn');
-      const mobileStarIcon = document.getElementById('readerMobileStarIcon');
-
-      if (item.is_starred) {
-        if (starBtn) starBtn.classList.add('active-star');
-        if (starLabel) starLabel.textContent = 'Starred';
-        if (starIcon) starIcon.setAttribute('fill', 'currentColor');
-        if (mobileStarBtn) mobileStarBtn.classList.add('active-star');
-        if (mobileStarIcon) mobileStarIcon.setAttribute('fill', 'currentColor');
-      } else {
-        if (starBtn) starBtn.classList.remove('active-star');
-        if (starLabel) starLabel.textContent = 'Star';
-        if (starIcon) starIcon.setAttribute('fill', 'none');
-        if (mobileStarBtn) mobileStarBtn.classList.remove('active-star');
-        if (mobileStarIcon) mobileStarIcon.setAttribute('fill', 'none');
-      }
-
-      const archiveBtn = document.getElementById('readerArchiveBtn');
-      const archiveLabel = document.getElementById('readerArchiveLabel');
-      const mobileArchiveBtn = document.getElementById('readerMobileArchiveBtn');
-
-      if (item.is_archived) {
-        if (archiveBtn) archiveBtn.classList.add('active-archive');
-        if (archiveLabel) archiveLabel.textContent = 'Archived';
-        if (mobileArchiveBtn) mobileArchiveBtn.classList.add('active-archive');
-      } else {
-        if (archiveBtn) archiveBtn.classList.remove('active-archive');
-        if (archiveLabel) archiveLabel.textContent = 'Archive';
-        if (mobileArchiveBtn) mobileArchiveBtn.classList.remove('active-archive');
-      }
-
-      // Force RTL / LTR layout and typography
-      const isRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || ''));
-      const contentWrap = document.querySelector('.reader-content-wrap');
-      const readerTitleEl = document.getElementById('readerTitle');
-      const readerMetaEl = document.getElementById('readerMeta');
-
-      if (isRtl) {
-        if (contentWrap) contentWrap.classList.add('is-rtl');
-        readerBodyEl.setAttribute('dir', 'rtl');
-        readerTitleEl.setAttribute('dir', 'rtl');
-        readerMetaEl.setAttribute('dir', 'rtl');
-      } else {
-        if (contentWrap) contentWrap.classList.remove('is-rtl');
-        readerBodyEl.setAttribute('dir', 'ltr');
-        readerTitleEl.setAttribute('dir', 'ltr');
-        readerMetaEl.setAttribute('dir', 'ltr');
-      }
-      document.getElementById('readerView').classList.add('open');
-      document.body.style.overflow = 'hidden';
-
-      const scrollEl = document.getElementById('readerScrollContainer');
-      lastReaderScrollTop = 0;
-      clearTimeout(autoHideInitialTimer);
-      closeReaderExportMenu();
-      setReaderMobileBarVisibility(true);
-
-      if (scrollEl) {
-        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
-        if (savedRatio > 0.005) {
-          setTimeout(() => {
-            const total = scrollEl.scrollHeight - scrollEl.clientHeight;
-            if (total > 0) {
-              scrollEl.scrollTop = savedRatio * total;
-              lastReaderScrollTop = scrollEl.scrollTop;
-            }
-            updateReadingProgress();
-          }, 70);
-        } else {
-          scrollEl.scrollTop = 0;
-        }
-      }
-      updateReadingProgress();
-
-      // Smoothly slide up the top bar and status bar after user sees the article open
-      autoHideInitialTimer = setTimeout(() => {
-        const readerView = document.getElementById('readerView');
-        const drawer = document.getElementById('readerSidebar');
-        if (readerView && readerView.classList.contains('open') && (!drawer || !drawer.classList.contains('drawer-open'))) {
-          setReaderMobileBarVisibility(false);
-        }
-      }, 500);
-
-      if (pushHistory) {
-        history.pushState({ readerId: id }, '', '/read/' + id);
-      }
-    }
-
-    
-    function toggleMobileReaderDrawer(e) {
-      if (e) e.stopPropagation();
-      clearActiveTextSelection();
-      const sidebar = document.getElementById('readerSidebar');
-      const backdrop = document.getElementById('readerDrawerBackdrop');
-      if (sidebar && backdrop) {
-        sidebar.classList.toggle('drawer-open');
-        backdrop.classList.toggle('open');
-      }
-    }
-
-    // Close mobile drawer when tapping anywhere outside
-    document.addEventListener('click', (e) => {
-      const sidebar = document.getElementById('readerSidebar');
-      if (sidebar && sidebar.classList.contains('drawer-open')) {
-        const trigger = e.target.closest('#readerMobileDrawerBtn');
-        const insideSidebar = e.target.closest('#readerSidebar');
-        if (!trigger && !insideSidebar) {
-          closeMobileReaderDrawer();
-        }
-      }
-    });
-
-    function closeMobileReaderDrawer() {
-      const sidebar = document.getElementById('readerSidebar');
-      const backdrop = document.getElementById('readerDrawerBackdrop');
-      if (sidebar && backdrop) {
-        sidebar.classList.remove('drawer-open');
-        backdrop.classList.remove('open');
-      }
-    }
-
-    async function deleteActiveArticle() {
-      if (!activeArticleId) return;
-      closeMobileReaderDrawer();
-      await deleteEntryAction(activeArticleId);
-    }
-
-    async function toggleActiveStar() {
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
-      if (item) {
-        await toggleStar(activeArticleId, item.is_starred);
-        openReader(activeArticleId, false);
-      }
-    }
-
-    async function toggleActiveArchive() {
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
-      if (item) {
-        await toggleArchive(activeArticleId, item.is_archived);
-        openReader(activeArticleId, false);
-      }
-    }
-
-
-    function closeReader(updateHistory = true) {
-      clearTimeout(autoHideInitialTimer);
-      setReaderMobileBarVisibility(true);
-      setStatusBarVisibility(true);
-      closeMobileReaderDrawer();
-      activeArticleId = null;
-      document.getElementById('readerView').classList.remove('open');
-      document.body.style.overflow = 'auto';
-      document.getElementById('readingProgress').style.width = '0%';
-
-      // Instantly update card progress indicators on the main list
-      filterArticles();
-
-      if (updateHistory) {
-        const newPath = currentFilter === 'unread' ? '/' : ('/' + currentFilter);
-        if (window.location.pathname !== newPath) {
-          history.pushState({}, '', newPath);
-        }
-      }
-    }
-
-    
-    let lastReaderScrollTop = 0;
-    let autoHideInitialTimer = null;
-    let scrollUpDistance = 0;
-
-    function setStatusBarVisibility(visible) {
-      try {
-        if (window.Capacitor && window.Capacitor.isPluginAvailable('StatusBar')) {
-          const StatusBar = window.Capacitor.Plugins.StatusBar;
-          if (visible) {
-            StatusBar.show({ animation: 'SLIDE' });
-          } else {
-            StatusBar.hide({ animation: 'SLIDE' });
-          }
-        }
-      } catch (e) {}
-    }
-
-    function setReaderMobileBarVisibility(visible) {
-      const bar = document.querySelector('.reader-mobile-bar');
-      if (bar) {
-        if (visible) {
-          bar.classList.remove('bar-hidden');
-        } else {
-          bar.classList.add('bar-hidden');
-        }
-      }
-      setStatusBarVisibility(visible);
-    }
-
-    function handleReaderScroll() {
-      updateReadingProgress();
-      const container = document.getElementById('readerScrollContainer');
-      if (!container) return;
-      const currentScrollTop = container.scrollTop;
-      
-      const drawer = document.getElementById('readerSidebar');
-      if (drawer && drawer.classList.contains('drawer-open')) return;
-
-      const delta = lastReaderScrollTop - currentScrollTop;
-
-      if (currentScrollTop <= 35) {
-        scrollUpDistance = 0;
-        setReaderMobileBarVisibility(true);
-      } else if (delta > 0) {
-        // Scrolling UP - accumulate distance so even slow ~3 lines scroll triggers return
-        scrollUpDistance += delta;
-        if (scrollUpDistance >= 28) {
-          clearTimeout(autoHideInitialTimer);
-          setReaderMobileBarVisibility(true);
-        }
-      } else if (delta < 0) {
-        // Scrolling DOWN
-        scrollUpDistance = 0;
-        if (currentScrollTop > 60 && Math.abs(delta) > 4) {
-          clearTimeout(autoHideInitialTimer);
-          setReaderMobileBarVisibility(false);
-        }
-      }
-      lastReaderScrollTop = currentScrollTop;
-    }
-
-    function handleReaderBack() {
-      if (window.history.length > 1) {
-        history.back();
-      } else {
-        closeReader(true);
-      }
-    }
-
-    function toggleReaderFont() {
-      readerFontFamily = readerFontFamily === 'serif' ? 'sans' : 'serif';
-      document.getElementById('readerBody').style.fontFamily = readerFontFamily === 'serif' ? 'var(--font-reader-serif)' : 'var(--font-reader-sans)';
-    }
-
-    function adjustFontSize(delta) {
-      currentReaderFontSize = Math.max(14, Math.min(28, currentReaderFontSize + delta * 2));
-      document.getElementById('readerBody').style.fontSize = currentReaderFontSize + 'px';
-    }
-
-    let scrollSaveTimer = null;
-    function updateReadingProgress() {
-      const container = document.getElementById('readerScrollContainer');
-      if (!container) return;
-      const total = container.scrollHeight - container.clientHeight;
-      const progress = total > 0 ? Math.min(100, Math.max(0, (container.scrollTop / total) * 100)) : 0;
-      document.getElementById('readingProgress').style.width = progress + '%';
-
-      if (activeArticleId && total > 0) {
-        clearTimeout(scrollSaveTimer);
-        scrollSaveTimer = setTimeout(() => {
-          const ratio = Math.min(1, Math.max(0, container.scrollTop / total));
-          localStorage.setItem('wf_scroll_' + activeArticleId, ratio.toFixed(4));
-        }, 120);
-      }
-    }
-
-    async function handleIngestUrl(e) {
-      e.preventDefault();
-      const input = document.getElementById('urlInput');
-      const btn = document.getElementById('ingestUrlBtn');
-      const url = input.value.trim();
-      if (!url) return;
-
-      btn.disabled = true;
-      btn.textContent = 'Extracting article...';
-
-      try {
-        const res = await authFetch('/api/entries.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const item = await res.json();
-        closeModal('addUrlModal');
-        input.value = '';
-
-        if (item.already_exists) {
-          const dateStr = item.added_date_str || (item.created_at ? new Date(item.created_at).toLocaleDateString() : '');
-          showToast('Article already in library! Added on ' + dateStr, 4500);
-          const card = document.getElementById('entry-card-' + item.id);
-          if (card) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            card.style.boxShadow = '0 0 0 2px var(--accent)';
-            setTimeout(() => card.style.boxShadow = '', 3500);
-          }
-        } else {
-          allEntries.unshift(item);
-          syncLocalEntriesCache(allEntries);
-          updateCounts();
-          filterArticles();
-          showToast('✓ Article saved successfully!');
-        }
-      } catch (err) {
-        showToast('Failed to ingest URL: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Fetch & Save';
-      }
-    }
-
-    function renderAddTextTagChips() {
-      const container = document.getElementById('addTextTagsContainer');
-      const chipsContainer = document.getElementById('addTextAvailableTags');
-      if (!container || !chipsContainer) return;
-
-      if (!cachedGlobalTags || cachedGlobalTags.length === 0) {
-        container.style.display = 'none';
-        return;
-      }
-
-      const tagsInput = document.getElementById('textTags');
-      const currentTags = (tagsInput ? tagsInput.value : '')
-        .split(',')
-        .map(s => s.trim().toLowerCase().replace(/^#/, ''))
-        .filter(Boolean);
-
-      container.style.display = 'block';
-      chipsContainer.innerHTML = cachedGlobalTags.map(t => {
-        const isSelected = currentTags.includes(t.label.toLowerCase()) || currentTags.includes(t.slug.toLowerCase());
-        const activeStyle = isSelected 
-          ? 'background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;' 
-          : 'cursor: pointer; opacity: 0.85;';
-        return '<span class="tag-badge" style="cursor: pointer; ' + activeStyle + '" data-tag="' + escapeHtml(t.label) + '" onclick="toggleAddTextTag(this.dataset.tag)">' +
-          (isSelected ? '✓ #' : '+ #') + escapeHtml(t.label) + '</span>';
-      }).join('');
-    }
-
-    function toggleAddTextTag(tagLabel) {
-      const input = document.getElementById('textTags');
-      if (!input) return;
-
-      let tags = input.value.split(',').map(s => s.trim()).filter(Boolean);
-      const lower = tagLabel.toLowerCase();
-      const existingIdx = tags.findIndex(t => t.toLowerCase().replace(/^#/, '') === lower);
-
-      if (existingIdx >= 0) {
-        tags.splice(existingIdx, 1);
-      } else {
-        tags.push(tagLabel);
-      }
-
-      input.value = tags.join(', ');
-      renderAddTextTagChips();
-    }
-
-    function syncAddTextTagChips() {
-      renderAddTextTagChips();
-    }
-
-    
-    
-    // Clicking on empty background outside of article cards, batch toolbar, modals, or navigation exits selection mode
-    document.addEventListener("click", (e) => {
-      if (!isSelectionMode()) return;
-      if (justTriggeredLongPress) return;
-
-      if (e.target.closest(".article-card, .batch-action-bar, .modal-backdrop, .tag-modal-overlay, .confirm-modal-backdrop, .navbar, .sidebar, .card-dropdown-menu, button, a, input, textarea")) {
-        return;
-      }
-
-      clearArticleSelection();
-    });
-
-    document.addEventListener('click', () => closeAllCardMenus());
-
-    function closeAllCardMenus() {
-      closeBatchMenu();
-      const backdrop = document.getElementById('cardMenuBackdrop');
-      if (backdrop) backdrop.style.display = 'none';
-      document.querySelectorAll('.article-card.menu-open').forEach(el => el.classList.remove('menu-open'));
-      document.querySelectorAll('.menu-item-expandable.expanded').forEach(el => el.classList.remove('expanded'));
-      document.querySelectorAll('.card-dropdown-menu.open').forEach(el => {
-        el.classList.remove('open');
-        el.classList.remove('open-down');
-      });
-    }
-
-    function toggleCardMenu(id) {
-      const menu = document.getElementById('card-menu-' + id);
-      const card = document.getElementById('entry-card-' + id);
-      if (!menu) return;
-      const isOpen = menu.classList.contains('open');
-      closeAllCardMenus();
-      if (!isOpen) {
-        menu.classList.remove('open-down');
-        menu.classList.add('open');
-
-        // Smart collision detection: check available space above vs below
-        const btn = menu.previousElementSibling || menu.parentElement;
-        if (btn) {
-          const btnRect = btn.getBoundingClientRect();
-          const menuHeight = menu.offsetHeight || 220;
-          // If not enough headroom above (near top navbar), open downwards
-          if (btnRect.top - menuHeight < 68) {
-            menu.classList.add('open-down');
-          }
-        }
-
-        if (card) card.classList.add('menu-open');
-        const backdrop = document.getElementById('cardMenuBackdrop');
-        if (backdrop) backdrop.style.display = 'block';
-      }
-    }
-
-    
-    function refetchActiveArticleContent() {
-      if (activeArticleId) {
-        refetchArticleContent(activeArticleId);
-      }
-    }
-
-    async function refetchArticleContent(id, skipConfirm = false) {
-      const item = allEntries.find(e => e.id === id);
-      if (!item || !item.url || item.domain_name === 'direct-input') return;
-
-      if (!skipConfirm) {
-        const ok = await showConfirmDialog(
-          'Re-fetch Article',
-          'Re-fetch article from original source URL (' + (item.domain_name || item.url) + ')?\\n\\nThis will download the latest content and preview image from the live site.',
-          'Re-fetch',
-          false
-        );
-        if (!ok) return;
-      }
-
-      showToast('Re-fetching article from source...');
-      try {
-        const res = await authFetch('/api/entries/' + id + '/reload.json', {
-          method: 'PATCH',
-        });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || ('HTTP ' + res.status));
-        }
-        const updated = await res.json();
-        
-        const idx = allEntries.findIndex(e => e.id === id);
-        if (idx >= 0) {
-          allEntries[idx] = updated;
-        }
-
-        if (activeArticleId === id) {
-          openReader(id, false);
-        }
-
-        filterArticles();
-        showToast('✓ Article content re-fetched successfully!');
-      } catch (err) {
-        showToast('Failed to re-fetch: ' + err.message + ' (Original text preserved)');
-      }
-    }
-
-
-    // -------------------------------------------------------------
-    // Offline Cache (IndexedDB)
-    // -------------------------------------------------------------
-    const OFFLINE_DB_NAME = 'WallaflareOfflineDB';
-    const OFFLINE_DB_VERSION = 1;
-    const OFFLINE_STORE_NAME = 'articles';
-
-    function openOfflineDb() {
-      return new Promise((resolve) => {
-        if (!window.indexedDB) return resolve(null);
-        try {
-          const req = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
-          req.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains(OFFLINE_STORE_NAME)) {
-              db.createObjectStore(OFFLINE_STORE_NAME, { keyPath: 'id' });
-            }
-          };
-          req.onsuccess = (e) => resolve(e.target.result);
-          req.onerror = () => resolve(null);
-        } catch {
-          resolve(null);
-        }
-      });
-    }
-
-    function syncLocalEntriesCache(entries) {
-      try {
-        localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
-      } catch (err) {
-        console.warn('LocalStorage cache save error', err);
-      }
-      saveArticlesToOfflineDb(entries || []);
-    }
-
-    async function saveArticlesToOfflineDb(entries) {
-      try {
-        const db = await openOfflineDb();
-        if (!db) return;
-        const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
-        const store = tx.objectStore(OFFLINE_STORE_NAME);
-        store.clear();
-        if (Array.isArray(entries)) {
-          entries.forEach(entry => store.put(entry));
-        }
-      } catch (err) {
-        console.warn('Offline cache save error', err);
-      }
-    }
-
-    async function getArticlesFromOfflineDb() {
-      try {
-        const db = await openOfflineDb();
-        if (!db) return [];
-        return new Promise((resolve) => {
-          const tx = db.transaction(OFFLINE_STORE_NAME, 'readonly');
-          const store = tx.objectStore(OFFLINE_STORE_NAME);
-          const req = store.getAll();
-          req.onsuccess = () => resolve(req.result || []);
-          req.onerror = () => resolve([]);
-        });
-      } catch {
-        return [];
-      }
-    }
-
-
-    // -------------------------------------------------------------
-    // Highlights & Annotations Client Engine (W3C + Wallabag v2)
-    // -------------------------------------------------------------
-    let activeSelectionRange = null;
-    let activePopoverAnnotation = null;
-    let pendingHighlightData = null;
-
-    function setupReaderSelectionHandlers() {
-      const body = document.getElementById("readerBody");
-      const toolbar = document.getElementById("readerHighlightToolbar");
-      if (!body || !toolbar) return;
-
-      document.addEventListener("selectionchange", () => {
-        const readerView = document.getElementById("readerView");
-        if (!readerView || !readerView.classList.contains("open")) {
-          toolbar.style.display = "none";
-          activeSelectionRange = null;
-          return;
-        }
-
-        const sel = window.getSelection();
-        if (!sel || sel.isCollapsed || !sel.rangeCount) {
-          return;
-        }
-
-        const range = sel.getRangeAt(0);
-        if (!body.contains(range.commonAncestorContainer)) {
-          toolbar.style.display = "none";
-          activeSelectionRange = null;
-          return;
-        }
-
-        const text = sel.toString().trim();
-        if (text.length < 1) {
-          toolbar.style.display = "none";
-          activeSelectionRange = null;
-          return;
-        }
-
-        activeSelectionRange = range.cloneRange();
-        closeHighlightPopover();
-
-        // Check if on mobile / Android native
-        const isMobileScreen = window.innerWidth <= 768 && (isCapacitorApp() || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-        toolbar.style.display = "flex";
-
-        if (isMobileScreen) {
-          // On mobile & Android: Floating bottom pill
-          toolbar.style.top = "auto";
-          toolbar.style.bottom = "calc(20px + env(safe-area-inset-bottom, 0px))";
-          toolbar.style.left = "50%";
-          toolbar.style.transform = "translateX(-50%)";
-        } else {
-          // On desktop: Float directly above selected text
-          toolbar.style.bottom = "auto";
-          toolbar.style.transform = "none";
-          const rect = range.getBoundingClientRect();
-          const top = Math.max(10, rect.top - 46);
-          const left = Math.max(10, Math.min(window.innerWidth - 240, rect.left + (rect.width / 2) - 110));
-          toolbar.style.top = top + "px";
-          toolbar.style.left = left + "px";
-        }
-      });
-
-      // Dismiss on mousedown outside
-      document.addEventListener("mousedown", (e) => {
-        const insideToolbar = e.target.closest("#readerHighlightToolbar");
-        const insidePopover = e.target.closest("#highlightPopover");
-        const insideMark = e.target.closest("mark.reader-hl");
-        const insideModal = e.target.closest(".modal-backdrop");
-
-        if (toolbar && toolbar.style.display !== "none" && !insideToolbar) {
-          toolbar.style.display = "none";
-          activeSelectionRange = null;
-        }
-
-        const popover = document.getElementById("highlightPopover");
-        if (popover && popover.style.display !== "none" && !insidePopover && !insideMark && !insideModal) {
-          closeHighlightPopover();
-        }
-      });
-    }
-
-    async function handleCreateHighlight(color = "yellow", note = "") {
-      const toolbar = document.getElementById("readerHighlightToolbar");
-      if (toolbar) toolbar.style.display = "none";
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
-      if (!item) return;
-
-      const sel = window.getSelection();
-      const quote = (sel ? sel.toString() : (activeSelectionRange ? activeSelectionRange.toString() : "")).trim();
-      if (!quote) return;
-
-      const body = document.getElementById("readerBody");
-      const fullText = body ? (body.textContent || "") : "";
-      const startOffset = Math.max(0, fullText.indexOf(quote));
-      const endOffset = startOffset + quote.length;
-      const prefix = fullText.slice(Math.max(0, startOffset - 32), startOffset);
-      const suffix = fullText.slice(endOffset, Math.min(fullText.length, endOffset + 32));
-
-      const w3cTarget = {
-        source: item.url || ("entry://" + item.id),
-        selector: [
-          { type: "TextQuoteSelector", exact: quote, prefix: prefix, suffix: suffix },
-          { type: "TextPositionSelector", start: startOffset, end: endOffset }
-        ]
-      };
-
-      await handleCreateHighlightWithData(quote, note, color, w3cTarget);
-    }
-
-    async function handleCreateHighlightWithData(quote, note, color, target) {
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
-      if (!item) return;
-
-      const tempId = Date.now();
-      const optimisticAnnotation = {
-        id: tempId,
-        entry_id: item.id,
-        quote: quote,
-        text: note || "",
-        color: color || "yellow",
-        ranges: [],
-        target: target,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        user: "wallaflare"
-      };
-
-      if (!item.annotations) item.annotations = [];
-      item.annotations.push(optimisticAnnotation);
-
-      const sel = window.getSelection();
-      if (sel) sel.removeAllRanges();
-      activeSelectionRange = null;
-
-      applyAnnotationsToReader(item);
-      syncLocalEntriesCache(allEntries);
-
-      try {
-        const res = await authFetch("/api/annotations/" + item.id + ".json", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            quote: quote,
-            text: note || "",
-            color: color || "yellow",
-            ranges: [],
-            target: target
-          })
-        });
-        if (res.ok) {
-          const saved = await res.json();
-          const idx = item.annotations.findIndex(a => a.id === tempId);
-          if (idx >= 0) item.annotations[idx] = saved;
-          syncLocalEntriesCache(allEntries);
-          applyAnnotationsToReader(item);
-          showToast("✓ Highlight saved");
-        }
-      } catch (err) {
-        console.warn("Failed to save highlight to server", err);
-      }
-    }
-
-    function handleCreateHighlightWithNote() {
-      const toolbar = document.getElementById("readerHighlightToolbar");
-      if (toolbar) toolbar.style.display = "none";
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
-      if (!item) return;
-
-      const sel = window.getSelection();
-      const quote = (sel ? sel.toString() : (activeSelectionRange ? activeSelectionRange.toString() : "")).trim();
-      if (!quote) return;
-
-      const body = document.getElementById("readerBody");
-      const fullText = body ? (body.textContent || "") : "";
-      const startOffset = Math.max(0, fullText.indexOf(quote));
-      const endOffset = startOffset + quote.length;
-      const prefix = fullText.slice(Math.max(0, startOffset - 32), startOffset);
-      const suffix = fullText.slice(endOffset, Math.min(fullText.length, endOffset + 32));
-
-      const w3cTarget = {
-        source: item.url || ("entry://" + item.id),
-        selector: [
-          { type: "TextQuoteSelector", exact: quote, prefix: prefix, suffix: suffix },
-          { type: "TextPositionSelector", start: startOffset, end: endOffset }
-        ]
-      };
-
-      // Open Note Modal without pre-highlighting
-      openAnnotationNoteModal(null, {
-        quote: quote,
-        target: w3cTarget,
-        color: "yellow"
-      });
-    }
-
-    function handleCopySelection() {
-      const sel = window.getSelection();
-      const quote = (sel ? sel.toString() : (activeSelectionRange ? activeSelectionRange.toString() : "")).trim();
-      if (quote) {
-        copyDirectText(quote);
-      }
-      const toolbar = document.getElementById("readerHighlightToolbar");
-      if (toolbar) toolbar.style.display = "none";
-    }
-
-    function applyAnnotationsToReader(item) {
-      if (!item) return;
-      const annotations = item.annotations || [];
-      const container = document.getElementById("readerBody");
-      if (!container) return;
-
-      const existingMarks = container.querySelectorAll("mark.reader-hl");
-      existingMarks.forEach(m => {
-        const parent = m.parentNode;
-        if (parent) {
-          while (m.firstChild) parent.insertBefore(m.firstChild, m);
-          parent.removeChild(m);
-          parent.normalize();
-        }
-      });
-
-      if (!annotations || annotations.length === 0) {
-        updateReaderHighlightsList(item);
-        return;
-      }
-
-      for (const ann of annotations) {
-        if (!ann || !ann.quote) continue;
-        const quote = ann.quote.trim();
-        if (!quote) continue;
-
-        highlightTextInNode(container, ann);
-      }
-
-      updateReaderHighlightsList(item);
-    }
-
     function highlightTextInNode(container, ann) {
       const quote = (ann.quote || '').trim();
       if (!quote) return;
@@ -6121,7 +3974,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       while ((node = walker.nextNode())) {
         if (node.parentElement && node.parentElement.closest('mark.reader-hl')) continue;
-
         const text = node.nodeValue || '';
         let idx = text.indexOf(quote);
         while (idx !== -1) {
@@ -6132,20 +3984,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       if (candidates.length === 0) return;
 
-      // Match best candidate using prefix/suffix if present
       let best = candidates[0];
-      if (ann.target && ann.target.selector && candidates.length > 1) {
-        const tq = ann.target.selector.find(s => s.type === 'TextQuoteSelector');
-        if (tq && (tq.prefix || tq.suffix)) {
-          const match = candidates.find(c => {
-            const preMatch = !tq.prefix || c.text.slice(Math.max(0, c.idx - tq.prefix.length), c.idx).includes(tq.prefix.slice(-6));
-            const sufMatch = !tq.suffix || c.text.slice(c.idx + quote.length, c.idx + quote.length + tq.suffix.length).includes(tq.suffix.slice(0, 6));
-            return preMatch || sufMatch;
-          });
-          if (match) best = match;
-        }
-      }
-
       const targetNode = best.node;
       const idx = best.idx;
       const text = targetNode.nodeValue || '';
@@ -6166,19 +4005,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const parent = targetNode.parentNode;
       if (!parent) return;
 
-      if (beforeText) {
-        parent.insertBefore(document.createTextNode(beforeText), targetNode);
-      }
+      if (beforeText) parent.insertBefore(document.createTextNode(beforeText), targetNode);
       parent.insertBefore(mark, targetNode);
-      if (afterText) {
-        parent.insertBefore(document.createTextNode(afterText), targetNode);
-      }
+      if (afterText) parent.insertBefore(document.createTextNode(afterText), targetNode);
       parent.removeChild(targetNode);
     }
-
-    let activeModalHighlightsArticleId = null;
-    let activeModalHighlightsFilter = "all";
-    let activeModalHighlightsSort = "position";
 
     function getSortedAnnotations(item, sortMode = "position") {
       if (!item || !item.annotations || !Array.isArray(item.annotations)) return [];
@@ -6188,8 +4019,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         return list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
       }
 
-      // Default: Position / Reading order in document
-      // 1. Check if marks exist in reader DOM
       const markElements = Array.from(document.querySelectorAll("#readerBody mark.reader-hl"));
       if (markElements.length > 0 && activeArticleId === item.id) {
         const domIndexMap = new Map();
@@ -6205,7 +4034,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         });
       }
 
-      // 2. Fallback: character offset / quote index in article text
       const fullText = (item.content || item.text || "").toLowerCase();
       return list.sort((a, b) => {
         const getOffset = (ann) => {
@@ -6226,24 +4054,238 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       });
     }
 
-    function setHighlightsSort(sortMode, btn) {
-      activeModalHighlightsSort = sortMode;
-      const wrap = document.getElementById("highlightsSortWrap");
-      if (wrap) {
-        wrap.querySelectorAll(".hl-sort-btn").forEach(b => b.classList.remove("active"));
+    async function exportMarkdown(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) return;
+      showToast('Exporting Markdown...');
+      try {
+        const title = item.title || 'Untitled Article';
+        const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
+        const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : (item.domain_name || '');
+        const date = item.published_at || item.created_at || new Date().toISOString().split('T')[0];
+        const tags = Array.isArray(item.tags) ? item.tags.map(t => typeof t === 'string' ? t : (t.label || t.slug)).filter(Boolean) : [];
+        const nl = String.fromCharCode(10);
+        const nl2 = nl + nl;
+
+        let frontmatter = '---' + nl;
+        frontmatter += 'title: ' + JSON.stringify(title) + nl;
+        if (author) frontmatter += 'author: ' + JSON.stringify(author) + nl;
+        if (item.url) frontmatter += 'source: ' + JSON.stringify(item.url) + nl;
+        if (date) frontmatter += 'date: ' + JSON.stringify(date) + nl;
+        if (tags.length > 0) frontmatter += 'tags: [' + tags.map(t => JSON.stringify(t)).join(', ') + ']' + nl;
+        frontmatter += '---' + nl2;
+
+        let annotations = getSortedAnnotations(item, 'position');
+        let bodyMd = htmlToMarkdown(item.content || item.text || '');
+
+        const footnotes = [];
+        let noteCounter = 1;
+        if (annotations.length > 0) {
+          for (const ann of annotations) {
+            const quote = (ann.quote || '').trim();
+            if (!quote) continue;
+            const fnRef = (ann.text && ann.text.trim()) ? ('[^note-' + noteCounter + ']') : '';
+            if (fnRef) {
+              footnotes.push('[^note-' + noteCounter + ']: 💬 **Note**: ' + ann.text.trim());
+              noteCounter++;
+            }
+            const replacement = '==' + quote + '==' + fnRef;
+            if (bodyMd.includes(quote)) bodyMd = bodyMd.replace(quote, replacement);
+          }
+        }
+
+        let summaryMd = '';
+        if (annotations.length > 0) {
+          summaryMd = nl2 + '---' + nl2 + '## 🖍️ Highlights & Notes' + nl2;
+          for (const ann of annotations) {
+            const colorEmoji = ann.color === 'green' ? '🟢' : (ann.color === 'blue' ? '🔵' : (ann.color === 'purple' ? '🟣' : '🟡'));
+            summaryMd += '- ' + colorEmoji + ' **\"' + (ann.quote || '').trim() + '\"**' + nl;
+            if (ann.text && ann.text.trim()) summaryMd += '  > 💬 **Note**: ' + ann.text.trim() + nl;
+          }
+        }
+
+        let footnotesMd = footnotes.length > 0 ? (nl2 + footnotes.join(nl) + nl) : '';
+        const fullMd = frontmatter + '# ' + title + nl2 + bodyMd + summaryMd + footnotesMd + nl;
+        const filename = title.replace(/[/\:*?"<>|]/g, '').trim() + '.md';
+
+        const blob = new Blob([fullMd], { type: 'text/markdown;charset=utf-8' });
+        await shareOrDownloadBlob(blob, filename, 'text/markdown');
+        showToast('✓ Markdown exported');
+      } catch (err) {
+        showToast('Failed to export Markdown');
       }
-      if (btn) btn.classList.add("active");
-      renderModalHighlightsList();
     }
 
-    function toggleReaderHighlightsSidebar(e) {
-      if (e) e.stopPropagation();
-      const list = document.getElementById("readerHighlightsList");
-      const chevron = document.getElementById("readerHighlightsChevron");
-      if (!list) return;
-      const isHidden = list.style.display === "none" || !list.style.display;
-      list.style.display = isHidden ? "flex" : "none";
-      if (chevron) chevron.style.transform = isHidden ? "rotate(180deg)" : "none";
+    async function shareOrDownloadBlob(blob, filename, mimeType) {
+      const type = mimeType || blob.type || 'application/octet-stream';
+
+      // 1. In Capacitor Native App: prioritize WallaflareNativePlugin or Capacitor Share
+      if (isCapacitorApp()) {
+        try {
+          const nativePlugin = window.Capacitor?.Plugins?.WallaflareNative || window.WallaflareNative;
+          const sharePlugin = window.Capacitor?.Plugins?.Share;
+          const filesystemPlugin = window.Capacitor?.Plugins?.Filesystem;
+
+          const reader = new FileReader();
+          const base64Promise = new Promise((resolve, reject) => {
+            reader.onloadend = () => {
+              const res = reader.result;
+              const base64data = typeof res === 'string' ? res.split(',')[1] : '';
+              resolve(base64data);
+            };
+            reader.onerror = reject;
+          });
+          reader.readAsDataURL(blob);
+          const base64Data = await base64Promise;
+
+          if (base64Data) {
+            if (nativePlugin) {
+              if (typeof nativePlugin.shareFile === 'function') {
+                await nativePlugin.shareFile({ filename, mimeType: type, base64Data });
+                return;
+              } else if (typeof nativePlugin.shareEpub === 'function') {
+                await nativePlugin.shareEpub({ filename, base64Data });
+                return;
+              }
+            }
+
+            if (filesystemPlugin && sharePlugin) {
+              const writeResult = await filesystemPlugin.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: 'CACHE'
+              });
+
+              if (writeResult && writeResult.uri) {
+                await sharePlugin.share({
+                  title: filename,
+                  url: writeResult.uri,
+                  dialogTitle: 'Share ' + filename
+                });
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Native Capacitor share failed, falling back to Web Share / Download', e);
+        }
+      }
+
+      // 2. Web Share API (native share sheet on mobile browsers & Android WebView)
+      try {
+        if (typeof File !== 'undefined' && typeof navigator.canShare === 'function') {
+          const file = new File([blob], filename, { type: type });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: filename
+            });
+            return;
+          }
+        }
+      } catch (shareErr) {
+        if (shareErr && shareErr.name === 'AbortError') return;
+      }
+
+      // 3. Fallback to standard browser blob URL download
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 3500);
+    }
+
+    function exportActiveMarkdown() {
+      if (activeArticleId) exportMarkdown(activeArticleId);
+    }
+
+    async function exportPdf(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) return;
+      showToast('Generating PDF...');
+      try {
+        if (typeof window.WallaflarePdf !== 'undefined' && typeof window.WallaflarePdf.generatePdf === 'function') {
+          const pdfBytes = await window.WallaflarePdf.generatePdf(item);
+          const filename = (item.title || 'article').replace(/[/\\:*?"<>|]/g, '').trim() + '.pdf';
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          await shareOrDownloadBlob(blob, filename, 'application/pdf');
+          showToast('✓ PDF exported');
+        } else {
+          window.print();
+        }
+      } catch (e) {
+        showToast('Failed to generate PDF');
+      }
+    }
+
+    function exportActivePdf() {
+      if (activeArticleId) exportPdf(activeArticleId);
+    }
+
+    async function downloadEpub(id) {
+      const item = allEntries.find(e => e.id === id);
+      if (!item) return;
+      showToast('Exporting EPUB...');
+      try {
+        if (typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
+          const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin);
+          const blob = new Blob([u8], { type: 'application/epub+zip' });
+          const filename = (item.title || 'article').replace(/[/\\:*?"<>|]/g, '').trim() + '.epub';
+          await shareOrDownloadBlob(blob, filename, 'application/epub+zip');
+          showToast('✓ EPUB exported');
+        } else {
+          const res = await authFetch('/api/entries/' + id + '/export.epub');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          const filename = (item.title || 'article').replace(/[/\\:*?"<>|]/g, '').trim() + '.epub';
+          await shareOrDownloadBlob(blob, filename, 'application/epub+zip');
+          showToast('✓ EPUB exported');
+        }
+      } catch (e) {
+        showToast('Failed to export EPUB');
+      }
+    }
+
+    function downloadActiveEpub() {
+      if (activeArticleId) downloadEpub(activeArticleId);
+    }
+
+    // Highlights DOM & Annotations Engine
+    let activeSelectionRange = null;
+    let activePopoverAnnotation = null;
+
+    function applyAnnotationsToReader(item) {
+      if (!item) return;
+      const annotations = item.annotations || [];
+      const container = document.getElementById("readerBody");
+      if (!container) return;
+
+      const existingMarks = container.querySelectorAll("mark.reader-hl");
+      existingMarks.forEach(m => {
+        const parent = m.parentNode;
+        if (parent) {
+          while (m.firstChild) parent.insertBefore(m.firstChild, m);
+          parent.removeChild(m);
+          parent.normalize();
+        }
+      });
+
+      for (const ann of annotations) {
+        if (!ann || !ann.quote) continue;
+        highlightTextInNode(container, ann);
+      }
+
+      updateHighlightsBadge(annotations.length);
+    }
+
+    function updateHighlightsBadge(count) {
+      const badge = document.getElementById('readerHighlightsBadgeMobile');
+      if (badge) {
+        badge.textContent = String(count);
+        badge.style.display = count > 0 ? 'flex' : 'none';
+      }
     }
 
     function toggleReaderHighlightsModal() {
@@ -6251,42 +4293,27 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       openArticleHighlightsModal(activeArticleId);
     }
 
+    let activeModalHighlightsArticleId = null;
+    let activeModalHighlightsFilter = "all";
+    let activeModalHighlightsSort = "position";
+
     function openArticleHighlightsModal(articleId) {
       activeModalHighlightsArticleId = articleId;
       activeModalHighlightsFilter = "all";
-      const item = allEntries.find(e => e.id === articleId);
-      const titleEl = document.getElementById("modalHighlightsTitle");
-      if (titleEl && item) {
-        const shortTitle = (item.title || "Article").length > 35 ? (item.title.slice(0, 35) + "...") : (item.title || "Article");
-        titleEl.textContent = "Highlights: " + shortTitle;
-      }
-
-      // Reset filter pills and sort buttons
-      const pills = document.getElementById("highlightsFilterPills");
-      if (pills) {
-        pills.querySelectorAll(".hl-filter-pill").forEach((p, idx) => {
-          if (idx === 0) p.classList.add("active");
-          else p.classList.remove("active");
-        });
-      }
-      const sortWrap = document.getElementById("highlightsSortWrap");
-      if (sortWrap) {
-        sortWrap.querySelectorAll(".hl-sort-btn").forEach(b => {
-          if (b.id === "btnSortPosition") b.classList.add("active");
-          else b.classList.remove("active");
-        });
-      }
-
       renderModalHighlightsList();
       openModal("readerHighlightsModal");
     }
 
     function filterHighlightsModalList(filterType, btn) {
       activeModalHighlightsFilter = filterType;
-      const pills = document.getElementById("highlightsFilterPills");
-      if (pills) {
-        pills.querySelectorAll(".hl-filter-pill").forEach(p => p.classList.remove("active"));
-      }
+      document.querySelectorAll("#highlightsFilterPills .hl-filter-pill").forEach(p => p.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+      renderModalHighlightsList();
+    }
+
+    function setHighlightsSort(sortMode, btn) {
+      activeModalHighlightsSort = sortMode;
+      document.querySelectorAll("#highlightsSortWrap .hl-sort-btn").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
       renderModalHighlightsList();
     }
@@ -6301,7 +4328,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (countBadge) countBadge.textContent = String(annotations.length);
 
       if (annotations.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 0.5rem;">🖍️</div><div style="font-size: 0.95rem; font-weight: 500;">No highlights in this article yet</div><div style="font-size: 0.8rem; margin-top: 0.35rem;">Select any text while reading to highlight and take notes.</div></div>';
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No highlights in this article yet.</div>';
         return;
       }
 
@@ -6312,103 +4339,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         filtered = annotations.filter(a => (a.color || "yellow") === activeModalHighlightsFilter);
       }
 
-      if (filtered.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.88rem; font-style: italic;">No highlights matching this filter.</div>';
-        return;
-      }
-
       container.innerHTML = filtered.map(ann => {
-        const color = ann.color || "yellow";
-        const colorEmoji = color === "green" ? "🟢" : (color === "blue" ? "🔵" : (color === "purple" ? "🟣" : "🟡"));
-        const colorBorder = color === "green" ? "#22c55e" : (color === "blue" ? "#3b82f6" : (color === "purple" ? "#a855f7" : "#eab308"));
-        const quoteText = escapeHtml(ann.quote || "");
-        const noteHtml = ann.text ? '<div style="margin-top: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); font-size: 0.82rem; color: var(--text-primary); line-height: 1.4;"><span style="font-weight: 600; color: var(--accent); margin-right: 0.25rem;">💬 Note:</span>' + escapeHtml(ann.text) + '</div>' : '';
-
+        const colorBorder = ann.color === "green" ? "#22c55e" : (ann.color === "blue" ? "#3b82f6" : (ann.color === "purple" ? "#a855f7" : "#eab308"));
         return '<div class="modal-hl-item" style="border-left: 4px solid ' + colorBorder + ';" onclick="scrollToAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')">' +
-          '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">' +
-            '<div style="font-size: 0.88rem; color: var(--text-primary); font-weight: 500; line-height: 1.45;"><span style="font-size: 0.8rem; margin-right: 0.35rem;">' + colorEmoji + '</span>\"' + quoteText + '\"</div>' +
-            '<div style="display: flex; gap: 0.2rem; flex-shrink: 0;" onclick="event.stopPropagation()">' +
-              '<button class="btn-icon" style="padding: 3px;" title="Copy Quote" onclick="copyHighlightFromModal(' + ann.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
-              '<button class="btn-icon" style="padding: 3px;" title="Edit Note" onclick="editHighlightFromModal(' + ann.id + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
-            '</div>' +
-          '</div>' +
-          noteHtml +
-          '<div style="display: flex; justify-content: flex-end; margin-top: 0.25rem;">' +
-            '<span style="font-size: 0.72rem; color: var(--accent); font-weight: 500; display: flex; align-items: center; gap: 0.2rem;">Jump to passage &rarr;</span>' +
-          '</div>' +
+          '<div style="font-weight: 500; font-size: 0.88rem;">\"' + escapeHtml(ann.quote) + '\"</div>' +
+          (ann.text ? '<div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.3rem;">💬 ' + escapeHtml(ann.text) + '</div>' : '') +
         '</div>';
-      }).join("");
-    }
-
-    function editHighlightFromModal(annId) {
-      closeModal("readerHighlightsModal");
-      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
-      if (!item || !item.annotations) return;
-      const ann = item.annotations.find(a => a.id === annId);
-      if (ann) openAnnotationNoteModal(ann);
-    }
-
-    function copyHighlightFromModal(annId) {
-      const item = allEntries.find(e => e.id === activeModalHighlightsArticleId);
-      if (!item || !item.annotations) return;
-      const ann = item.annotations.find(a => a.id === annId);
-      if (ann && ann.quote) copyDirectText(ann.quote);
-    }
-
-    function updateReaderHighlightsList(item) {
-      const listEl = document.getElementById("readerHighlightsList");
-      const countEl = document.getElementById("readerHighlightsCount");
-      const badgeMobile = document.getElementById("readerHighlightsBadgeMobile");
-      const annotations = getSortedAnnotations(item, activeModalHighlightsSort);
-      const count = annotations.length;
-
-      if (countEl) countEl.textContent = String(count);
-      if (badgeMobile) {
-        badgeMobile.textContent = String(count);
-        badgeMobile.style.display = count > 0 ? "flex" : "none";
-      }
-
-      if (!listEl) return;
-      if (count === 0) {
-        listEl.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 0.35rem 0.25rem;">No highlights yet. Select text in the article to highlight.</div>';
-        return;
-      }
-
-      listEl.innerHTML = annotations.map(ann => {
-        const colorEmoji = ann.color === "green" ? "🟢" : (ann.color === "blue" ? "🔵" : (ann.color === "purple" ? "🟣" : "🟡"));
-        const quotePreview = escapeHtml((ann.quote || "").slice(0, 70)) + ((ann.quote || "").length > 70 ? "..." : "");
-        const noteHtml = ann.text ? '<div style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">💬 ' + escapeHtml(ann.text) + '</div>' : "";
-        return '<div class="reader-sub-item" style="height: auto; padding: 0.45rem 0.6rem; line-height: 1.35; flex-direction: column; align-items: flex-start; gap: 0.2rem; cursor: pointer; border-radius: var(--radius-sm);" onclick="scrollToAnnotation(' + ann.id + ')">' +
-          '<div style="font-size: 0.78rem; color: var(--text-primary); font-weight: 500;"><span style="font-size: 0.7rem; margin-right: 0.25rem;">' + colorEmoji + '</span>\"' + quotePreview + '\"</div>' +
-          noteHtml +
-        '</div>';
-      }).join("");
+      }).join('');
     }
 
     function scrollToAnnotation(annId, articleId = null) {
-      if (articleId && articleId !== activeArticleId) {
-        openReader(articleId);
-        setTimeout(() => {
-          doScrollToAnnotation(annId);
-        }, 150);
-      } else {
-        doScrollToAnnotation(annId);
-      }
-    }
-
-    function doScrollToAnnotation(annId) {
       closeModal("readerHighlightsModal");
-      closeMobileReaderDrawer();
       const mark = document.querySelector('mark[data-annotation-id="' + annId + '"]');
       if (mark) {
         mark.scrollIntoView({ behavior: "smooth", block: "center" });
         mark.style.outline = "3px solid var(--accent)";
-        mark.style.boxShadow = "0 0 16px var(--accent)";
-        mark.style.transition = "outline 0.3s, box-shadow 0.3s";
-        setTimeout(() => {
-          mark.style.outline = "";
-          mark.style.boxShadow = "";
-        }, 2200);
+        setTimeout(() => { mark.style.outline = ""; }, 2200);
       }
     }
 
@@ -6417,15 +4363,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const popover = document.getElementById("highlightPopover");
       if (!popover) return;
       const noteEl = document.getElementById("popoverNoteText");
-      if (noteEl) {
-        noteEl.textContent = (ann && ann.text && ann.text.trim()) ? ann.text.trim() : "No note attached.";
-      }
+      if (noteEl) noteEl.textContent = ann.text || 'No note attached.';
       popover.style.display = "block";
       const rect = targetEl.getBoundingClientRect();
-      const top = Math.min(window.innerHeight - 150, Math.max(10, rect.bottom + 6));
-      const left = Math.max(10, Math.min(window.innerWidth - 290, rect.left));
-      popover.style.top = top + "px";
-      popover.style.left = left + "px";
+      popover.style.top = Math.max(10, rect.bottom + 6) + "px";
+      popover.style.left = Math.max(10, Math.min(window.innerWidth - 290, rect.left)) + "px";
     }
 
     function closeHighlightPopover() {
@@ -6443,106 +4385,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     async function changePopoverHighlightColor(color) {
       if (!activePopoverAnnotation || !activeArticleId) return;
-      const ann = activePopoverAnnotation;
-      ann.color = color;
+      activePopoverAnnotation.color = color;
       const item = allEntries.find(e => e.id === activeArticleId);
       if (item) {
         applyAnnotationsToReader(item);
         syncLocalEntriesCache(allEntries);
       }
       closeHighlightPopover();
-
       try {
-        await authFetch("/api/annotations/" + ann.id + ".json", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ color: color })
+        await authFetch('/api/annotations/' + activePopoverAnnotation.id + '.json', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ color })
         });
       } catch (e) {}
-    }
-
-    let activeModalAnnotation = null;
-    let modalSelectedColor = "yellow";
-
-    function selectModalNoteColor(color, btn) {
-      modalSelectedColor = color;
-      const wrap = document.getElementById("modalNoteColors");
-      if (wrap) {
-        wrap.querySelectorAll(".hl-color-btn").forEach(b => b.classList.remove("active-color"));
-      }
-      if (btn) btn.classList.add("active-color");
-    }
-
-    function closeAnnotationNoteModal() {
-      activeModalAnnotation = null;
-      pendingHighlightData = null;
-      closeModal("annotationNoteModal");
-    }
-
-    function openAnnotationNoteModal(ann, pendingData = null) {
-      activeModalAnnotation = ann || null;
-      pendingHighlightData = pendingData || null;
-      modalSelectedColor = (ann ? ann.color : (pendingData ? pendingData.color : "yellow")) || "yellow";
-
-      closeHighlightPopover();
-      const preview = document.getElementById("annotationNoteQuotePreview");
-      const input = document.getElementById("annotationNoteInput");
-      const quote = ann ? ann.quote : (pendingData ? pendingData.quote : "");
-      if (preview) preview.textContent = (quote || "").slice(0, 200) + ((quote || "").length > 200 ? "..." : "");
-      if (input) input.value = (ann ? ann.text : "") || "";
-
-      // Set active color button in modal
-      const wrap = document.getElementById("modalNoteColors");
-      if (wrap) {
-        wrap.querySelectorAll(".hl-color-btn").forEach(b => {
-          if (b.getAttribute("data-color") === modalSelectedColor) {
-            b.classList.add("active-color");
-          } else {
-            b.classList.remove("active-color");
-          }
-        });
-      }
-
-      openModal("annotationNoteModal");
-      setTimeout(() => { if (input) input.focus(); }, 60);
-    }
-
-    async function handleSaveAnnotationNoteForm(e) {
-      if (e) e.preventDefault();
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
-      if (!item) return;
-
-      const input = document.getElementById("annotationNoteInput");
-      const text = input ? input.value.trim() : "";
-      const chosenColor = modalSelectedColor || "yellow";
-
-      if (pendingHighlightData) {
-        const data = pendingHighlightData;
-        pendingHighlightData = null;
-        closeModal("annotationNoteModal");
-        await handleCreateHighlightWithData(data.quote, text, chosenColor, data.target);
-        return;
-      }
-
-      if (activeModalAnnotation) {
-        const ann = activeModalAnnotation;
-        activeModalAnnotation = null;
-        ann.text = text;
-        ann.color = chosenColor;
-        applyAnnotationsToReader(item);
-        syncLocalEntriesCache(allEntries);
-        closeModal("annotationNoteModal");
-        showToast("✓ Note updated");
-
-        try {
-          await authFetch("/api/annotations/" + ann.id + ".json", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: text, color: chosenColor })
-          });
-        } catch (e) {}
-      }
     }
 
     async function deletePopoverHighlight() {
@@ -6555,775 +4411,1074 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         syncLocalEntriesCache(allEntries);
       }
       closeHighlightPopover();
-
       try {
-        await authFetch("/api/annotations/" + annId + ".json", { method: "DELETE" });
-        showToast("Highlight deleted");
+        await authFetch('/api/annotations/' + annId + '.json', { method: 'DELETE' });
+        showToast('Highlight deleted');
       } catch (e) {}
     }
 
-    // -------------------------------------------------------------
-    // Android Share Target Handler
-    // -------------------------------------------------------------
-
-    // -------------------------------------------------------------
-    // Android Back Button Navigation & Drawer Handling
-    // -------------------------------------------------------------
-    window.handleAndroidBackButton = function() {
-      // 0. If Annotation Note Modal is open, close it first
-      const annotationNoteModal = document.getElementById('annotationNoteModal');
-      if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
-        closeAnnotationNoteModal();
-        return true;
-      }
-      const readerHighlightsModal = document.getElementById('readerHighlightsModal');
-      if (readerHighlightsModal && readerHighlightsModal.classList.contains('open')) {
-        closeModal('readerHighlightsModal');
-        return true;
-      }
-
-      // 0.1 If Highlight toolbar or popover or text selection is active, dismiss it first
-      const highlightToolbar = document.getElementById('readerHighlightToolbar');
-      const highlightPopover = document.getElementById('highlightPopover');
+    function handleCreateHighlight(color = 'yellow') {
       const sel = window.getSelection();
-      let dismissed = false;
-      if (highlightToolbar && highlightToolbar.style.display !== 'none') {
-        highlightToolbar.style.display = 'none';
-        activeSelectionRange = null;
-        dismissed = true;
-      }
-      if (highlightPopover && highlightPopover.style.display !== 'none') {
-        closeHighlightPopover();
-        dismissed = true;
-      }
-      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
-        sel.removeAllRanges();
-        dismissed = true;
-      }
-      if (dismissed) return true;
+      const quote = (sel ? sel.toString() : '').trim();
+      if (!quote || !activeArticleId) return;
 
-      // 1. If Reader Mobile Drawer is open, close it
-      const readerSidebar = document.getElementById('readerSidebar');
-      if (readerSidebar && readerSidebar.classList.contains('drawer-open')) {
-        closeMobileReaderDrawer();
-        return true;
-      }
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (!item) return;
 
-      // 2. If Reader View is open, close reader
-      const readerView = document.getElementById('readerView');
-      if (readerView && readerView.classList.contains('open')) {
-        closeReader(true);
-        return true;
-      }
+      const newAnn = {
+        id: Date.now(),
+        entry_id: item.id,
+        quote: quote,
+        color: color,
+        text: '',
+        created_at: new Date().toISOString()
+      };
+      if (!item.annotations) item.annotations = [];
+      item.annotations.push(newAnn);
 
-      // 3. If any modal is open, close it
-      const openModal = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
-      if (openModal) {
-        openModal.classList.remove('open');
-        return true;
-      }
+      sel.removeAllRanges();
+      document.getElementById('readerHighlightToolbar').style.display = 'none';
+      applyAnnotationsToReader(item);
+      syncLocalEntriesCache(allEntries);
 
-      // 4. If mobile nav drawer is open, close it
-      const mobileNav = document.getElementById('mobileNavDropdown');
-      if (mobileNav && mobileNav.classList.contains('open')) {
-        closeMobileNavMenu();
-        return true;
-      }
-
-      // 5. If card dropdown menu is open, close it
-      const openCardMenu = document.querySelector('.card-dropdown-menu.open');
-      if (openCardMenu) {
-        closeAllCardMenus();
-        return true;
-      }
-
-      return false;
-    };
-
-    window.handleAndroidSharedText = function(text) {
-      if (!text) return;
-      const urlMatch = text.match(new RegExp('https?://[^\\s]+'));
-      const targetUrl = urlMatch ? urlMatch[0] : text.trim();
-      
-      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
-        const input = document.getElementById('urlInput');
-        if (input) input.value = targetUrl;
-        openModal('addUrlModal');
-        showToast('Shared URL received!');
-      } else {
-        const contentInput = document.getElementById('textContent');
-        if (contentInput) contentInput.value = text;
-        openModal('addTextModal');
-        showToast('Shared text received!');
-      }
-    };
-
-    function openServerConnectModal() {
-      const urlInput = document.getElementById('serverUrlInput');
-      const tokenInput = document.getElementById('serverTokenInput');
-      if (urlInput) urlInput.value = localStorage.getItem('wf_server_url') || '';
-      if (tokenInput) tokenInput.value = getAuthToken();
-      openModal('serverConnectModal');
+      authFetch('/api/annotations/' + item.id + '.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote, color, text: '' })
+      }).then(res => res.json()).then(saved => {
+        const idx = item.annotations.findIndex(a => a.id === newAnn.id);
+        if (idx >= 0) item.annotations[idx] = saved;
+        syncLocalEntriesCache(allEntries);
+      }).catch(() => {});
     }
 
-    async function handleSaveServerConnection(e) {
+    function handleCreateHighlightWithNote() {
+      const sel = window.getSelection();
+      const quote = (sel ? sel.toString() : '').trim();
+      if (!quote || !activeArticleId) return;
+      document.getElementById('readerHighlightToolbar').style.display = 'none';
+      openAnnotationNoteModal(null, { quote, color: 'yellow' });
+    }
+
+    function handleCopySelection() {
+      const sel = window.getSelection();
+      const quote = (sel ? sel.toString() : '').trim();
+      if (quote) copyDirectText(quote);
+      document.getElementById('readerHighlightToolbar').style.display = 'none';
+    }
+
+    let activeModalAnnotation = null;
+    let pendingHighlightData = null;
+    let modalSelectedColor = 'yellow';
+
+    function selectModalNoteColor(color, btn) {
+      modalSelectedColor = color;
+      document.querySelectorAll('#modalNoteColors .hl-color-btn').forEach(b => b.classList.remove('active-color'));
+      if (btn) btn.classList.add('active-color');
+    }
+
+    function openAnnotationNoteModal(ann, pendingData = null) {
+      activeModalAnnotation = ann || null;
+      pendingHighlightData = pendingData || null;
+      modalSelectedColor = (ann ? ann.color : (pendingData ? pendingData.color : 'yellow')) || 'yellow';
+      closeHighlightPopover();
+
+      const preview = document.getElementById('annotationNoteQuotePreview');
+      const input = document.getElementById('annotationNoteInput');
+      const quote = ann ? ann.quote : (pendingData ? pendingData.quote : '');
+      if (preview) preview.textContent = quote;
+      if (input) input.value = ann ? (ann.text || '') : '';
+
+      openModal('annotationNoteModal');
+      setTimeout(() => input?.focus(), 60);
+    }
+
+    function closeAnnotationNoteModal() {
+      activeModalAnnotation = null;
+      pendingHighlightData = null;
+      closeModal('annotationNoteModal');
+    }
+
+    async function handleSaveAnnotationNoteForm(e) {
       e.preventDefault();
-      const urlInput = document.getElementById('serverUrlInput');
-      const tokenInput = document.getElementById('serverTokenInput');
-      const btn = document.getElementById('saveServerBtn');
-      
-      let serverUrl = urlInput.value.trim();
-      if (serverUrl.endsWith('/')) {
-        serverUrl = serverUrl.slice(0, -1);
+      if (!activeArticleId) return;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (!item) return;
+
+      const input = document.getElementById('annotationNoteInput');
+      const text = input ? input.value.trim() : '';
+      const color = modalSelectedColor || 'yellow';
+
+      if (pendingHighlightData) {
+        const quote = pendingHighlightData.quote;
+        closeAnnotationNoteModal();
+        const newAnn = { id: Date.now(), entry_id: item.id, quote, color, text, created_at: new Date().toISOString() };
+        if (!item.annotations) item.annotations = [];
+        item.annotations.push(newAnn);
+        applyAnnotationsToReader(item);
+        syncLocalEntriesCache(allEntries);
+        authFetch('/api/annotations/' + item.id + '.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quote, color, text })
+        }).then(res => res.json()).then(saved => {
+          const idx = item.annotations.findIndex(a => a.id === newAnn.id);
+          if (idx >= 0) item.annotations[idx] = saved;
+          syncLocalEntriesCache(allEntries);
+        }).catch(() => {});
+        return;
       }
-      const token = tokenInput ? tokenInput.value.trim() : '';
-      if (!serverUrl) return;
+
+      if (activeModalAnnotation) {
+        activeModalAnnotation.text = text;
+        activeModalAnnotation.color = color;
+        applyAnnotationsToReader(item);
+        syncLocalEntriesCache(allEntries);
+        closeAnnotationNoteModal();
+        try {
+          await authFetch('/api/annotations/' + activeModalAnnotation.id + '.json', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, color })
+          });
+        } catch (e) {}
+      }
+    }
+
+    function clearActiveTextSelection() {
+      const sel = window.getSelection();
+      if (sel) sel.removeAllRanges();
+      const toolbar = document.getElementById('readerHighlightToolbar');
+      if (toolbar) toolbar.style.display = 'none';
+      activeSelectionRange = null;
+    }
+
+    function copyDirectText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('✓ Copied to clipboard');
+      });
+    }
+
+    function copySyncValue(elementId, btn) {
+      const el = document.getElementById(elementId);
+      if (el) copyDirectText(el.textContent.trim(), btn);
+    }
+
+    // View Modes (List / Grid / Compact) & Sorting
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      localStorage.setItem('wf_view_mode', mode);
+      const grid = document.getElementById('articlesGrid');
+      if (grid) {
+        grid.className = 'articles-grid view-' + mode;
+      }
+    }
+
+    function cycleViewMode() {
+      const modes = ['list', 'grid', 'compact'];
+      const idx = modes.indexOf(currentViewMode);
+      setViewMode(modes[(idx + 1) % modes.length]);
+      showToast('Layout: ' + currentViewMode.toUpperCase());
+    }
+
+    function toggleSortMenu() {
+      const menu = document.getElementById('sortDropdownMenu');
+      if (menu) {
+        const isOpen = menu.classList.contains('open');
+        closeAllCardMenus();
+        if (!isOpen) {
+          menu.classList.add('open');
+          const backdrop = document.getElementById('cardMenuBackdrop');
+          if (backdrop) backdrop.style.display = 'block';
+        }
+      }
+    }
+
+    function setSortOrder(order) {
+      currentSortOrder = order;
+      localStorage.setItem('wf_sort_order', order);
+      closeAllCardMenus();
+      filterArticles();
+      showToast('Sorted by: ' + order);
+    }
+
+    function handleSearchInput() {
+      const input = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = input && input.value ? 'inline-flex' : 'none';
+      filterArticles();
+    }
+
+    function clearSearchInput() {
+      const input = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (input) input.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      filterArticles();
+    }
+
+    // Batch Selection Mode
+    function isSelectionMode() {
+      return selectedArticleIds.size > 0;
+    }
+
+    function toggleArticleSelection(id, force) {
+      if (selectedArticleIds.has(id)) selectedArticleIds.delete(id);
+      else selectedArticleIds.add(id);
+
+      updateBatchUI();
+    }
+
+    function clearArticleSelection() {
+      selectedArticleIds.clear();
+      updateBatchUI();
+    }
+
+    function toggleSelectAllArticles() {
+      const visible = getFilteredEntries();
+      if (selectedArticleIds.size === visible.length) {
+        selectedArticleIds.clear();
+      } else {
+        selectedArticleIds = new Set(visible.map(e => e.id));
+      }
+      updateBatchUI();
+    }
+
+    function updateBatchUI() {
+      const header = document.getElementById('batchActionHeader');
+      const standard = document.getElementById('standardNavHeader');
+      const countLabel = document.getElementById('batchSelectedCount');
+      const count = selectedArticleIds.size;
+
+      if (count > 0) {
+        document.body.classList.add('selection-mode-active');
+        if (header) header.style.display = 'flex';
+        if (standard) standard.style.display = 'none';
+        if (countLabel) countLabel.textContent = count + ' selected';
+
+        // Visibility based on selection count
+        const highlightsBtn = document.getElementById('batchHighlightsBtn');
+        const openOriginalBtn = document.getElementById('batchOpenOriginalBtn');
+        const editTitleBtn = document.getElementById('batchEditTitleBtn');
+        const exportPdfBtn = document.getElementById('batchExportPdfBtn');
+        const exportEpubLabel = document.getElementById('batchExportEpubLabel');
+        const exportMdLabel = document.getElementById('batchExportMdLabel');
+        const exportJsonLabel = document.getElementById('batchExportJsonLabel');
+
+        if (count === 1) {
+          if (highlightsBtn) { highlightsBtn.classList.remove('is-hidden'); highlightsBtn.style.setProperty('display', 'flex', 'important'); }
+          if (openOriginalBtn) { openOriginalBtn.classList.remove('is-hidden'); openOriginalBtn.style.setProperty('display', 'flex', 'important'); }
+          if (editTitleBtn) { editTitleBtn.classList.remove('is-hidden'); editTitleBtn.style.setProperty('display', 'flex', 'important'); }
+          if (exportPdfBtn) { exportPdfBtn.classList.remove('is-hidden'); exportPdfBtn.style.setProperty('display', 'flex', 'important'); }
+          if (exportEpubLabel) exportEpubLabel.textContent = 'EPUB (.epub)';
+          if (exportMdLabel) exportMdLabel.textContent = 'Markdown (.md)';
+          if (exportJsonLabel) exportJsonLabel.textContent = 'JSON (.json)';
+        } else {
+          if (highlightsBtn) { highlightsBtn.classList.add('is-hidden'); highlightsBtn.style.setProperty('display', 'none', 'important'); }
+          if (openOriginalBtn) { openOriginalBtn.classList.add('is-hidden'); openOriginalBtn.style.setProperty('display', 'none', 'important'); }
+          if (editTitleBtn) { editTitleBtn.classList.add('is-hidden'); editTitleBtn.style.setProperty('display', 'none', 'important'); }
+          if (exportPdfBtn) { exportPdfBtn.classList.add('is-hidden'); exportPdfBtn.style.setProperty('display', 'none', 'important'); }
+          if (exportEpubLabel) exportEpubLabel.textContent = 'Export All as ZIP (EPUBs)';
+          if (exportMdLabel) exportMdLabel.textContent = 'Export All as ZIP (Markdown)';
+          if (exportJsonLabel) exportJsonLabel.textContent = 'Export All as JSON';
+        }
+      } else {
+        document.body.classList.remove('selection-mode-active');
+        if (header) header.style.display = 'none';
+        if (standard) standard.style.display = 'flex';
+      }
+
+      document.querySelectorAll('.article-card').forEach(card => {
+        const id = parseInt(card.dataset.id, 10);
+        const isSelected = selectedArticleIds.has(id);
+        card.classList.toggle('is-selected', isSelected);
+        const checkbox = card.querySelector('.card-checkbox');
+        if (checkbox) checkbox.classList.toggle('checked', isSelected);
+      });
+    }
+
+    function toggleBatchMenu() {
+      const menu = document.getElementById('batchDropdownMenu');
+      if (menu) {
+        const isOpen = menu.classList.contains('open');
+        closeAllCardMenus();
+        if (!isOpen) {
+          updateBatchUI();
+          menu.classList.add('open');
+          const backdrop = document.getElementById('cardMenuBackdrop');
+          if (backdrop) backdrop.style.display = 'block';
+        }
+      }
+    }
+
+    function closeBatchMenu() {
+      document.getElementById('batchDropdownMenu')?.classList.remove('open');
+      const exportWrap = document.getElementById('batchExportWrap');
+      if (exportWrap) exportWrap.classList.remove('expanded');
+      const backdrop = document.getElementById('cardMenuBackdrop');
+      if (backdrop) backdrop.style.display = 'none';
+    }
+
+    function toggleBatchExportSubmenu() {
+      document.getElementById('batchExportWrap')?.classList.toggle('expanded');
+    }
+
+    function batchOpenHighlights() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 1) {
+        closeAllCardMenus();
+        openArticleHighlightsModal(ids[0]);
+      }
+    }
+
+    function batchOpenOriginal() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 1) {
+        closeAllCardMenus();
+        const item = allEntries.find(e => e.id === ids[0]);
+        if (item && item.url) {
+          window.open(item.url, '_blank', 'noopener,noreferrer');
+        }
+      }
+    }
+
+    function batchEditTitle() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 1) {
+        closeAllCardMenus();
+        openEditTitleModal(ids[0]);
+      }
+    }
+
+    async function handleBatchExportEpub() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      closeAllCardMenus();
+      if (ids.length === 1) {
+        downloadEpub(ids[0]);
+        clearArticleSelection();
+        return;
+      }
+
+      showToast('Generating ' + ids.length + ' EPUB files...');
+      try {
+        const zipFiles = {};
+        for (const id of ids) {
+          const item = allEntries.find(e => e.id === id);
+          if (!item) continue;
+          if (typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
+            const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin);
+            const safeName = (item.title || ('article-' + id)).replace(/[/\\:*?"<>|]/g, '').trim() + '.epub';
+            zipFiles[safeName] = u8;
+          }
+        }
+        const zipper = window.WallaflareEpub?.zipSync || window.fflate?.zipSync;
+        if (zipper && Object.keys(zipFiles).length > 0) {
+          const zippedData = zipper(zipFiles);
+          const blob = new Blob([zippedData], { type: 'application/zip' });
+          const filename = 'wallaflare-epubs-' + Date.now() + '.zip';
+          await shareOrDownloadBlob(blob, filename, 'application/zip');
+          showToast('✓ ' + Object.keys(zipFiles).length + ' EPUBs exported to ZIP');
+          clearArticleSelection();
+        } else {
+          showToast('EPUB generator ready');
+        }
+      } catch (e) {
+        showToast('Failed to batch export EPUBs');
+      }
+    }
+
+    async function handleBatchExportMarkdown() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      closeAllCardMenus();
+      if (ids.length === 1) {
+        exportMarkdown(ids[0]);
+        clearArticleSelection();
+        return;
+      }
+
+      showToast('Creating Markdown ZIP archive...');
+      try {
+        const zipFiles = {};
+        const strToU8 = window.WallaflareEpub?.strToU8 || window.fflate?.strToU8 || ((s) => new TextEncoder().encode(s));
+        const zipper = window.WallaflareEpub?.zipSync || window.fflate?.zipSync;
+
+        for (const id of ids) {
+          const item = allEntries.find(e => e.id === id);
+          if (!item) continue;
+          const bodyMd = htmlToMarkdown(item.content || item.text || '');
+          const mdContent = '# ' + (item.title || 'Untitled') + '\\n\\n' +
+            '- **Source:** ' + (item.url || 'N/A') + '\\n' +
+            '- **Author:** ' + (item.author || 'N/A') + '\\n' +
+            '- **Date:** ' + (item.created_at || new Date().toISOString()) + '\\n\\n' +
+            '---\\n\\n' +
+            bodyMd;
+          const safeName = (item.title || ('article-' + id)).replace(/[/\\:*?"<>|]/g, '').trim() + '.md';
+          zipFiles[safeName] = strToU8(mdContent);
+        }
+
+        if (zipper && Object.keys(zipFiles).length > 0) {
+          const zippedData = zipper(zipFiles);
+          const blob = new Blob([zippedData], { type: 'application/zip' });
+          const filename = 'wallaflare-markdown-' + Date.now() + '.zip';
+          await shareOrDownloadBlob(blob, filename, 'application/zip');
+          showToast('✓ ' + Object.keys(zipFiles).length + ' Markdown files exported to ZIP');
+          clearArticleSelection();
+        }
+      } catch (e) {
+        showToast('Failed to export Markdown ZIP');
+      }
+    }
+
+    function handleBatchExportPdf() {
+      const ids = Array.from(selectedArticleIds);
+      closeAllCardMenus();
+      if (ids.length === 1) {
+        exportPdf(ids[0]);
+        clearArticleSelection();
+      }
+    }
+
+    async function handleBatchExportJson() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      closeAllCardMenus();
+      const items = ids.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
+      const jsonStr = JSON.stringify(items, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const filename = (items.length === 1 ? ((items[0].title || 'article').replace(/[/\\:*?"<>|]/g, '').trim() + '.json') : ('wallaflare-export-' + Date.now() + '.json'));
+      await shareOrDownloadBlob(blob, filename, 'application/json');
+      showToast('✓ Exported ' + items.length + ' article(s) as JSON');
+      clearArticleSelection();
+    }
+
+    async function batchRefetchContent() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      showToast('Re-fetching ' + ids.length + ' articles...');
+      for (const id of ids) {
+        try {
+          await authFetch('/api/entries/' + id + '/reload.json', { method: 'PATCH' });
+        } catch (e) {}
+      }
+      clearArticleSelection();
+      await loadArticles(true);
+      showToast('Content re-fetched');
+    }
+
+    async function batchToggleStar() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      showToast('Updating ' + ids.length + ' articles...');
+      for (const id of ids) {
+        const item = allEntries.find(e => e.id === id);
+        if (item) item.is_starred = item.is_starred ? 0 : 1;
+      }
+      syncLocalEntriesCache(allEntries);
+      filterArticles();
+      clearArticleSelection();
+    }
+
+    async function batchToggleArchive() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      showToast('Archiving ' + ids.length + ' articles...');
+      for (const id of ids) {
+        const item = allEntries.find(e => e.id === id);
+        if (item) item.is_archived = item.is_archived ? 0 : 1;
+      }
+      syncLocalEntriesCache(allEntries);
+      filterArticles();
+      clearArticleSelection();
+    }
+
+    function batchManageTags() {
+      if (selectedArticleIds.size === 0) return;
+      openTagModal(Array.from(selectedArticleIds));
+    }
+
+    async function batchDeleteArticles() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to delete ' + ids.length + ' articles?', 'Delete', true);
+      if (!ok) return;
+      allEntries = allEntries.filter(e => !selectedArticleIds.has(e.id));
+      syncLocalEntriesCache(allEntries);
+      clearArticleSelection();
+      filterArticles();
+      showToast('Articles deleted');
+    }
+
+    function toggleMobileNavMenu(e) {
+      if (e) e.stopPropagation();
+      const drawer = document.getElementById('mobileNavDropdown');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      if (drawer) {
+        drawer.style.transform = '';
+        drawer.style.transition = '';
+      }
+      if (backdrop) {
+        backdrop.style.opacity = '';
+        backdrop.style.transition = '';
+      }
+      drawer?.classList.toggle('open');
+      backdrop?.classList.toggle('open');
+    }
+
+    function closeMobileNavMenu() {
+      const drawer = document.getElementById('mobileNavDropdown');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      drawer?.classList.remove('open');
+      backdrop?.classList.remove('open');
+      if (drawer) {
+        drawer.style.transform = '';
+        drawer.style.transition = '';
+      }
+      if (backdrop) {
+        backdrop.style.opacity = '';
+        backdrop.style.transition = '';
+      }
+    }
+
+    function setupMobileDrawerSwipeTracking() {
+      const drawer = document.getElementById('mobileNavDropdown');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      if (!drawer || !backdrop) return;
+
+      let startX = 0;
+      let startY = 0;
+      let currentX = 0;
+      let isTracking = false;
+      let isHorizontal = false;
+
+      drawer.addEventListener('touchstart', (e) => {
+        if (!drawer.classList.contains('open')) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        currentX = startX;
+        isTracking = true;
+        isHorizontal = false;
+        drawer.style.transition = 'none';
+        backdrop.style.transition = 'none';
+      }, { passive: true });
+
+      drawer.addEventListener('touchmove', (e) => {
+        if (!isTracking) return;
+        currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - startX;
+        const diffY = currentY - startY;
+
+        if (!isHorizontal) {
+          if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 8) {
+            isHorizontal = true;
+          } else if (Math.abs(diffY) > 8) {
+            isTracking = false;
+            return;
+          }
+        }
+
+        if (isHorizontal && diffX < 0) {
+          const drawerWidth = drawer.offsetWidth || 285;
+          const translateX = Math.max(-drawerWidth, diffX);
+          drawer.style.transform = 'translateX(' + translateX + 'px)';
+          const progress = Math.max(0, Math.min(1, 1 + (diffX / drawerWidth)));
+          backdrop.style.opacity = String(progress);
+        }
+      }, { passive: true });
+
+      const handleSwipeEnd = () => {
+        if (!isTracking) return;
+        isTracking = false;
+        drawer.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+        backdrop.style.transition = 'opacity 0.25s ease';
+
+        const diffX = currentX - startX;
+        if (isHorizontal && diffX < -65) {
+          closeMobileNavMenu();
+          setTimeout(() => {
+            drawer.style.transform = '';
+            backdrop.style.opacity = '';
+            drawer.style.transition = '';
+            backdrop.style.transition = '';
+          }, 260);
+        } else {
+          drawer.style.transform = '';
+          backdrop.style.opacity = '';
+          setTimeout(() => {
+            drawer.style.transition = '';
+            backdrop.style.transition = '';
+          }, 260);
+        }
+      };
+
+      drawer.addEventListener('touchend', handleSwipeEnd, { passive: true });
+      drawer.addEventListener('touchcancel', handleSwipeEnd, { passive: true });
+    }
+
+    function closeAllCardMenus() {
+      document.getElementById('cardMenuBackdrop')?.style.setProperty('display', 'none');
+      document.querySelectorAll('.card-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+      closeBatchMenu();
+      closeReaderMoreMenu();
+    }
+
+    // Ingest URL & Text Handlers
+    function handleAddArticleBtnClick() {
+      openModal('addUrlModal');
+    }
+
+    async function handleIngestUrl(e) {
+      e.preventDefault();
+      const input = document.getElementById('urlInput');
+      const btn = document.getElementById('ingestUrlBtn');
+      const url = input?.value.trim();
+      if (!url) return;
 
       btn.disabled = true;
-      btn.textContent = 'Connecting...';
+      btn.textContent = 'Extracting...';
 
       try {
-        localStorage.setItem('wf_server_url', serverUrl);
-        setAuthToken(token);
-        if (window.AndroidNative && window.AndroidNative.saveServerConfig) {
-          window.AndroidNative.saveServerConfig(serverUrl, token);
-        }
-
-        const res = await authFetch('/api/entries.json?perPage=1');
-        if (!res.ok && res.status !== 401) {
-          throw new Error('HTTP ' + res.status);
-        }
-
-        closeModal('serverConnectModal');
-        showToast('✓ Connected to ' + serverUrl);
-        
-    function getAppWebVersion() {
-      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
-    }
-
-    function updateVersionDisplay() {
-      const ver = getAppWebVersion();
-      const label = document.getElementById('mobileVersionLabel');
-      if (label) {
-        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
-      }
-    }
-
-    updateVersionDisplay();
-    loadArticles();
+        const res = await authFetch('/api/entries.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const item = await res.json();
+        closeModal('addUrlModal');
+        input.value = '';
+        allEntries.unshift(item);
+        syncLocalEntriesCache(allEntries);
+        updateCounts();
+        filterArticles();
+        loadGlobalTags();
+        showToast('✓ Article saved successfully!');
+        openReader(item.id);
       } catch (err) {
-        showToast('Connection failed: ' + err.message);
+        showToast('Failed to save article: ' + err.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Connect & Sync';
+        btn.textContent = 'Fetch & Save';
       }
+    }
+
+    async function handleIngestText(e) {
+      e.preventDefault();
+      const title = document.getElementById('textTitle')?.value.trim();
+      const content = document.getElementById('textContent')?.value.trim();
+      const author = document.getElementById('textAuthor')?.value.trim();
+      const tags = document.getElementById('textTags')?.value.trim();
+      const url = document.getElementById('textUrl')?.value.trim();
+      const previewPicture = document.getElementById('textPreviewPicture')?.value.trim();
+      const btn = document.getElementById('ingestTextBtn');
+
+      if (!title || !content) return;
+      btn.disabled = true;
+
+      try {
+        const res = await authFetch('/api/entries.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, author, tags, url, preview_picture: previewPicture })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const item = await res.json();
+        closeModal('addTextModal');
+        allEntries.unshift(item);
+        syncLocalEntriesCache(allEntries);
+        updateCounts();
+        filterArticles();
+        loadGlobalTags();
+        showToast('✓ Custom entry saved');
+        openReader(item.id);
+      } catch (err) {
+        showToast('Failed to save entry');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Tag management modal logic
+    let activeTagModalIds = [];
+    function openTagModal(target) {
+      if (typeof target === 'number') activeTagModalIds = [target];
+      else if (Array.isArray(target)) activeTagModalIds = target;
+      else if (activeArticleId) activeTagModalIds = [activeArticleId];
+      if (activeTagModalIds.length === 0) return;
+
+      const titleEl = document.getElementById('tagModalHeaderTitle');
+      const articleTitleEl = document.getElementById('tagModalArticleTitle');
+      if (activeTagModalIds.length === 1) {
+        const item = allEntries.find(e => e.id === activeTagModalIds[0]);
+        if (titleEl) titleEl.textContent = 'Manage Tags';
+        if (articleTitleEl) articleTitleEl.textContent = item ? item.title : '';
+      } else {
+        if (titleEl) titleEl.textContent = 'Batch Tag Editor (' + activeTagModalIds.length + ' articles)';
+        if (articleTitleEl) articleTitleEl.textContent = 'Editing tags across ' + activeTagModalIds.length + ' selected articles';
+      }
+
+      renderTagModalUI();
+      document.getElementById('tagModal')?.classList.add('open');
+    }
+
+    function closeTagModal() {
+      activeTagModalIds = [];
+      document.getElementById('tagModal')?.classList.remove('open');
+    }
+
+    function renderTagModalUI() {
+      const container = document.getElementById('tagModalCurrentTags');
+      const availContainer = document.getElementById('tagModalAvailableTags');
+      const quickSection = document.getElementById('quickTagsSection');
+      if (!container) return;
+
+      // Collect all applied tags across active target articles
+      const appliedTagMap = new Map();
+      activeTagModalIds.forEach(id => {
+        const item = allEntries.find(e => e.id === id);
+        if (item && item.tags) {
+          item.tags.forEach(t => {
+            const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
+            const key = label.toLowerCase();
+            if (key) appliedTagMap.set(key, label);
+          });
+        }
+      });
+
+      const appliedTags = Array.from(appliedTagMap.values());
+      if (appliedTags.length === 0) {
+        container.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">No tags applied</span>';
+      } else {
+        container.innerHTML = appliedTags.map(label => {
+          return '<span class="tag-badge" style="cursor: default; display: inline-flex; align-items: center; gap: 0.35rem;">' +
+            '#' + escapeHtml(label) +
+            '<button type="button" style="background: none; border: none; color: currentColor; cursor: pointer; padding: 0; font-size: 0.85rem; line-height: 1;" onclick="removeTagFromActiveArticles(\\\'' + escapeHtml(label) + '\\\')" title="Remove tag">&times;</button>' +
+          '</span>';
+        }).join(' ');
+      }
+
+      // Available quick library tags to choose from
+      const allLibTags = getEffectiveGlobalTags();
+      const availableQuickTags = allLibTags.filter(t => !appliedTagMap.has(t.label.toLowerCase()) && !appliedTagMap.has(t.slug.toLowerCase()));
+
+      if (availContainer && quickSection) {
+        if (availableQuickTags.length > 0) {
+          quickSection.style.display = 'block';
+          availContainer.innerHTML = availableQuickTags.map(t => {
+            return '<button type="button" class="tag-badge" style="cursor: pointer; background: var(--bg-tertiary); border: 1px dashed var(--border-color);" onclick="addQuickTagToActiveArticles(\\\'' + escapeHtml(t.label) + '\\\')" title="Add tag">' +
+              '+ #' + escapeHtml(t.label) +
+            '</button>';
+          }).join(' ');
+        } else {
+          quickSection.style.display = 'none';
+        }
+      }
+    }
+
+    function addQuickTagToActiveArticles(tagName) {
+      if (!tagName || activeTagModalIds.length === 0) return;
+      for (const id of activeTagModalIds) {
+        const item = allEntries.find(e => e.id === id);
+        if (item) {
+          if (!item.tags) item.tags = [];
+          const exists = item.tags.some(t => {
+            const l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
+            return l === tagName.toLowerCase();
+          });
+          if (!exists) {
+            item.tags.push({ label: tagName, slug: tagName.toLowerCase() });
+          }
+        }
+      }
+      syncLocalEntriesCache(allEntries);
+      renderTagModalUI();
+      renderSidebarTags();
+      filterArticles();
+      showToast('Tag #' + tagName + ' added');
+    }
+
+    function removeTagFromActiveArticles(tagName) {
+      if (!tagName || activeTagModalIds.length === 0) return;
+      const tagLower = tagName.toLowerCase();
+      for (const id of activeTagModalIds) {
+        const item = allEntries.find(e => e.id === id);
+        if (item && item.tags) {
+          item.tags = item.tags.filter(t => {
+            const l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
+            return l !== tagLower;
+          });
+        }
+      }
+      syncLocalEntriesCache(allEntries);
+      renderTagModalUI();
+      renderSidebarTags();
+      filterArticles();
+      showToast('Tag #' + tagName + ' removed');
+    }
+
+    function submitAddTag() {
+      const input = document.getElementById('newTagInput');
+      const rawVal = input ? input.value.trim() : '';
+      if (!rawVal || activeTagModalIds.length === 0) return;
+
+      const tagsToAdd = rawVal.split(',').map(s => s.trim().replace(/^#/, '')).filter(Boolean);
+      if (tagsToAdd.length === 0) return;
+
+      for (const tag of tagsToAdd) {
+        addQuickTagToActiveArticles(tag);
+      }
+      input.value = '';
+      renderTagModalUI();
+    }
+
+    function openGlobalTagManager() {
+      renderGlobalTagManagerUI();
+      openModal('globalTagModal');
+    }
+
+    function closeGlobalTagModal() {
+      closeModal('globalTagModal');
+    }
+
+    function renderGlobalTagManagerUI() {
+      const container = document.getElementById('globalTagListContainer');
+      const countLabel = document.getElementById('globalTagCountLabel');
+      if (!container) return;
+
+      const tags = getEffectiveGlobalTags();
+      if (countLabel) countLabel.textContent = tags.length + ' tag' + (tags.length === 1 ? '' : 's') + ' total';
+
+      if (tags.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.88rem;">No tags in library yet</div>';
+        return;
+      }
+
+      container.innerHTML = tags.map(t => {
+        return '<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.65rem; background: var(--bg-tertiary); border-radius: var(--radius-sm);">' +
+          '<div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;" onclick="closeGlobalTagModal(); filterByTag(\\\'' + escapeHtml(t.slug || t.label) + '\\\');">' +
+            '<span style="font-weight: 600; font-size: 0.88rem; color: var(--accent);">#' + escapeHtml(t.label) + '</span>' +
+            '<span class="badge-count" style="font-size: 0.72rem;">' + t.count + ' article' + (t.count === 1 ? '' : 's') + '</span>' +
+          '</div>' +
+          '<button class="btn-icon" style="color: var(--text-muted); padding: 0.2rem 0.4rem; height: auto;" onclick="deleteGlobalTag(\\\'' + escapeHtml(t.slug || t.label) + '\\\')" title="Remove tag from all articles">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+          '</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    async function deleteGlobalTag(tagSlugOrLabel) {
+      const tagLower = tagSlugOrLabel.toLowerCase();
+      let modified = false;
+      for (const entry of allEntries) {
+        if (entry.tags && entry.tags.length > 0) {
+          const prevLen = entry.tags.length;
+          entry.tags = entry.tags.filter(t => {
+            const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
+            return label !== tagLower;
+          });
+          if (entry.tags.length !== prevLen) modified = true;
+        }
+      }
+      if (modified) {
+        syncLocalEntriesCache(allEntries);
+        renderSidebarTags();
+        filterArticles();
+      }
+      renderGlobalTagManagerUI();
+      showToast('Tag #' + tagSlugOrLabel + ' removed');
+    }
+
+    function submitCreateGlobalTag() {
+      const input = document.getElementById('newGlobalTagInput');
+      const val = input ? input.value.trim().replace(/^#/, '') : '';
+      if (!val) return;
+      if (!cachedGlobalTags) cachedGlobalTags = [];
+      cachedGlobalTags.push({ label: val, slug: val.toLowerCase(), count: 0 });
+      input.value = '';
+      renderSidebarTags();
+      renderGlobalTagManagerUI();
+      showToast('Tag #' + val + ' created');
+    }
+
+    function cleanupUnusedTags() {
+      const usedTags = new Set();
+      (allEntries || []).forEach(e => {
+        (e.tags || []).forEach(t => {
+          const l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
+          if (l) usedTags.add(l);
+        });
+      });
+      cachedGlobalTags = (cachedGlobalTags || []).filter(t => {
+        const l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim().toLowerCase();
+        return usedTags.has(l);
+      });
+      renderSidebarTags();
+      renderGlobalTagManagerUI();
+      showToast('Unused tags cleaned');
     }
 
     function openEditTitleModal(id) {
       const item = allEntries.find(e => e.id === id);
       if (!item) return;
       document.getElementById('editTitleEntryId').value = String(id);
-      const input = document.getElementById('editTitleInput');
-      input.value = item.title;
+      document.getElementById('editTitleInput').value = item.title;
       openModal('editTitleModal');
-      setTimeout(() => {
-        input.focus();
-        input.select();
-      }, 80);
     }
 
     async function handleSaveTitle(e) {
       e.preventDefault();
-      const idStr = document.getElementById('editTitleEntryId').value;
-      const input = document.getElementById('editTitleInput');
-      const btn = document.getElementById('saveTitleBtn');
-      const id = Number(idStr);
-      const newTitle = input.value.trim();
-
+      const id = parseInt(document.getElementById('editTitleEntryId').value, 10);
+      const newTitle = document.getElementById('editTitleInput').value.trim();
       if (!id || !newTitle) return;
 
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
-
-      try {
-        const res = await authFetch('/api/entries/' + id + '.json', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: newTitle })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const updated = await res.json();
-        
-        // Update local article data
-        const idx = allEntries.findIndex(e => e.id === id);
-        if (idx >= 0) {
-          allEntries[idx].title = updated.title || newTitle;
-        }
-
-        // Update reader header if currently open
-        if (activeArticleId === id) {
-          document.getElementById('readerTitle').textContent = updated.title || newTitle;
-          document.title = (updated.title || newTitle) + ' - Wallaflare';
-        }
-
-        filterArticles();
-        closeModal('editTitleModal');
-        showToast('✓ Title updated successfully!');
-      } catch (err) {
-        showToast('Failed to update title: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save Title';
+      const item = allEntries.find(e => e.id === id);
+      if (item) {
+        item.title = newTitle;
+        if (activeArticleId === id) document.getElementById('readerTitle').textContent = newTitle;
       }
+      closeModal('editTitleModal');
+      filterArticles();
+      showToast('✓ Title updated');
+      authFetch('/api/entries/' + id + '.json', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle })
+      }).catch(() => {});
     }
 
-    async function handleIngestText(e) {
+    function openServerConnectModal() {
+      openModal('serverConnectModal');
+    }
+    function handleSaveServerConnection(e) {
       e.preventDefault();
-      const titleInput = document.getElementById('textTitle');
-      const authorInput = document.getElementById('textAuthor');
-      const publishedAtInput = document.getElementById('textPublishedAt');
-      const tagsInput = document.getElementById('textTags');
-      const urlInput = document.getElementById('textUrl');
-      const previewPictureInput = document.getElementById('textPreviewPicture');
-      const contentInput = document.getElementById('textContent');
-      const btn = document.getElementById('ingestTextBtn');
-
-      const title = titleInput.value.trim();
-      const content = contentInput.value.trim();
-      const author = authorInput ? authorInput.value.trim() : '';
-      const publishedAt = publishedAtInput && publishedAtInput.value ? publishedAtInput.value : '';
-      const tags = tagsInput ? tagsInput.value.trim() : '';
-      const url = urlInput ? urlInput.value.trim() : '';
-      const previewPicture = previewPictureInput ? previewPictureInput.value.trim() : '';
-      if (!title || !content) return;
-
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
-
-      try {
-        const res = await authFetch('/api/entries.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            content,
-            url: url || undefined,
-            preview_picture: previewPicture || undefined,
-            author: author || undefined,
-            published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
-            tags: tags || undefined
-          })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const item = await res.json();
-        allEntries.unshift(item);
-        syncLocalEntriesCache(allEntries);
-        updateCounts();
-        filterArticles();
-        closeModal('addTextModal');
-        titleInput.value = '';
-        contentInput.value = '';
-        if (authorInput) authorInput.value = '';
-        if (publishedAtInput) publishedAtInput.value = '';
-        if (tagsInput) tagsInput.value = '';
-        if (urlInput) urlInput.value = '';
-        if (previewPictureInput) previewPictureInput.value = '';
-        showToast('✓ Custom entry saved successfully!');
-      } catch (err) {
-        showToast('Failed to save text entry: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save Entry';
-      }
+      const url = document.getElementById('serverUrlInput')?.value.trim();
+      const token = document.getElementById('serverTokenInput')?.value.trim();
+      if (url) localStorage.setItem('wf_server_url', url);
+      if (token) setAuthToken(token);
+      closeModal('serverConnectModal');
+      loadArticles(false);
+      loadGlobalTags();
     }
 
-    function openModal(id) {
-      
-      clearActiveTextSelection();
-      const modalEl = document.getElementById(id);
-      if (modalEl) {
-        modalEl.classList.add('open');
-        if (id === 'addUrlModal') {
-          setTimeout(() => {
-            const input = document.getElementById('urlInput');
-            if (input) {
-              input.focus();
-              input.select();
-            }
-          }, 60);
-        } else if (id === 'addTextModal') {
-          loadGlobalTags().then(() => renderAddTextTagChips());
-          setTimeout(() => {
-            document.getElementById('textTitle')?.focus();
-          }, 60);
-        }
-      }
-    }
-    function closeModal(id) {
-      document.getElementById(id).classList.remove('open');
-    }
-
-    let toastTimeout = null;
-    function showToast(msg, duration = 3000) {
-      const toast = document.getElementById('toast');
-      const msgEl = document.getElementById('toastMsg');
-      if (!toast || !msgEl) return;
-      msgEl.textContent = msg;
-      toast.classList.add('show');
-      if (toastTimeout) {
-        clearTimeout(toastTimeout);
-      }
-      toastTimeout = setTimeout(() => {
-        toast.classList.remove('show');
-        toastTimeout = null;
-      }, duration);
-    }
-
-    function toggleTheme() {
-      const html = document.documentElement;
-      if (html.classList.contains('dark')) {
-        html.classList.remove('dark');
-        html.classList.add('light');
-        localStorage.setItem('wf_theme', 'light');
-      } else if (html.classList.contains('light')) {
-        html.classList.remove('light');
-        html.classList.add('sepia');
-        localStorage.setItem('wf_theme', 'sepia');
-      } else {
-        html.classList.remove('sepia');
-        html.classList.add('dark');
-        localStorage.setItem('wf_theme', 'dark');
-      }
-    }
-
-    // Load saved theme
-    const savedTheme = localStorage.getItem('wf_theme') || 'dark';
-    document.documentElement.className = savedTheme;
-
-
-    // -------------------------------------------------------------
-    // Custom In-App Confirmation Dialog
-    // -------------------------------------------------------------
-    let confirmResolve = null;
-
-    function showConfirmDialog(title, message, confirmBtnText = 'Confirm', isDanger = false) {
-      return new Promise((resolve) => {
-        confirmResolve = resolve;
-        document.getElementById('confirmModalTitle').textContent = title;
-        document.getElementById('confirmModalMsg').textContent = message;
-        const btn = document.getElementById('confirmModalBtn');
-        btn.textContent = confirmBtnText;
-        btn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
-        openModal('confirmModal');
-      });
-    }
-
-    function handleConfirmModalOk() {
-      closeModal('confirmModal');
-      if (confirmResolve) {
-        confirmResolve(true);
-        confirmResolve = null;
-      }
-    }
-
-    function handleConfirmModalCancel() {
-      closeModal('confirmModal');
-      if (confirmResolve) {
-        confirmResolve(false);
-        confirmResolve = null;
-      }
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-
-    // -------------------------------------------------------------
-    // Pull to Refresh Implementation (Smooth 1:1 Physics)
-    // -------------------------------------------------------------
-    let pullStartY = 0;
+    // Offline DB placeholder
+    function saveArticlesToOfflineDb() {}
+    function getArticlesFromOfflineDb() { return []; }
+    // Pull to Refresh Implementation
+    let touchStartY = 0;
     let isPulling = false;
-    let isRefreshing = false;
-    const PULL_TRIGGER_PX = 50;
+    const ptrWrap = document.getElementById('pullToRefreshWrap');
+    const ptrSvg = document.getElementById('pullToRefreshSvg');
 
-    function setupPullToRefresh() {
-      window.addEventListener('touchstart', (e) => {
-        const readerOpen = document.getElementById('readerView') && document.getElementById('readerView').classList.contains('open');
-        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
-        if (window.scrollY <= 1 && !readerOpen && !modalOpen && !isRefreshing) {
-          pullStartY = e.touches[0].clientY;
+    function initPullToRefresh() {
+      const scrollContainer = document.getElementById('articlesScrollContainer');
+      if (!scrollContainer) return;
+
+      scrollContainer.addEventListener('touchstart', (e) => {
+        if (activeArticleId) return;
+        if (scrollContainer.scrollTop <= 2 && e.touches.length === 1) {
+          touchStartY = e.touches[0].pageY;
           isPulling = true;
-          const wrap = document.getElementById('pullToRefreshWrap');
-          if (wrap) {
-            wrap.style.transition = 'none';
-          }
         }
       }, { passive: true });
 
-      window.addEventListener('touchmove', (e) => {
-        if (!isPulling || isRefreshing) return;
-        const currentY = e.touches[0].clientY;
-        const diff = currentY - pullStartY;
-        if (diff > 0 && window.scrollY <= 1) {
-          const pullDistance = Math.min(68, diff * 0.4);
-          const wrap = document.getElementById('pullToRefreshWrap');
-          const svg = document.getElementById('pullToRefreshSvg');
-          if (wrap) {
-            wrap.style.visibility = 'visible';
-            wrap.style.transition = 'none';
-            wrap.style.opacity = String(Math.min(1, pullDistance / 16));
-            wrap.style.transform = 'translate(-50%, ' + pullDistance + 'px)';
+      scrollContainer.addEventListener('touchmove', (e) => {
+        if (!isPulling || activeArticleId || e.touches.length !== 1) return;
+        const currentY = e.touches[0].pageY;
+        const delta = currentY - touchStartY;
+
+        if (delta > 5 && scrollContainer.scrollTop <= 2) {
+          if (e.cancelable) e.preventDefault();
+          const pullDist = Math.min(80, delta * 0.45);
+          if (ptrWrap) {
+            ptrWrap.style.visibility = 'visible';
+            ptrWrap.style.opacity = String(Math.min(1, pullDist / 35));
+            ptrWrap.style.transform = 'translate(-50%, ' + pullDist + 'px)';
           }
-          if (svg) {
-            svg.style.transform = 'rotate(' + (diff * 2.5) + 'deg)';
+          if (ptrSvg) {
+            ptrSvg.style.transform = 'rotate(' + (delta * 2.5) + 'deg)';
           }
-        } else if (diff < 0) {
+        } else if (delta < 0) {
           isPulling = false;
-          hidePullToRefreshSpinner();
+        }
+      }, { passive: false });
+
+      scrollContainer.addEventListener('touchend', async (e) => {
+        if (!isPulling) return;
+        isPulling = false;
+        const currentY = e.changedTouches[0]?.pageY || 0;
+        const delta = currentY - touchStartY;
+
+        if (delta > 60 && scrollContainer.scrollTop <= 2 && !activeArticleId) {
+          if (ptrWrap) {
+            ptrWrap.style.transform = 'translate(-50%, 50px)';
+          }
+          if (ptrSvg) {
+            ptrSvg.classList.add('is-refreshing-spin');
+          }
+          try {
+            await Promise.all([loadArticles(false), loadGlobalTags()]);
+          } finally {
+            setTimeout(() => {
+              if (ptrWrap) {
+                ptrWrap.style.transform = 'translate(-50%, -20px)';
+                ptrWrap.style.opacity = '0';
+                ptrWrap.style.visibility = 'hidden';
+              }
+              if (ptrSvg) {
+                ptrSvg.classList.remove('is-refreshing-spin');
+              }
+            }, 300);
+          }
+        } else {
+          if (ptrWrap) {
+            ptrWrap.style.transform = 'translate(-50%, -20px)';
+            ptrWrap.style.opacity = '0';
+            ptrWrap.style.visibility = 'hidden';
+          }
         }
       }, { passive: true });
+    }
 
-      const handleTouchEnd = async (e) => {
-        if (!isPulling || isRefreshing) return;
-        isPulling = false;
-        const currentY = e.changedTouches ? e.changedTouches[0].clientY : 0;
-        const diff = currentY - pullStartY;
-        const effectivePull = diff * 0.4;
-
-        const wrap = document.getElementById('pullToRefreshWrap');
-        if (wrap) wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
-
-        if (effectivePull >= PULL_TRIGGER_PX && window.scrollY <= 1) {
-          isRefreshing = true;
-          const svg = document.getElementById('pullToRefreshSvg');
-          if (wrap) {
-            wrap.style.visibility = 'visible';
-            wrap.style.opacity = '1';
-            wrap.style.transform = 'translate(-50%, 54px)';
-          }
-          if (svg) svg.classList.add('ptr-spinning');
-          
-          const minDelay = new Promise(r => setTimeout(r, 450));
-          await Promise.all([loadArticles(false), minDelay]);
-          hidePullToRefreshSpinner();
-        } else {
-          hidePullToRefreshSpinner();
+    // Refocus / Bring to Foreground Refresh
+    function initRefocusRefresh() {
+      let lastRefreshTime = Date.now();
+      const triggerRefresh = () => {
+        const now = Date.now();
+        if (now - lastRefreshTime > 4000) {
+          lastRefreshTime = now;
+          loadArticles(true);
+          loadGlobalTags();
         }
       };
 
-      window.addEventListener('touchend', handleTouchEnd, { passive: true });
-      window.addEventListener('touchcancel', () => hidePullToRefreshSpinner(), { passive: true });
-    }
-
-    function hidePullToRefreshSpinner() {
-      isRefreshing = false;
-      isPulling = false;
-      const wrap = document.getElementById('pullToRefreshWrap');
-      const svg = document.getElementById('pullToRefreshSvg');
-      if (wrap) {
-        wrap.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
-        wrap.style.opacity = '0';
-        wrap.style.transform = 'translate(-50%, -20px)';
-        setTimeout(() => {
-          if (!isRefreshing && !isPulling) {
-            wrap.style.visibility = 'hidden';
+      window.addEventListener('focus', triggerRefresh);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          triggerRefresh();
+        }
+      });
+      document.addEventListener('resume', triggerRefresh);
+      if (window.Capacitor?.App?.addListener) {
+        window.Capacitor.App.addListener('appStateChange', (state) => {
+          if (state && state.isActive) {
+            triggerRefresh();
           }
-        }, 260);
-      }
-      if (svg) {
-        svg.classList.remove('ptr-spinning');
-        svg.style.transform = '';
+        });
       }
     }
 
     // -------------------------------------------------------------
-    // Interactive 1:1 Finger Tracking Swipe-to-Close for Drawers
+    // Capacitor OTA Updater Engine
     // -------------------------------------------------------------
-    function setupInteractiveDrawerTracking(drawerId, backdropId, closeFn, openClass) {
-      const drawer = document.getElementById(drawerId);
-      const backdrop = document.getElementById(backdropId);
-      if (!drawer || !backdrop) return;
-
-      let startX = 0;
-      let startY = 0;
-      let isDragging = false;
-      let currentDiffX = 0;
-      let startTime = 0;
-
-      function onTouchStart(e) {
-        if (!drawer.classList.contains(openClass)) return;
-        clearActiveTextSelection();
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-        isDragging = false;
-        currentDiffX = 0;
-        startTime = Date.now();
-      }
-
-      function onTouchMove(e) {
-        if (!drawer.classList.contains(openClass)) return;
-        const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-        const diffX = currentX - startX;
-        const diffY = currentY - startY;
-
-        // Detect horizontal dragging towards the left
-        if (!isDragging) {
-          if (diffX < -5 && Math.abs(diffX) > Math.abs(diffY)) {
-            isDragging = true;
-          }
-        }
-
-        if (isDragging) {
-          currentDiffX = Math.min(0, diffX);
-          drawer.style.setProperty('transition', 'none', 'important');
-          backdrop.style.setProperty('transition', 'none', 'important');
-          drawer.style.setProperty('transform', 'translateX(' + currentDiffX + 'px)', 'important');
-
-          const width = drawer.offsetWidth || 260;
-          const progress = Math.max(0, Math.min(1, 1 + currentDiffX / width));
-          backdrop.style.setProperty('opacity', String(progress), 'important');
-        }
-      }
-
-      function onTouchEnd() {
-        if (!isDragging) return;
-        isDragging = false;
-
-        const width = drawer.offsetWidth || 260;
-        const elapsed = Date.now() - startTime;
-        const velocity = Math.abs(currentDiffX) / Math.max(1, elapsed);
-
-        const shouldClose = currentDiffX < -(width * 0.25) || (currentDiffX < -20 && velocity > 0.3);
-
-        drawer.style.setProperty('transition', 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)', 'important');
-        backdrop.style.setProperty('transition', 'opacity 0.22s ease', 'important');
-
-        if (shouldClose) {
-          drawer.style.setProperty('transform', 'translateX(-100%)', 'important');
-          backdrop.style.setProperty('opacity', '0', 'important');
-          setTimeout(() => {
-            closeFn();
-            drawer.style.removeProperty('transform');
-            drawer.style.removeProperty('transition');
-            backdrop.style.removeProperty('opacity');
-            backdrop.style.removeProperty('transition');
-          }, 230);
-        } else {
-          drawer.style.setProperty('transform', 'translateX(0)', 'important');
-          backdrop.style.setProperty('opacity', '1', 'important');
-          setTimeout(() => {
-            drawer.style.removeProperty('transform');
-            drawer.style.removeProperty('transition');
-            backdrop.style.removeProperty('opacity');
-            backdrop.style.removeProperty('transition');
-          }, 230);
-        }
-      }
-
-      drawer.addEventListener('touchstart', onTouchStart, { passive: true });
-      drawer.addEventListener('touchmove', onTouchMove, { passive: true });
-      drawer.addEventListener('touchend', onTouchEnd, { passive: true });
-      drawer.addEventListener('touchcancel', onTouchEnd, { passive: true });
-
-      backdrop.addEventListener('touchstart', onTouchStart, { passive: true });
-      backdrop.addEventListener('touchmove', onTouchMove, { passive: true });
-      backdrop.addEventListener('touchend', onTouchEnd, { passive: true });
-      backdrop.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    function isCapacitorApp() {
+      return !!(window.IS_CAPACITOR_APP || window.Capacitor?.isNativePlatform?.() || window.AndroidNative);
     }
 
-    function setupDrawerSwipeHandlers() {
-      // 1. Main Navigation Drawer
-      setupInteractiveDrawerTracking('mobileNavDropdown', 'mobileNavBackdrop', closeMobileNavMenu, 'open');
-      // 2. Reader Action Sidebar Drawer
-      setupInteractiveDrawerTracking('readerSidebar', 'readerDrawerBackdrop', closeMobileReaderDrawer, 'drawer-open');
+    function getAppWebVersion() {
+      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
     }
-
-
-    function updateOfflineUI(offline) {
-      isOfflineMode = offline;
-      const btn = document.getElementById('addArticleBtn');
-      const icon = document.getElementById('addArticleBtnIcon');
-      const label = document.getElementById('addArticleBtnLabel');
-      if (!btn) return;
-
-      if (offline) {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-offline-mode');
-        btn.title = 'Offline Mode — Reading from cache (Tap to retry)';
-        if (icon) {
-          icon.innerHTML = '<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>';
-        }
-        if (label) label.textContent = 'Offline';
-      } else {
-        btn.classList.remove('btn-offline-mode');
-        btn.classList.add('btn-primary');
-        btn.title = 'Add URL';
-        if (icon) {
-          icon.innerHTML = '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>';
-        }
-        if (label) label.textContent = 'Add URL';
-      }
-    }
-
-
-    async function handleDesktopRefresh(btn) {
-      const svg = btn ? btn.querySelector('svg') : null;
-      if (svg) svg.classList.add('ptr-spinning');
-      try {
-        await loadArticles(false);
-      } finally {
-        if (svg) svg.classList.remove('ptr-spinning');
-      }
-    }
-
-    function handleAddArticleBtnClick() {
-      if (isOfflineMode) {
-        loadArticles(false);
-        return;
-      }
-      openModal('addUrlModal');
-    }
-
-    // Global connection state & offline management
-    let isOfflineMode = false;
-    let lastOfflineToastTime = 0;
-
-    function handleConnectionFailure(isSilent = false) {
-      updateOfflineUI(true);
-      const now = Date.now();
-
-      // If manual pull-to-refresh (!isSilent), always show toast; if background resume, debounce to 30s
-      if (!isSilent || (now - lastOfflineToastTime > 30000)) {
-        lastOfflineToastTime = now;
-        if (allEntries.length > 0) {
-          showToast('Offline — viewing saved articles from cache', 3000);
-        } else {
-          showToast('Could not connect to server', 3500);
-        }
-      }
-    }
-
-    // Global silent refresh helper for native app resume & tab focus
-    let lastForegroundSyncTime = 0;
-    window.refreshArticlesSilently = function() {
-      const reader = document.getElementById('readerView');
-      if (reader && reader.classList.contains('open')) return;
-      if (navigator.onLine === false) {
-        handleConnectionFailure(true);
-        return;
-      }
-      const now = Date.now();
-      if (now - lastForegroundSyncTime < 2500) {
-        return;
-      }
-      lastForegroundSyncTime = now;
-      loadArticles(true);
-    };
-
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        window.refreshArticlesSilently();
-      }
-    });
-
-    window.addEventListener('focus', () => {
-      window.refreshArticlesSilently();
-    });
-
-    window.addEventListener('offline', () => {
-      handleConnectionFailure(false);
-    });
-
-    window.addEventListener('online', () => {
-      showToast('Back online — syncing library...', 2500);
-      updateOfflineUI(false);
-      loadArticles(true);
-    });
-
-    // Initialize
-    renderFromInstantLocalCache();
-    setupPullToRefresh();
-    setupDrawerSwipeHandlers();
-      setupReaderSelectionHandlers();
-    setupCardLongPress();
-    // Long-press gesture for mobile cards
-    function setupCardLongPress() {
-      const grid = document.getElementById('articlesGrid');
-      if (!grid) return;
-
-      let longPressTimer = null;
-      let longPressMoved = false;
-      let startX = 0;
-      let startY = 0;
-
-      grid.addEventListener('touchstart', (e) => {
-        const card = e.target.closest('.article-card');
-        if (!card) return;
-        if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap')) return;
-
-        const id = parseInt(card.dataset.id, 10);
-        if (!id) return;
-
-        longPressMoved = false;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-
-        clearTimeout(longPressTimer);
-        longPressTimer = setTimeout(() => {
-          if (!longPressMoved) {
-            justTriggeredLongPress = true;
-            if (navigator.vibrate) {
-              try { navigator.vibrate(25); } catch {}
-            }
-            toggleArticleSelection(id, true);
-          }
-        }, 450);
-      }, { passive: true });
-
-      grid.addEventListener('touchmove', (e) => {
-        if (longPressTimer) {
-          const diffX = Math.abs(e.touches[0].clientX - startX);
-          const diffY = Math.abs(e.touches[0].clientY - startY);
-          if (diffX > 10 || diffY > 10) {
-            longPressMoved = true;
-            clearTimeout(longPressTimer);
-          }
-        }
-      }, { passive: true });
-
-      grid.addEventListener('touchend', () => {
-        clearTimeout(longPressTimer);
-        if (justTriggeredLongPress) {
-          setTimeout(() => { justTriggeredLongPress = false; }, 120);
-        }
-      }, { passive: true });
-
-      grid.addEventListener('touchcancel', () => {
-        clearTimeout(longPressTimer);
-      }, { passive: true });
-    }
-
-    // Android back button support for selection mode
-    const originalBackHandler = window.handleAndroidBackButton;
-    window.handleAndroidBackButton = function() {
-      if (isSelectionMode()) {
-        clearArticleSelection();
-        return true;
-      }
-      if (originalBackHandler) {
-        return originalBackHandler();
-      }
-      return false;
-    };
-
 
     function compareSemVer(a, b) {
       const pa = String(a || '1.0.0').split(/[\.-]/).map(n => parseInt(n, 10) || 0);
@@ -7338,12 +5493,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     }
 
     let isDownloadingOta = false;
-    async function checkOtaFromVersionHeader(serverVer, minNative) {
-      if (!isCapacitorApp() || isDownloadingOta) return;
+    async function checkCapacitorOtaFromVersion(serverVer, minNative) {
+      if (!isCapacitorApp() || isDownloadingOta || !serverVer) return;
       const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
       if (!updater) return;
 
-      const currentLocal = (await updater.getLatest().catch(() => null))?.version || window.WF_BUILD_VERSION || '';
+      const currentLocal = window.WF_BUILD_VERSION || (await updater.getLatest().catch(() => null))?.version || '';
       if (serverVer === currentLocal) return;
 
       const nativeVer = window.WF_NATIVE_VERSION || '1.0.0';
@@ -7354,27 +5509,36 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       isDownloadingOta = true;
       try {
-        const serverUrl = getApiBaseUrl();
-        const downloadUrl = serverUrl + '/api/app/bundle.zip';
-        console.log('[OTA] Downloading update bundle in background:', serverVer);
+        const serverBase = getEffectiveServerUrl();
+        const downloadUrl = (serverBase ? serverBase : '') + '/api/app/bundle.zip';
+        console.log('[OTA] Downloading updated bundle reported in header:', serverVer);
+
         const downloaded = await updater.download({
           url: downloadUrl,
           version: serverVer
         });
+
         if (downloaded) {
           await updater.set(downloaded);
-          console.log('[OTA] Update downloaded and ready.');
-          showOtaRestartBanner();
+          console.log('[OTA] Bundle installed successfully for version:', serverVer);
+          if (!activeArticleId && (!window.location.pathname || window.location.pathname === '/' || window.location.pathname === '/unread')) {
+            showToast('✓ Updated to latest web assets');
+            setTimeout(() => {
+              updater.reload().catch(() => window.location.reload());
+            }, 600);
+          } else {
+            showOtaRestartBanner();
+          }
         }
       } catch (err) {
-        console.warn('[OTA] Background download error:', err);
+        console.warn('[OTA] Header updater error:', err);
       } finally {
         isDownloadingOta = false;
       }
     }
 
     function showOtaRestartBanner() {
-      showToast('🚀 New update downloaded! Tap here to restart', 15000);
+      showToast('🚀 New update ready! Tap here to reload', 12000);
       const toast = document.getElementById('toast');
       if (toast) {
         toast.style.cursor = 'pointer';
@@ -7392,43 +5556,60 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function initCapacitorOtaUpdater() {
       if (!isCapacitorApp()) return;
       const updater = window.Capacitor?.Plugins?.CapacitorUpdater;
-      if (!updater) return;
-
-      try {
-        await updater.notifyAppReady();
-      } catch (e) {}
-    }
-
-    
-    function getAppWebVersion() {
-      return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+      if (updater) {
+        await updater.notifyAppReady().catch(() => {});
+      }
     }
 
     function updateVersionDisplay() {
       const ver = getAppWebVersion();
-      const label = document.getElementById('mobileVersionLabel');
-      if (label) {
-        label.textContent = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
-      }
+      const label = document.getElementById('sidebarVersionLabel');
+      const mobileLabel = document.getElementById('mobileVersionLabel');
+      const settingsLabel = document.getElementById('settingsVersionLabel');
+      const text = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      if (label) label.textContent = text;
+      if (mobileLabel) mobileLabel.textContent = text;
+      if (settingsLabel) settingsLabel.textContent = text;
     }
 
-    updateVersionDisplay();
-    loadArticles();
-    if (isCapacitorApp()) {
-      const settingsBtn = document.getElementById('serverSettingsBtn');
-      if (settingsBtn) settingsBtn.style.display = 'flex';
-      if (window.AndroidNative && window.AndroidNative.saveServerConfig) {
-        window.AndroidNative.saveServerConfig(
-          localStorage.getItem('wf_server_url') || '',
-          getAuthToken()
-        );
-      }
-      if (!localStorage.getItem('wf_server_url')) {
-        setTimeout(() => openServerConnectModal(), 120);
-      } else {
-        setTimeout(() => initCapacitorOtaUpdater(), 1000);
-      }
+    function initReaderHoverTopBar() {
+      const readerPane = document.getElementById('paneReader');
+      if (!readerPane) return;
+      readerPane.addEventListener('mousemove', (e) => {
+        if (window.innerWidth >= 1024 && activeArticleId) {
+          if (e.clientY <= 65) {
+            showReaderTopBar(true);
+          }
+        }
+      });
     }
+
+    function initSelectionDeselectListener() {
+      document.addEventListener('click', (e) => {
+        if (selectedArticleIds.size > 0) {
+          if (!e.target.closest('.article-card, #batchActionHeader, #batchDropdownMenu, .tag-modal, .tag-modal-overlay, .confirm-modal-overlay, .modal-overlay, .sidebar-nav-item, #mobileNavDropdown, #cardMenuBackdrop')) {
+            clearArticleSelection();
+          }
+        }
+      });
+    }
+
+    // Initialize UI
+    if (isCapacitorApp()) {
+      document.documentElement.classList.add('is-capacitor-app');
+    }
+    initAppearanceSettings();
+    setViewMode(localStorage.getItem('wf_view_mode') || 'list');
+    updateVersionDisplay();
+    handleRouteState();
+    loadArticles(true);
+    loadGlobalTags();
+    initPullToRefresh();
+    initRefocusRefresh();
+    setupMobileDrawerSwipeTracking();
+    initReaderHoverTopBar();
+    initSelectionDeselectListener();
+    initCapacitorOtaUpdater();
   </script>
 </body>
 </html>`;

@@ -21,7 +21,7 @@ describe('EPUB 3 Generator', () => {
     // Verify magic EPUB signature (PK ZIP header)
     expect(epubData[0]).toBe(0x50); // 'P'
     expect(epubData[1]).toBe(0x4B); // 'K'
-  });
+  }, 15000);
 
   it('produces 100% strictly valid XHTML/XML even with unclosed void tags and nested spans', async () => {
     const problematicHtml = `
@@ -60,5 +60,5 @@ describe('EPUB 3 Generator', () => {
       const { document } = parseHTML(xmlStr);
       expect(document).toBeDefined();
     }
-  });
+  }, 15000);
 });

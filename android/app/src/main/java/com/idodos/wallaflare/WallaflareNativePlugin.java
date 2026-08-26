@@ -60,4 +60,39 @@ public class WallaflareNativePlugin extends Plugin {
             call.reject("Failed to share EPUB: " + e.getMessage());
         }
     }
+
+    @PluginMethod
+    public void shareFile(PluginCall call) {
+        String filename = call.getString("filename", "export.bin");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        String base64Data = call.getString("base64Data", "");
+        try {
+            byte[] fileBytes = Base64.decode(base64Data, Base64.DEFAULT);
+            File cachePath = new File(getContext().getCacheDir(), "exports");
+            cachePath.mkdirs();
+            File newFile = new File(cachePath, filename);
+            try (FileOutputStream fos = new FileOutputStream(newFile)) {
+                fos.write(fileBytes);
+            }
+
+            Uri contentUri = FileProvider.getUriForFile(
+                getContext(),
+                getContext().getPackageName() + ".fileprovider",
+                newFile
+            );
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(mimeType);
+            shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+            shareIntent.putExtra(Intent.EXTRA_TITLE, filename);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            Intent chooser = Intent.createChooser(shareIntent, "Share or Save " + filename);
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getActivity().startActivity(chooser);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Failed to share file: " + e.getMessage());
+        }
+    }
 }
