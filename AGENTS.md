@@ -27,7 +27,8 @@
         │   Edge Worker & REST API    │                               │     Isomorphic Frontend     │
         │   (Hono + Cloudflare D1)    │                               │     (Vanilla JS + CSS)      │
         ├─────────────────────────────┤                               ├─────────────────────────────┤
-        │ • /api/entries (Wallabag v2)│                               │ • 3-Pane Workspace Desktop  │
+        │ • /api/sync (Unified Sync)  │                               │ • 3-Pane Workspace Desktop  │
+        │ • /api/entries (Wallabag v2)│                               │ • Infinite Scroll & Sorting │
         │ • /api/annotations (W3C+v2) │                               │ • Mobile Slide Drawer (1:1) │
         │ • /api/tags & batch routes  │                               │ • On-Device EPUB / PDF / MD │
         │ • Readability Extractor     │                               │ • Multi-color Annotations   │

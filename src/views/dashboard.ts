@@ -3379,7 +3379,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (fastArticles) {
           const parsed = JSON.parse(fastArticles);
           if (Array.isArray(parsed) && parsed.length > 0 && allEntries.length === 0) {
-            allEntries = parsed;
+            allEntries = sortEntriesLocally(parsed, currentSortOrder || 'newest');
           }
         }
         const fastTags = localStorage.getItem('wf_cached_tags');
@@ -5043,12 +5043,36 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    function sortEntriesLocally(entries, order) {
+      if (!Array.isArray(entries) || entries.length <= 1) return entries;
+      const sorted = [...entries];
+      if (order === 'oldest') {
+        sorted.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+      } else if (order === 'title') {
+        sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      } else if (order === 'shortest') {
+        sorted.sort((a, b) => (a.reading_time || 1) - (b.reading_time || 1));
+      } else if (order === 'longest') {
+        sorted.sort((a, b) => (b.reading_time || 1) - (a.reading_time || 1));
+      } else {
+        sorted.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      }
+      return sorted;
+    }
+
     function setSortOrder(order) {
       currentSortOrder = order;
       localStorage.setItem('wf_sort_order', order);
       closeAllCardMenus();
-      loadArticles(false, true);
+      allEntries = sortEntriesLocally(allEntries, order);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      filterArticles();
       showToast('Sorted by: ' + order);
+
+      // Only query Cloudflare D1 if the library spans multiple pages (>50 articles)
+      if (totalArticlesPages > 1 || (totalArticlesCount > allEntries.length && totalArticlesCount > 50)) {
+        loadArticles(true, true);
+      }
     }
 
     function handleSearchInput() {
@@ -5479,7 +5503,95 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function handleCardContextMenu(e, id) {
       e.preventDefault();
       e.stopPropagation();
+
+      if (selectedArticleIds && selectedArticleIds.size > 0) {
+        if (selectedArticleIds.has(id)) {
+          openBatchContextMenu(e.clientX, e.clientY);
+          return;
+        } else {
+          clearArticleSelection();
+        }
+      }
+
       openCardContextMenu(e.clientX, e.clientY, id);
+    }
+
+    function handleExportBatchEpub() {
+      closeCardContextMenu();
+      closeBatchMenu();
+      exportBatchZip('epub');
+    }
+
+    function handleExportBatchMarkdown() {
+      closeCardContextMenu();
+      closeBatchMenu();
+      exportBatchZip('markdown');
+    }
+
+    function handleExportBatchJson() {
+      closeCardContextMenu();
+      closeBatchMenu();
+      exportBatchZip('json');
+    }
+
+    function openBatchContextMenu(clientX, clientY) {
+      closeAllCardMenus();
+      closeHighlightPopover();
+      closeReaderAppearancePopover();
+
+      const menu = document.getElementById('cardContextMenu');
+      if (!menu) return;
+
+      const count = selectedArticleIds.size;
+      const countLabel = count + ' article' + (count === 1 ? '' : 's') + ' selected';
+
+      menu.innerHTML = 
+        '<div style="padding: 0.5rem 0.75rem 0.45rem; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 700; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between;">' +
+          '<span>' + countLabel + '</span>' +
+          '<button type="button" class="btn-icon" onclick="clearArticleSelection(); closeCardContextMenu();" title="Clear selection" style="padding: 2px; width: 20px; height: 20px; font-size: 0.85rem; line-height: 1;">&times;</button>' +
+        '</div>' +
+        '<button type="button" class="menu-item" onclick="closeCardContextMenu(); batchArchiveArticles();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>' +
+          '<span>Archive / Unarchive</span>' +
+        '</button>' +
+        '<button type="button" class="menu-item" onclick="closeCardContextMenu(); batchStarArticles();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' +
+          '<span>Star / Unstar</span>' +
+        '</button>' +
+        '<button type="button" class="menu-item" onclick="closeCardContextMenu(); openTagModalForSelection();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>' +
+          '<span>Edit Tags</span>' +
+        '</button>' +
+        '<div class="menu-item-expandable" id="contextExportWrap">' +
+          '<button type="button" class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleContextExportSubmenu();">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+            '<span>Bulk Export</span>' +
+            '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+          '</button>' +
+          '<div class="menu-sub-items" id="contextExportSub">' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="handleExportBatchEpub()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>ZIP (EPUBs)</span></button>' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="handleExportBatchMarkdown()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>ZIP (Markdown)</span></button>' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="handleExportBatchJson()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>JSON (.json)</span></button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="menu-divider"></div>' +
+        '<button type="button" class="menu-item menu-item-danger" onclick="closeCardContextMenu(); batchDeleteArticles();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+          '<span>Delete (' + count + ') Articles</span>' +
+        '</button>';
+
+      menu.style.display = 'flex';
+      menu.classList.add('open');
+
+      const menuWidth = 225;
+      const menuHeight = 280;
+      const x = Math.min(clientX, window.innerWidth - menuWidth - 12);
+      const y = Math.min(clientY, window.innerHeight - menuHeight - 12);
+      menu.style.left = Math.max(8, x) + 'px';
+      menu.style.top = Math.max(8, y) + 'px';
+
+      const backdrop = document.getElementById('cardMenuBackdrop');
+      if (backdrop) backdrop.style.display = 'block';
     }
 
     function openCardContextMenu(clientX, clientY, id) {

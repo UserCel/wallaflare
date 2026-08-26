@@ -125,6 +125,10 @@ function createMockD1Database() {
             }
             if (query.includes('title COLLATE NOCASE ASC') || (query.includes('title COLLATE NOCASE') && query.includes('ASC'))) {
               matched.sort((a, b) => a.title.localeCompare(b.title));
+            } else if (query.includes('reading_time ASC') || (query.includes('reading_time') && query.includes('ASC'))) {
+              matched.sort((a, b) => (a.reading_time || 1) - (b.reading_time || 1));
+            } else if (query.includes('reading_time DESC') || (query.includes('reading_time') && query.includes('DESC'))) {
+              matched.sort((a, b) => (b.reading_time || 1) - (a.reading_time || 1));
             } else if (query.includes('ORDER BY created_at ASC')) {
               matched.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             } else if (query.includes('ORDER BY created_at DESC')) {
@@ -1308,7 +1312,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(page1Data.entries[0].title).toBe('Book Article 001');
     expect(page1Data.entries[1].title).toBe('Book Article 002');
 
-    // 2. Fetch Page 2 (remaining items)
+    // 2. Fetch Page 2 (remaining items) for Title ASC
     const page2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=title&order=asc', {
       headers: { 'Authorization': `Bearer ${SECRET}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
@@ -1319,10 +1323,92 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(page2Items.length).toBeGreaterThanOrEqual(10);
     expect(page2Items[0].title).toBe('Book Article 051');
 
-    // 3. Verify tag entry counts accurately reflect database counts across all pages
+    // 3. Fetch Page 1 and Page 2 with Oldest First sorting
+    const oldestP1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=oldest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const oldestP1 = await oldestP1Res.json<any>();
+    expect(oldestP1.entries.length).toBe(50);
+
+    const oldestP2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=oldest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const oldestP2 = await oldestP2Res.json<any>();
+    const oldestP2Items = oldestP2._embedded?.items || oldestP2;
+    expect(oldestP2Items.length).toBeGreaterThanOrEqual(10);
+
+    // 4. Fetch Page 1 and Page 2 with Newest First sorting
+    const newestP1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=newest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const newestP1 = await newestP1Res.json<any>();
+    expect(newestP1.entries.length).toBe(50);
+    expect(newestP1.entries[0].title).toBe('Book Article 060');
+
+    const newestP2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=newest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const newestP2 = await newestP2Res.json<any>();
+    const newestP2Items = newestP2._embedded?.items || newestP2;
+    expect(newestP2Items.length).toBeGreaterThanOrEqual(10);
+    expect(newestP2Items[0].title).toBe('Book Article 010');
+
+    // 5. Verify tag entry counts accurately reflect database counts across all pages
     const tagEven = page1Data.tags.find((t: any) => t.slug === 'even-tag');
     expect(tagEven).toBeDefined();
     expect(tagEven.entry_count).toBeGreaterThanOrEqual(30);
+  });
+
+  it("handles CORS preflight OPTIONS requests for Capacitor Android app with 24h caching", async () => {
+    const optionsRes = await app.request('/api/sync.json', {
+      method: 'OPTIONS',
+      headers: {
+        'Origin': 'http://localhost',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'Authorization, Content-Type'
+      }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(optionsRes.status).toBe(204);
+    expect(optionsRes.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(optionsRes.headers.get('Access-Control-Max-Age')).toBe('86400');
+    expect(optionsRes.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+  });
+
+  it("handles empty database edge cases gracefully in getLibraryCounts and sync", async () => {
+    // Mock empty database that supports auth rate limit checks
+    const emptyDb: any = {
+      prepare: (query: string) => ({
+        bind: (...params: any[]) => ({
+          first: async () => {
+            if (query.includes('FROM auth_rate_limits')) return null;
+            return { unread: null, starred: null, archive: null, total: null };
+          },
+          all: async () => ({ results: [] }),
+          run: async () => ({ meta: { changes: 1 } })
+        }),
+        first: async () => {
+          if (query.includes('FROM auth_rate_limits')) return null;
+          return { unread: null, starred: null, archive: null, total: null };
+        },
+        all: async () => ({ results: [] }),
+        run: async () => ({ meta: { changes: 1 } })
+      })
+    };
+
+    const res = await app.request('/api/sync.json', {
+      headers: {
+        'Authorization': `Bearer ${SECRET}`,
+        'CF-Connecting-IP': '10.0.0.99'
+      }
+    }, { DB: emptyDb, AUTH_TOKEN: SECRET });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.entries).toEqual([]);
+    expect(data.tags).toEqual([]);
+    expect(data.total).toBe(0);
+    expect(data.counts).toEqual({ unread: 0, starred: 0, archive: 0, total: 0 });
   });
 
   it("returns active client credentials on GET /api/client-info when authenticated", async () => {

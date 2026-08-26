@@ -230,12 +230,14 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('## 🖍️ Highlights & Notes');
   });
 
-  it('includes right-click context menu for article cards with full actions', () => {
+  it('includes right-click context menu for article cards with single and batch actions', () => {
     const html = renderDashboardHtml('Wallaflare');
     expect(html).toContain('id="cardContextMenu"');
     expect(html).toContain('handleCardContextMenu');
     expect(html).toContain('openCardContextMenu');
+    expect(html).toContain('openBatchContextMenu');
     expect(html).toContain('closeCardContextMenu');
+    expect(html).toContain('sortEntriesLocally');
     expect(html).toContain('oncontextmenu="handleCardContextMenu(event, ');
   });
 
@@ -248,5 +250,16 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('handleAddArticleBtnClick');
     expect(html).toContain('handleAddTextBtnClick');
     expect(html).toContain('clearSearch');
+  });
+
+  it('includes infinite scroll pagination, bottom status indicator, and dynamic sort handlers', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="articlesListFooterStatus"');
+    expect(html).toContain('articles-list-footer-status');
+    expect(html).toContain('loadMoreArticles');
+    expect(html).toContain('initInfiniteScroll');
+    expect(html).toContain('updateArticlesFooterStatus');
+    expect(html).toContain('sortEntriesLocally');
+    expect(html).toContain('setSortOrder');
   });
 });
