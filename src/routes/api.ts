@@ -23,11 +23,14 @@ import {
   removeTagFromEntry,
   deleteTag,
   getLibraryCounts,
+  getCurrentSyncRevision,
+  getDeletedEntriesSince,
   checkAuthRateLimit,
   recordFailedAuthAttempt,
   resetAuthRateLimit,
   timingSafeCompare,
-  slugify
+  slugify,
+  wipeDatabase
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain } from '../services/extractor';
 import { generateEpub } from '../services/epub';
@@ -592,6 +595,7 @@ const syncHandler = async (c: any) => {
   const query = c.req.query();
   const perPage = query.perPage ? Number(query.perPage) : 50;
   const page = query.page ? Number(query.page) : 1;
+  const sinceRev = query.since_rev !== undefined && query.since_rev !== '' ? Number(query.since_rev) : undefined;
   const sort = query.sort || undefined;
   const order = query.order || undefined;
   const search = query.search || undefined;
@@ -599,17 +603,34 @@ const syncHandler = async (c: any) => {
   const is_archived = query.archive !== undefined ? Number(query.archive) : undefined;
   const is_starred = query.starred !== undefined ? Number(query.starred) : undefined;
 
-  const [entriesResult, allTags, counts] = await Promise.all([
+  const currentRev = await getCurrentSyncRevision(c.env.DB);
+
+  // If client provides since_rev that matches server's current revision, return lightweight 304-style status
+  if (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev >= currentRev && page === 1 && !search && !tags && is_archived === undefined && is_starred === undefined) {
+    const counts = await getLibraryCounts(c.env.DB);
+    c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    return c.json({
+      up_to_date: true,
+      sync_rev: currentRev,
+      counts: counts,
+    });
+  }
+
+  const [entriesResult, allTags, counts, deletedIds] = await Promise.all([
     getEntries(c.env.DB, { page, perPage, order, sort, search, tags, is_archived, is_starred }),
     getTags(c.env.DB),
     getLibraryCounts(c.env.DB),
+    sinceRev !== undefined && !isNaN(sinceRev) ? getDeletedEntriesSince(c.env.DB, sinceRev) : Promise.resolve([]),
   ]);
 
   c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
   return c.json({
+    up_to_date: false,
+    sync_rev: currentRev,
     entries: entriesResult.entries.map(e => entryRowToWallabag(e)),
     tags: allTags,
     counts: counts,
+    deleted_ids: deletedIds,
     total: entriesResult.total,
     page: entriesResult.page,
     limit: entriesResult.limit,
@@ -1081,3 +1102,33 @@ apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
     username: 'wallaflare',
   });
 });
+
+
+// -------------------------------------------------------------
+// Database Reset / Wipe Endpoint: POST /api/admin/reset-database(.json)
+// -------------------------------------------------------------
+const resetDatabaseHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  const providedToken = String(body.token || body.password || body.auth_token || '').trim();
+  const configuredToken = String(c.env.AUTH_TOKEN || c.env.CLIENT_SECRET || '').trim();
+
+  // If AUTH_TOKEN is configured on server, require exact password/token match in body
+  if (configuredToken) {
+    if (!providedToken || !timingSafeCompare(providedToken, configuredToken)) {
+      return c.json({ error: 'Invalid authentication token / password' }, 401);
+    }
+  }
+
+  await wipeDatabase(c.env.DB);
+  return c.json({ success: true, message: 'Cloudflare D1 database has been wiped clean' });
+};
+
+apiRouter.post('/api/admin/reset-database', authMiddleware, resetDatabaseHandler);
+apiRouter.post('/api/admin/reset-database.json', authMiddleware, resetDatabaseHandler);

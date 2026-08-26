@@ -13,13 +13,15 @@ CREATE TABLE IF NOT EXISTS entries (
   is_archived INTEGER DEFAULT 0,
   is_starred INTEGER DEFAULT 0,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  revision INTEGER DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_archived ON entries(is_archived);
 CREATE INDEX IF NOT EXISTS idx_entries_starred ON entries(is_starred);
 CREATE INDEX IF NOT EXISTS idx_entries_created ON entries(created_at);
 CREATE INDEX IF NOT EXISTS idx_entries_updated ON entries(updated_at);
+CREATE INDEX IF NOT EXISTS idx_entries_revision ON entries(revision);
 
 -- Tags System
 CREATE TABLE IF NOT EXISTS tags (
@@ -47,7 +49,6 @@ CREATE TABLE IF NOT EXISTS auth_rate_limits (
   locked_until INTEGER DEFAULT 0
 );
 
-
 -- Annotations & Highlights System (W3C + Wallabag v2 Hybrid)
 CREATE TABLE IF NOT EXISTS annotations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,3 +65,18 @@ CREATE TABLE IF NOT EXISTS annotations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_annotations_entry ON annotations(entry_id);
+
+-- Monotonic Sync State & Deletion Tombstones
+CREATE TABLE IF NOT EXISTS sync_state (
+  id INTEGER PRIMARY KEY,
+  revision INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS deleted_entries (
+  entry_id INTEGER PRIMARY KEY,
+  revision INTEGER NOT NULL,
+  deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+INSERT OR IGNORE INTO sync_state (id, revision) VALUES (1, 1);

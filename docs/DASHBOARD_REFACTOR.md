@@ -78,7 +78,7 @@ The **Dashboard Redesign & 3-Pane Workspace Refactor** transforms Wallaflare int
 
 ## 🧪 Testing & Verification
 
-All dashboard functionality is covered by the automated Vitest suite (72 passing tests):
+All dashboard functionality is covered by the automated Vitest suite (74 passing tests):
 - **`src/__tests__/dashboard.test.ts`**: Verifies HTML structure, inline script syntax compilation, typography popover controls, highlights navigator, and markdown export engine.
 - **`src/__tests__/api.test.ts`**: Verifies REST endpoints, batch tagging, and mass delete/star/archive.
 - **`src/__tests__/epub.test.ts`**: Verifies EPUB 3 strict XHTML validation and fflate zip archive packaging.
@@ -89,8 +89,10 @@ All dashboard functionality is covered by the automated Vitest suite (72 passing
 
 ## ⚡ Advanced Sync, Sorting & Infinite Scroll Architecture
 
-### 1. Unified Single-Handshake Sync (`GET /api/sync.json`)
-- **Atomic Payload**: Fetches page 1 of articles, all library tags (including empty/unused standalone tags with global `entry_count`), and live Cloudflare D1 database counts (`{ unread, starred, archive, total }`) in **1 single sub-10ms request**.
+### 1. Unified Monotonic Revision & Tombstone Sync (`GET /api/sync.json`)
+- **Monotonic `sync_rev` Tracking**: Cloudflare D1 maintains an atomic revision counter (`sync_state`). When the client reconnects with `since_rev=X`, if nothing changed, the worker returns `{ up_to_date: true }` in **< 150 bytes** with 0 articles transferred.
+- **Tombstone Deletion Log (`deleted_entries`)**: When articles are deleted from KOReader, Android app, or web, their IDs are tracked in `deleted_entries` and sent in `deleted_ids: [...]`, reliably pruning deleted items from local storage across all clients.
+- **Smart 50+ Article Cache Merging**: Retains previously scrolled pages in memory and local storage across refreshes without discarding deep articles.
 - **Worker Load Reduction**: Cuts Worker invocation costs and round-trip network latency by 50% on every tab refocus, pull-to-refresh, and initial load.
 - **Pure Wallabag v2 Compliance**: Standard endpoints (`/api/entries.json` and `/api/tags.json`) remain 100% compliant for KOReader, Wallabag Android App, and extensions.
 

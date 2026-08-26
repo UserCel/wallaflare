@@ -4,11 +4,15 @@ import { cors } from 'hono/cors';
 import { Env } from './types';
 import { apiRouter } from './routes/api';
 import { webRouter } from './routes/web';
+import { ensureDatabaseSchema } from './db/queries';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable CORS and Wallabag identification headers
+// Enable CORS, Wallabag identification headers, and automatic schema migrations
 app.use('*', async (c, next) => {
+  if (c.env?.DB) {
+    await ensureDatabaseSchema(c.env.DB);
+  }
   c.header('X-Wallabag-Version', '2.6.9');
   c.header('X-Powered-By', 'wallabag');
   c.header('X-Wallaflare-Web-Version', OTA_VERSION);

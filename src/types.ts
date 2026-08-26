@@ -35,6 +35,7 @@ export interface EntryRow {
   created_at: string;
   updated_at: string;
   published_at?: string;
+  revision?: number;
 }
 
 export interface WallabagEntry {

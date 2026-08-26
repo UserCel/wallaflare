@@ -190,6 +190,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       background: var(--accent-hover);
       box-shadow: 0 0 12px var(--accent-glow);
     }
+    .btn-offline-mode {
+      background: rgba(245, 158, 11, 0.15) !important;
+      color: #f59e0b !important;
+      border: 1px solid rgba(245, 158, 11, 0.4) !important;
+    }
+    .btn-offline-mode:hover {
+      background: rgba(245, 158, 11, 0.25) !important;
+    }
     .btn-secondary {
       background: var(--bg-secondary);
       border-color: var(--border-color);
@@ -1595,7 +1603,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           </button>
         </div>
 
-        <button class="sidebar-nav-item" id="sidebarSettingsBtn" onclick="openModal('settingsModal')" title="Settings">
+        <button class="sidebar-nav-item" id="sidebarSettingsBtn" onclick="openSettingsModal()" title="Settings">
           <div style="display: flex; align-items: center; gap: 0.6rem;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             <span>Settings</span>
@@ -1926,7 +1934,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       <button class="close-btn" onclick="closeMobileNavMenu()">&times;</button>
     </div>
 
-    <button class="btn btn-primary" onclick="handleAddArticleBtnClick(); closeMobileNavMenu();" title="Add URL" style="width: 100%; justify-content: center; padding: 0.55rem 0.85rem; font-weight: 600;">
+    <button class="btn btn-primary" id="mobileDrawerAddArticleBtn" onclick="handleAddArticleBtnClick(); closeMobileNavMenu();" title="Add URL" style="width: 100%; justify-content: center; padding: 0.55rem 0.85rem; font-weight: 600;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       <span>Add URL</span>
     </button>
@@ -1997,7 +2005,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       </button>
     </div>
 
-    <button class="sidebar-nav-item" onclick="closeMobileNavMenu(); openModal('settingsModal');" title="Settings">
+    <button class="sidebar-nav-item" onclick="closeMobileNavMenu(); openSettingsModal();" title="Settings">
       <div style="display: flex; align-items: center; gap: 0.6rem;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         <span>Settings</span>
@@ -2085,6 +2093,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('serverConnectModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="saveServerBtn">Connect &amp; Sync</button>
+        </div>
+        <div style="border-top: 1px solid var(--border-color); padding-top: 0.8rem; margin-top: 0.4rem; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">Out of sync?</span>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('serverConnectModal'); reconcileDatabase();" style="font-size: 0.8rem; padding: 0.35rem 0.65rem;">
+            🔄 Reconcile Database
+          </button>
         </div>
       </form>
     </div>
@@ -2313,12 +2327,23 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
 
-            <button class="btn btn-outline" style="justify-content: space-between; padding: 0.6rem 0.8rem;" onclick="closeModal('settingsModal'); openServerConnectModal();">
+            <button class="btn btn-outline" id="serverConnectionSettingsRow" style="justify-content: space-between; padding: 0.6rem 0.8rem; display: none;" onclick="closeModal('settingsModal'); openServerConnectModal();">
               <div style="display: flex; align-items: center; gap: 0.65rem;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                 <div style="text-align: left;">
                   <div style="font-weight: 600; font-size: 0.84rem;">Server &amp; API Connection</div>
                   <div style="font-size: 0.73rem; color: var(--text-muted);">Manage backend endpoint and auth tokens</div>
+                </div>
+              </div>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+
+            <button class="btn btn-outline" id="reconcileDatabaseSettingsRow" style="justify-content: space-between; padding: 0.6rem 0.8rem;" onclick="closeModal('settingsModal'); reconcileDatabase();">
+              <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                <div style="text-align: left;">
+                  <div style="font-weight: 600; font-size: 0.84rem;">Reconcile Database</div>
+                  <div style="font-size: 0.73rem; color: var(--text-muted);">Clear local offline cache &amp; re-sync fresh</div>
                 </div>
               </div>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -2358,6 +2383,50 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
         <div style="height: 1px; background: var(--border-color);"></div>
 
+        <div style="height: 1px; background: var(--border-color);"></div>
+
+        <!-- Sync & Storage Stats -->
+        <div>
+          <div style="font-weight: 700; font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.55rem;">Sync &amp; Storage Stats</div>
+          <div style="background: var(--card-bg, rgba(255,255,255,0.04)); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.82rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text-secondary);">Local Cached Articles</span>
+              <span id="statsLocalArticles" style="font-weight: 600;">0 (0 unread)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text-secondary);">Cloudflare D1 Total</span>
+              <span id="statsServerArticles" style="font-weight: 600;">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text-secondary);">Sync Comparison</span>
+              <span id="statsSyncComparison" style="font-weight: 600; color: var(--accent, #3b82f6);">In Sync ✓</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text-secondary);">Sync Revision</span>
+              <span id="statsSyncRevision" style="font-weight: 600;">Rev 1</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text-secondary);">Storage Engine</span>
+              <span id="statsStorageEngine" style="font-weight: 600; color: var(--text-muted);">IndexedDB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Danger Zone: Wipe Database -->
+        <div>
+          <div style="font-weight: 700; font-size: 0.76rem; color: var(--danger, #ef4444); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.55rem;">Danger Zone</div>
+          <button class="btn btn-outline" style="width: 100%; justify-content: space-between; padding: 0.6rem 0.8rem; border-color: rgba(239, 68, 68, 0.4); color: var(--danger, #ef4444);" onclick="closeModal('settingsModal'); openWipeDbModal();">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+              <div style="text-align: left;">
+                <div style="font-weight: 600; font-size: 0.84rem;">Wipe Cloudflare D1 Database</div>
+                <div style="font-size: 0.73rem; opacity: 0.85;">Permanently delete all articles, tags &amp; tombstones</div>
+              </div>
+            </div>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+
         <!-- Session & Account -->
         <div>
           <div style="font-weight: 700; font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.55rem;">Session &amp; About</div>
@@ -2370,6 +2439,33 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Wipe Database Confirmation -->
+  <div class="modal-backdrop" id="wipeDbModal" onclick="if(event.target === this) closeModal('wipeDbModal')">
+    <div class="modal" style="max-width: 460px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--danger, #ef4444);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <h3 class="modal-title" style="color: var(--danger, #ef4444);">Wipe Cloudflare D1 Database</h3>
+        </div>
+        <button class="close-btn" onclick="closeModal('wipeDbModal')">&times;</button>
+      </div>
+      <form onsubmit="handleConfirmWipeDatabase(event)" style="display: flex; flex-direction: column; gap: 0.95rem; font-size: 0.875rem;">
+        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-sm); padding: 0.75rem; color: var(--text-primary); line-height: 1.5;">
+          <strong>⚠️ Warning:</strong> This will permanently erase <strong>ALL articles, tags, annotations, tombstones, and revisions</strong> from Cloudflare D1. This action <strong>CANNOT</strong> be undone.
+        </div>
+        <div class="form-group">
+          <label for="wipeDbPasswordInput" style="font-weight: 600; font-size: 0.82rem;">Enter AUTH_TOKEN / Password to Confirm *</label>
+          <input type="password" id="wipeDbPasswordInput" placeholder="Server AUTH_TOKEN or password" autocomplete="current-password" required style="width: 100%;">
+        </div>
+        <div id="wipeDbErrorMsg" style="color: var(--danger, #ef4444); font-size: 0.8rem; display: none;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.4rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('wipeDbModal')">Cancel</button>
+          <button type="submit" class="btn btn-danger" id="wipeDbSubmitBtn">Permanently Wipe Database</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -2784,14 +2880,29 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
-    function handleLogout() {
-      showConfirmDialog('Log Out', 'Are you sure you want to log out of Wallaflare?', 'Log Out', true).then(confirmed => {
-        if (confirmed) {
-          setAuthToken('');
-          showAuthOverlay();
-          showToast('Logged out');
-        }
-      });
+    async function handleLogout() {
+      const confirmed = await showConfirmDialog(
+        'Log Out',
+        'Are you sure you want to log out of Wallaflare?\\n\\nAll locally cached articles, offline data, and sync states will be cleared.',
+        'Log Out',
+        true
+      );
+      if (confirmed) {
+        setAuthToken('');
+        localStorage.removeItem('wf_sync_rev');
+        localStorage.removeItem('wf_cached_articles');
+        localStorage.removeItem('wf_cached_tags');
+        localStorage.removeItem('wf_cached_counts');
+      localStorage.removeItem('wf_pending_mutations');
+        localStorage.removeItem('wf_server_url');
+        localStorage.removeItem('wf_pending_mutations');
+        currentSyncRev = 0;
+        allEntries = [];
+        await clearIndexedDB();
+        filterArticles();
+        showAuthOverlay();
+        showToast('Logged out securely');
+      }
     }
 
     // Modal management
@@ -2998,6 +3109,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (serverConnectModal && serverConnectModal.classList.contains('open')) {
           e.preventDefault();
           closeModal('serverConnectModal');
+          return;
+        }
+        const wipeDbModal = document.getElementById('wipeDbModal');
+        if (wipeDbModal && wipeDbModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('wipeDbModal');
           return;
         }
 
@@ -3246,6 +3363,84 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     let totalArticlesCount = 0;
     let isLoadingMoreArticles = false;
     let serverLibraryCounts = null;
+    let currentSyncRev = parseInt(localStorage.getItem('wf_sync_rev') || '0', 10);
+
+    // -------------------------------------------------------------
+    // Connection State & Offline Management
+    // -------------------------------------------------------------
+    let isOfflineMode = false;
+    let lastOfflineToastTime = 0;
+
+    function updateOfflineUI(offline) {
+      isOfflineMode = offline;
+      const btn = document.getElementById('addArticleBtn');
+      const icon = document.getElementById('addArticleBtnIcon');
+      const label = document.getElementById('addArticleBtnLabel');
+      const sidebarBtn = document.getElementById('sidebarAddArticleBtn');
+      const mobileDrawerBtn = document.getElementById('mobileDrawerAddArticleBtn');
+
+      const offlineSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>';
+      const onlineSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+
+      if (offline) {
+        if (btn) {
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-offline-mode');
+          btn.title = 'Offline Mode — Reading from local cache (Tap to retry)';
+        }
+        if (sidebarBtn) {
+          sidebarBtn.classList.remove('btn-primary');
+          sidebarBtn.classList.add('btn-offline-mode');
+          sidebarBtn.title = 'Offline Mode — Reading from local cache (Tap to retry)';
+          sidebarBtn.innerHTML = offlineSvg + '<span>Offline Mode</span>';
+        }
+        if (mobileDrawerBtn) {
+          mobileDrawerBtn.classList.remove('btn-primary');
+          mobileDrawerBtn.classList.add('btn-offline-mode');
+          mobileDrawerBtn.title = 'Offline Mode — Reading from local cache (Tap to retry)';
+          mobileDrawerBtn.innerHTML = offlineSvg + '<span>Offline Mode</span>';
+        }
+        if (icon) {
+          icon.innerHTML = '<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>';
+        }
+        if (label) label.textContent = 'Offline';
+      } else {
+        if (btn) {
+          btn.classList.remove('btn-offline-mode');
+          btn.classList.add('btn-primary');
+          btn.title = 'Add URL';
+        }
+        if (sidebarBtn) {
+          sidebarBtn.classList.remove('btn-offline-mode');
+          sidebarBtn.classList.add('btn-primary');
+          sidebarBtn.title = 'Add URL';
+          sidebarBtn.innerHTML = onlineSvg + '<span>Add URL</span>';
+        }
+        if (mobileDrawerBtn) {
+          mobileDrawerBtn.classList.remove('btn-offline-mode');
+          mobileDrawerBtn.classList.add('btn-primary');
+          mobileDrawerBtn.title = 'Add URL';
+          mobileDrawerBtn.innerHTML = onlineSvg + '<span>Add URL</span>';
+        }
+        if (icon) {
+          icon.innerHTML = '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>';
+        }
+        if (label) label.textContent = 'Add URL';
+      }
+    }
+
+    function handleConnectionFailure(isSilent = false) {
+      updateOfflineUI(true);
+      const now = Date.now();
+      if (!isSilent || (now - lastOfflineToastTime > 30000)) {
+        lastOfflineToastTime = now;
+        if (allEntries.length > 0) {
+          showToast('Offline — viewing saved articles from cache', 3000);
+        } else {
+          showToast('Could not connect to server', 3500);
+        }
+      }
+    }
 
     async function loadArticles(silent = false, reset = true) {
       if (isLoadingArticles) return;
@@ -3271,28 +3466,78 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       try {
         const sortParam = currentSortOrder || 'newest';
-        const res = await authFetch('/api/sync.json?page=1&perPage=50&sort=' + encodeURIComponent(sortParam) + '&_t=' + Date.now());
+        const sinceParam = (allEntries.length > 0 && currentSyncRev > 0) ? ('&since_rev=' + currentSyncRev) : '';
+        const res = await authFetch('/api/sync.json?page=1&perPage=50&sort=' + encodeURIComponent(sortParam) + sinceParam + '&_t=' + Date.now());
         if (res.ok) {
+          updateOfflineUI(false);
           const data = await res.json();
-          allEntries = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : (data._embedded?.items || []));
+          if (data.up_to_date === true) {
+            if (data.counts) {
+              serverLibraryCounts = data.counts;
+              updateCounts();
+            }
+            return;
+          }
+
+          if (data.sync_rev) {
+            currentSyncRev = data.sync_rev;
+            localStorage.setItem('wf_sync_rev', String(data.sync_rev));
+          }
+
           if (Array.isArray(data.tags)) {
             cachedGlobalTags = data.tags;
           }
           if (data.counts) {
             serverLibraryCounts = data.counts;
           }
-          currentArticlesPage = data.page || 1;
-          totalArticlesPages = data.pages || 1;
+
+          // 1. Prune deleted items from local storage & IndexedDB
+          if (Array.isArray(data.deleted_ids) && data.deleted_ids.length > 0) {
+            const delSet = new Set(data.deleted_ids);
+            allEntries = allEntries.filter(e => !delSet.has(e.id));
+            for (const delId of data.deleted_ids) {
+              deleteEntryFromIndexedDB(delId);
+            }
+          }
+
+          // 2. Smart merge fresh page 1 or clear if server library is empty
+          if (data.total === 0 || (Array.isArray(data.entries) && data.entries.length === 0 && data.pages <= 1)) {
+            allEntries = [];
+            clearIndexedDB();
+            localStorage.removeItem('wf_cached_articles');
+          } else {
+            const freshEntries = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : (data._embedded?.items || []));
+            if (freshEntries.length > 0) {
+              const freshMap = new Map(freshEntries.map(e => [e.id, e]));
+              const merged = [...freshEntries];
+              for (const existing of allEntries) {
+                if (!freshMap.has(existing.id)) {
+                  merged.push(existing);
+                }
+              }
+              allEntries = deduplicateEntries(sortEntriesLocally(merged, currentSortOrder || 'newest'));
+            }
+          }
+
+          currentArticlesPage = Math.max(1, Math.ceil(allEntries.length / 50));
+          totalArticlesPages = data.pages || Math.max(1, Math.ceil((data.total || allEntries.length) / 50));
           totalArticlesCount = data.total !== undefined ? data.total : allEntries.length;
 
+          updateOfflineUI(false);
           syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
           updateCounts();
           renderSidebarTags();
           filterArticles();
+
+          // Background auto-download remaining pages if whole library is not yet cached locally
+          if (totalArticlesPages > 1 && allEntries.length < totalArticlesCount) {
+            downloadRemainingLibraryInBackground(totalArticlesPages, totalArticlesCount);
+          }
         } else if (res.status !== 401) {
           const sortParam = currentSortOrder || 'newest';
           const fallbackRes = await authFetch('/api/entries.json?page=1&perPage=50&sort=' + encodeURIComponent(sortParam) + '&_t=' + Date.now()).catch(() => null);
           if (fallbackRes && fallbackRes.ok) {
+            updateOfflineUI(false);
             const data = await fallbackRes.json();
             allEntries = Array.isArray(data) ? data : (data._embedded?.items || []);
             currentArticlesPage = data.page || 1;
@@ -3314,7 +3559,57 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }
     }
 
+    let isDownloadingLibrary = false;
+
+    async function downloadRemainingLibraryInBackground(totalPages, totalCount) {
+      if (isDownloadingLibrary || totalPages <= 1) return;
+      isDownloadingLibrary = true;
+
+      try {
+        for (let p = 2; p <= totalPages; p++) {
+          // If all items already present in memory, skip
+          if (allEntries.length >= totalCount) break;
+
+          const res = await authFetch('/api/entries.json?page=' + p + '&perPage=50&sort=newest&_t=' + Date.now());
+          if (!res.ok) break;
+
+          const pageData = await res.json();
+          const items = Array.isArray(pageData) ? pageData : (pageData._embedded?.items || []);
+          if (!Array.isArray(items) || items.length === 0) break;
+
+          const existingMap = new Map(allEntries.map(e => [e.id, e]));
+          for (const item of items) {
+            if (!existingMap.has(item.id)) {
+              allEntries.push(item);
+            }
+          }
+
+          allEntries = sortEntriesLocally(allEntries, currentSortOrder || 'newest');
+          syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+          filterArticles();
+        }
+      } catch (err) {
+        console.warn('Background library sync paused:', err);
+      } finally {
+        isDownloadingLibrary = false;
+        updateArticlesFooterStatus();
+      }
+    }
+
+    function loadMoreRenderedCards() {
+      const filtered = getFilteredEntries();
+      if (currentRenderLimit >= filtered.length) return false;
+      currentRenderLimit += RENDER_CHUNK_SIZE;
+      renderArticlesChunked(filtered);
+      return true;
+    }
+
     async function loadMoreArticles() {
+      // 1. First expand rendered DOM cards from memory if available
+      if (loadMoreRenderedCards()) {
+        return;
+      }
+
       if (isLoadingMoreArticles || currentArticlesPage >= totalArticlesPages) return;
       isLoadingMoreArticles = true;
       const footerStatus = document.getElementById('articlesListFooterStatus');
@@ -3358,15 +3653,22 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function updateArticlesFooterStatus() {
       const footer = document.getElementById('articlesListFooterStatus');
       if (!footer) return;
-      if (allEntries.length === 0) {
+      const filtered = getFilteredEntries();
+      const renderedCount = Math.min(filtered.length, currentRenderLimit);
+
+      if (filtered.length === 0) {
         footer.style.display = 'none';
         return;
       }
-      if (currentArticlesPage < totalArticlesPages) {
-        footer.textContent = 'Showing ' + allEntries.length + ' of ' + totalArticlesCount + ' articles • Scroll for more';
+
+      if (renderedCount < filtered.length) {
+        footer.textContent = 'Showing ' + renderedCount + ' of ' + filtered.length + ' articles • Scroll for more';
         footer.style.display = 'block';
-      } else if (allEntries.length > 30) {
-        footer.textContent = 'All ' + allEntries.length + ' articles loaded';
+      } else if (currentArticlesPage < totalArticlesPages) {
+        footer.textContent = 'Showing ' + renderedCount + ' of ' + totalArticlesCount + ' articles • Scroll for more';
+        footer.style.display = 'block';
+      } else if (filtered.length > 20) {
+        footer.textContent = 'All ' + filtered.length + ' articles loaded';
         footer.style.display = 'block';
       } else {
         footer.style.display = 'none';
@@ -3396,10 +3698,279 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             serverLibraryCounts = parsedCounts;
           }
         }
+        checkNativePendingSavedArticles();
         updateCounts();
         renderSidebarTags();
         filterArticles();
       } catch (err) {}
+    }
+
+    // -------------------------------------------------------------
+    // Native Android Share Intent & Background Buffer Bridge
+    // -------------------------------------------------------------
+    window.prependSavedArticles = function(articles) {
+      if (!articles) return;
+      const list = Array.isArray(articles) ? articles : [articles];
+      let changed = false;
+      for (const article of list) {
+        if (!article || !article.id) continue;
+        const idx = allEntries.findIndex(e => e.id === article.id);
+        if (idx >= 0) {
+          allEntries[idx] = article;
+        } else {
+          allEntries.unshift(article);
+        }
+        changed = true;
+      }
+      if (changed) {
+        allEntries = sortEntriesLocally(allEntries, currentSortOrder || 'newest');
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+        checkNativePendingSavedArticles();
+        updateCounts();
+        renderSidebarTags();
+        filterArticles();
+      }
+    };
+    window.prependSavedArticle = window.prependSavedArticles;
+
+    function checkNativePendingSavedArticles() {
+      if (window.AndroidNative && (window.AndroidNative.pollPendingSavedArticles || window.AndroidNative.pollPendingSavedArticle)) {
+        try {
+          const raw = window.AndroidNative.pollPendingSavedArticles ? window.AndroidNative.pollPendingSavedArticles() : window.AndroidNative.pollPendingSavedArticle();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed) {
+              window.prependSavedArticles(parsed);
+            }
+          }
+        } catch (e) {
+          console.warn('Error polling native pending saved articles:', e);
+        }
+      }
+    }
+    window.checkNativePendingSavedArticles = checkNativePendingSavedArticles;
+
+    window.refreshArticlesSilently = function() {
+      checkNativePendingSavedArticles();
+      loadArticles(true);
+    };
+
+    // -------------------------------------------------------------
+    // Persistent Outbox Mutation Queue (Offline & Interruption Safe)
+    // -------------------------------------------------------------
+    const OUTBOX_STORAGE_KEY = 'wf_pending_mutations';
+    let isProcessingOutbox = false;
+
+    function getPendingMutations() {
+      try {
+        const raw = localStorage.getItem(OUTBOX_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function savePendingMutations(mutations) {
+      try {
+        if (!mutations || mutations.length === 0) {
+          localStorage.removeItem(OUTBOX_STORAGE_KEY);
+        } else {
+          localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(mutations));
+        }
+      } catch (e) {
+        console.warn('Failed to save pending mutations to storage:', e);
+      }
+    }
+
+    function enqueueMutation(action, payload) {
+      const mutations = getPendingMutations();
+      const mutation = {
+        id: 'mut_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        action: action,
+        payload: payload,
+        createdAt: Date.now(),
+        retryCount: 0
+      };
+      mutations.push(mutation);
+      savePendingMutations(mutations);
+      processOutboxMutations();
+      return mutation;
+    }
+
+    async function processOutboxMutations() {
+      if (isProcessingOutbox) return;
+      const mutations = getPendingMutations();
+      if (mutations.length === 0) return;
+
+      isProcessingOutbox = true;
+      try {
+        while (true) {
+          const currentQueue = getPendingMutations();
+          if (currentQueue.length === 0) break;
+          const mut = currentQueue[0];
+
+          let success = false;
+          let removeOnError = false;
+
+          try {
+            if (mut.action === 'delete') {
+              const res = await authFetch('/api/entries/' + mut.payload.id + '.json', { method: 'DELETE' });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'batch_delete') {
+              const res = await authFetch('/api/entries/list.json', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: mut.payload.ids })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'toggle_star') {
+              const res = await authFetch('/api/entries/' + mut.payload.id + '.json', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ starred: mut.payload.is_starred })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'batch_star') {
+              const res = await authFetch('/api/entries/list.json', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: mut.payload.ids, starred: mut.payload.starred })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'toggle_archive') {
+              const res = await authFetch('/api/entries/' + mut.payload.id + '.json', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ archive: mut.payload.is_archived })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'batch_archive') {
+              const res = await authFetch('/api/entries/list.json', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: mut.payload.ids, archive: mut.payload.archive })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else {
+              success = true;
+            }
+          } catch (networkErr) {
+            break;
+          }
+
+          if (success || removeOnError) {
+            const updated = getPendingMutations().filter(m => m.id !== mut.id);
+            savePendingMutations(updated);
+          } else {
+            mut.retryCount = (mut.retryCount || 0) + 1;
+            if (mut.retryCount > 10) {
+              const updated = getPendingMutations().filter(m => m.id !== mut.id);
+              savePendingMutations(updated);
+            }
+            break;
+          }
+        }
+      } finally {
+        isProcessingOutbox = false;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // IndexedDB Full-Library Offline Storage Engine
+    // -------------------------------------------------------------
+    const DB_NAME = 'wallaflare_offline_db';
+    const DB_VERSION = 1;
+    const STORE_ENTRIES = 'entries';
+
+    function openIndexedDB() {
+      return new Promise((resolve) => {
+        if (!window.indexedDB) return resolve(null);
+        try {
+          const req = indexedDB.open(DB_NAME, DB_VERSION);
+          req.onupgradeneeded = (e) => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE_ENTRIES)) {
+              db.createObjectStore(STORE_ENTRIES, { keyPath: 'id' });
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
+    }
+
+    function deduplicateEntries(entries) {
+      if (!Array.isArray(entries)) return [];
+      const seen = new Set();
+      const result = [];
+      for (const item of entries) {
+        if (item && item.id && !seen.has(item.id)) {
+          seen.add(item.id);
+          result.push(item);
+        }
+      }
+      return result;
+    }
+
+    async function clearIndexedDB() {
+      try {
+        const db = await openIndexedDB();
+        if (!db) return;
+        const tx = db.transaction(STORE_ENTRIES, 'readwrite');
+        tx.objectStore(STORE_ENTRIES).clear();
+      } catch {}
+    }
+
+    async function saveEntriesToIndexedDB(entries) {
+      try {
+        const db = await openIndexedDB();
+        if (!db) return;
+        const tx = db.transaction(STORE_ENTRIES, 'readwrite');
+        const store = tx.objectStore(STORE_ENTRIES);
+        await store.clear();
+        if (Array.isArray(entries)) {
+          for (const item of entries) {
+            if (item && item.id) {
+              store.put(item);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed saving to IndexedDB:', err);
+      }
+    }
+
+    async function deleteEntryFromIndexedDB(id) {
+      try {
+        const db = await openIndexedDB();
+        if (!db) return;
+        const tx = db.transaction(STORE_ENTRIES, 'readwrite');
+        tx.objectStore(STORE_ENTRIES).delete(id);
+      } catch {}
+    }
+
+    async function loadEntriesFromIndexedDB() {
+      try {
+        const db = await openIndexedDB();
+        if (!db) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction(STORE_ENTRIES, 'readonly');
+          const store = tx.objectStore(STORE_ENTRIES);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch {
+        return [];
+      }
     }
 
     function syncLocalEntriesCache(entries, tags, counts) {
@@ -3421,9 +3992,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       (cachedGlobalTags || []).forEach(t => {
         const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
         const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
-        const count = (typeof t === 'object' && (t.entry_count !== undefined || t.count !== undefined)) ? (t.entry_count ?? t.count) : 0;
         const key = (slug || label).toLowerCase();
-        if (key) map.set(key, { id: t.id || Date.now(), label: label || slug, slug: slug || label, count: count });
+        if (key) map.set(key, { id: t.id || Date.now(), label: label || slug, slug: slug || label, count: 0 });
       });
 
       (allEntries || []).forEach(entry => {
@@ -3434,6 +4004,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           if (key) {
             if (!map.has(key)) {
               map.set(key, { id: (typeof t === 'object' && t.id) ? t.id : Date.now(), label: label || slug, slug: slug || label, count: 1 });
+            } else {
+              const existing = map.get(key);
+              existing.count = (existing.count || 0) + 1;
             }
           }
         });
@@ -3521,18 +4094,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       let archive = 0;
       let total = 0;
 
-      if (serverLibraryCounts && typeof serverLibraryCounts.total === 'number') {
-        unread = serverLibraryCounts.unread;
-        starred = serverLibraryCounts.starred;
-        archive = serverLibraryCounts.archive;
-        total = serverLibraryCounts.total;
-      } else {
-        allEntries.forEach(e => {
+      if (allEntries.length > 0) {
+        for (const e of allEntries) {
           if (!e.is_archived) unread++;
           if (e.is_starred) starred++;
           if (e.is_archived) archive++;
           total++;
-        });
+        }
+      } else if (serverLibraryCounts && typeof serverLibraryCounts.total === 'number') {
+        unread = serverLibraryCounts.unread;
+        starred = serverLibraryCounts.starred;
+        archive = serverLibraryCounts.archive;
+        total = serverLibraryCounts.total;
       }
 
       const unreadEl = document.getElementById('countUnread');
@@ -3628,7 +4201,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       filterArticles();
     }
 
+    let currentRenderLimit = 40;
+    const RENDER_CHUNK_SIZE = 30;
+
     function renderArticles(entries) {
+      currentRenderLimit = 40;
+      renderArticlesChunked(entries);
+    }
+
+    function renderArticlesChunked(entries) {
       const grid = document.getElementById('articlesGrid');
       const empty = document.getElementById('emptyState');
       if (!grid) return;
@@ -3684,7 +4265,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       if (empty) empty.style.display = 'none';
 
-      grid.innerHTML = entries.map(item => {
+      const visibleSlice = entries.slice(0, currentRenderLimit);
+      grid.innerHTML = visibleSlice.map(item => {
         const domain = item.domain_name || 'direct-input';
         const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
         const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
@@ -3746,6 +4328,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           '</div>' +
         '</div>';
       }).join('');
+      updateArticlesFooterStatus();
     }
 
     let cardLongPressTimer = null;
@@ -4111,52 +4694,40 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     // Article actions
     async function toggleStar(id, current) {
       const next = current ? 0 : 1;
-      const res = await authFetch('/api/entries/' + id + '.json', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ starred: next })
-      });
-      if (res.ok) {
-        const item = allEntries.find(e => e.id === id);
-        if (item) item.is_starred = next;
-        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-        updateCounts();
-        filterArticles();
-        if (activeArticleId === id) {
-          const starBtn = document.getElementById('readerStarBtn');
-          const starIcon = document.getElementById('readerStarIcon');
-          if (next) {
-            starBtn?.classList.add('active-star');
-            starIcon?.setAttribute('fill', 'currentColor');
-          } else {
-            starBtn?.classList.remove('active-star');
-            starIcon?.setAttribute('fill', 'none');
-          }
+      const item = allEntries.find(e => e.id === id);
+      if (item) item.is_starred = next;
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      updateCounts();
+      filterArticles();
+      if (activeArticleId === id) {
+        const starBtn = document.getElementById('readerStarBtn');
+        const starIcon = document.getElementById('readerStarIcon');
+        if (next) {
+          starBtn?.classList.add('active-star');
+          starIcon?.setAttribute('fill', 'currentColor');
+        } else {
+          starBtn?.classList.remove('active-star');
+          starIcon?.setAttribute('fill', 'none');
         }
-        showToast(next ? 'Starred article' : 'Unstarred article');
       }
+      showToast(next ? 'Starred article' : 'Unstarred article');
+      enqueueMutation('toggle_star', { id: id, is_starred: next });
     }
 
     async function toggleArchive(id, current) {
       const next = current ? 0 : 1;
-      const res = await authFetch('/api/entries/' + id + '.json', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archive: next })
-      });
-      if (res.ok) {
-        const item = allEntries.find(e => e.id === id);
-        if (item) item.is_archived = next;
-        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-        updateCounts();
-        filterArticles();
-        if (activeArticleId === id) {
-          const archiveBtn = document.getElementById('readerArchiveBtn');
-          if (next) archiveBtn?.classList.add('active-archive');
-          else archiveBtn?.classList.remove('active-archive');
-        }
-        showToast(next ? 'Archived article' : 'Moved to unread');
+      const item = allEntries.find(e => e.id === id);
+      if (item) item.is_archived = next;
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      updateCounts();
+      filterArticles();
+      if (activeArticleId === id) {
+        const archiveBtn = document.getElementById('readerArchiveBtn');
+        if (next) archiveBtn?.classList.add('active-archive');
+        else archiveBtn?.classList.remove('active-archive');
       }
+      showToast(next ? 'Archived article' : 'Moved to unread');
+      enqueueMutation('toggle_archive', { id: id, is_archived: next });
     }
 
     async function toggleActiveStar() {
@@ -4174,17 +4745,18 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function deleteEntryAction(id) {
       const ok = await showConfirmDialog('Delete Article', 'Are you sure you want to delete this article?\\n\\nThis action cannot be undone.', 'Delete Article', true);
       if (!ok) return;
-      const res = await authFetch('/api/entries/' + id + '.json', { method: 'DELETE' });
-      if (res.ok) {
-        allEntries = allEntries.filter(e => e.id !== id);
-        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-        updateCounts();
-        filterArticles();
-        showToast('Article deleted');
-        if (activeArticleId === id) {
-          closeReader(true);
-        }
+
+      const item = allEntries.find(e => e.id === id);
+      allEntries = allEntries.filter(e => e.id !== id);
+      deleteEntryFromIndexedDB(id);
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      updateCounts();
+      filterArticles();
+      if (activeArticleId === id) {
+        closeReader(true);
       }
+      showToast('Article deleted');
+      enqueueMutation('delete', { id: id, snapshot: item });
     }
 
     function deleteActiveArticle() {
@@ -5068,11 +5640,6 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       filterArticles();
       showToast('Sorted by: ' + order);
-
-      // Only query Cloudflare D1 if the library spans multiple pages (>50 articles)
-      if (totalArticlesPages > 1 || (totalArticlesCount > allEntries.length && totalArticlesCount > 50)) {
-        loadArticles(true, true);
-      }
     }
 
     function handleSearchInput() {
@@ -5343,27 +5910,37 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function batchToggleStar() {
       const ids = Array.from(selectedArticleIds);
       if (ids.length === 0) return;
-      showToast('Updating ' + ids.length + ' articles...');
-      for (const id of ids) {
+      const targetIds = [...ids];
+      const allStarred = targetIds.every(id => allEntries.find(e => e.id === id)?.is_starred);
+      const newStarVal = allStarred ? 0 : 1;
+
+      for (const id of targetIds) {
         const item = allEntries.find(e => e.id === id);
-        if (item) item.is_starred = item.is_starred ? 0 : 1;
+        if (item) item.is_starred = newStarVal;
       }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       filterArticles();
       clearArticleSelection();
+      showToast(newStarVal ? 'Starred ' + targetIds.length + ' articles' : 'Unstarred ' + targetIds.length + ' articles');
+      enqueueMutation('batch_star', { ids: targetIds, starred: newStarVal });
     }
 
     async function batchToggleArchive() {
       const ids = Array.from(selectedArticleIds);
       if (ids.length === 0) return;
-      showToast('Archiving ' + ids.length + ' articles...');
-      for (const id of ids) {
+      const targetIds = [...ids];
+      const allArchived = targetIds.every(id => allEntries.find(e => e.id === id)?.is_archived);
+      const newArchiveVal = allArchived ? 0 : 1;
+
+      for (const id of targetIds) {
         const item = allEntries.find(e => e.id === id);
-        if (item) item.is_archived = item.is_archived ? 0 : 1;
+        if (item) item.is_archived = newArchiveVal;
       }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       filterArticles();
       clearArticleSelection();
+      showToast(newArchiveVal ? 'Archived ' + targetIds.length + ' articles' : 'Moved ' + targetIds.length + ' articles to unread');
+      enqueueMutation('batch_archive', { ids: targetIds, archive: newArchiveVal });
     }
 
     function batchManageTags() {
@@ -5374,13 +5951,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     async function batchDeleteArticles() {
       const ids = Array.from(selectedArticleIds);
       if (ids.length === 0) return;
-      const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to delete ' + ids.length + ' articles?', 'Delete', true);
+      const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to delete ' + ids.length + ' articles?\\n\\nThis action cannot be undone.', 'Delete', true);
       if (!ok) return;
+
+      const deleteIds = [...ids];
+      const items = deleteIds.map(id => allEntries.find(e => e.id === id)).filter(Boolean);
       allEntries = allEntries.filter(e => !selectedArticleIds.has(e.id));
+      for (const id of deleteIds) {
+        deleteEntryFromIndexedDB(id);
+      }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       clearArticleSelection();
       filterArticles();
-      showToast('Articles deleted');
+      showToast('✓ ' + deleteIds.length + ' articles deleted');
+      enqueueMutation('batch_delete', { ids: deleteIds, snapshots: items });
     }
 
     function toggleMobileNavMenu(e) {
@@ -5702,6 +6286,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
     // Ingest URL & Text Handlers
     function handleAddArticleBtnClick() {
+      if (isOfflineMode) {
+        showToast('Connecting to server...');
+        loadArticles(false);
+        return;
+      }
       openModal('addUrlModal');
     }
 
@@ -5731,6 +6320,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         input.value = '';
         allEntries.unshift(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+        checkNativePendingSavedArticles();
         updateCounts();
         renderSidebarTags();
         filterArticles();
@@ -5768,6 +6358,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         closeModal('addTextModal');
         allEntries.unshift(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+        checkNativePendingSavedArticles();
         updateCounts();
         renderSidebarTags();
         filterArticles();
@@ -6124,6 +6715,132 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       }).catch(() => {});
     }
 
+    function openWipeDbModal() {
+      const err = document.getElementById('wipeDbErrorMsg');
+      if (err) { err.textContent = ''; err.style.display = 'none'; }
+      const pass = document.getElementById('wipeDbPasswordInput');
+      if (pass) pass.value = '';
+      openModal('wipeDbModal');
+    }
+
+    async function handleConfirmWipeDatabase(e) {
+      e.preventDefault();
+      const passInput = document.getElementById('wipeDbPasswordInput');
+      const errEl = document.getElementById('wipeDbErrorMsg');
+      const submitBtn = document.getElementById('wipeDbSubmitBtn');
+      const password = passInput ? passInput.value.trim() : '';
+
+      if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Wiping...'; }
+
+      try {
+        const res = await authFetch('/api/admin/reset-database.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: password, password: password })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'HTTP ' + res.status);
+        }
+
+        closeModal('wipeDbModal');
+        localStorage.removeItem('wf_sync_rev');
+        localStorage.removeItem('wf_cached_articles');
+        localStorage.removeItem('wf_cached_tags');
+        localStorage.removeItem('wf_cached_counts');
+        localStorage.removeItem('wf_pending_mutations');
+        currentSyncRev = 1;
+        allEntries = [];
+        cachedGlobalTags = [];
+        serverLibraryCounts = { unread: 0, archive: 0, starred: 0, total: 0 };
+        await clearIndexedDB();
+        updateCounts();
+        renderSidebarTags();
+        filterArticles();
+        showToast('✓ Cloudflare D1 database wiped successfully');
+      } catch (err) {
+        if (errEl) {
+          errEl.textContent = 'Failed to wipe database: ' + err.message;
+          errEl.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Permanently Wipe Database';
+        }
+      }
+    }
+
+    function updateSettingsStats() {
+      const localEl = document.getElementById('statsLocalArticles');
+      const serverEl = document.getElementById('statsServerArticles');
+      const compEl = document.getElementById('statsSyncComparison');
+      const revEl = document.getElementById('statsSyncRevision');
+
+      const localTotal = allEntries.length;
+      const unreadCount = allEntries.filter(e => !e.is_archived).length;
+      const serverTotal = (serverLibraryCounts && typeof serverLibraryCounts.total === 'number') ? serverLibraryCounts.total : localTotal;
+      const currentRev = Number(localStorage.getItem('wf_sync_rev') || currentSyncRev || 1);
+      const isOffline = !navigator.onLine || isOfflineMode;
+
+      if (localEl) {
+        localEl.textContent = localTotal + ' (' + unreadCount + ' unread)';
+      }
+      if (serverEl) {
+        serverEl.textContent = isOffline ? (serverTotal + ' (from last sync)') : String(serverTotal);
+      }
+      if (compEl) {
+        if (isOffline) {
+          compEl.textContent = 'Offline (Cached from Rev ' + currentRev + ')';
+          compEl.style.color = 'var(--warning, #f59e0b)';
+        } else if (localTotal === serverTotal) {
+          compEl.textContent = 'In Sync ✓ (' + localTotal + '/' + serverTotal + ')';
+          compEl.style.color = 'var(--accent, #3b82f6)';
+        } else {
+          const diff = localTotal - serverTotal;
+          compEl.textContent = (diff > 0 ? ('+' + diff) : String(diff)) + ' diff (Local: ' + localTotal + ', Server: ' + serverTotal + ')';
+          compEl.style.color = 'var(--warning, #f59e0b)';
+        }
+      }
+      if (revEl) {
+        revEl.textContent = 'Rev ' + currentRev;
+      }
+    }
+
+    function openSettingsModal() {
+      const serverRow = document.getElementById('serverConnectionSettingsRow');
+      if (serverRow) {
+        serverRow.style.display = isCapacitorApp() ? 'flex' : 'none';
+      }
+      updateSettingsStats();
+      openModal('settingsModal');
+    }
+
+    async function reconcileDatabase() {
+      const ok = await showConfirmDialog(
+        'Reconcile Database',
+        'This will clear local storage and re-sync all articles, tags, and counts fresh from Cloudflare D1.\\n\\nContinue?',
+        'Reconcile & Sync',
+        false
+      );
+      if (!ok) return;
+
+      showToast('Reconciling database...');
+      localStorage.removeItem('wf_sync_rev');
+      localStorage.removeItem('wf_cached_articles');
+      localStorage.removeItem('wf_cached_tags');
+      localStorage.removeItem('wf_cached_counts');
+      localStorage.removeItem('wf_pending_mutations');
+      currentSyncRev = 0;
+      allEntries = [];
+      await clearIndexedDB();
+      filterArticles();
+      await loadArticles(false, true);
+      showToast('✓ Database fully reconciled');
+    }
+
     function openServerConnectModal() {
       openModal('serverConnectModal');
     }
@@ -6220,6 +6937,8 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
     function initRefocusRefresh() {
       let lastRefreshTime = Date.now();
       const triggerRefresh = () => {
+        checkNativePendingSavedArticles();
+        processOutboxMutations();
         const now = Date.now();
         if (now - lastRefreshTime > 4000) {
           lastRefreshTime = now;
@@ -6227,6 +6946,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         }
       };
 
+      window.addEventListener('offline', () => {
+        handleConnectionFailure(false);
+      });
+      window.addEventListener('online', () => {
+        showToast('Back online — syncing library...', 2500);
+        updateOfflineUI(false);
+        processOutboxMutations();
+        loadArticles(true);
+      });
       window.addEventListener('focus', triggerRefresh);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
@@ -6418,9 +7146,14 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       const scrollContainer = document.getElementById('articlesScrollContainer');
       if (!scrollContainer) return;
       scrollContainer.addEventListener('scroll', () => {
-        if (isLoadingMoreArticles || currentArticlesPage >= totalArticlesPages) return;
+        const filtered = getFilteredEntries();
+        const canExpandLocally = currentRenderLimit < filtered.length;
+        const canFetchMoreServer = currentArticlesPage < totalArticlesPages;
+        if (!canExpandLocally && !canFetchMoreServer) return;
+        if (isLoadingMoreArticles) return;
+
         const remaining = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
-        if (remaining < 300) {
+        if (remaining < 400) {
           loadMoreArticles();
         }
       });

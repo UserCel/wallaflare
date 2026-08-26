@@ -1,3 +1,85 @@
+let schemaEnsured = false;
+export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
+  if (schemaEnsured || !db) return;
+  try {
+    const stmts = [
+      `CREATE TABLE IF NOT EXISTS entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        preview_picture TEXT,
+        domain_name TEXT,
+        reading_time INTEGER DEFAULT 1,
+        language TEXT DEFAULT 'en',
+        author TEXT,
+        published_at TEXT,
+        is_archived INTEGER DEFAULT 0,
+        is_starred INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        revision INTEGER DEFAULT 1
+      )`,
+      `CREATE TABLE IF NOT EXISTS tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        label TEXT NOT NULL UNIQUE,
+        slug TEXT NOT NULL UNIQUE
+      )`,
+      `CREATE TABLE IF NOT EXISTS entry_tags (
+        entry_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (entry_id, tag_id),
+        FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS auth_rate_limits (
+        ip TEXT PRIMARY KEY,
+        failed_attempts INTEGER DEFAULT 0,
+        last_attempt_at INTEGER NOT NULL,
+        locked_until INTEGER DEFAULT 0
+      )`,
+      `CREATE TABLE IF NOT EXISTS annotations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_id INTEGER NOT NULL,
+        user_id TEXT DEFAULT 'wallaflare',
+        text TEXT DEFAULT '',
+        quote TEXT NOT NULL,
+        ranges TEXT DEFAULT '[]',
+        target TEXT DEFAULT NULL,
+        color TEXT DEFAULT 'yellow',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS sync_state (
+        id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE IF NOT EXISTS deleted_entries (
+        entry_id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `INSERT OR IGNORE INTO sync_state (id, revision) VALUES (1, 1)`
+    ];
+
+    if (typeof (db as any).batch === 'function') {
+      await (db as any).batch(stmts.map(s => db.prepare(s)));
+    } else {
+      for (const s of stmts) {
+        await db.prepare(s).run().catch(() => {});
+      }
+    }
+
+    try { await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run(); } catch {}
+
+    schemaEnsured = true;
+  } catch (err) {
+    console.error('Error ensuring database schema:', err);
+  }
+}
+
 import { EntryRow, WallabagEntry, AnnotationItem } from '../types';
 
 export interface TagItem {
@@ -504,13 +586,14 @@ export async function createEntry(
   db: D1Database,
   entry: Partial<EntryRow> & { tags?: string | string[] }
 ): Promise<EntryRow> {
+  const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
   const query = `
     INSERT INTO entries (
       url, title, content, preview_picture, domain_name, 
       reading_time, language, is_archived, is_starred, 
-      created_at, updated_at, author, published_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      created_at, updated_at, author, published_at, revision
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const res = await db.prepare(query).bind(
@@ -526,7 +609,8 @@ export async function createEntry(
     now,
     now,
     entry.author || null,
-    entry.published_at || null
+    entry.published_at || null,
+    newRev
   ).run();
 
   const id = res.meta?.last_row_id;
@@ -612,14 +696,16 @@ export async function deleteEntriesBatch(db: D1Database, ids: number[]): Promise
   const placeholders = validIds.map(() => '?').join(',');
   await db.prepare(`DELETE FROM entry_tags WHERE entry_id IN (${placeholders})`).bind(...validIds).run();
   const res = await db.prepare(`DELETE FROM entries WHERE id IN (${placeholders})`).bind(...validIds).run();
+  await recordDeletedEntriesBatch(db, validIds);
   return res.meta?.changes ?? validIds.length;
 }
 
 export async function updateEntriesBatch(db: D1Database, ids: number[], updates: { is_starred?: number; is_archived?: number }): Promise<number> {
   const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
   if (validIds.length === 0) return 0;
-  const setClauses: string[] = ['updated_at = ?'];
-  const params: any[] = [new Date().toISOString()];
+  const newRev = await bumpSyncRevision(db);
+  const setClauses: string[] = ['updated_at = ?', 'revision = ?'];
+  const params: any[] = [new Date().toISOString(), newRev];
 
   if (updates.is_starred !== undefined) {
     setClauses.push('is_starred = ?');
@@ -658,7 +744,11 @@ export async function deleteEntry(db: D1Database, id: number): Promise<boolean> 
   await db.prepare('DELETE FROM entry_tags WHERE entry_id = ?').bind(id).run();
   const query = 'DELETE FROM entries WHERE id = ?';
   const res = await db.prepare(query).bind(id).run();
-  return (res.meta?.changes ?? 0) > 0;
+  const deleted = (res.meta?.changes ?? 0) > 0;
+  if (deleted) {
+    await recordDeletedEntry(db, id);
+  }
+  return deleted;
 }
 
 // -------------------------------------------------------------
@@ -803,4 +893,118 @@ export async function resetAuthRateLimit(db: D1Database, ip: string): Promise<vo
   try {
     await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(ip).run();
   } catch {}
+}
+
+// -------------------------------------------------------------
+// Monotonic Revision & Tombstone Sync Engine
+// -------------------------------------------------------------
+
+let syncTablesEnsured = false;
+export async function ensureSyncRevisionTables(db: D1Database): Promise<void> {
+  if (syncTablesEnsured) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS sync_state (
+        id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS deleted_entries (
+        entry_id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    await db.prepare(`
+      INSERT OR IGNORE INTO sync_state (id, revision) VALUES (1, 1)
+    `).run();
+    try {
+      await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run();
+    } catch {
+      // Column already exists
+    }
+    syncTablesEnsured = true;
+  } catch (e) {
+    console.error('Error ensuring sync tables:', e);
+  }
+}
+
+export async function bumpSyncRevision(db: D1Database): Promise<number> {
+  await ensureSyncRevisionTables(db);
+  try {
+    await db.prepare(`
+      UPDATE sync_state 
+      SET revision = revision + 1, updated_at = datetime('now') 
+      WHERE id = 1
+    `).run();
+    const res = await db.prepare('SELECT revision FROM sync_state WHERE id = 1').first<{ revision: number }>();
+    return res?.revision || 2;
+  } catch (e) {
+    console.error('Error bumping sync revision:', e);
+    return Date.now();
+  }
+}
+
+export async function getCurrentSyncRevision(db: D1Database): Promise<number> {
+  await ensureSyncRevisionTables(db);
+  try {
+    const res = await db.prepare('SELECT revision FROM sync_state WHERE id = 1').first<{ revision: number }>();
+    return res?.revision || 1;
+  } catch (e) {
+    return 1;
+  }
+}
+
+export async function recordDeletedEntry(db: D1Database, entryId: number): Promise<number> {
+  await ensureSyncRevisionTables(db);
+  const newRev = await bumpSyncRevision(db);
+  try {
+    await db.prepare(`
+      INSERT OR REPLACE INTO deleted_entries (entry_id, revision, deleted_at) 
+      VALUES (?, ?, datetime('now'))
+    `).bind(entryId, newRev).run();
+  } catch (e) {}
+  return newRev;
+}
+
+export async function recordDeletedEntriesBatch(db: D1Database, entryIds: number[]): Promise<number> {
+  if (entryIds.length === 0) return await getCurrentSyncRevision(db);
+  await ensureSyncRevisionTables(db);
+  const newRev = await bumpSyncRevision(db);
+  for (const id of entryIds) {
+    try {
+      await db.prepare(`
+        INSERT OR REPLACE INTO deleted_entries (entry_id, revision, deleted_at) 
+        VALUES (?, ?, datetime('now'))
+      `).bind(id, newRev).run();
+    } catch (e) {}
+  }
+  return newRev;
+}
+
+export async function getDeletedEntriesSince(db: D1Database, sinceRevision: number): Promise<number[]> {
+  await ensureSyncRevisionTables(db);
+  try {
+    const { results } = await db.prepare(`
+      SELECT entry_id FROM deleted_entries WHERE revision > ?
+    `).bind(sinceRevision).all<{ entry_id: number }>();
+    return (results || []).map(r => r.entry_id);
+  } catch (e) {
+    return [];
+  }
+}
+
+
+export async function wipeDatabase(db: D1Database): Promise<void> {
+  await ensureDatabaseSchema(db);
+  const now = new Date().toISOString();
+  await db.prepare('DELETE FROM entry_tags').run();
+  await db.prepare('DELETE FROM annotations').run();
+  await db.prepare('DELETE FROM entries').run();
+  await db.prepare('DELETE FROM tags').run();
+  await db.prepare('DELETE FROM deleted_entries').run();
+  await db.prepare('DELETE FROM sync_state').run();
+  await db.prepare('INSERT INTO sync_state (id, revision, updated_at) VALUES (1, 1, ?)').bind(now).run();
 }

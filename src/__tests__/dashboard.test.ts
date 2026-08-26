@@ -262,4 +262,70 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('sortEntriesLocally');
     expect(html).toContain('setSortOrder');
   });
+
+  it('includes IndexedDB full library offline caching, chunked DOM rendering, and background downloader', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('openIndexedDB');
+    expect(html).toContain('saveEntriesToIndexedDB');
+    expect(html).toContain('loadEntriesFromIndexedDB');
+    expect(html).toContain('renderArticlesChunked');
+    expect(html).toContain('loadMoreRenderedCards');
+    expect(html).toContain('downloadRemainingLibraryInBackground');
+    expect(html).toContain('currentRenderLimit');
+    expect(html).toContain('RENDER_CHUNK_SIZE');
+  });
+
+  it('includes Android Native Share Intent buffer polling and instant prepend bridge', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('window.prependSavedArticles');
+    expect(html).toContain('window.prependSavedArticle');
+    expect(html).toContain('checkNativePendingSavedArticles');
+    expect(html).toContain('window.checkNativePendingSavedArticles');
+    expect(html).toContain('window.refreshArticlesSilently');
+    expect(html).toContain('pollPendingSavedArticles');
+  });
+
+  it('includes database reconciliation and deduplication handlers', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('reconcileDatabase');
+    expect(html).toContain('deduplicateEntries');
+    expect(html).toContain('clearIndexedDB');
+    expect(html).toContain('Reconcile Database');
+  });
+
+  it('includes Persistent Outbox Mutation Queue engine for offline triaging & interrupted actions', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('OUTBOX_STORAGE_KEY');
+    expect(html).toContain('wf_pending_mutations');
+    expect(html).toContain('getPendingMutations');
+    expect(html).toContain('savePendingMutations');
+    expect(html).toContain('enqueueMutation');
+    expect(html).toContain('processOutboxMutations');
+  });
+
+  it('includes Cloudflare D1 wipe database modal and authenticated confirmation handler', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="wipeDbModal"');
+    expect(html).toContain('openWipeDbModal');
+    expect(html).toContain('handleConfirmWipeDatabase');
+    expect(html).toContain('/api/admin/reset-database');
+    expect(html).toContain('Wipe Cloudflare D1 Database');
+  });
+
+  it('includes live sync stats comparison widget in settings modal', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('statsLocalArticles');
+    expect(html).toContain('statsServerArticles');
+    expect(html).toContain('statsSyncComparison');
+    expect(html).toContain('statsSyncRevision');
+    expect(html).toContain('updateSettingsStats');
+  });
+
+  it('includes offline connection failure handlers, wifi-off indicator, and reconnect listeners', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('isOfflineMode');
+    expect(html).toContain('updateOfflineUI');
+    expect(html).toContain('handleConnectionFailure');
+    expect(html).toContain('btn-offline-mode');
+  });
 });
