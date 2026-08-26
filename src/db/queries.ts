@@ -54,6 +54,7 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
       `CREATE TABLE IF NOT EXISTS sync_state (
         id INTEGER PRIMARY KEY,
         revision INTEGER NOT NULL DEFAULT 1,
+        instance_id INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
       `CREATE TABLE IF NOT EXISTS deleted_entries (
@@ -61,7 +62,7 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         revision INTEGER NOT NULL,
         deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
-      `INSERT OR IGNORE INTO sync_state (id, revision) VALUES (1, 1)`
+      `INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)`
     ];
 
     if (typeof (db as any).batch === 'function') {
@@ -72,6 +73,7 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
       }
     }
 
+    try { await db.prepare('ALTER TABLE sync_state ADD COLUMN instance_id INTEGER NOT NULL DEFAULT 1').run(); } catch {}
     try { await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run(); } catch {}
 
     schemaEnsured = true;
@@ -374,7 +376,8 @@ export async function addTagsToEntry(db: D1Database, entryId: number, rawTags: s
     }
   }
 
-  await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+  const tagRev = await bumpSyncRevision(db);
+  await db.prepare('UPDATE entries SET updated_at = ?, revision = ? WHERE id = ?').bind(new Date().toISOString(), tagRev, entryId).run();
   return await getEntryTags(db, entryId);
 }
 
@@ -390,7 +393,8 @@ export async function removeTagFromEntry(db: D1Database, entryId: number, tagIdO
 
   if (tagId) {
     await db.prepare('DELETE FROM entry_tags WHERE entry_id = ? AND tag_id = ?').bind(entryId, tagId).run();
-    await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+    const tagRev = await bumpSyncRevision(db);
+  await db.prepare('UPDATE entries SET updated_at = ?, revision = ? WHERE id = ?').bind(new Date().toISOString(), tagRev, entryId).run();
   }
 
   return await getEntryTags(db, entryId);
@@ -487,6 +491,11 @@ export async function getEntries(
     }
     conditions.push('updated_at >= ?');
     params.push(sinceIso);
+  }
+
+  if (filter.since_rev !== undefined && !isNaN(filter.since_rev) && filter.since_rev > 0) {
+    conditions.push('revision > ?');
+    params.push(filter.since_rev);
   }
 
   if (filter.search) {
@@ -658,9 +667,10 @@ export async function updateEntry(
   const existing = await getEntryById(db, id);
   if (!existing) return null;
 
+  const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
-  const setClauses: string[] = ['updated_at = ?'];
-  const params: any[] = [now];
+  const setClauses: string[] = ['updated_at = ?', 'revision = ?'];
+  const params: any[] = [now, newRev];
 
   if (updates.title !== undefined) {
     setClauses.push('title = ?');
@@ -677,6 +687,26 @@ export async function updateEntry(
   if (updates.is_starred !== undefined) {
     setClauses.push('is_starred = ?');
     params.push(updates.is_starred);
+  }
+  if (updates.author !== undefined) {
+    setClauses.push('author = ?');
+    params.push(updates.author);
+  }
+  if (updates.reading_time !== undefined) {
+    setClauses.push('reading_time = ?');
+    params.push(updates.reading_time);
+  }
+  if (updates.preview_picture !== undefined) {
+    setClauses.push('preview_picture = ?');
+    params.push(updates.preview_picture);
+  }
+  if (updates.domain_name !== undefined) {
+    setClauses.push('domain_name = ?');
+    params.push(updates.domain_name);
+  }
+  if (updates.language !== undefined) {
+    setClauses.push('language = ?');
+    params.push(updates.language);
   }
 
   params.push(id);
@@ -907,9 +937,13 @@ export async function ensureSyncRevisionTables(db: D1Database): Promise<void> {
       CREATE TABLE IF NOT EXISTS sync_state (
         id INTEGER PRIMARY KEY,
         revision INTEGER NOT NULL DEFAULT 1,
+        instance_id INTEGER NOT NULL DEFAULT 1,
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `).run();
+    try {
+      await db.prepare('ALTER TABLE sync_state ADD COLUMN instance_id INTEGER NOT NULL DEFAULT 1').run();
+    } catch {}
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS deleted_entries (
         entry_id INTEGER PRIMARY KEY,
@@ -918,7 +952,7 @@ export async function ensureSyncRevisionTables(db: D1Database): Promise<void> {
       )
     `).run();
     await db.prepare(`
-      INSERT OR IGNORE INTO sync_state (id, revision) VALUES (1, 1)
+      INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)
     `).run();
     try {
       await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run();
@@ -997,14 +1031,30 @@ export async function getDeletedEntriesSince(db: D1Database, sinceRevision: numb
 }
 
 
-export async function wipeDatabase(db: D1Database): Promise<void> {
+export async function getSyncState(db: D1Database): Promise<{ revision: number; instance_id: number }> {
+  await ensureSyncRevisionTables(db);
+  try {
+    const res = await db.prepare('SELECT revision, instance_id FROM sync_state WHERE id = 1').first<{ revision: number; instance_id: number }>();
+    return {
+      revision: res?.revision || 1,
+      instance_id: res?.instance_id || 0
+    };
+  } catch (e) {
+    return { revision: 1, instance_id: 0 };
+  }
+}
+
+export async function wipeDatabase(db: D1Database): Promise<{ instance_id: number; revision: number }> {
   await ensureDatabaseSchema(db);
   const now = new Date().toISOString();
+  const currentSync = await getSyncState(db);
+  const newInstanceId = (currentSync.instance_id || 1) + 1;
   await db.prepare('DELETE FROM entry_tags').run();
   await db.prepare('DELETE FROM annotations').run();
   await db.prepare('DELETE FROM entries').run();
   await db.prepare('DELETE FROM tags').run();
   await db.prepare('DELETE FROM deleted_entries').run();
   await db.prepare('DELETE FROM sync_state').run();
-  await db.prepare('INSERT INTO sync_state (id, revision, updated_at) VALUES (1, 1, ?)').bind(now).run();
+  await db.prepare('INSERT INTO sync_state (id, revision, instance_id, updated_at) VALUES (1, 1, ?, ?)').bind(newInstanceId, now).run();
+  return { instance_id: newInstanceId, revision: 1 };
 }

@@ -2890,12 +2890,15 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (confirmed) {
         setAuthToken('');
         localStorage.removeItem('wf_sync_rev');
+      localStorage.removeItem('wf_instance_id');
         localStorage.removeItem('wf_cached_articles');
         localStorage.removeItem('wf_cached_tags');
         localStorage.removeItem('wf_cached_counts');
       localStorage.removeItem('wf_pending_mutations');
+      localStorage.removeItem('wf_instance_id');
         localStorage.removeItem('wf_server_url');
         localStorage.removeItem('wf_pending_mutations');
+      localStorage.removeItem('wf_instance_id');
         currentSyncRev = 0;
         allEntries = [];
         await clearIndexedDB();
@@ -3446,6 +3449,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (isLoadingArticles) return;
       isLoadingArticles = true;
 
+      // Always drain pending offline mutations to Cloudflare before requesting delta sync
+      await processOutboxMutations().catch(() => {});
+
       if (reset) {
         currentArticlesPage = 1;
       }
@@ -3471,6 +3477,47 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
         if (res.ok) {
           updateOfflineUI(false);
           const data = await res.json();
+
+          // Database Epoch / Reset Watchdog across all connected devices
+          const localInstanceId = localStorage.getItem('wf_instance_id');
+          const serverInstanceId = (data.instance_id !== undefined && data.instance_id !== null) ? String(data.instance_id) : null;
+
+          let isEpochReset = false;
+          if (serverInstanceId !== null) {
+            if (localInstanceId !== null && serverInstanceId !== localInstanceId) {
+              isEpochReset = true;
+            }
+            localStorage.setItem('wf_instance_id', serverInstanceId);
+          }
+          if (currentSyncRev > 1 && data.sync_rev && data.sync_rev < currentSyncRev) {
+            isEpochReset = true;
+          }
+
+          if (isEpochReset) {
+            console.log('[Sync] Remote database epoch reset detected. Wiping local cache and reconciling...');
+            allEntries = [];
+            cachedGlobalTags = [];
+            serverLibraryCounts = { unread: 0, archive: 0, starred: 0, total: 0 };
+            await clearIndexedDB();
+            localStorage.removeItem('wf_cached_articles');
+            localStorage.removeItem('wf_cached_tags');
+            localStorage.removeItem('wf_cached_counts');
+            localStorage.removeItem('wf_pending_mutations');
+            currentSyncRev = data.sync_rev || 1;
+            localStorage.setItem('wf_sync_rev', String(currentSyncRev));
+            showToast('Database reset detected — library reconciled', 3000);
+            updateCounts();
+            renderSidebarTags();
+            filterArticles();
+
+            // If the response was a 304/empty status, trigger clean full page 1 fetch
+            if (data.up_to_date === true || !Array.isArray(data.entries)) {
+              isLoadingArticles = false;
+              loadArticles(true, true);
+              return;
+            }
+          }
+
           if (data.up_to_date === true) {
             if (data.counts) {
               serverLibraryCounts = data.counts;
@@ -3500,8 +3547,11 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
             }
           }
 
-          // 2. Smart merge fresh page 1 or clear if server library is empty
-          if (data.total === 0 || (Array.isArray(data.entries) && data.entries.length === 0 && data.pages <= 1)) {
+          // 2. Smart merge fresh entries (only clear all if this was a full non-delta sync and server has 0 total items)
+          const isDeltaSync = Boolean(sinceParam);
+          const serverHasZeroTotal = data.counts?.total === 0 || (!isDeltaSync && data.total === 0);
+
+          if (!isDeltaSync && serverHasZeroTotal) {
             allEntries = [];
             clearIndexedDB();
             localStorage.removeItem('wf_cached_articles');
@@ -3854,6 +3904,44 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: mut.payload.ids, archive: mut.payload.archive })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'edit_title') {
+              const res = await authFetch('/api/entries/' + mut.payload.id + '.json', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: mut.payload.title })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'add_tag') {
+              const res = await authFetch('/api/entries/' + mut.payload.id + '/tags.json', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: mut.payload.tag })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'remove_tag') {
+              const res = await authFetch('/api/entries/' + mut.payload.id + '/tags/' + encodeURIComponent(mut.payload.tag) + '.json', {
+                method: 'DELETE'
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'batch_add_tag') {
+              const res = await authFetch('/api/entries/tags/lists.json', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries: mut.payload.ids, tags: mut.payload.tag })
+              });
+              if (res.ok || res.status === 404) success = true;
+              else if (res.status >= 400 && res.status < 500) removeOnError = true;
+            } else if (mut.action === 'batch_remove_tag') {
+              const res = await authFetch('/api/entries/tags/lists.json', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries: mut.payload.ids, tag: mut.payload.tag })
               });
               if (res.ok || res.status === 404) success = true;
               else if (res.status >= 400 && res.status < 500) removeOnError = true;
@@ -4369,6 +4457,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (cardLongPressTimer) {
         clearTimeout(cardLongPressTimer);
         cardLongPressTimer = null;
+      }
+      if (cardLongPressTriggered) {
+        setTimeout(() => { cardLongPressTriggered = false; }, 250);
       }
     }
 
@@ -6088,6 +6179,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       e.preventDefault();
       e.stopPropagation();
 
+      // Right-click context menu is strictly for desktop mouse interaction.
+      // On mobile viewport, Android Capacitor app, or touch/long-press interactions, suppress the floating context menu.
+      if (window.innerWidth < 1024 || isCapacitorApp() || cardLongPressTriggered || (e.pointerType === 'touch')) {
+        return;
+      }
+
       if (selectedArticleIds && selectedArticleIds.size > 0) {
         if (selectedArticleIds.has(id)) {
           openBatchContextMenu(e.clientX, e.clientY);
@@ -6471,17 +6568,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       showToast('Tag #' + tagName + ' added');
 
       if (ids.length === 1) {
-        authFetch('/api/entries/' + ids[0] + '/tags.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tags: tagName })
-        }).then(() => loadGlobalTags()).catch(() => {});
+        enqueueMutation('add_tag', { id: ids[0], tag: tagName });
       } else {
-        authFetch('/api/entries/tags/lists.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entries: ids, tags: tagName })
-        }).then(() => loadGlobalTags()).catch(() => {});
+        enqueueMutation('batch_add_tag', { ids: ids, tag: tagName });
       }
     }
 
@@ -6505,15 +6594,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       showToast('Tag #' + tagName + ' removed');
 
       if (ids.length === 1) {
-        authFetch('/api/entries/' + ids[0] + '/tags/' + encodeURIComponent(tagName) + '.json', {
-          method: 'DELETE'
-        }).then(() => loadGlobalTags()).catch(() => {});
+        enqueueMutation('remove_tag', { id: ids[0], tag: tagName });
       } else {
-        authFetch('/api/entries/tags/lists.json', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entries: ids, tag: tagName })
-        }).then(() => loadGlobalTags()).catch(() => {});
+        enqueueMutation('batch_remove_tag', { ids: ids, tag: tagName });
       }
     }
 
@@ -6704,15 +6787,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
       if (item) {
         item.title = newTitle;
         if (activeArticleId === id) document.getElementById('readerTitle').textContent = newTitle;
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       }
       closeModal('editTitleModal');
       filterArticles();
       showToast('✓ Title updated');
-      authFetch('/api/entries/' + id + '.json', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle })
-      }).catch(() => {});
+      enqueueMutation('edit_title', { id: id, title: newTitle });
     }
 
     function openWipeDbModal() {
@@ -6745,12 +6825,20 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
           throw new Error(errData.error || 'HTTP ' + res.status);
         }
 
+        const resData = await res.json().catch(() => ({}));
         closeModal('wipeDbModal');
         localStorage.removeItem('wf_sync_rev');
+      localStorage.removeItem('wf_instance_id');
         localStorage.removeItem('wf_cached_articles');
         localStorage.removeItem('wf_cached_tags');
         localStorage.removeItem('wf_cached_counts');
         localStorage.removeItem('wf_pending_mutations');
+      localStorage.removeItem('wf_instance_id');
+        if (resData.instance_id) {
+          localStorage.setItem('wf_instance_id', String(resData.instance_id));
+        } else {
+          localStorage.removeItem('wf_instance_id');
+        }
         currentSyncRev = 1;
         allEntries = [];
         cachedGlobalTags = [];
@@ -6829,10 +6917,12 @@ export function renderDashboardHtml(appName: string = 'Wallaflare'): string {
 
       showToast('Reconciling database...');
       localStorage.removeItem('wf_sync_rev');
+      localStorage.removeItem('wf_instance_id');
       localStorage.removeItem('wf_cached_articles');
       localStorage.removeItem('wf_cached_tags');
       localStorage.removeItem('wf_cached_counts');
       localStorage.removeItem('wf_pending_mutations');
+      localStorage.removeItem('wf_instance_id');
       currentSyncRev = 0;
       allEntries = [];
       await clearIndexedDB();

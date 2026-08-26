@@ -13,6 +13,7 @@ function createMockD1Database() {
   let autoTagId = 1;
   let autoAnnotationId = 1;
   let currentRev = 1;
+  let currentInstanceId = 1780000000000;
   let deletedEntries: Array<{ entry_id: number; revision: number; deleted_at: string }> = [];
 
   return {
@@ -29,7 +30,7 @@ function createMockD1Database() {
             if (query.includes('UPDATE sync_state')) {
               currentRev++;
             }
-            return { revision: currentRev } as T;
+            return { revision: currentRev, instance_id: currentInstanceId } as T;
           }
           if (query.includes('SUM(CASE WHEN is_archived = 0')) {
             const unread = entries.filter(e => !e.is_archived).length;
@@ -130,6 +131,12 @@ function createMockD1Database() {
           }
           if (query.includes('SELECT * FROM entries')) {
             let matched = [...entries];
+            if (query.includes('revision > ?')) {
+              const revVal = boundParams.find(p => typeof p === 'number');
+              if (typeof revVal === 'number') {
+                matched = matched.filter(e => (e.revision || 1) > revVal);
+              }
+            }
             if (query.includes('WHERE t.slug IN') || query.includes('entry_tags et')) {
               const tagVal = boundParams[0];
               const matchedTagIds = tags.filter(t => t.slug === tagVal || t.label === tagVal).map(t => t.id);
@@ -282,6 +289,7 @@ function createMockD1Database() {
                   if (c.startsWith('content = ?')) entry.content = boundParams[idx];
                   if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
                   if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+                  if (c.startsWith('revision = ?')) entry.revision = boundParams[idx];
                 });
                 entry.updated_at = new Date().toISOString();
               }
@@ -321,6 +329,11 @@ function createMockD1Database() {
           }
           if (query.includes('INSERT INTO sync_state')) {
             currentRev = 1;
+            if (typeof boundParams[0] === 'number') {
+              currentInstanceId = boundParams[0];
+            } else if (typeof boundParams[1] === 'number') {
+              currentInstanceId = boundParams[1];
+            }
             return { meta: { changes: 1 } };
           }
           if (query.includes('DELETE FROM entry_tags WHERE entry_id IN')) {
@@ -1520,6 +1533,47 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(afterSyncData.deleted_ids).toContain(item2.id);
   });
 
+  it("propagates PATCH starring, archiving, and title edits to delta sync clients", async () => {
+    // 1. Ingest an article
+    const postRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ title: 'Original Title', content: '<p>Body</p>', url: 'https://example.com/sync-patch-test' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const article = await postRes.json<any>();
+
+    // 2. Client gets current sync_rev baseline
+    const syncRes1 = await app.request('/api/sync.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const data1 = await syncRes1.json<any>();
+    const baselineRev = data1.sync_rev;
+
+    // 3. Client A stars and archives the article via PATCH
+    const patchRes = await app.request(`/api/entries/${article.id}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ starred: 1, archive: 1, title: 'Updated Title' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(patchRes.status).toBe(200);
+
+    // 4. Client B calls delta sync with since_rev = baselineRev
+    const syncRes2 = await app.request(`/api/sync.json?since_rev=${baselineRev}`, {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(syncRes2.status).toBe(200);
+    const data2 = await syncRes2.json<any>();
+    expect(data2.up_to_date).toBe(false);
+    expect(data2.sync_rev).toBeGreaterThan(baselineRev);
+    expect(data2.entries).toBeDefined();
+    expect(data2.entries.length).toBeGreaterThan(0);
+    const updated = data2.entries.find((e: any) => e.id === article.id);
+    expect(updated).toBeDefined();
+    expect(updated.is_starred).toBe(1);
+    expect(updated.is_archived).toBe(1);
+    expect(updated.title).toBe('Updated Title');
+  });
+
   it("handles CORS preflight OPTIONS requests for Capacitor Android app with 24h caching", async () => {
     const optionsRes = await app.request('/api/sync.json', {
       method: 'OPTIONS',
@@ -1773,8 +1827,10 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     expect(goodRes.status).toBe(200);
     const goodData = await goodRes.json<any>();
     expect(goodData.success).toBe(true);
+    expect(goodData.instance_id).toBeDefined();
+    expect(typeof goodData.instance_id).toBe('number');
 
-    // 3. Database is completely empty and revision is 1
+    // 3. Database is completely empty, revision is 1, and instance_id is assigned
     const listRes = await app.request('/api/entries.json', {
       headers: { 'Authorization': `Bearer ${SECRET}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
@@ -1787,6 +1843,7 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const syncData = await syncRes.json<any>();
     expect(syncData.sync_rev).toBe(1);
+    expect(syncData.instance_id).toBe(goodData.instance_id);
     expect(syncData.entries.length).toBe(0);
     expect(syncData.counts.total).toBe(0);
   });

@@ -24,6 +24,7 @@ import {
   deleteTag,
   getLibraryCounts,
   getCurrentSyncRevision,
+  getSyncState,
   getDeletedEntriesSince,
   checkAuthRateLimit,
   recordFailedAuthAttempt,
@@ -603,21 +604,36 @@ const syncHandler = async (c: any) => {
   const is_archived = query.archive !== undefined ? Number(query.archive) : undefined;
   const is_starred = query.starred !== undefined ? Number(query.starred) : undefined;
 
-  const currentRev = await getCurrentSyncRevision(c.env.DB);
+  const syncState = await getSyncState(c.env.DB);
+  const currentRev = syncState.revision;
+  const instanceId = syncState.instance_id;
 
   // If client provides since_rev that matches server's current revision, return lightweight 304-style status
-  if (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev >= currentRev && page === 1 && !search && !tags && is_archived === undefined && is_starred === undefined) {
+  if (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev === currentRev && page === 1 && !search && !tags && is_archived === undefined && is_starred === undefined) {
     const counts = await getLibraryCounts(c.env.DB);
     c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     return c.json({
       up_to_date: true,
       sync_rev: currentRev,
+      instance_id: instanceId,
       counts: counts,
     });
   }
 
+  const entriesFilter: any = {
+    page,
+    perPage,
+    order,
+    sort,
+    search,
+    tags,
+    is_archived,
+    is_starred,
+    since_rev: (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev > 0) ? sinceRev : undefined
+  };
+
   const [entriesResult, allTags, counts, deletedIds] = await Promise.all([
-    getEntries(c.env.DB, { page, perPage, order, sort, search, tags, is_archived, is_starred }),
+    getEntries(c.env.DB, entriesFilter),
     getTags(c.env.DB),
     getLibraryCounts(c.env.DB),
     sinceRev !== undefined && !isNaN(sinceRev) ? getDeletedEntriesSince(c.env.DB, sinceRev) : Promise.resolve([]),
@@ -627,6 +643,7 @@ const syncHandler = async (c: any) => {
   return c.json({
     up_to_date: false,
     sync_rev: currentRev,
+    instance_id: instanceId,
     entries: entriesResult.entries.map(e => entryRowToWallabag(e)),
     tags: allTags,
     counts: counts,
@@ -1126,8 +1143,13 @@ const resetDatabaseHandler = async (c: any) => {
     }
   }
 
-  await wipeDatabase(c.env.DB);
-  return c.json({ success: true, message: 'Cloudflare D1 database has been wiped clean' });
+  const resetResult = await wipeDatabase(c.env.DB);
+  return c.json({
+    success: true,
+    message: 'Cloudflare D1 database has been wiped clean',
+    instance_id: resetResult.instance_id,
+    sync_rev: 1
+  });
 };
 
 apiRouter.post('/api/admin/reset-database', authMiddleware, resetDatabaseHandler);
