@@ -22,6 +22,8 @@ wrangler.toml
 dist/
 build/
 www/
+src/views/ota-bundle.ts
+src/views/epub-client-bundle.ts
 coverage/
 *.log
 *.epub

@@ -15,7 +15,8 @@
     "build:web": "tsx scripts/build-web.ts",
     "build:apk": "tsx scripts/build-web.ts && npx cap sync android && cd android && export JAVA_HOME=/var/home/ido/.jdks/jdk-21 && export ANDROID_HOME=/home/ido/Android/Sdk && ./gradlew assembleDebug --no-daemon",
     "build:apk:release": "tsx scripts/build-web.ts && npx cap sync android && cd android && export JAVA_HOME=/var/home/ido/.jdks/jdk-21 && export ANDROID_HOME=/home/ido/Android/Sdk && ./gradlew assembleRelease --no-daemon",
-    "screenshot": "tsx scripts/generate-screenshots.ts"
+    "screenshot": "tsx scripts/generate-screenshots.ts",
+    "prepare": "tsx scripts/build-web.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",
