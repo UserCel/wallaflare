@@ -1,11 +1,4 @@
-@font-face {
-      font-family: 'OpenDyslexic';
-      src: url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/OpenDyslexic-Regular.woff2') format('woff2'),
-           url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/OpenDyslexic-Regular.woff') format('woff');
-      font-weight: normal;
-      font-style: normal;
-      font-display: swap;
-    }
+
 
     :root {
       --bg-primary: #0f172a;
@@ -23,8 +16,8 @@
       --success: #10b981;
       --danger: #ef4444;
       --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-reader-serif: 'Newsreader', Georgia, serif;
-      --font-reader-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-reader-serif: 'Newsreader', 'David', 'Frank Ruhl Libre', Georgia, 'Times New Roman', serif;
+      --font-reader-sans: 'Inter', 'Heebo', 'Rubik', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-reader-mono: 'JetBrains Mono', monospace;
       --font-reader-dyslexic: 'OpenDyslexic', sans-serif;
 
@@ -1040,6 +1033,17 @@
       background: var(--accent);
       color: #ffffff;
     }
+    .tag-badge.notes-badge {
+      font-weight: 600;
+      color: #eab308;
+      border-color: rgba(234, 179, 8, 0.35);
+      background: rgba(234, 179, 8, 0.08);
+    }
+    .tag-badge.notes-badge:hover {
+      background: #eab308;
+      color: #0f172a;
+      border-color: #eab308;
+    }
 
     /* -------------------------------------------------------------
        READER CONTENT & TYPOGRAPHY
@@ -1167,8 +1171,39 @@
       font-style: italic;
       color: var(--text-secondary);
     }
+    .reader-body b,
+    .reader-body strong,
+    .reader-body b *,
+    .reader-body strong *,
+    .reader-body a strong,
+    .reader-body a strong *,
+    .reader-body strong a,
+    .reader-body [style*="font-weight: bold" i],
+    .reader-body [style*="font-weight:bold" i],
+    .reader-body [style*="font-weight: 700" i],
+    .reader-body [style*="font-weight:700" i],
+    .reader-body [style*="font-weight: 600" i],
+    .reader-body [style*="font-weight:600" i],
+    .reader-body [style*="font-weight: 800" i],
+    .reader-body [style*="font-weight:800" i] {
+      font-weight: 700 !important;
+    }
+    .reader-body em,
+    .reader-body i,
+    .reader-body [style*="font-style: italic" i],
+    .reader-body [style*="font-style:italic" i] {
+      font-style: italic !important;
+    }
+    .reader-body em,
+    .reader-body i {
+      font-style: italic !important;
+    }
     .reader-body[dir="rtl"],
-    .reader-content-wrap.is-rtl .reader-body,
+    .reader-content-wrap.is-rtl .reader-body {
+      direction: rtl !important;
+      text-align: var(--reader-text-align, right) !important;
+      text-align-last: var(--reader-text-align-last, auto);
+    }
     .reader-content-wrap.is-rtl #readerTitle {
       direction: rtl !important;
       text-align: right !important;
@@ -1471,5 +1506,63 @@
       .reader-main-scroll {
         padding-left: max(var(--reader-mobile-padding-x, 1.1rem), env(safe-area-inset-left, 0px)) !important;
         padding-right: max(var(--reader-mobile-padding-x, 1.1rem), env(safe-area-inset-right, 0px)) !important;
+      }
+    }
+
+                    /* Android Material 3 Pull to Refresh */
+    .ptr-wrap {
+      position: fixed;
+      top: calc(56px + env(safe-area-inset-top, 0px));
+      left: 50%;
+      transform: translate(-50%, -20px);
+      z-index: 300;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .ptr-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.2);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-origin: center center;
+    }
+    .ptr-svg {
+      width: 28px;
+      height: 28px;
+      display: block;
+      transform-origin: center center;
+    }
+    .ptr-material-spinner {
+      animation: ptrMaterialRotate 1.333s linear infinite !important;
+    }
+    .ptr-material-spinner .ptr-arc {
+      animation: ptrMaterialArc 1.333s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+      stroke-linecap: round !important;
+    }
+    .ptr-material-spinner #pullToRefreshArrow {
+      display: none !important;
+      opacity: 0 !important;
+    }
+    @keyframes ptrMaterialRotate {
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes ptrMaterialArc {
+      0% {
+        stroke-dasharray: 1, 53.407;
+        stroke-dashoffset: 0;
+      }
+      50% {
+        stroke-dasharray: 38, 53.407;
+        stroke-dashoffset: -14;
+      }
+      100% {
+        stroke-dasharray: 38, 53.407;
+        stroke-dashoffset: -53.407;
       }
     }

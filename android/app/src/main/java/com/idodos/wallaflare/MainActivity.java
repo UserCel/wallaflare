@@ -23,12 +23,49 @@ public class MainActivity extends BridgeActivity {
 
     class NativeInterface {
         @JavascriptInterface
+        public void triggerHaptic(final String type) {
+            mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            android.os.Vibrator v = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                            if (v != null && v.hasVibrator()) {
+                                if ("heavy".equalsIgnoreCase(type)) {
+                                    v.vibrate(android.os.VibrationEffect.createOneShot(35, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+                                } else if ("medium".equalsIgnoreCase(type)) {
+                                    v.vibrate(android.os.VibrationEffect.createOneShot(20, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+                                } else {
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                        v.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_CLICK));
+                                    } else {
+                                        v.vibrate(android.os.VibrationEffect.createOneShot(12, 180));
+                                    }
+                                }
+                            }
+                        } else {
+                            android.os.Vibrator v = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                            if (v != null) v.vibrate(15);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
+        @JavascriptInterface
         public void saveServerConfig(String url, String token) {
             getSharedPreferences("wallaflare_config", MODE_PRIVATE)
                 .edit()
-                .putString("server_url", url)
-                .putString("auth_token", token)
+                .putString("server_url", url != null ? url.trim() : "")
+                .putString("auth_token", token != null ? token.trim() : "")
                 .apply();
+        }
+
+        @JavascriptInterface
+        public String getServerConfig() {
+            android.content.SharedPreferences prefs = getSharedPreferences("wallaflare_config", MODE_PRIVATE);
+            String url = prefs.getString("server_url", "");
+            String token = prefs.getString("auth_token", "");
+            return "{\"server_url\":\"" + url.replace("\"", "\\\"") + "\",\"auth_token\":\"" + token.replace("\"", "\\\"") + "\"}";
         }
 
         @JavascriptInterface
@@ -147,6 +184,7 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() != null && getBridge().getWebView() != null) {
             try {
                 getBridge().getWebView().setFitsSystemWindows(false);
+                getBridge().getWebView().setOverScrollMode(android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS);
                 getBridge().getWebView().getSettings().setTextZoom(100);
                 getBridge().getWebView().setBackgroundColor(android.graphics.Color.parseColor("#0f172a"));
             } catch (Exception ignored) {}

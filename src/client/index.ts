@@ -204,6 +204,129 @@
       }
     }
 
+    function generateUnifiedArticleMenuHtml(opts) {
+      const { mode = 'card', item = null, items = [], closeFnName = 'closeAllCardMenus()' } = opts || {};
+      const targetItem = item || (items && items.length === 1 ? items[0] : null);
+
+      if (targetItem) {
+        const id = targetItem.id;
+        const isStarred = Boolean(targetItem.is_starred);
+        const isArchived = Boolean(targetItem.is_archived);
+        const starLabel = isStarred ? 'Unstar' : 'Star';
+        const archiveLabel = isArchived ? 'Move to Unread' : 'Archive';
+
+        const origLinkBtn = targetItem.url
+          ? '<button type="button" class="menu-item" onclick="' + closeFnName + '; openArticleOriginalLink(' + id + ');">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
+              '<span>Open Original Link</span>' +
+            '</button>'
+          : '';
+
+        const readBtn = (mode === 'card')
+          ? '<button type="button" class="menu-item" onclick="' + closeFnName + '; openReader(' + id + ');">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>' +
+              '<span>Read Article</span>' +
+            '</button>'
+          : '';
+
+        const focusModeBtn = (mode === 'reader')
+          ? '<button type="button" class="menu-item" onclick="' + closeFnName + '; toggleFocusMode();">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>' +
+              '<span>Toggle Focus Mode (f)</span>' +
+            '</button>'
+          : '';
+
+        return '<div style="padding: 0.45rem 0.65rem 0.4rem 0.65rem; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px;" title="' + escapeHtml(targetItem.title || 'Article') + '">' +
+            escapeHtml(targetItem.title || 'Article') +
+          '</div>' +
+          readBtn +
+          '<button type="button" class="menu-item" onclick="' + closeFnName + '; toggleStar(' + id + ', ' + isStarred + ');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="' + (isStarred ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' +
+            '<span>' + starLabel + '</span>' +
+          '</button>' +
+          '<button type="button" class="menu-item" onclick="' + closeFnName + '; toggleArchive(' + id + ', ' + isArchived + ');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>' +
+            '<span>' + archiveLabel + '</span>' +
+          '</button>' +
+          '<button type="button" class="menu-item" onclick="' + closeFnName + '; openTagModal(' + id + ');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>' +
+            '<span>Edit Tags</span>' +
+          '</button>' +
+          '<button type="button" class="menu-item" onclick="' + closeFnName + '; openArticleHighlightsModal(' + id + ');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' +
+            '<span>Highlights & Notes</span>' +
+          '</button>' +
+          '<div class="menu-item-expandable">' +
+            '<button type="button" class="menu-item menu-item-parent" onclick="event.stopPropagation(); this.parentElement.classList.toggle(\'expanded\');">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+              '<span>Export</span>' +
+              '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+            '</button>' +
+            '<div class="menu-sub-items">' +
+              '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; downloadEpub(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>' +
+              '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; exportMarkdown(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>' +
+              '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; exportPdf(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>' +
+            '</div>' +
+          '</div>' +
+          origLinkBtn +
+          '<button type="button" class="menu-item" onclick="' + closeFnName + '; openEditTitleModal(' + id + ');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' +
+            '<span>Edit Title</span>' +
+          '</button>' +
+          '<button type="button" class="menu-item" onclick="' + closeFnName + '; refetchArticleContent(' + id + ');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>' +
+            '<span>Re-fetch Content</span>' +
+          '</button>' +
+          focusModeBtn +
+          '<div class="menu-divider"></div>' +
+          '<button type="button" class="menu-item menu-item-danger" onclick="' + closeFnName + '; deleteEntryAction(' + id + ');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+            '<span>Delete Article</span>' +
+          '</button>';
+      }
+
+      const count = items.length;
+      const countLabel = count + ' article' + (count === 1 ? '' : 's') + ' selected';
+
+      return '<div style="padding: 0.5rem 0.75rem 0.45rem; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 700; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between;">' +
+          '<span>' + countLabel + '</span>' +
+          '<button type="button" class="btn-icon" onclick="clearArticleSelection(); ' + closeFnName + ';" title="Clear selection" style="padding: 2px; width: 20px; height: 20px; font-size: 0.85rem; line-height: 1;">&times;</button>' +
+        '</div>' +
+        '<button type="button" class="menu-item" onclick="' + closeFnName + '; batchArchiveArticles();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>' +
+          '<span>Archive / Unarchive</span>' +
+        '</button>' +
+        '<button type="button" class="menu-item" onclick="' + closeFnName + '; batchStarArticles();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' +
+          '<span>Star / Unstar</span>' +
+        '</button>' +
+        '<button type="button" class="menu-item" onclick="' + closeFnName + '; openTagModalForSelection();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>' +
+          '<span>Edit Tags</span>' +
+        '</button>' +
+        '<div class="menu-item-expandable">' +
+          '<button type="button" class="menu-item menu-item-parent" onclick="event.stopPropagation(); this.parentElement.classList.toggle(\'expanded\');">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+            '<span>Bulk Export</span>' +
+            '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+          '</button>' +
+          '<div class="menu-sub-items">' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>ZIP (EPUBs)</span></button>' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>ZIP (Markdown)</span></button>' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchJson();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>JSON (.json)</span></button>' +
+          '</div>' +
+        '</div>' +
+        '<button type="button" class="menu-item" onclick="' + closeFnName + '; batchRefetchContent();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>' +
+          '<span>Re-fetch Content</span>' +
+        '</button>' +
+        '<div class="menu-divider"></div>' +
+        '<button type="button" class="menu-item menu-item-danger" onclick="' + closeFnName + '; batchDeleteArticles();">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+          '<span>Delete (' + count + ') Articles</span>' +
+        '</button>';
+    }
+
     function toggleReaderMoreMenu(e) {
       if (e) e.stopPropagation();
       const menu = document.getElementById('readerMoreMenuDropdown');
@@ -214,6 +337,14 @@
       if (isOpen) {
         menu.classList.remove('open');
       } else {
+        const item = allEntries.find(e => e.id === activeArticleId);
+        if (item) {
+          menu.innerHTML = generateUnifiedArticleMenuHtml({
+            item,
+            mode: 'reader',
+            closeFnName: 'closeReaderMoreMenu()'
+          });
+        }
         menu.classList.add('open');
         const backdrop = document.getElementById('cardMenuBackdrop');
         if (backdrop) backdrop.style.display = 'block';
@@ -270,9 +401,38 @@
       return localStorage.getItem('wf_auth_token') || '';
     }
 
+    function syncNativeServerConfig() {
+      try {
+        const url = localStorage.getItem('wf_server_url') || '';
+        const token = localStorage.getItem('wf_auth_token') || '';
+        if (url || token) {
+          if (window.AndroidNative && typeof window.AndroidNative.saveServerConfig === 'function') {
+            window.AndroidNative.saveServerConfig(url, token);
+          }
+          if (window.Capacitor?.Plugins?.WallaflareNative?.saveServerConfig) {
+            window.Capacitor.Plugins.WallaflareNative.saveServerConfig({ url, token }).catch(() => {});
+          }
+        } else if (window.AndroidNative && typeof window.AndroidNative.getServerConfig === 'function') {
+          try {
+            const raw = window.AndroidNative.getServerConfig();
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed.server_url && !localStorage.getItem('wf_server_url')) {
+                localStorage.setItem('wf_server_url', parsed.server_url);
+              }
+              if (parsed.auth_token && !localStorage.getItem('wf_auth_token')) {
+                localStorage.setItem('wf_auth_token', parsed.auth_token);
+              }
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }
+
     function setAuthToken(token) {
       if (token) localStorage.setItem('wf_auth_token', token);
       else localStorage.removeItem('wf_auth_token');
+      syncNativeServerConfig();
     }
 
     async function authFetch(url, options = {}) {
@@ -587,6 +747,24 @@
           closeModal('wipeDbModal');
           return;
         }
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal && settingsModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('settingsModal');
+          return;
+        }
+        const devModal = document.getElementById('devModal');
+        if (devModal && devModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('devModal');
+          return;
+        }
+        const anyOpenModal = document.querySelector('.modal-backdrop.open, .modal-overlay.open, .tag-modal-overlay.open, .modal.open');
+        if (anyOpenModal) {
+          e.preventDefault();
+          anyOpenModal.classList.remove('open');
+          return;
+        }
 
         // 4. Focus Mode
         if (isFocusMode) {
@@ -763,7 +941,7 @@
         closeModal('readerHighlightsModal');
         return true;
       }
-      const openModalEl = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+      const openModalEl = document.querySelector('.modal-backdrop.open, .modal-overlay.open, .tag-modal-overlay.open, .modal.open');
       if (openModalEl) {
         openModalEl.classList.remove('open');
         return true;
@@ -1593,7 +1771,7 @@
         ? '<div style="font-size: 0.75rem; color: var(--text-muted); padding: 0.35rem 0.5rem; font-style: italic;">No tags yet</div>'
         : tags.map(t => {
             const isActive = selectedTagFilter && selectedTagFilter.toLowerCase() === (t.slug || t.label).toLowerCase();
-            return '<button class="sidebar-tag-item ' + (isActive ? 'active' : '') + '" onclick="filterByTag(\\\'' + escapeHtml(t.slug || t.label) + '\\\')">' +
+            return '<button class="sidebar-tag-item ' + (isActive ? 'active' : '') + '" onclick="filterByTag(\'' + escapeHtml(t.slug || t.label).replace(/'/g, "\\'") + '\')">' +
               '<span>#' + escapeHtml(t.label) + '</span>' +
               (t.count > 0 ? '<span class="badge-count">' + t.count + '</span>' : '') +
             '</button>';
@@ -1826,7 +2004,7 @@
         const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
         const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
         const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-        const rawContentText = item.text || item.excerpt || (item.content ? item.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
+        const rawContentText = (item.excerpt && !item.excerpt.includes("{\"parts\":")) ? item.excerpt : (item.text || (item.content ? item.content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ").replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"').replace(/\{"parts":[\s\S]*?\}\}\]\}/g, " ").replace(/\s+/g, " ").trim() : ""));
         const excerpt = rawContentText ? (rawContentText.length > 160 ? rawContentText.slice(0, 160) + "..." : rawContentText) : "No preview available";
         const isChecked = selectedArticleIds.has(item.id);
         const isReading = activeArticleId === item.id;
@@ -1835,13 +2013,21 @@
           ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>'
           : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
 
+        const annCount = Array.isArray(item.annotations) ? item.annotations.length : 0;
+        const notesBadgeHtml = annCount > 0
+          ? '<span class="tag-badge notes-badge" onclick="event.stopPropagation(); openArticleHighlightsModal(' + item.id + ')" title="View ' + annCount + ' Highlights & Notes"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 0.2rem;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' + annCount + (annCount === 1 ? ' Note' : ' Notes') + '</span>'
+          : '';
+
         const tags = Array.isArray(item.tags) ? item.tags : [];
-        const tagsHtml = tags.length > 0
-          ? '<div class="card-tags">' + tags.map(t => {
-              const label = typeof t === 'string' ? t : (t.label || t.name || t.slug);
-              const slug = typeof t === 'string' ? t : (t.slug || t.label || t.name);
-              return '<span class="tag-badge" onclick="event.stopPropagation(); filterByTag(\\\'' + escapeHtml(slug) + '\\\')">#' + escapeHtml(label) + '</span>';
-            }).join('') + '</div>'
+        const tagsListHtml = tags.map(t => {
+          const label = typeof t === 'string' ? t : (t.label || t.name || t.slug);
+          const slug = typeof t === 'string' ? t : (t.slug || t.label || t.name);
+          const safeSlug = escapeHtml(slug).replace(/'/g, "\\'");
+          return '<span class="tag-badge" onclick="event.stopPropagation(); filterByTag(\'' + safeSlug + '\')">#' + escapeHtml(label) + '</span>';
+        }).join('');
+
+        const tagsHtml = (notesBadgeHtml || tagsListHtml)
+          ? '<div class="card-tags">' + notesBadgeHtml + tagsListHtml + '</div>'
           : '';
 
         const totalMin = item.reading_time || 1;
@@ -2070,6 +2256,17 @@
       const readerBodyEl = document.getElementById('readerBody');
       const rawContent = item.content || '<p>No content available.</p>';
       readerBodyEl.innerHTML = rawContent;
+      try {
+        readerBodyEl.querySelectorAll('*[style]').forEach(el => {
+          const style = (el.getAttribute('style') || '').toLowerCase();
+          if (/font-weight\s*:\s*(bold|[6-9]00)/.test(style) && el.tagName !== 'STRONG' && el.tagName !== 'B') {
+            el.style.fontWeight = '700';
+          }
+          if (/font-style\s*:\s*italic/.test(style) && el.tagName !== 'EM' && el.tagName !== 'I') {
+            el.style.fontStyle = 'italic';
+          }
+        });
+      } catch (e) {}
       applyAnnotationsToReader(item);
 
       // Star & Archive active state
@@ -2373,8 +2570,12 @@
         const updated = await res.json();
         const idx = allEntries.findIndex(e => e.id === id);
         if (idx >= 0) allEntries[idx] = updated;
-        if (activeArticleId === id) openReader(id, false);
+        else allEntries.unshift(updated);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         filterArticles();
+        if (activeArticleId === id) {
+          await openReader(id, false);
+        }
         showToast('✓ Article content re-fetched successfully!');
       } catch (err) {
         showToast('Failed to re-fetch: ' + err.message);
@@ -2830,8 +3031,21 @@
       }).join('');
     }
 
-    function scrollToAnnotation(annId, articleId = null) {
+    async function scrollToAnnotation(annId, articleId = null) {
       closeModal("readerHighlightsModal");
+      const targetArticleId = articleId || activeModalHighlightsArticleId;
+      if (targetArticleId && activeArticleId !== targetArticleId) {
+        await openReader(targetArticleId);
+        setTimeout(() => {
+          const mark = document.querySelector('mark[data-annotation-id="' + annId + '"]');
+          if (mark) {
+            mark.scrollIntoView({ behavior: "smooth", block: "center" });
+            mark.style.outline = "3px solid var(--accent)";
+            setTimeout(() => { mark.style.outline = ""; }, 2200);
+          }
+        }, 250);
+        return;
+      }
       const mark = document.querySelector('mark[data-annotation-id="' + annId + '"]');
       if (mark) {
         mark.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -3189,12 +3403,32 @@
       showToast('Layout: ' + currentViewMode.toUpperCase());
     }
 
+    const SORT_MENU_OPTIONS = [
+      { id: 'newest', label: 'Newest First', iconSvg: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>' },
+      { id: 'oldest', label: 'Oldest First', iconSvg: '<polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>' },
+      { id: 'shortest', label: 'Shortest Read', iconSvg: '<line x1="4" y1="12" x2="12" y2="12"></line><line x1="4" y1="6" x2="8" y2="6"></line><line x1="4" y1="18" x2="16" y2="18"></line>' },
+      { id: 'longest', label: 'Longest Read', iconSvg: '<line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="18" x2="8" y2="18"></line>' },
+      { id: 'title', label: 'Title (A-Z)', iconSvg: '<path d="M4 19V5h3v14H4zM10 19l4.5-14h2L21 19h-2.4l-.8-2.6h-3.6l-.8 2.6H10zm4.2-4.7h2.6L15.5 9.2h-.1l-1.2 5.1z"></path>' },
+      { id: 'domain', label: 'Website / Domain', iconSvg: '<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>' }
+    ];
+
+    function generateSortMenuHtml(currentOrder = 'newest', closeFnName = 'closeAllCardMenus()') {
+      return SORT_MENU_OPTIONS.map(opt => {
+        const isActive = opt.id === currentOrder;
+        const checkmark = isActive
+          ? '<span style="margin-left: auto; font-weight: 700; color: var(--accent); font-size: 0.9rem;">✓</span>'
+          : '';
+        return '<button type="button" class="menu-item ' + (isActive ? 'active' : '') + '" onclick="setSortOrder(\'' + opt.id + '\'); ' + closeFnName + ';"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + opt.iconSvg + '</svg><span>' + opt.label + '</span>' + checkmark + '</button>';
+      }).join('');
+    }
+
     function toggleSortMenu() {
       const menu = document.getElementById('sortDropdownMenu');
       if (menu) {
         const isOpen = menu.classList.contains('open');
         closeAllCardMenus();
         if (!isOpen) {
+          menu.innerHTML = generateSortMenuHtml(currentSortOrder || 'newest', 'closeAllCardMenus()');
           menu.classList.add('open');
           const backdrop = document.getElementById('cardMenuBackdrop');
           if (backdrop) backdrop.style.display = 'block';
@@ -3326,15 +3560,27 @@
 
     function toggleBatchMenu() {
       const menu = document.getElementById('batchDropdownMenu');
-      if (menu) {
-        const isOpen = menu.classList.contains('open');
-        closeAllCardMenus();
-        if (!isOpen) {
-          updateBatchUI();
-          menu.classList.add('open');
-          const backdrop = document.getElementById('cardMenuBackdrop');
-          if (backdrop) backdrop.style.display = 'block';
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      closeAllCardMenus();
+      if (!isOpen) {
+        const items = allEntries.filter(e => selectedArticleIds.has(e.id));
+        if (items.length === 1) {
+          menu.innerHTML = generateUnifiedArticleMenuHtml({
+            item: items[0],
+            mode: 'card',
+            closeFnName: 'closeBatchMenu()'
+          });
+        } else if (items.length > 1) {
+          menu.innerHTML = generateUnifiedArticleMenuHtml({
+            items,
+            mode: 'batch',
+            closeFnName: 'closeBatchMenu()'
+          });
         }
+        menu.classList.add('open');
+        const backdrop = document.getElementById('cardMenuBackdrop');
+        if (backdrop) backdrop.style.display = 'block';
       }
     }
 
@@ -3570,6 +3816,93 @@
       backdrop?.classList.toggle('open');
     }
 
+
+    // Elastic Rubber-Band Overscroll for Mobile Lists & Reader
+    
+    // Unified Haptic Feedback across Native Bridge, Capacitor & Web Vibrator
+    function triggerHaptic(type = 'light') {
+      try {
+        if ((window as any).AndroidNative?.triggerHaptic) {
+          (window as any).AndroidNative.triggerHaptic(type);
+          return;
+        }
+        if ((window as any).Capacitor?.Plugins?.Haptics) {
+          (window as any).Capacitor.Plugins.Haptics.impact({ style: type === 'heavy' ? 'heavy' : (type === 'medium' ? 'medium' : 'light') });
+          return;
+        }
+        if (navigator.vibrate) {
+          navigator.vibrate(type === 'heavy' ? 35 : (type === 'medium' ? 20 : 12));
+        }
+      } catch (e) {}
+    }
+
+    function setupElasticOverscroll(scrollContainer, targetElement, options = { allowPullDown: true, allowPullUp: true }) {
+      if (!scrollContainer) return;
+      const target = targetElement || scrollContainer.firstElementChild || scrollContainer;
+      let startY = 0;
+      let startX = 0;
+      let isTracking = false;
+      let currentPull = 0;
+
+      scrollContainer.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        startY = e.touches[0].clientY;
+        startX = e.touches[0].clientX;
+        isTracking = false;
+        currentPull = 0;
+        target.style.transition = 'none';
+      }, { passive: true });
+
+      scrollContainer.addEventListener('touchmove', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        const currentY = e.touches[0].clientY;
+        const currentX = e.touches[0].clientX;
+        const deltaY = currentY - startY;
+        const deltaX = currentX - startX;
+
+        // Ignore horizontal swipes (e.g. drawer gestures)
+        if (Math.abs(deltaX) > Math.abs(deltaY) && !isTracking) return;
+
+        const isAtTop = scrollContainer.scrollTop <= 0;
+        const isAtBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 1;
+
+        const allowDown = options && options.allowPullDown !== false;
+        const allowUp = options && options.allowPullUp !== false;
+        const canPullDown = allowDown && isAtTop && deltaY > 0;
+        const canPullUp = allowUp && isAtBottom && deltaY < 0;
+
+        if (canPullDown || canPullUp) {
+          isTracking = true;
+          // Fluid logarithmic damping curve
+          const resistance = 0.38;
+          currentPull = Math.sign(deltaY) * Math.pow(Math.abs(deltaY), 0.82) * resistance;
+          if (Math.abs(currentPull) > 100) currentPull = Math.sign(currentPull) * 100;
+          target.style.transform = 'translate3d(0, ' + currentPull + 'px, 0)';
+          target.style.willChange = 'transform';
+        } else if (isTracking) {
+          currentPull = 0;
+          target.style.transform = '';
+          isTracking = false;
+        }
+      }, { passive: true });
+
+      const resetOverscroll = () => {
+        if (!isTracking && currentPull === 0) return;
+        isTracking = false;
+        currentPull = 0;
+        target.style.transition = 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1)';
+        target.style.transform = 'translate3d(0, 0px, 0)';
+        setTimeout(() => {
+          target.style.transition = '';
+          target.style.transform = '';
+          target.style.willChange = '';
+        }, 380);
+      };
+
+      scrollContainer.addEventListener('touchend', resetOverscroll, { passive: true });
+      scrollContainer.addEventListener('touchcancel', resetOverscroll, { passive: true });
+    }
+
     function closeMobileNavMenu() {
       const drawer = document.getElementById('mobileNavDropdown');
       const backdrop = document.getElementById('mobileNavBackdrop');
@@ -3719,49 +4052,28 @@
       const menu = document.getElementById('cardContextMenu');
       if (!menu) return;
 
-      const count = selectedArticleIds.size;
-      const countLabel = count + ' article' + (count === 1 ? '' : 's') + ' selected';
+      const items = allEntries.filter(e => selectedArticleIds.has(e.id));
+      if (items.length === 0) return;
 
-      menu.innerHTML = 
-        '<div style="padding: 0.5rem 0.75rem 0.45rem; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 700; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between;">' +
-          '<span>' + countLabel + '</span>' +
-          '<button type="button" class="btn-icon" onclick="clearArticleSelection(); closeCardContextMenu();" title="Clear selection" style="padding: 2px; width: 20px; height: 20px; font-size: 0.85rem; line-height: 1;">&times;</button>' +
-        '</div>' +
-        '<button type="button" class="menu-item" onclick="closeCardContextMenu(); batchArchiveArticles();">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>' +
-          '<span>Archive / Unarchive</span>' +
-        '</button>' +
-        '<button type="button" class="menu-item" onclick="closeCardContextMenu(); batchStarArticles();">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' +
-          '<span>Star / Unstar</span>' +
-        '</button>' +
-        '<button type="button" class="menu-item" onclick="closeCardContextMenu(); openTagModalForSelection();">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>' +
-          '<span>Edit Tags</span>' +
-        '</button>' +
-        '<div class="menu-item-expandable" id="contextExportWrap">' +
-          '<button type="button" class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleContextExportSubmenu();">' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
-            '<span>Bulk Export</span>' +
-            '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
-          '</button>' +
-          '<div class="menu-sub-items" id="contextExportSub">' +
-            '<button type="button" class="menu-item menu-sub-item" onclick="handleExportBatchEpub()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>ZIP (EPUBs)</span></button>' +
-            '<button type="button" class="menu-item menu-sub-item" onclick="handleExportBatchMarkdown()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>ZIP (Markdown)</span></button>' +
-            '<button type="button" class="menu-item menu-sub-item" onclick="handleExportBatchJson()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>JSON (.json)</span></button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="menu-divider"></div>' +
-        '<button type="button" class="menu-item menu-item-danger" onclick="closeCardContextMenu(); batchDeleteArticles();">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
-          '<span>Delete (' + count + ') Articles</span>' +
-        '</button>';
+      if (items.length === 1) {
+        menu.innerHTML = generateUnifiedArticleMenuHtml({
+          item: items[0],
+          mode: 'card',
+          closeFnName: 'closeCardContextMenu()'
+        });
+      } else {
+        menu.innerHTML = generateUnifiedArticleMenuHtml({
+          items,
+          mode: 'batch',
+          closeFnName: 'closeCardContextMenu()'
+        });
+      }
 
       menu.style.display = 'flex';
       menu.classList.add('open');
 
       const menuWidth = 225;
-      const menuHeight = 280;
+      const menuHeight = items.length === 1 ? 380 : 280;
       const x = Math.min(clientX, window.innerWidth - menuWidth - 12);
       const y = Math.min(clientY, window.innerHeight - menuHeight - 12);
       menu.style.left = Math.max(8, x) + 'px';
@@ -3783,69 +4095,17 @@
       const menu = document.getElementById('cardContextMenu');
       if (!menu) return;
 
-      const starLabel = item.is_starred ? 'Unstar' : 'Star';
-      const archiveLabel = item.is_archived ? 'Move to Unread' : 'Archive';
-
-      const origLinkBtn = item.url
-        ? ('<button class="menu-item" onclick="closeCardContextMenu(); openArticleOriginalLink(' + id + ');"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>')
-        : '';
-
-      menu.innerHTML = 
-        '<div style="padding: 0.45rem 0.65rem 0.4rem 0.65rem; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px;">' +
-          escapeHtml(item.title) +
-        '</div>' +
-        '<button class="menu-item" onclick="closeCardContextMenu(); openReader(' + id + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>' +
-          '<span>Read Article</span>' +
-        '</button>' +
-        '<button class="menu-item" onclick="closeCardContextMenu(); toggleStar(' + id + ', ' + item.is_starred + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="' + (item.is_starred ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' +
-          '<span>' + starLabel + '</span>' +
-        '</button>' +
-        '<button class="menu-item" onclick="closeCardContextMenu(); toggleArchive(' + id + ', ' + item.is_archived + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>' +
-          '<span>' + archiveLabel + '</span>' +
-        '</button>' +
-        '<button class="menu-item" onclick="closeCardContextMenu(); openTagModal(' + id + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>' +
-          '<span>Edit Tags</span>' +
-        '</button>' +
-        '<button class="menu-item" onclick="closeCardContextMenu(); openArticleHighlightsModal(' + id + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' +
-          '<span>Highlights & Notes</span>' +
-        '</button>' +
-        '<div class="menu-item-expandable" id="contextExportWrap">' +
-          '<button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleContextExportSubmenu();">' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
-            '<span>Export</span>' +
-            '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
-          '</button>' +
-          '<div class="menu-sub-items" id="contextExportSub">' +
-            '<button class="menu-item menu-sub-item" onclick="closeCardContextMenu(); downloadEpub(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>' +
-            '<button class="menu-item menu-sub-item" onclick="closeCardContextMenu(); exportMarkdown(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>' +
-            '<button class="menu-item menu-sub-item" onclick="closeCardContextMenu(); exportPdf(' + id + ');"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>' +
-          '</div>' +
-        '</div>' +
-        origLinkBtn +
-        '<button class="menu-item" onclick="closeCardContextMenu(); openEditTitleModal(' + id + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' +
-          '<span>Edit Title</span>' +
-        '</button>' +
-        '<button class="menu-item" onclick="closeCardContextMenu(); refetchArticleContent(' + id + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>' +
-          '<span>Re-fetch Content</span>' +
-        '</button>' +
-        '<div class="menu-divider"></div>' +
-        '<button class="menu-item menu-item-danger" onclick="closeCardContextMenu(); deleteEntryAction(' + id + ');">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
-          '<span>Delete Article</span>' +
-        '</button>';
+      menu.innerHTML = generateUnifiedArticleMenuHtml({
+        item,
+        mode: 'card',
+        closeFnName: 'closeCardContextMenu()'
+      });
 
       menu.style.display = 'flex';
       menu.classList.add('open');
 
       const menuWidth = 225;
-      const menuHeight = 360;
+      const menuHeight = 380;
       const x = Math.min(clientX, window.innerWidth - menuWidth - 12);
       const y = Math.min(clientY, window.innerHeight - menuHeight - 12);
       menu.style.left = Math.max(8, x) + 'px';
@@ -4137,7 +4397,7 @@
 
       container.innerHTML = tags.map(t => {
         return '<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.65rem; background: var(--bg-tertiary); border-radius: var(--radius-sm);">' +
-          '<div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;" onclick="closeGlobalTagModal(); filterByTag(\\\'' + escapeHtml(t.slug || t.label) + '\\\');">' +
+          '<div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;" onclick="closeGlobalTagModal(); filterByTag(\'' + escapeHtml(t.slug || t.label).replace(/'/g, "\\'") + '\');">' +
             '<span style="font-weight: 600; font-size: 0.88rem; color: var(--accent);">#' + escapeHtml(t.label) + '</span>' +
             '<span class="badge-count" style="font-size: 0.72rem;">' + t.count + ' article' + (t.count === 1 ? '' : 's') + '</span>' +
           '</div>' +
@@ -4451,7 +4711,10 @@
         url = normalizeUrl(url).replace(/\/+$/, '');
         localStorage.setItem('wf_server_url', url);
       }
-      if (token) setAuthToken(token);
+      if (token) {
+        localStorage.setItem('wf_auth_token', token);
+      }
+      syncNativeServerConfig();
       closeModal('serverConnectModal');
       loadArticles(false);
     }
@@ -4465,73 +4728,170 @@
     const ptrWrap = document.getElementById('pullToRefreshWrap');
     const ptrSvg = document.getElementById('pullToRefreshSvg');
 
-    function initPullToRefresh() {
+            function initPullToRefresh() {
       const scrollContainer = document.getElementById('articlesScrollContainer');
-      if (!scrollContainer) return;
+      const wrap = document.getElementById('pullToRefreshWrap');
+      const card = document.getElementById('pullToRefreshCard');
+      const svg = document.getElementById('pullToRefreshSvg');
+      const arcCircle = document.getElementById('pullToRefreshArc');
+      const arrowHead = document.getElementById('pullToRefreshArrow');
+
+      if (!scrollContainer || !wrap || !card || !svg || !arcCircle || !arrowHead) return;
+
+      const threshold = 68;
+      const CX = 20;
+      const CY = 20;
+      const R = 8.5;
+      const CIRCUMFERENCE = 53.407;
+      const ARROW_W = 6.0;
+      const ARROW_H = 4.2;
+      const MAX_SWEEP_DEG = 280;
+
+      let startY = 0;
+      let startX = 0;
+      let isPulling = false;
+      let isRefreshing = false;
+      let hapticTriggered = false;
 
       scrollContainer.addEventListener('touchstart', (e) => {
-        if (activeArticleId) return;
+        if (isRefreshing || activeArticleId) return;
         if (scrollContainer.scrollTop <= 2 && e.touches.length === 1) {
-          touchStartY = e.touches[0].pageY;
+          startY = e.touches[0].pageY;
+          startX = e.touches[0].pageX;
           isPulling = true;
+          hapticTriggered = false;
+          wrap.style.transition = 'none';
+          card.style.transition = 'none';
+          arcCircle.style.transition = 'none';
+          arrowHead.style.transition = 'none';
+          svg.style.transform = '';
         }
       }, { passive: true });
 
       scrollContainer.addEventListener('touchmove', (e) => {
-        if (!isPulling || activeArticleId || e.touches.length !== 1) return;
+        if (!isPulling || isRefreshing || activeArticleId || e.touches.length !== 1) return;
         const currentY = e.touches[0].pageY;
-        const delta = currentY - touchStartY;
+        const currentX = e.touches[0].pageX;
+        const deltaY = currentY - startY;
+        const deltaX = currentX - startX;
 
-        if (delta > 5 && scrollContainer.scrollTop <= 2) {
+        if (Math.abs(deltaX) > Math.abs(deltaY) && deltaY < 15) return;
+
+        if (deltaY > 5 && scrollContainer.scrollTop <= 2) {
           if (e.cancelable) e.preventDefault();
-          const pullDist = Math.min(80, delta * 0.45);
-          if (ptrWrap) {
-            ptrWrap.style.visibility = 'visible';
-            ptrWrap.style.opacity = String(Math.min(1, pullDist / 35));
-            ptrWrap.style.transform = 'translate(-50%, ' + pullDist + 'px)';
+          const tension = 0.42;
+          const pullDist = Math.min(110, deltaY * tension);
+          const progress = Math.min(1, pullDist / threshold);
+
+          wrap.style.visibility = 'visible';
+          wrap.style.opacity = String(Math.min(1, progress * 2.5));
+          wrap.style.transform = 'translate(-50%, ' + pullDist + 'px)';
+
+          const cardScale = 0.55 + (progress * 0.45);
+          card.style.transform = 'scale(' + cardScale + ')';
+
+          const adjusted = Math.max(0.01, Math.min(1.0, progress));
+          const sweepDeg = adjusted * MAX_SWEEP_DEG;
+          const endDeg = -90 + sweepDeg;
+          const endRad = endDeg * (Math.PI / 180);
+
+          const endX = CX + R * Math.cos(endRad);
+          const endY = CY + R * Math.sin(endRad);
+
+          const tx = -Math.sin(endRad);
+          const ty = Math.cos(endRad);
+          const nx = Math.cos(endRad);
+          const ny = Math.sin(endRad);
+
+          const arrowScale = Math.min(1.0, Math.max(0.0, (progress - 0.08) / 0.32));
+          const curW = ARROW_W * arrowScale;
+          const curH = ARROW_H * arrowScale;
+
+          const tipX = endX + curH * tx;
+          const tipY = endY + curH * ty;
+          const b1x = endX + (curW / 2) * nx;
+          const b1y = endY + (curW / 2) * ny;
+          const b2x = endX - (curW / 2) * nx;
+          const b2y = endY - (curW / 2) * ny;
+
+          const strokeOffset = CIRCUMFERENCE * (1 - (sweepDeg / 360));
+          arcCircle.style.strokeDasharray = String(CIRCUMFERENCE);
+          arcCircle.style.strokeDashoffset = String(strokeOffset);
+
+          arrowHead.setAttribute('points', `${b1x.toFixed(2)},${b1y.toFixed(2)} ${tipX.toFixed(2)},${tipY.toFixed(2)} ${b2x.toFixed(2)},${b2y.toFixed(2)}`);
+          arrowHead.style.opacity = arrowScale > 0.05 ? '1' : '0';
+
+          if (pullDist >= threshold && !hapticTriggered) {
+            hapticTriggered = true;
+            triggerHaptic('light');
+          } else if (pullDist < threshold) {
+            hapticTriggered = false;
           }
-          if (ptrSvg) {
-            ptrSvg.style.transform = 'rotate(' + (delta * 2.5) + 'deg)';
-          }
-        } else if (delta < 0) {
+        } else if (deltaY < 0) {
           isPulling = false;
         }
       }, { passive: false });
 
+      const finishRefreshing = () => {
+        setTimeout(() => {
+          card.style.transition = 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease';
+          card.style.transform = 'scale(0)';
+          wrap.style.transition = 'opacity 0.25s ease, transform 0.28s ease';
+          wrap.style.opacity = '0';
+          wrap.style.transform = 'translate(-50%, 40px)';
+
+          setTimeout(() => {
+            wrap.style.visibility = 'hidden';
+            wrap.style.transform = 'translate(-50%, -20px)';
+            card.style.transform = 'scale(1)';
+            svg.classList.remove('ptr-material-spinner');
+            arcCircle.style.strokeDashoffset = String(CIRCUMFERENCE);
+            isRefreshing = false;
+          }, 280);
+        }, 350);
+      };
+
+      const cancelPull = () => {
+        wrap.style.transition = 'transform 0.25s ease, opacity 0.2s ease';
+        wrap.style.transform = 'translate(-50%, -20px)';
+        wrap.style.opacity = '0';
+        setTimeout(() => {
+          wrap.style.visibility = 'hidden';
+          arcCircle.style.strokeDashoffset = String(CIRCUMFERENCE);
+          arrowHead.style.opacity = '0';
+          svg.style.transform = '';
+        }, 250);
+      };
+
       scrollContainer.addEventListener('touchend', async (e) => {
-        if (!isPulling) return;
+        if (!isPulling || isRefreshing) return;
         isPulling = false;
         const currentY = e.changedTouches[0]?.pageY || 0;
-        const delta = currentY - touchStartY;
+        const deltaY = currentY - startY;
+        const pullDist = deltaY * 0.42;
 
-        if (delta > 60 && scrollContainer.scrollTop <= 2 && !activeArticleId) {
-          if (ptrWrap) {
-            ptrWrap.style.transform = 'translate(-50%, 50px)';
-          }
-          if (ptrSvg) {
-            ptrSvg.classList.add('is-refreshing-spin');
-          }
+        if (pullDist >= threshold && scrollContainer.scrollTop <= 2 && !activeArticleId) {
+          isRefreshing = true;
+          arrowHead.style.opacity = '0';
+          svg.classList.add('ptr-material-spinner');
+
+          wrap.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)';
+          wrap.style.transform = 'translate(-50%, 54px)';
+          card.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)';
+          card.style.transform = 'scale(1)';
+
           try {
             await loadArticles(false);
           } finally {
-            setTimeout(() => {
-              if (ptrWrap) {
-                ptrWrap.style.transform = 'translate(-50%, -20px)';
-                ptrWrap.style.opacity = '0';
-                ptrWrap.style.visibility = 'hidden';
-              }
-              if (ptrSvg) {
-                ptrSvg.classList.remove('is-refreshing-spin');
-              }
-            }, 300);
+            finishRefreshing();
           }
         } else {
-          if (ptrWrap) {
-            ptrWrap.style.transform = 'translate(-50%, -20px)';
-            ptrWrap.style.opacity = '0';
-            ptrWrap.style.visibility = 'hidden';
-          }
+          cancelPull();
         }
+      }, { passive: true });
+
+      scrollContainer.addEventListener('touchcancel', () => {
+        if (!isRefreshing) cancelPull();
       }, { passive: true });
     }
 
@@ -4770,6 +5130,7 @@
     // Initialize UI
     if (isCapacitorApp()) {
       document.documentElement.classList.add('is-capacitor-app');
+      syncNativeServerConfig();
     }
     initAppearanceSettings();
     setViewMode(localStorage.getItem('wf_view_mode') || 'list');
@@ -4798,6 +5159,8 @@
     initRefocusRefresh();
     initInfiniteScroll();
     setupMobileDrawerSwipeTracking();
+    setupElasticOverscroll(document.getElementById('articlesScrollContainer'), document.getElementById('articlesGrid'), { allowPullDown: false, allowPullUp: true });
+    setupElasticOverscroll(document.getElementById('readerScrollContainer'), document.querySelector('.reader-content-wrap'), { allowPullDown: true, allowPullUp: true });
     initReaderHoverTopBar();
     initSelectionDeselectListener();
     initReaderSelectionHandlers();
@@ -4812,7 +5175,7 @@ if (typeof window !== "undefined") {
   try { (window as any).adjustReaderFontSize = adjustReaderFontSize; } catch (e) {}
   try { (window as any).setReaderLineHeight = setReaderLineHeight; } catch (e) {}
   try { (window as any).setReaderContentWidth = setReaderContentWidth; } catch (e) {}
-  try { (window as any).setReaderTextAlignment = setReaderTextAlignment; } catch (e) {}
+  try { (window as any).setReaderTextAlignment = setReaderTextAlignment; (window as any).setReaderAlignment = setReaderTextAlignment; } catch (e) {}
   try { (window as any).setTheme = setTheme; } catch (e) {}
   try { (window as any).toggleTheme = toggleTheme; } catch (e) {}
   try { (window as any).toggleReaderAppearancePopover = toggleReaderAppearancePopover; } catch (e) {}
@@ -4964,12 +5327,16 @@ if (typeof window !== "undefined") {
   try { (window as any).toggleMobileNavMenu = toggleMobileNavMenu; } catch (e) {}
   try { (window as any).closeMobileNavMenu = closeMobileNavMenu; } catch (e) {}
   try { (window as any).setupMobileDrawerSwipeTracking = setupMobileDrawerSwipeTracking; } catch (e) {}
+  try { (window as any).setupElasticOverscroll = setupElasticOverscroll; } catch (e) {}
+  try { (window as any).triggerHaptic = triggerHaptic; } catch (e) {}
   try { (window as any).closeAllCardMenus = closeAllCardMenus; } catch (e) {}
   try { (window as any).handleCardContextMenu = handleCardContextMenu; } catch (e) {}
   try { (window as any).handleExportBatchEpub = handleExportBatchEpub; } catch (e) {}
   try { (window as any).handleExportBatchMarkdown = handleExportBatchMarkdown; } catch (e) {}
   try { (window as any).handleExportBatchJson = handleExportBatchJson; } catch (e) {}
   try { (window as any).openBatchContextMenu = openBatchContextMenu; } catch (e) {}
+  try { (window as any).generateUnifiedArticleMenuHtml = generateUnifiedArticleMenuHtml; } catch (e) {}
+  try { (window as any).generateSortMenuHtml = generateSortMenuHtml; } catch (e) {}
   try { (window as any).openCardContextMenu = openCardContextMenu; } catch (e) {}
   try { (window as any).closeCardContextMenu = closeCardContextMenu; } catch (e) {}
   try { (window as any).toggleContextExportSubmenu = toggleContextExportSubmenu; } catch (e) {}

@@ -43,6 +43,15 @@ export function sanitizeArticleDom(doc: any): void {
     doc.querySelectorAll(tag).forEach((el: any) => el.remove());
   });
 
+  // 1.5 Clean Wikipedia internal metadata, empty elements, and raw data attributes
+  doc.querySelectorAll('.mw-empty-elt, [typeof^="mw:"], .mw-jump-link, .navbox, .vertical-navbox, .metadata, .ambox, .sistersitebox, .catlinks').forEach((el: any) => el.remove());
+  doc.querySelectorAll('*').forEach((el: any) => {
+    el.removeAttribute('data-mw');
+    el.removeAttribute('data-parsoid');
+    el.removeAttribute('data-mw-section-id');
+    el.removeAttribute('about');
+  });
+
   // 2. Strip all inline JavaScript event handlers (on*) and dangerous URL schemes
   const allElements = doc.querySelectorAll('*');
   allElements.forEach((el: any) => {
@@ -132,6 +141,32 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
   } catch {}
 }
 
+export function preserveSemanticInlineFormatting(document: any): void {
+  if (!document) return;
+  try {
+    document.querySelectorAll('*[style]').forEach((el: any) => {
+      const style = (el.getAttribute('style') || '').toLowerCase();
+      const isBold = /font-weight\s*:\s*(bold|[6-9]00)/.test(style);
+      const isItalic = /font-style\s*:\s*italic/.test(style);
+
+      if (isBold && el.tagName !== 'STRONG' && el.tagName !== 'B' && !/^H[1-6]$/.test(el.tagName)) {
+        const strong = document.createElement('strong');
+        while (el.firstChild) {
+          strong.appendChild(el.firstChild);
+        }
+        el.appendChild(strong);
+      }
+      if (isItalic && el.tagName !== 'EM' && el.tagName !== 'I') {
+        const em = document.createElement('em');
+        while (el.firstChild) {
+          em.appendChild(el.firstChild);
+        }
+        el.appendChild(em);
+      }
+    });
+  } catch {}
+}
+
 export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
   const hasHtmlTags = /<[a-z][\s\S]*>/i.test(html);
   const formattedHtml = hasHtmlTags
@@ -145,6 +180,7 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   if (originalUrl) {
     resolveRelativeUrls(document, originalUrl);
   }
+  preserveSemanticInlineFormatting(document);
 
   // Extract meta tags for fallback/preview
   const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');

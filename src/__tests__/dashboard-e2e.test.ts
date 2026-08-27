@@ -571,6 +571,78 @@ it("handles keyboard shortcuts: search (/), focus mode (f), and reader navigatio
   });
 
 
+  it("verifies Escape key and Android back gesture close open menus, popovers, and settings dialog before closing the opened article", async () => {
+    const testResult = await page.evaluate(async () => {
+      const w = window as any;
+
+      // 1. Open an article in reader
+      await w.openReader(101);
+      const articleOpenInitial = w.activeArticleId === 101;
+
+      // 2. Open Settings modal while article is open
+      w.openModal("settingsModal");
+      const settingsOpen = document.getElementById("settingsModal")?.classList.contains("open");
+
+      // Press Escape
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      const settingsClosedAfterEsc = !document.getElementById("settingsModal")?.classList.contains("open");
+      const articleStillOpenAfterEsc1 = w.activeArticleId === 101;
+
+      // 3. Open a dropdown menu (e.g. Reader more options menu)
+      w.toggleReaderMoreMenu();
+      const readerMoreOpen = document.getElementById("readerMoreMenuDropdown")?.classList.contains("open");
+
+      // Android back gesture
+      const backHandledDropdown = w.handleAndroidBackButton();
+      const readerMoreClosedAfterBack = !document.getElementById("readerMoreMenuDropdown")?.classList.contains("open");
+      const articleStillOpenAfterBack1 = w.activeArticleId === 101;
+
+      // 4. Open Typography Appearance Popover
+      w.toggleReaderAppearancePopover();
+      const popoverOpen = document.getElementById("readerAppearancePopover")?.style.display !== "none";
+
+      // Press Escape
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      const popoverClosedAfterEsc = document.getElementById("readerAppearancePopover")?.style.display === "none";
+      const articleStillOpenAfterEsc2 = w.activeArticleId === 101;
+
+      // 5. With all dialogs and menus closed, press Escape / back button -> closes opened article
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      const articleClosedAfterEscFinal = w.activeArticleId === null;
+
+      return {
+        articleOpenInitial,
+        settingsOpen,
+        settingsClosedAfterEsc,
+        articleStillOpenAfterEsc1,
+        readerMoreOpen,
+        backHandledDropdown,
+        readerMoreClosedAfterBack,
+        articleStillOpenAfterBack1,
+        popoverOpen,
+        popoverClosedAfterEsc,
+        articleStillOpenAfterEsc2,
+        articleClosedAfterEscFinal
+      };
+    });
+
+    expect(testResult.articleOpenInitial).toBe(true);
+    expect(testResult.settingsOpen).toBe(true);
+    expect(testResult.settingsClosedAfterEsc).toBe(true);
+    expect(testResult.articleStillOpenAfterEsc1).toBe(true);
+
+    expect(testResult.readerMoreOpen).toBe(true);
+    expect(testResult.backHandledDropdown).toBe(true);
+    expect(testResult.readerMoreClosedAfterBack).toBe(true);
+    expect(testResult.articleStillOpenAfterBack1).toBe(true);
+
+    expect(testResult.popoverOpen).toBe(true);
+    expect(testResult.popoverClosedAfterEsc).toBe(true);
+    expect(testResult.articleStillOpenAfterEsc2).toBe(true);
+
+    expect(testResult.articleClosedAfterEscFinal).toBe(true);
+  });
+
   it("normalizes server URL without https:// to valid https:// URL upon saving", async () => {
     const savedUrl = await page.evaluate(() => {
       const w = window as any;

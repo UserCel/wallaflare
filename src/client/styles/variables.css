@@ -1,11 +1,4 @@
-@font-face {
-      font-family: 'OpenDyslexic';
-      src: url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/OpenDyslexic-Regular.woff2') format('woff2'),
-           url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.3/OpenDyslexic-Regular.woff') format('woff');
-      font-weight: normal;
-      font-style: normal;
-      font-display: swap;
-    }
+
 
     :root {
       --bg-primary: #0f172a;
@@ -23,8 +16,8 @@
       --success: #10b981;
       --danger: #ef4444;
       --font-ui: system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', 'Segoe UI', 'Inter', sans-serif;
-      --font-reader-serif: 'Newsreader', Georgia, serif;
-      --font-reader-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-reader-serif: 'Newsreader', 'David', 'Frank Ruhl Libre', Georgia, 'Times New Roman', serif;
+      --font-reader-sans: 'Inter', 'Heebo', 'Rubik', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-reader-mono: 'JetBrains Mono', monospace;
       --font-reader-dyslexic: 'OpenDyslexic', sans-serif;
 

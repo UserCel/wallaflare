@@ -110,7 +110,19 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
   const createdAt = formatRfc3339(row?.created_at);
   const updatedAt = formatRfc3339(row?.updated_at);
   const publishedAt = row?.published_at ? formatRfc3339(row.published_at) : null;
-  const plainText = (row?.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  let plainText = (row?.content || '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\{"parts":[\s\S]*?\}\}\]\}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   const rawAnnotations = (row as any)?.annotations || [];
   const entryAnnotations = Array.isArray(rawAnnotations)
