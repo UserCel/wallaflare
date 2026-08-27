@@ -8,6 +8,14 @@
   "plugins": {
     "CapacitorUpdater": {
       "autoUpdate": false
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#0f172a"
     }
+  },
+  "android": {
+    "webContentsDebuggingEnabled": true
   }
 }

@@ -22,7 +22,7 @@
       --star-color: #eab308;
       --success: #10b981;
       --danger: #ef4444;
-      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-ui: system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', 'Segoe UI', 'Inter', sans-serif;
       --font-reader-serif: 'Newsreader', Georgia, serif;
       --font-reader-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-reader-mono: 'JetBrains Mono', monospace;
@@ -45,7 +45,8 @@
     }
 
     html.is-capacitor-app {
-      --app-safe-top: max(28px, env(safe-area-inset-top, 0px));
+      /* --app-safe-top is set synchronously by AndroidNative.getStatusBarHeight() in the
+         inline <script> injected by build-web.ts. Do NOT override with env() here. */
     }
 
     html.light {

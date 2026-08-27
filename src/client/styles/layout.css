@@ -208,6 +208,8 @@
       flex-shrink: 0;
     }
     .pane-articles-toolbar {
+      opacity: var(--toolbar-opacity, 1);
+      transition: opacity 0ms;
       box-sizing: border-box;
       height: calc(54px + var(--app-safe-top));
       min-height: calc(54px + var(--app-safe-top));
@@ -826,6 +828,8 @@
       border-radius: var(--radius);
     }
     .reader-body {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
       direction: ltr;
       text-align: var(--reader-text-align, start);
       text-justify: inter-word;

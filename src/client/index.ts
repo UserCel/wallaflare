@@ -142,7 +142,12 @@
 
     function setTheme(theme, persist = true) {
       activeTheme = theme;
-      document.documentElement.className = theme;
+      const themes = ['dark', 'light', 'sepia', 'oled'];
+      themes.forEach(t => document.documentElement.classList.remove(t));
+      document.documentElement.classList.add(theme);
+      if (isCapacitorApp()) {
+        document.documentElement.classList.add('is-capacitor-app');
+      }
       if (persist) localStorage.setItem('wf_theme', theme);
 
       document.querySelectorAll('#popoverThemeBtns .opt-theme-btn, #settingsModal .opt-theme-btn').forEach(btn => {

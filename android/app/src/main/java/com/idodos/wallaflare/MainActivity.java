@@ -45,6 +45,20 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public int getStatusBarHeight() {
+            // Returns status bar height in CSS pixels (dp) — synchronous, available immediately
+            try {
+                int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+                if (resourceId > 0) {
+                    int px = getResources().getDimensionPixelSize(resourceId);
+                    float density = getResources().getDisplayMetrics().density;
+                    return Math.round(px / density);
+                }
+            } catch (Exception ignored) {}
+            return 48; // safe fallback
+        }
+
+        @JavascriptInterface
         public void shareBase64File(final String filename, final String base64Data, final String mimeType) {
             mainHandler.post(new Runnable() {
                 @Override
@@ -83,12 +97,59 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Register native plugin BEFORE super.onCreate so Capacitor picks it up
+        // 1. Enforce shortEdges cutout mode on the Window
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(lp);
+        }
+
+        // 2. Lock Window to edge-to-edge mode before super.onCreate
+        try {
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+            android.view.View decorView = getWindow().getDecorView();
+            decorView.setSystemUiVisibility(
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            );
+            getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+            getWindow().setNavigationBarColor(android.graphics.Color.parseColor("#0f172a"));
+            androidx.core.view.WindowInsetsControllerCompat insetsController = 
+                androidx.core.view.WindowCompat.getInsetsController(getWindow(), decorView);
+            if (insetsController != null) {
+                insetsController.setAppearanceLightStatusBars(false);
+                insetsController.setAppearanceLightNavigationBars(false);
+            }
+        } catch (Exception ignored) {}
+
         registerPlugin(WallaflareNativePlugin.class);
+        android.webkit.WebView.setWebContentsDebuggingEnabled(true);
         super.onCreate(savedInstanceState);
 
-        // Attach JavascriptInterface AFTER bridge is ready (super.onCreate initialises bridge)
+        // 3. Zero system insets for the content view so the native container does not double-offset
+        try {
+            final android.view.View content = findViewById(android.R.id.content);
+            if (content != null) {
+                content.setFitsSystemWindows(false);
+                androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
+                    return new androidx.core.view.WindowInsetsCompat.Builder(insets)
+                            .setInsets(
+                                androidx.core.view.WindowInsetsCompat.Type.systemBars() |
+                                androidx.core.view.WindowInsetsCompat.Type.displayCutout(),
+                                androidx.core.graphics.Insets.NONE
+                            ).build();
+                });
+            }
+        } catch (Exception ignored) {}
+
+        // 4. Attach JavascriptInterface, disable fitsSystemWindows, and lock font scale
         if (getBridge() != null && getBridge().getWebView() != null) {
+            try {
+                getBridge().getWebView().setFitsSystemWindows(false);
+                getBridge().getWebView().getSettings().setTextZoom(100);
+                getBridge().getWebView().setBackgroundColor(android.graphics.Color.parseColor("#0f172a"));
+            } catch (Exception ignored) {}
             getBridge().getWebView().addJavascriptInterface(new NativeInterface(), "AndroidNative");
         }
 
