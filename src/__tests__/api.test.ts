@@ -12,6 +12,9 @@ function createMockD1Database() {
   let autoId = 1;
   let autoTagId = 1;
   let autoAnnotationId = 1;
+  let currentRev = 1;
+  let currentInstanceId = 1780000000000;
+  let deletedEntries: Array<{ entry_id: number; revision: number; deleted_at: string }> = [];
 
   return {
     _entries: entries,
@@ -23,6 +26,19 @@ function createMockD1Database() {
           return stmt;
         },
         async first<T = any>() {
+          if (query.includes('FROM sync_state') || query.includes('UPDATE sync_state')) {
+            if (query.includes('UPDATE sync_state')) {
+              currentRev++;
+            }
+            return { revision: currentRev, instance_id: currentInstanceId } as T;
+          }
+          if (query.includes('SUM(CASE WHEN is_archived = 0')) {
+            const unread = entries.filter(e => !e.is_archived).length;
+            const starred = entries.filter(e => e.is_starred).length;
+            const archive = entries.filter(e => e.is_archived).length;
+            const total = entries.length;
+            return { unread, starred, archive, total } as T;
+          }
           if (query.includes('SELECT COUNT(*)')) {
             let filtered = [...entries];
             if (query.includes('is_archived = ?')) {
@@ -66,7 +82,12 @@ function createMockD1Database() {
           return null as T;
         },
         async all<T = any>() {
-                    if (query.includes('FROM annotations')) {
+          if (query.includes('FROM deleted_entries')) {
+            const since = boundParams[0] || 0;
+            const matched = deletedEntries.filter(d => d.revision > since);
+            return { results: matched as T[] };
+          }
+          if (query.includes('FROM annotations')) {
             if (query.includes('WHERE entry_id = ?')) {
               const entryId = boundParams[0];
               const matched = annotations.filter(a => a.entry_id === entryId);
@@ -109,19 +130,54 @@ function createMockD1Database() {
             };
           }
           if (query.includes('SELECT * FROM entries')) {
+            let matched = [...entries];
+            if (query.includes('revision > ?')) {
+              const revVal = boundParams.find(p => typeof p === 'number');
+              if (typeof revVal === 'number') {
+                matched = matched.filter(e => (e.revision || 1) > revVal);
+              }
+            }
             if (query.includes('WHERE t.slug IN') || query.includes('entry_tags et')) {
               const tagVal = boundParams[0];
               const matchedTagIds = tags.filter(t => t.slug === tagVal || t.label === tagVal).map(t => t.id);
               const matchedEntryIds = entryTags.filter(et => matchedTagIds.includes(et.tag_id)).map(et => et.entry_id);
-              const matchedEntries = entries.filter(e => matchedEntryIds.includes(e.id));
-              return { results: matchedEntries as T[] };
+              matched = entries.filter(e => matchedEntryIds.includes(e.id));
             }
-            return { results: [...entries] as T[] };
+            if (query.includes('title COLLATE NOCASE ASC') || (query.includes('title COLLATE NOCASE') && query.includes('ASC'))) {
+              matched.sort((a, b) => a.title.localeCompare(b.title));
+            } else if (query.includes('reading_time ASC') || (query.includes('reading_time') && query.includes('ASC'))) {
+              matched.sort((a, b) => (a.reading_time || 1) - (b.reading_time || 1));
+            } else if (query.includes('reading_time DESC') || (query.includes('reading_time') && query.includes('DESC'))) {
+              matched.sort((a, b) => (b.reading_time || 1) - (a.reading_time || 1));
+            } else if (query.includes('ORDER BY created_at ASC')) {
+              matched.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            } else if (query.includes('ORDER BY created_at DESC')) {
+              matched.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            }
+
+            if (query.includes('LIMIT ? OFFSET ?') && boundParams.length >= 2) {
+              const limit = boundParams[boundParams.length - 2];
+              const offset = boundParams[boundParams.length - 1];
+              if (typeof limit === 'number' && typeof offset === 'number') {
+                matched = matched.slice(offset, offset + limit);
+              }
+            }
+            return { results: matched as T[] };
           }
           return { results: [...entries] as T[] };
         },
         async run() {
-                    if (query.includes('INSERT INTO annotations')) {
+          if (query.includes('INSERT OR REPLACE INTO deleted_entries')) {
+            const entryId = boundParams[0];
+            const rev = boundParams[1];
+            deletedEntries.push({ entry_id: entryId, revision: rev, deleted_at: new Date().toISOString() });
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('UPDATE sync_state')) {
+            currentRev++;
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('INSERT INTO annotations')) {
             const entryId = Number(boundParams[0]);
             const userId = String(boundParams[1]);
             const quote = String(boundParams[2]);
@@ -233,6 +289,7 @@ function createMockD1Database() {
                   if (c.startsWith('content = ?')) entry.content = boundParams[idx];
                   if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
                   if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+                  if (c.startsWith('revision = ?')) entry.revision = boundParams[idx];
                 });
                 entry.updated_at = new Date().toISOString();
               }
@@ -242,9 +299,42 @@ function createMockD1Database() {
           if (query.includes('DELETE FROM entries WHERE id IN') || query.includes('DELETE FROM entries WHERE id = ?')) {
             const targetIds = boundParams.map(Number);
             const beforeCount = entries.length;
-            entries = entries.filter(e => !targetIds.includes(e.id));
-            entryTags = entryTags.filter(et => !targetIds.includes(et.entry_id));
+            entries.splice(0, entries.length, ...entries.filter(e => !targetIds.includes(e.id)));
+            entryTags.splice(0, entryTags.length, ...entryTags.filter(et => !targetIds.includes(et.entry_id)));
             return { meta: { changes: beforeCount - entries.length } };
+          }
+          if (query.trim() === 'DELETE FROM entries') {
+            entries.length = 0;
+            return { meta: { changes: 1 } };
+          }
+          if (query.trim() === 'DELETE FROM tags') {
+            tags.length = 0;
+            return { meta: { changes: 1 } };
+          }
+          if (query.trim() === 'DELETE FROM entry_tags') {
+            entryTags.length = 0;
+            return { meta: { changes: 1 } };
+          }
+          if (query.trim() === 'DELETE FROM annotations') {
+            annotations.length = 0;
+            return { meta: { changes: 1 } };
+          }
+          if (query.trim() === 'DELETE FROM deleted_entries') {
+            deletedEntries.length = 0;
+            return { meta: { changes: 1 } };
+          }
+          if (query.trim() === 'DELETE FROM sync_state') {
+            currentRev = 1;
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('INSERT INTO sync_state')) {
+            currentRev = 1;
+            if (typeof boundParams[0] === 'number') {
+              currentInstanceId = boundParams[0];
+            } else if (typeof boundParams[1] === 'number') {
+              currentInstanceId = boundParams[1];
+            }
+            return { meta: { changes: 1 } };
           }
           if (query.includes('DELETE FROM entry_tags WHERE entry_id IN')) {
             const targetIds = boundParams.map(Number);
@@ -1207,6 +1297,333 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(listRes.status).toBe(200);
     const allTags = await listRes.json<any>();
     expect(allTags.some((t: any) => t.slug === 'science-fiction')).toBe(true);
+
+    // 3. Deleting tag by slug works and cleans up
+    const deleteSlugRes = await app.request('/api/tags/science-fiction.json', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(deleteSlugRes.status).toBe(200);
+    const deleteSlugJson = await deleteSlugRes.json<any>();
+    expect(deleteSlugJson.success).toBe(true);
+  });
+
+  it("returns entries, all tags, and counts in a single handshake on GET /api/sync.json", async () => {
+    // 1. Create a standalone tag (unused by any entry)
+    await app.request('/api/tags.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET}`
+      },
+      body: JSON.stringify({ label: 'Unused Standalone Tag' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    // 2. Call /api/sync.json
+    const syncRes = await app.request('/api/sync.json?perPage=10', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(syncRes.status).toBe(200);
+    expect(syncRes.headers.get('Cache-Control')).toContain('no-cache');
+    const syncData = await syncRes.json<any>();
+
+    expect(Array.isArray(syncData.entries)).toBe(true);
+    expect(Array.isArray(syncData.tags)).toBe(true);
+    expect(typeof syncData.total).toBe('number');
+    expect(syncData.counts).toBeDefined();
+    expect(typeof syncData.counts.unread).toBe('number');
+    expect(typeof syncData.counts.starred).toBe('number');
+    expect(typeof syncData.counts.archive).toBe('number');
+    expect(typeof syncData.counts.total).toBe('number');
+    expect(syncData.tags.some((t: any) => t.slug === 'unused-standalone-tag')).toBe(true);
+  });
+
+  it("handles large database pagination, sorting by title / date, and live library counts", async () => {
+    // Ingest 60 items with distinctive titles to test multi-page database pagination
+    for (let i = 1; i <= 60; i++) {
+      const padded = String(i).padStart(3, '0');
+      await app.request('/api/entries.json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SECRET}`
+        },
+        body: JSON.stringify({
+          title: `Book Article ${padded}`,
+          content: `<p>Content for book article ${padded}</p>`,
+          url: `https://example.com/book/${padded}`,
+          tags: i % 2 === 0 ? 'even-tag' : 'odd-tag'
+        })
+      }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    }
+
+    // 1. Fetch Page 1 (50 items) sorted by title ASC
+    const page1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=title&order=asc', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(page1Res.status).toBe(200);
+    const page1Data = await page1Res.json<any>();
+    expect(page1Data.entries.length).toBe(50);
+    expect(page1Data.total).toBeGreaterThanOrEqual(60);
+    expect(page1Data.pages).toBeGreaterThanOrEqual(2);
+    expect(page1Data.page).toBe(1);
+    expect(page1Data.counts.total).toBeGreaterThanOrEqual(60);
+    expect(page1Data.counts.unread).toBeGreaterThanOrEqual(60);
+
+    // Verify alphabetical sort from Cloudflare database
+    expect(page1Data.entries[0].title).toBe('Book Article 001');
+    expect(page1Data.entries[1].title).toBe('Book Article 002');
+
+    // 2. Fetch Page 2 (remaining items) for Title ASC
+    const page2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=title&order=asc', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(page2Res.status).toBe(200);
+    const page2Data = await page2Res.json<any>();
+    const page2Items = page2Data._embedded?.items || page2Data;
+    expect(page2Items.length).toBeGreaterThanOrEqual(10);
+    expect(page2Items[0].title).toBe('Book Article 051');
+
+    // 3. Fetch Page 1 and Page 2 with Oldest First sorting
+    const oldestP1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=oldest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const oldestP1 = await oldestP1Res.json<any>();
+    expect(oldestP1.entries.length).toBe(50);
+
+    const oldestP2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=oldest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const oldestP2 = await oldestP2Res.json<any>();
+    const oldestP2Items = oldestP2._embedded?.items || oldestP2;
+    expect(oldestP2Items.length).toBeGreaterThanOrEqual(10);
+
+    // 4. Fetch Page 1 and Page 2 with Newest First sorting
+    const newestP1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=newest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const newestP1 = await newestP1Res.json<any>();
+    expect(newestP1.entries.length).toBe(50);
+    expect(newestP1.entries[0].title).toBe('Book Article 060');
+
+    const newestP2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=newest', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const newestP2 = await newestP2Res.json<any>();
+    const newestP2Items = newestP2._embedded?.items || newestP2;
+    expect(newestP2Items.length).toBeGreaterThanOrEqual(10);
+    expect(newestP2Items[0].title).toBe('Book Article 010');
+
+    // 5. Verify tag entry counts accurately reflect database counts across all pages
+    const tagEven = page1Data.tags.find((t: any) => t.slug === 'even-tag');
+    expect(tagEven).toBeDefined();
+    expect(tagEven.entry_count).toBeGreaterThanOrEqual(30);
+  });
+
+  it("supports monotonic sync_rev delta sync, returning up_to_date: true when no changes occurred", async () => {
+    // 1. Initial Sync
+    const syncRes1 = await app.request('/api/sync.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(syncRes1.status).toBe(200);
+    const syncData1 = await syncRes1.json<any>();
+    expect(syncData1.sync_rev).toBeDefined();
+    expect(syncData1.up_to_date).toBe(false);
+    const rev = syncData1.sync_rev;
+
+    // 2. Refocus Sync with since_rev = rev (no changes)
+    const syncRes2 = await app.request(`/api/sync.json?since_rev=${rev}`, {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(syncRes2.status).toBe(200);
+    const syncData2 = await syncRes2.json<any>();
+    expect(syncData2.up_to_date).toBe(true);
+    expect(syncData2.sync_rev).toBe(rev);
+    expect(syncData2.counts).toBeDefined();
+    expect(syncData2.entries).toBeUndefined(); // Zero articles transferred over wire
+  });
+
+  it("propagates deleted article tombstones to delta sync clients", async () => {
+    // 1. Create a test entry to delete
+    const postRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET}`
+      },
+      body: JSON.stringify({
+        title: 'Article To Be Deleted',
+        content: '<p>Delete me</p>',
+        url: 'https://example.com/delete-test-article'
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    const newArticle = await postRes.json<any>();
+    const deleteTargetId = newArticle.id;
+
+    // 2. Sync state before deletion
+    const beforeSyncRes = await app.request('/api/sync.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const beforeSyncData = await beforeSyncRes.json<any>();
+    const beforeRev = beforeSyncData.sync_rev;
+
+    // 3. Delete the article
+    const delRes = await app.request(`/api/entries/${deleteTargetId}.json`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(delRes.status).toBe(200);
+
+    // 4. Client delta sync with since_rev = beforeRev
+    const afterSyncRes = await app.request(`/api/sync.json?since_rev=${beforeRev}`, {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(afterSyncRes.status).toBe(200);
+    const afterSyncData = await afterSyncRes.json<any>();
+    expect(afterSyncData.up_to_date).toBe(false);
+    expect(afterSyncData.sync_rev).toBeGreaterThan(beforeRev);
+    expect(afterSyncData.deleted_ids).toContain(deleteTargetId);
+  });
+
+  it("propagates batch deleted article tombstones on DELETE /api/entries/list.json", async () => {
+    // 1. Ingest 2 test articles
+    const p1 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ title: 'Batch Item 1', content: '<p>1</p>', url: 'https://example.com/b1' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const item1 = await p1.json<any>();
+
+    const p2 = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ title: 'Batch Item 2', content: '<p>2</p>', url: 'https://example.com/b2' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const item2 = await p2.json<any>();
+
+    // 2. Sync revision before batch deletion
+    const beforeSyncRes = await app.request('/api/sync.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const beforeSyncData = await beforeSyncRes.json<any>();
+    const beforeRev = beforeSyncData.sync_rev;
+
+    // 3. Batch delete both items
+    const batchDelRes = await app.request('/api/entries/list.json', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ ids: [item1.id, item2.id] })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(batchDelRes.status).toBe(200);
+
+    // 4. Delta sync should return both tombstones
+    const afterSyncRes = await app.request(`/api/sync.json?since_rev=${beforeRev}`, {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const afterSyncData = await afterSyncRes.json<any>();
+    expect(afterSyncData.up_to_date).toBe(false);
+    expect(afterSyncData.deleted_ids).toContain(item1.id);
+    expect(afterSyncData.deleted_ids).toContain(item2.id);
+  });
+
+  it("propagates PATCH starring, archiving, and title edits to delta sync clients", async () => {
+    // 1. Ingest an article
+    const postRes = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ title: 'Original Title', content: '<p>Body</p>', url: 'https://example.com/sync-patch-test' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const article = await postRes.json<any>();
+
+    // 2. Client gets current sync_rev baseline
+    const syncRes1 = await app.request('/api/sync.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const data1 = await syncRes1.json<any>();
+    const baselineRev = data1.sync_rev;
+
+    // 3. Client A stars and archives the article via PATCH
+    const patchRes = await app.request(`/api/entries/${article.id}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ starred: 1, archive: 1, title: 'Updated Title' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(patchRes.status).toBe(200);
+
+    // 4. Client B calls delta sync with since_rev = baselineRev
+    const syncRes2 = await app.request(`/api/sync.json?since_rev=${baselineRev}`, {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(syncRes2.status).toBe(200);
+    const data2 = await syncRes2.json<any>();
+    expect(data2.up_to_date).toBe(false);
+    expect(data2.sync_rev).toBeGreaterThan(baselineRev);
+    expect(data2.entries).toBeDefined();
+    expect(data2.entries.length).toBeGreaterThan(0);
+    const updated = data2.entries.find((e: any) => e.id === article.id);
+    expect(updated).toBeDefined();
+    expect(updated.is_starred).toBe(1);
+    expect(updated.is_archived).toBe(1);
+    expect(updated.title).toBe('Updated Title');
+  });
+
+  it("handles CORS preflight OPTIONS requests for Capacitor Android app with 24h caching", async () => {
+    const optionsRes = await app.request('/api/sync.json', {
+      method: 'OPTIONS',
+      headers: {
+        'Origin': 'http://localhost',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'Authorization, Content-Type'
+      }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(optionsRes.status).toBe(204);
+    expect(optionsRes.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(optionsRes.headers.get('Access-Control-Max-Age')).toBe('86400');
+    expect(optionsRes.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+  });
+
+  it("handles empty database edge cases gracefully in getLibraryCounts and sync", async () => {
+    // Mock empty database that supports auth rate limit checks
+    const emptyDb: any = {
+      prepare: (query: string) => ({
+        bind: (...params: any[]) => ({
+          first: async () => {
+            if (query.includes('FROM auth_rate_limits')) return null;
+            return { unread: null, starred: null, archive: null, total: null };
+          },
+          all: async () => ({ results: [] }),
+          run: async () => ({ meta: { changes: 1 } })
+        }),
+        first: async () => {
+          if (query.includes('FROM auth_rate_limits')) return null;
+          return { unread: null, starred: null, archive: null, total: null };
+        },
+        all: async () => ({ results: [] }),
+        run: async () => ({ meta: { changes: 1 } })
+      })
+    };
+
+    const res = await app.request('/api/sync.json', {
+      headers: {
+        'Authorization': `Bearer ${SECRET}`,
+        'CF-Connecting-IP': '10.0.0.99'
+      }
+    }, { DB: emptyDb, AUTH_TOKEN: SECRET });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.entries).toEqual([]);
+    expect(data.tags).toEqual([]);
+    expect(data.total).toBe(0);
+    expect(data.counts).toEqual({ unread: 0, starred: 0, archive: 0, total: 0 });
   });
 
   it("returns active client credentials on GET /api/client-info when authenticated", async () => {
@@ -1390,5 +1807,44 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     expect(entry.annotations.length).toBeGreaterThan(0);
     expect(entry.annotations[0].quote).toBe("Embedded highlight");
     expect(entry.annotations[0].color).toBe("blue");
+  });
+
+  it("resets and wipes Cloudflare D1 database on POST /api/admin/reset-database with valid password", async () => {
+    // 1. Rejects invalid password
+    const badRes = await app.request('/api/admin/reset-database.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ token: 'wrong_password' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(badRes.status).toBe(401);
+
+    // 2. Succeeds with correct password
+    const goodRes = await app.request('/api/admin/reset-database.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      body: JSON.stringify({ token: SECRET })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(goodRes.status).toBe(200);
+    const goodData = await goodRes.json<any>();
+    expect(goodData.success).toBe(true);
+    expect(goodData.instance_id).toBeDefined();
+    expect(typeof goodData.instance_id).toBe('number');
+
+    // 3. Database is completely empty, revision is 1, and instance_id is assigned
+    const listRes = await app.request('/api/entries.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const listData = await listRes.json<any>();
+    expect(listData.total).toBe(0);
+    expect(listData._embedded.items.length).toBe(0);
+
+    const syncRes = await app.request('/api/sync.json', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const syncData = await syncRes.json<any>();
+    expect(syncData.sync_rev).toBe(1);
+    expect(syncData.instance_id).toBe(goodData.instance_id);
+    expect(syncData.entries.length).toBe(0);
+    expect(syncData.counts.total).toBe(0);
   });
 });

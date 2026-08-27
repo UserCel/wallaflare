@@ -10,10 +10,10 @@
 [![KOReader](https://img.shields.io/badge/Reader-KOReader_Ready-darkgreen)](https://koreader.rocks/)
 
 <p align="center">
-  <img src="assets/screenshots/dashboard-desktop.png?raw=true&v=2" alt="Wallaflare Desktop Dashboard" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 20px;" />
+  <img src="assets/screenshots/dashboard-desktop-v2.png" alt="Wallaflare Desktop Dashboard" width="850" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 20px;" />
 </p>
 <p align="center">
-  <img src="assets/screenshots/dashboard-mobile-mockup.png?raw=true&v=2" alt="Wallaflare Mobile Smartphone App" width="380" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+  <img src="assets/screenshots/dashboard-mobile-mockup-v2.png" alt="Wallaflare Mobile Smartphone App" width="380" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
 </p>
 
 ---
@@ -50,8 +50,21 @@
   - **Auto-Revalidation on Resume**: Newly saved articles appear automatically in the library when returning to the app without manual refresh.
   - **Native Multi-Format Export**: Export articles directly to Android's system share sheet in **EPUB**, **Markdown**, or **PDF** to open in KOReader, Moon+ Reader, ReadEra, Adobe Reader, Google Drive, Obsidian, or send to Kindle.
   - **Safe-Area Notch Protection**: Integrated `@capacitor/status-bar` sync with theme-matched shields to protect text from camera punch-holes.
-- **⚡ Offline-First Architecture & Add-Button Morphing**:
-  - **Instant 0ms Cache & IndexedDB**: Synchronous memory cache + IndexedDB offline fallback ensures the entire library remains fully readable offline.
+- **🖥️ Ergonomic 3-Pane Desktop Workspace & Adaptive Mobile Drawer**:
+  - **Side-by-Side 3-Pane Workstation**: Seamless desktop view with Navigation Sidebar (220px), Articles Feed (380px), and dynamic Reader (flex: 1).
+  - **Contextual Right-Click Menus**: Right-click cards for single-item or batch operations (`(X selected)` header with batch tagging, export, star, archive, and delete).
+  - **Minimalist Action-Oriented Empty States**: Context-aware zero states with 1-click action chips (`[+ Add URL]`, `[📝 Write Note]`, `[Clear Search]`, `[Clear Tag]`).
+- **⚡ Unified Sync Endpoint, Delta Revision Engine & Epoch Watchdog**:
+  - **Unified Single-Handshake Sync (`/api/sync.json`)**: Cuts network requests by 50% on tab refocus and pull-to-refresh, delivering articles, all tags, and live D1 database counts in 1 atomic sub-10ms request.
+  - **Revision-Based Delta Sync**: Incremental sync transfers only modified articles (`WHERE revision > since_rev`) and deletion tombstones (`deleted_ids`), keeping data usage near zero.
+  - **Database Epoch Reset Watchdog (`instance_id`)**: Detects remote database resets across all connected devices and automatically triggers seamless local cache reconciliation.
+  - **Global Cloudflare D1 Sorting**: Supports database-level sorting (Newest, Oldest, Title A-Z, Reading Time) with 0ms optimistic local rendering.
+  - **Seamless Infinite Scroll**: Automatically loads multi-page libraries on demand as you scroll down the feed.
+- **🔄 Durable Offline Outbox & Multi-Device Sync**:
+  - **Interruption-Safe Mutation Queue**: All offline actions (starring, archiving, title edits, tag assignments, and deletions) are preserved in a durable outbox (`wf_pending_mutations`).
+  - **Pre-Sync Drain Barrier**: Pending mutations flush sequentially to Cloudflare D1 upon reconnection before delta handshakes occur, eliminating race conditions.
+  - **Refined Mobile Gestures**: Long-press on mobile cards triggers native haptics and brings down the top batch actions bar without desktop right-click menu clutter.
+  - **Instant 0ms Cache & IndexedDB**: Synchronous memory cache + IndexedDB offline fallback ensures articles, all tags, and counts remain fully accessible offline.
   - **Zero-Shift Add/Offline Indicator**: When offline, the `+ Add URL` button smoothly morphs into an amber `Offline` status button with 0 layout shift. Tapping it retries the server connection.
   - **Responsive Header Tiers**: Adaptive layout specifically optimized for phones (portrait & landscape), tablets, and desktop displays with independent side-panel scrolling.
 - **📦 Multi-Format On-Device Export Engine (EPUB, Markdown, PDF)**:

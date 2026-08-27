@@ -1,0 +1,356 @@
+/* Grid View: Cards are vertical, image is at top full width */
+    .articles-grid.view-grid {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+      gap: 0.85rem !important;
+    }
+    .articles-grid.view-grid .article-card {
+      margin-bottom: 0 !important;
+    }
+    .articles-grid.view-grid .card-main-content {
+      flex-direction: column !important;
+      gap: 0.55rem !important;
+    }
+    .articles-grid.view-grid .card-image-wrap {
+      order: -1 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: 140px !important;
+      margin-bottom: 0.35rem !important;
+    }
+
+    /* Compact View: dense rows, no images or excerpts */
+    .articles-grid.view-compact {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.35rem !important;
+    }
+    .articles-grid.view-compact .article-card {
+      padding: 0.55rem 0.75rem !important;
+      margin-bottom: 0 !important;
+      border-radius: var(--radius-sm) !important;
+    }
+    .articles-grid.view-compact .card-image-wrap,
+    .articles-grid.view-compact .card-excerpt,
+    .articles-grid.view-compact .card-tags {
+      display: none !important;
+    }
+    .articles-grid.view-compact .card-title {
+      font-size: 0.88rem !important;
+      white-space: nowrap !important;
+      text-overflow: ellipsis !important;
+      display: block !important;
+      margin-bottom: 0.2rem !important;
+    }
+    .articles-grid.view-compact .card-footer {
+      padding-top: 0.2rem !important;
+    }
+
+    .search-dropdown-menu {
+      position: absolute !important;
+      top: calc(100% + 8px) !important;
+      bottom: auto !important;
+      right: 0 !important;
+      left: auto !important;
+      z-index: 300 !important;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    @media (max-width: 1023px) {
+      .desktop-refresh-btn {
+        display: none !important;
+      }
+    }
+
+    /* -------------------------------------------------------------
+       ARTICLE CARDS & HIGHLIGHTS
+       ------------------------------------------------------------- */
+    .article-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s, background-color 0.18s;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      margin-bottom: 0.85rem;
+    }
+    .article-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(249, 115, 22, 0.4);
+      box-shadow: var(--shadow);
+    }
+    .article-card.is-reading {
+      border-color: var(--accent) !important;
+      background: var(--bg-card) !important;
+      box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-sm);
+    }
+    .article-card.is-selected {
+      border-color: var(--accent) !important;
+      background: rgba(249, 115, 22, 0.08) !important;
+      box-shadow: 0 0 0 1px var(--accent), var(--shadow);
+    }
+    .card-select-wrap {
+      position: absolute;
+      top: 0.65rem;
+      right: 0.65rem;
+      z-index: 25;
+      padding: 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .article-card:hover .card-select-wrap,
+    body.selection-mode-active .card-select-wrap,
+    .article-card.is-selected .card-select-wrap {
+      opacity: 1;
+    }
+    .card-checkbox {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      background: rgba(15, 23, 42, 0.65);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: transparent;
+    }
+    .card-checkbox.checked {
+      background: var(--accent) !important;
+      border-color: var(--accent) !important;
+      color: white !important;
+      transform: scale(1.05);
+    }
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+    }
+    .card-domain {
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: lowercase;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--text-primary);
+      margin-bottom: 0.4rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-excerpt {
+      font-size: 0.825rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-bottom: 0.85rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 0.55rem;
+      position: relative;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.4rem;
+      margin-bottom: 0.35rem;
+    }
+    .tag-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.15rem 0.55rem;
+      border-radius: 9999px;
+      background: var(--bg-tertiary);
+      color: var(--accent);
+      border: 1px solid rgba(249, 115, 22, 0.25);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .tag-badge:hover {
+      background: var(--accent);
+      color: #ffffff;
+    }
+    .tag-badge.active-tag {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    /* -------------------------------------------------------------
+       READER CONTENT & TYPOGRAPHY
+       ------------------------------------------------------------- */
+    .reader-main-scroll {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-top: calc(58px + var(--app-safe-top));
+      padding-bottom: 6rem;
+      padding-left: max(var(--reader-padding-x, 1.25rem), env(safe-area-inset-left, 0px));
+      padding-right: max(var(--reader-padding-x, 1.25rem), env(safe-area-inset-right, 0px));
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+      background: var(--bg-primary);
+      box-sizing: border-box;
+    }
+    .reader-content-wrap {
+      max-width: var(--reader-content-max-width, 880px);
+      width: 100%;
+      margin: 0 auto;
+      transition: max-width 0.2s ease;
+    }
+    .reader-title {
+      font-size: 1.85rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text-primary);
+      margin-bottom: 0.85rem;
+    }
+    .reader-meta {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .reader-meta a, .reader-original-link {
+      color: var(--accent) !important;
+      text-decoration: none !important;
+      font-weight: 500 !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-subtle, rgba(59, 130, 246, 0.12));
+      border: 1px solid rgba(59, 130, 246, 0.22);
+      transition: all 0.2s ease;
+      vertical-align: middle;
+    }
+    .reader-meta a:hover, .reader-original-link:hover {
+      background: var(--accent);
+      color: #ffffff !important;
+      border-color: var(--accent);
+      text-decoration: none !important;
+    }
+    .reader-cover {
+      margin-bottom: 2rem;
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-height: 420px;
+      display: flex;
+      justify-content: center;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+    }
+    .reader-cover-img {
+      max-width: 100%;
+      max-height: 420px;
+      object-fit: contain;
+      border-radius: var(--radius);
+    }
+    .reader-body {
+      direction: ltr;
+      text-align: var(--reader-text-align, start);
+      text-justify: inter-word;
+      hyphens: var(--reader-hyphens, manual);
+      -webkit-hyphens: var(--reader-hyphens, manual);
+      font-family: var(--reader-font-family, var(--font-reader-serif));
+      font-size: var(--reader-font-size, 18px);
+      line-height: var(--reader-line-height, 1.68);
+      color: var(--text-primary);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .reader-body p {
+      margin-bottom: 1.35rem;
+    }
+    .reader-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      margin: 1.5rem auto;
+      display: block;
+    }
+    .reader-body pre {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--font-reader-mono);
+      font-size: 0.875rem;
+      margin: 1.5rem 0;
+    }
+    .reader-body a, .reader-meta a {
+      color: #38bdf8 !important;
+      text-decoration: underline !important;
+      text-decoration-color: rgba(56, 189, 248, 0.55) !important;
+      text-underline-offset: 3px;
+      font-weight: 500;
+    }
+    .reader-meta a:hover, .reader-body a:hover {
+      color: #7dd3fc !important;
+    }
+    .reader-body blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 1.25rem;
+      margin: 1.5rem 0;
+      font-style: italic;
+      color: var(--text-secondary);
+    }
+    .reader-body[dir="rtl"],
+    .reader-content-wrap.is-rtl .reader-body,
+    .reader-content-wrap.is-rtl #readerTitle {
+      direction: rtl !important;
+      text-align: right !important;
+    }
+    #readerMeta {
+      direction: ltr !important;
+      text-align: left !important;
+    }
+
+
+    
+
+
+    @media (max-width: 768px) {
+      .reader-main-scroll {
+        padding-left: max(var(--reader-mobile-padding-x, 1.1rem), env(safe-area-inset-left, 0px)) !important;
+        padding-right: max(var(--reader-mobile-padding-x, 1.1rem), env(safe-area-inset-right, 0px)) !important;
+      }
+    }

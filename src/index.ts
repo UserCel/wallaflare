@@ -4,11 +4,15 @@ import { cors } from 'hono/cors';
 import { Env } from './types';
 import { apiRouter } from './routes/api';
 import { webRouter } from './routes/web';
+import { ensureDatabaseSchema } from './db/queries';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable CORS and Wallabag identification headers
+// Enable CORS, Wallabag identification headers, and automatic schema migrations
 app.use('*', async (c, next) => {
+  if (c.env?.DB) {
+    await ensureDatabaseSchema(c.env.DB);
+  }
   c.header('X-Wallabag-Version', '2.6.9');
   c.header('X-Powered-By', 'wallabag');
   c.header('X-Wallaflare-Web-Version', OTA_VERSION);
@@ -16,7 +20,7 @@ app.use('*', async (c, next) => {
   c.header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
   c.header(
     'Content-Security-Policy',
-    "default-src 'self' 'unsafe-inline' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: http: data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self';"
+    "default-src 'self' 'unsafe-inline' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' https: http: data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self';"
   );
   return next();
 });

@@ -22,11 +22,16 @@ import {
   addTagsToEntry,
   removeTagFromEntry,
   deleteTag,
+  getLibraryCounts,
+  getCurrentSyncRevision,
+  getSyncState,
+  getDeletedEntriesSince,
   checkAuthRateLimit,
   recordFailedAuthAttempt,
   resetAuthRateLimit,
   timingSafeCompare,
-  slugify
+  slugify,
+  wipeDatabase
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain } from '../services/extractor';
 import { generateEpub } from '../services/epub';
@@ -415,7 +420,13 @@ apiRouter.delete('/api/annotations/:id.json', authMiddleware, deleteAnnotationHa
 // -------------------------------------------------------------
 const tagsHandler = async (c: any) => {
   const tags = await getTags(c.env.DB);
-  c.header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
+  const cacheHeader = c.req.header('Cache-Control') || '';
+  const isNoCache = cacheHeader.includes('no-cache') || Boolean(c.req.query('_t')) || Boolean(c.req.query('t'));
+  if (isNoCache) {
+    c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  } else {
+    c.header('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
+  }
   return c.json(tags);
 };
 
@@ -450,9 +461,8 @@ apiRouter.post('/api/tags', authMiddleware, createTagHandler);
 apiRouter.post('/api/tags.json', authMiddleware, createTagHandler);
 
 const deleteGlobalTagHandler = async (c: any) => {
-  const id = Number(c.req.param('id').replace(/\.json$/, ''));
-  if (isNaN(id)) return c.json({ error: 'Invalid Tag ID' }, 400);
-  const ok = await deleteTag(c.env.DB, id);
+  const param = decodeURIComponent(c.req.param('id').replace(/\.json$/, ''));
+  const ok = await deleteTag(c.env.DB, param);
   return c.json({ success: ok });
 };
 
@@ -577,6 +587,76 @@ const getEntriesHandler = async (c: any) => {
 
 apiRouter.get('/api/entries', authMiddleware, getEntriesHandler);
 apiRouter.get('/api/entries.json', authMiddleware, getEntriesHandler);
+
+// -------------------------------------------------------------
+// Unified Dashboard & App Sync: GET /api/sync(.json)
+// Returns entries, all tags (including unused), and counts in 1 handshake
+// -------------------------------------------------------------
+const syncHandler = async (c: any) => {
+  const query = c.req.query();
+  const perPage = query.perPage ? Number(query.perPage) : 50;
+  const page = query.page ? Number(query.page) : 1;
+  const sinceRev = query.since_rev !== undefined && query.since_rev !== '' ? Number(query.since_rev) : undefined;
+  const sort = query.sort || undefined;
+  const order = query.order || undefined;
+  const search = query.search || undefined;
+  const tags = query.tags || query.tag || undefined;
+  const is_archived = query.archive !== undefined ? Number(query.archive) : undefined;
+  const is_starred = query.starred !== undefined ? Number(query.starred) : undefined;
+
+  const syncState = await getSyncState(c.env.DB);
+  const currentRev = syncState.revision;
+  const instanceId = syncState.instance_id;
+
+  // If client provides since_rev that matches server's current revision, return lightweight 304-style status
+  if (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev === currentRev && page === 1 && !search && !tags && is_archived === undefined && is_starred === undefined) {
+    const counts = await getLibraryCounts(c.env.DB);
+    c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    return c.json({
+      up_to_date: true,
+      sync_rev: currentRev,
+      instance_id: instanceId,
+      counts: counts,
+    });
+  }
+
+  const entriesFilter: any = {
+    page,
+    perPage,
+    order,
+    sort,
+    search,
+    tags,
+    is_archived,
+    is_starred,
+    since_rev: (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev > 0) ? sinceRev : undefined
+  };
+
+  const [entriesResult, allTags, counts, deletedIds] = await Promise.all([
+    getEntries(c.env.DB, entriesFilter),
+    getTags(c.env.DB),
+    getLibraryCounts(c.env.DB),
+    sinceRev !== undefined && !isNaN(sinceRev) ? getDeletedEntriesSince(c.env.DB, sinceRev) : Promise.resolve([]),
+  ]);
+
+  c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  return c.json({
+    up_to_date: false,
+    sync_rev: currentRev,
+    instance_id: instanceId,
+    entries: entriesResult.entries.map(e => entryRowToWallabag(e)),
+    tags: allTags,
+    counts: counts,
+    deleted_ids: deletedIds,
+    total: entriesResult.total,
+    page: entriesResult.page,
+    limit: entriesResult.limit,
+    pages: entriesResult.pages,
+  });
+};
+
+apiRouter.get('/api/sync', authMiddleware, syncHandler);
+apiRouter.get('/api/sync.json', authMiddleware, syncHandler);
 
 // -------------------------------------------------------------
 // Ingest Article: POST /api/entries(.json)
@@ -1039,3 +1119,38 @@ apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
     username: 'wallaflare',
   });
 });
+
+
+// -------------------------------------------------------------
+// Database Reset / Wipe Endpoint: POST /api/admin/reset-database(.json)
+// -------------------------------------------------------------
+const resetDatabaseHandler = async (c: any) => {
+  let body: any = {};
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json().catch(() => ({}));
+  } else {
+    body = await c.req.parseBody().catch(() => ({}));
+  }
+
+  const providedToken = String(body.token || body.password || body.auth_token || '').trim();
+  const configuredToken = String(c.env.AUTH_TOKEN || c.env.CLIENT_SECRET || '').trim();
+
+  // If AUTH_TOKEN is configured on server, require exact password/token match in body
+  if (configuredToken) {
+    if (!providedToken || !timingSafeCompare(providedToken, configuredToken)) {
+      return c.json({ error: 'Invalid authentication token / password' }, 401);
+    }
+  }
+
+  const resetResult = await wipeDatabase(c.env.DB);
+  return c.json({
+    success: true,
+    message: 'Cloudflare D1 database has been wiped clean',
+    instance_id: resetResult.instance_id,
+    sync_rev: 1
+  });
+};
+
+apiRouter.post('/api/admin/reset-database', authMiddleware, resetDatabaseHandler);
+apiRouter.post('/api/admin/reset-database.json', authMiddleware, resetDatabaseHandler);

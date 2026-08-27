@@ -255,10 +255,18 @@ async function main() {
   console.log('🚀 Starting mock server on port', PORT);
   const server = await createMockServer();
 
-  console.log('🌐 Launching headless Chrome...');
+  console.log('🌐 Launching headless Chrome (using iGPU / SwiftShader)...');
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-web-security',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--disable-vulkan',
+      '--disable-features=Vulkan'
+    ]
   });
 
   try {
@@ -277,7 +285,7 @@ async function main() {
     }, sampleEntries);
     await waitForAllImagesToLoad(desktopPage);
     await new Promise(r => setTimeout(r, 600));
-    const desktopPath = path.join(outputDir, 'dashboard-desktop.png');
+    const desktopPath = path.join(outputDir, 'dashboard-desktop-v2.png');
     await desktopPage.screenshot({ path: desktopPath, type: 'png' });
     console.log('  ✓ Saved:', desktopPath);
 
@@ -311,7 +319,7 @@ async function main() {
     const mockupHomeHtml = buildMockupWrapperHtml(mobileBase64, 'Wallaflare Dashboard');
     await mockupHome.setContent(mockupHomeHtml, { waitUntil: 'load' });
     await new Promise(r => setTimeout(r, 600));
-    const mockupHomePath = path.join(outputDir, 'dashboard-mobile-mockup.png');
+    const mockupHomePath = path.join(outputDir, 'dashboard-mobile-mockup-v2.png');
     await mockupHome.screenshot({ path: mockupHomePath, type: 'png' });
     console.log('  ✓ Saved:', mockupHomePath);
 

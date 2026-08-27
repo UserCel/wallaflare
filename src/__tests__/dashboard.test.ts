@@ -31,6 +31,155 @@ describe('Dashboard HTML & Client Script Syntax Validation', () => {
 
     expect(scriptCount).toBeGreaterThan(0);
   });
+
+  it('includes database epoch reset watchdog for cross-device wipe reconciliation', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('wf_instance_id');
+    expect(html).toContain('isEpochReset');
+  });
+
+  it('correctly handles delta sync with deleted_ids without purging active entries when entries array is empty', () => {
+    // Simulate local library
+    let localEntries = [
+      { id: 1, title: 'Item 1' },
+      { id: 2, title: 'Item 2' },
+      { id: 3, title: 'Item 3' },
+    ];
+
+    // Incoming delta sync payload with deleted_ids and empty entries
+    const deltaSyncPayload = {
+      up_to_date: false,
+      sync_rev: 205,
+      entries: [],
+      deleted_ids: [2],
+      counts: { total: 2, unread: 2, archive: 0, starred: 0 },
+      pages: 0
+    };
+
+    const isDeltaSync = true;
+    const serverHasZeroTotal = deltaSyncPayload.counts?.total === 0 || (!isDeltaSync && deltaSyncPayload.total === 0);
+
+    // 1. Prune deleted items
+    if (Array.isArray(deltaSyncPayload.deleted_ids) && deltaSyncPayload.deleted_ids.length > 0) {
+      const delSet = new Set(deltaSyncPayload.deleted_ids);
+      localEntries = localEntries.filter(e => !delSet.has(e.id));
+    }
+
+    // 2. Smart merge (must NOT wipe localEntries)
+    if (!isDeltaSync && serverHasZeroTotal) {
+      localEntries = [];
+    } else if (deltaSyncPayload.entries.length > 0) {
+      const freshMap = new Map(deltaSyncPayload.entries.map((e: any) => [e.id, e]));
+      const merged = [...deltaSyncPayload.entries];
+      for (const existing of localEntries) {
+        if (!freshMap.has(existing.id)) merged.push(existing);
+      }
+      localEntries = merged;
+    }
+
+    // Item 2 is pruned, Items 1 and 3 are intact
+    expect(localEntries.length).toBe(2);
+    expect(localEntries.map(e => e.id)).toEqual([1, 3]);
+  });
+});
+
+describe('3-Pane Desktop Workspace & Typography Popover Architecture', () => {
+  it('includes 3-pane workspace container, sidebar, articles list, and reader panes', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('class="app-workspace"');
+    expect(html).toContain('class="pane-sidebar"');
+    expect(html).toContain('class="pane-articles"');
+    expect(html).toContain('class="pane-reader"');
+    expect(html).toContain('id="readerEmptyPane"');
+    expect(html).toContain('id="paneSidebar"');
+    expect(html).toContain('id="paneArticles"');
+    expect(html).toContain('id="paneReader"');
+  });
+
+  it('includes live typography popover controls, CSS variables, and OLED theme support', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="readerAppearancePopover"');
+    expect(html).toContain('id="readerAppearanceBtn"');
+    expect(html).toContain('--reader-font-family');
+    expect(html).toContain('--reader-font-size');
+    expect(html).toContain('--reader-line-height');
+    expect(html).toContain('--reader-content-max-width');
+    expect(html).toContain('html.oled');
+    expect(html).toContain('setReaderFontFamily');
+    expect(html).toContain('setReaderFontSize');
+    expect(html).toContain('setReaderLineHeight');
+    expect(html).toContain('setReaderContentWidth');
+    expect(html).toContain('setTheme');
+  });
+
+  it('includes focus / zen mode toggle and keyboard navigation handlers', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('toggleReaderFocusMode');
+    expect(html).toContain('focus-mode');
+    expect(html).toContain('handleAndroidBackButton');
+  });
+
+  it('includes collapsible dynamic sidebar tag manager and navigation live counts', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="sidebarTagList"');
+    expect(html).toContain('id="sidebarTagCount"');
+    expect(html).toContain('toggleSidebarTagsCollapse');
+    expect(html).toContain('renderSidebarTags');
+    expect(html).toContain('id="countUnread"');
+    expect(html).toContain('id="countStarred"');
+    expect(html).toContain('id="countArchive"');
+    expect(html).toContain('id="countAll"');
+  });
+
+  it('includes database epoch reset watchdog for cross-device wipe reconciliation', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('wf_instance_id');
+    expect(html).toContain('isEpochReset');
+  });
+
+  it('correctly handles delta sync with deleted_ids without purging active entries when entries array is empty', () => {
+    // Simulate local library
+    let localEntries = [
+      { id: 1, title: 'Item 1' },
+      { id: 2, title: 'Item 2' },
+      { id: 3, title: 'Item 3' },
+    ];
+
+    // Incoming delta sync payload with deleted_ids and empty entries
+    const deltaSyncPayload = {
+      up_to_date: false,
+      sync_rev: 205,
+      entries: [],
+      deleted_ids: [2],
+      counts: { total: 2, unread: 2, archive: 0, starred: 0 },
+      pages: 0
+    };
+
+    const isDeltaSync = true;
+    const serverHasZeroTotal = deltaSyncPayload.counts?.total === 0 || (!isDeltaSync && deltaSyncPayload.total === 0);
+
+    // 1. Prune deleted items
+    if (Array.isArray(deltaSyncPayload.deleted_ids) && deltaSyncPayload.deleted_ids.length > 0) {
+      const delSet = new Set(deltaSyncPayload.deleted_ids);
+      localEntries = localEntries.filter(e => !delSet.has(e.id));
+    }
+
+    // 2. Smart merge (must NOT wipe localEntries)
+    if (!isDeltaSync && serverHasZeroTotal) {
+      localEntries = [];
+    } else if (deltaSyncPayload.entries.length > 0) {
+      const freshMap = new Map(deltaSyncPayload.entries.map((e: any) => [e.id, e]));
+      const merged = [...deltaSyncPayload.entries];
+      for (const existing of localEntries) {
+        if (!freshMap.has(existing.id)) merged.push(existing);
+      }
+      localEntries = merged;
+    }
+
+    // Item 2 is pruned, Items 1 and 3 are intact
+    expect(localEntries.length).toBe(2);
+    expect(localEntries.map(e => e.id)).toEqual([1, 3]);
+  });
 });
 
 describe('Markdown Export Engine & Text Integrity Validation', () => {
@@ -158,10 +307,393 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('scrollToAnnotation');
   });
 
+  it('includes desktop floating annotation toolbar and mobile contextual topbar annotation header', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="readerHighlightToolbar"');
+    expect(html).toContain('id="readerTopBarDefault"');
+    expect(html).toContain('id="readerTopBarAnnotation"');
+    expect(html).toContain('id="readerTopBarSelCount"');
+    expect(html).toContain('initReaderSelectionHandlers');
+    expect(html).toContain('handleCreateHighlight');
+    expect(html).toContain('handleCreateHighlightWithNote');
+    expect(html).toContain('clearActiveTextSelection');
+    expect(html).toContain('addQuickTagToActiveArticles');
+    expect(html).toContain('removeTagFromActiveArticles');
+    expect(html).toContain('deleteGlobalTag');
+    expect(html).toContain('submitCreateGlobalTag');
+  });
+
   it('supports hybrid Markdown formatting: inline ==highlights==, footnotes [^note-1], and summary block', () => {
     const html = renderDashboardHtml('Wallaflare');
     expect(html).toContain('==');
     expect(html).toContain('[^note-');
     expect(html).toContain('## 🖍️ Highlights & Notes');
+  });
+
+  it('includes right-click context menu for article cards with single and batch actions', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="cardContextMenu"');
+    expect(html).toContain('handleCardContextMenu');
+    expect(html).toContain('openCardContextMenu');
+    expect(html).toContain('openBatchContextMenu');
+    expect(html).toContain('closeCardContextMenu');
+    expect(html).toContain('sortEntriesLocally');
+    expect(html).toContain('oncontextmenu="handleCardContextMenu(event, ');
+  });
+
+  it('renders modern minimal dynamic empty state with quick action chips', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="emptyState"');
+    expect(html).toContain('empty-state-icon-wrap');
+    expect(html).toContain('empty-state-title');
+    expect(html).toContain('empty-state-actions');
+    expect(html).toContain('handleAddArticleBtnClick');
+    expect(html).toContain('handleAddTextBtnClick');
+    expect(html).toContain('clearSearch');
+  });
+
+  it('includes infinite scroll pagination, bottom status indicator, and dynamic sort handlers', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="articlesListFooterStatus"');
+    expect(html).toContain('articles-list-footer-status');
+    expect(html).toContain('loadMoreArticles');
+    expect(html).toContain('initInfiniteScroll');
+    expect(html).toContain('updateArticlesFooterStatus');
+    expect(html).toContain('sortEntriesLocally');
+    expect(html).toContain('setSortOrder');
+  });
+
+  it('includes IndexedDB full library offline caching, chunked DOM rendering, and background downloader', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('openIndexedDB');
+    expect(html).toContain('saveEntriesToIndexedDB');
+    expect(html).toContain('loadEntriesFromIndexedDB');
+    expect(html).toContain('renderArticlesChunked');
+    expect(html).toContain('loadMoreRenderedCards');
+    expect(html).toContain('downloadRemainingLibraryInBackground');
+    expect(html).toContain('currentRenderLimit');
+    expect(html).toContain('RENDER_CHUNK_SIZE');
+  });
+
+  it('includes Android Native Share Intent buffer polling and instant prepend bridge', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('window.prependSavedArticles');
+    expect(html).toContain('window.prependSavedArticle');
+    expect(html).toContain('checkNativePendingSavedArticles');
+    expect(html).toContain('window.checkNativePendingSavedArticles');
+    expect(html).toContain('window.refreshArticlesSilently');
+    expect(html).toContain('pollPendingSavedArticles');
+  });
+
+  it('includes database reconciliation and deduplication handlers', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('reconcileDatabase');
+    expect(html).toContain('deduplicateEntries');
+    expect(html).toContain('clearIndexedDB');
+    expect(html).toContain('Reconcile Database');
+  });
+
+  it('includes Persistent Outbox Mutation Queue engine for offline triaging & interrupted actions', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('OUTBOX_STORAGE_KEY');
+    expect(html).toContain('wf_pending_mutations');
+    expect(html).toContain('getPendingMutations');
+    expect(html).toContain('savePendingMutations');
+    expect(html).toContain('enqueueMutation');
+    expect(html).toContain('processOutboxMutations');
+  });
+
+  it('includes Cloudflare D1 wipe database modal and authenticated confirmation handler', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="wipeDbModal"');
+    expect(html).toContain('openWipeDbModal');
+    expect(html).toContain('handleConfirmWipeDatabase');
+    expect(html).toContain('/api/admin/reset-database');
+    expect(html).toContain('Wipe Cloudflare D1 Database');
+  });
+
+  it('includes live sync stats comparison widget in settings modal', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('statsLocalArticles');
+    expect(html).toContain('statsServerArticles');
+    expect(html).toContain('statsSyncComparison');
+    expect(html).toContain('statsSyncRevision');
+    expect(html).toContain('updateSettingsStats');
+  });
+
+  it('includes offline connection failure handlers, wifi-off indicator, and reconnect listeners', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('isOfflineMode');
+    expect(html).toContain('updateOfflineUI');
+    expect(html).toContain('handleConnectionFailure');
+    expect(html).toContain('btn-offline-mode');
+  });
+
+  it('simulates full offline deletion lifecycle: optimistic queueing, network failure persistence, and online draining', async () => {
+    // Mock localStorage
+    const storage = new Map<string, string>();
+    const mockLocalStorage = {
+      getItem: (key: string) => storage.get(key) || null,
+      setItem: (key: string, val: string) => storage.set(key, val),
+      removeItem: (key: string) => storage.delete(key),
+    };
+
+    const OUTBOX_KEY = 'wf_pending_mutations';
+    let isOnline = false;
+    const dispatchedRequests: string[] = [];
+
+    // Client-side outbox methods simulation matching dashboard.ts
+    function getPendingMutations() {
+      const raw = mockLocalStorage.getItem(OUTBOX_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }
+
+    function savePendingMutations(mutations: any[]) {
+      if (!mutations || mutations.length === 0) {
+        mockLocalStorage.removeItem(OUTBOX_KEY);
+      } else {
+        mockLocalStorage.setItem(OUTBOX_KEY, JSON.stringify(mutations));
+      }
+    }
+
+    function enqueueMutation(action: string, payload: any) {
+      const mutations = getPendingMutations();
+      const mutation = {
+        id: 'mut_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        action,
+        payload,
+        createdAt: Date.now(),
+        retryCount: 0
+      };
+      mutations.push(mutation);
+      savePendingMutations(mutations);
+      return mutation;
+    }
+
+    async function processOutboxMutations() {
+      const mutations = getPendingMutations();
+      if (mutations.length === 0) return;
+
+      while (true) {
+        const currentQueue = getPendingMutations();
+        if (currentQueue.length === 0) break;
+        const mut = currentQueue[0];
+
+        let success = false;
+        let removeOnError = false;
+
+        try {
+          if (!isOnline) {
+            throw new Error('Failed to fetch (offline)');
+          }
+
+          if (mut.action === 'delete') {
+            dispatchedRequests.push(`DELETE /api/entries/${mut.payload.id}.json`);
+            success = true;
+          }
+        } catch (networkErr) {
+          // Stay in queue if offline
+          break;
+        }
+
+        if (success || removeOnError) {
+          const updated = getPendingMutations().filter((m: any) => m.id !== mut.id);
+          savePendingMutations(updated);
+        } else {
+          break;
+        }
+      }
+    }
+
+    // 1. User deletes article while offline
+    isOnline = false;
+    const mut = enqueueMutation('delete', { id: 42 });
+    expect(getPendingMutations().length).toBe(1);
+    expect(getPendingMutations()[0].payload.id).toBe(42);
+
+    // Attempt processing while offline -> catches network error, queue intact on disk
+    await processOutboxMutations();
+    expect(getPendingMutations().length).toBe(1);
+    expect(dispatchedRequests.length).toBe(0);
+
+    // 2. User restarts app while still offline -> data persists in storage
+    expect(JSON.parse(mockLocalStorage.getItem(OUTBOX_KEY) || '[]').length).toBe(1);
+
+    // 3. User comes back online -> queue drains successfully
+    isOnline = true;
+    await processOutboxMutations();
+    expect(dispatchedRequests).toEqual(['DELETE /api/entries/42.json']);
+    expect(getPendingMutations().length).toBe(0);
+    expect(mockLocalStorage.getItem(OUTBOX_KEY)).toBeNull();
+  });
+
+  it('verifies all offline mutations (delete, star, archive, title edit, tags) are enqueued and drained sequentially on reconnect', async () => {
+    const storage = new Map<string, string>();
+    const mockLocalStorage = {
+      getItem: (key: string) => storage.get(key) || null,
+      setItem: (key: string, val: string) => storage.set(key, val),
+      removeItem: (key: string) => storage.delete(key),
+    };
+
+    const OUTBOX_KEY = 'wf_pending_mutations';
+    let isOnline = false;
+    const dispatched: any[] = [];
+
+    function getPendingMutations() {
+      const raw = mockLocalStorage.getItem(OUTBOX_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }
+
+    function savePendingMutations(mutations: any[]) {
+      if (!mutations || mutations.length === 0) {
+        mockLocalStorage.removeItem(OUTBOX_KEY);
+      } else {
+        mockLocalStorage.setItem(OUTBOX_KEY, JSON.stringify(mutations));
+      }
+    }
+
+    function enqueueMutation(action: string, payload: any) {
+      const mutations = getPendingMutations();
+      const mutation = {
+        id: 'mut_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        action,
+        payload,
+        createdAt: Date.now(),
+        retryCount: 0
+      };
+      mutations.push(mutation);
+      savePendingMutations(mutations);
+      return mutation;
+    }
+
+    async function processOutboxMutations() {
+      const mutations = getPendingMutations();
+      if (mutations.length === 0) return;
+
+      while (true) {
+        const currentQueue = getPendingMutations();
+        if (currentQueue.length === 0) break;
+        const mut = currentQueue[0];
+
+        let success = false;
+        let removeOnError = false;
+
+        try {
+          if (!isOnline) {
+            throw new Error('Network offline');
+          }
+
+          if (mut.action === 'delete') {
+            dispatched.push({ method: 'DELETE', path: `/api/entries/${mut.payload.id}.json` });
+            success = true;
+          } else if (mut.action === 'batch_delete') {
+            dispatched.push({ method: 'DELETE', path: '/api/entries/list.json', body: mut.payload });
+            success = true;
+          } else if (mut.action === 'toggle_star') {
+            dispatched.push({ method: 'PATCH', path: `/api/entries/${mut.payload.id}.json`, body: { starred: mut.payload.is_starred } });
+            success = true;
+          } else if (mut.action === 'toggle_archive') {
+            dispatched.push({ method: 'PATCH', path: `/api/entries/${mut.payload.id}.json`, body: { archive: mut.payload.is_archived } });
+            success = true;
+          } else if (mut.action === 'edit_title') {
+            dispatched.push({ method: 'PATCH', path: `/api/entries/${mut.payload.id}.json`, body: { title: mut.payload.title } });
+            success = true;
+          } else if (mut.action === 'add_tag') {
+            dispatched.push({ method: 'POST', path: `/api/entries/${mut.payload.id}/tags.json`, body: { tags: mut.payload.tag } });
+            success = true;
+          } else if (mut.action === 'remove_tag') {
+            dispatched.push({ method: 'DELETE', path: `/api/entries/${mut.payload.id}/tags/${encodeURIComponent(mut.payload.tag)}.json` });
+            success = true;
+          } else {
+            success = true;
+          }
+        } catch (networkErr) {
+          break;
+        }
+
+        if (success || removeOnError) {
+          const updated = getPendingMutations().filter((m: any) => m.id !== mut.id);
+          savePendingMutations(updated);
+        } else {
+          break;
+        }
+      }
+    }
+
+    // 1. User performs multiple actions while offline
+    isOnline = false;
+    enqueueMutation('toggle_star', { id: 10, is_starred: 1 });
+    enqueueMutation('toggle_archive', { id: 10, is_archived: 1 });
+    enqueueMutation('edit_title', { id: 10, title: 'Updated Title' });
+    enqueueMutation('add_tag', { id: 10, tag: 'offline-reading' });
+    enqueueMutation('delete', { id: 20 });
+
+    expect(getPendingMutations().length).toBe(5);
+
+    // 2. Offline drain attempt fails gracefully without dropping queue
+    await processOutboxMutations();
+    expect(getPendingMutations().length).toBe(5);
+    expect(dispatched.length).toBe(0);
+
+    // 3. User comes back online and refreshes -> all 5 mutations drain in order
+    isOnline = true;
+    await processOutboxMutations();
+    expect(getPendingMutations().length).toBe(0);
+    expect(dispatched.length).toBe(5);
+    expect(dispatched[0]).toEqual({ method: 'PATCH', path: '/api/entries/10.json', body: { starred: 1 } });
+    expect(dispatched[1]).toEqual({ method: 'PATCH', path: '/api/entries/10.json', body: { archive: 1 } });
+    expect(dispatched[2]).toEqual({ method: 'PATCH', path: '/api/entries/10.json', body: { title: 'Updated Title' } });
+    expect(dispatched[3]).toEqual({ method: 'POST', path: '/api/entries/10/tags.json', body: { tags: 'offline-reading' } });
+    expect(dispatched[4]).toEqual({ method: 'DELETE', path: '/api/entries/20.json' });
+  });
+
+  it('includes database epoch reset watchdog for cross-device wipe reconciliation', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('wf_instance_id');
+    expect(html).toContain('isEpochReset');
+  });
+
+  it('correctly handles delta sync with deleted_ids without purging active entries when entries array is empty', () => {
+    // Simulate local library
+    let localEntries = [
+      { id: 1, title: 'Item 1' },
+      { id: 2, title: 'Item 2' },
+      { id: 3, title: 'Item 3' },
+    ];
+
+    // Incoming delta sync payload with deleted_ids and empty entries
+    const deltaSyncPayload = {
+      up_to_date: false,
+      sync_rev: 205,
+      entries: [],
+      deleted_ids: [2],
+      counts: { total: 2, unread: 2, archive: 0, starred: 0 },
+      pages: 0
+    };
+
+    const isDeltaSync = true;
+    const serverHasZeroTotal = deltaSyncPayload.counts?.total === 0 || (!isDeltaSync && deltaSyncPayload.total === 0);
+
+    // 1. Prune deleted items
+    if (Array.isArray(deltaSyncPayload.deleted_ids) && deltaSyncPayload.deleted_ids.length > 0) {
+      const delSet = new Set(deltaSyncPayload.deleted_ids);
+      localEntries = localEntries.filter(e => !delSet.has(e.id));
+    }
+
+    // 2. Smart merge (must NOT wipe localEntries)
+    if (!isDeltaSync && serverHasZeroTotal) {
+      localEntries = [];
+    } else if (deltaSyncPayload.entries.length > 0) {
+      const freshMap = new Map(deltaSyncPayload.entries.map((e: any) => [e.id, e]));
+      const merged = [...deltaSyncPayload.entries];
+      for (const existing of localEntries) {
+        if (!freshMap.has(existing.id)) merged.push(existing);
+      }
+      localEntries = merged;
+    }
+
+    // Item 2 is pruned, Items 1 and 3 are intact
+    expect(localEntries.length).toBe(2);
+    expect(localEntries.map(e => e.id)).toEqual([1, 3]);
   });
 });

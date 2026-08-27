@@ -1,6 +1,8 @@
 import { zipSync, strToU8 } from 'fflate';
 import { parseHTML } from 'linkedom';
 
+export { zipSync, strToU8 };
+
 function parseHtmlDoc(html: string): any {
   if (typeof DOMParser !== 'undefined') {
     return new DOMParser().parseFromString(html, 'text/html');

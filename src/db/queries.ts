@@ -1,3 +1,87 @@
+let schemaEnsured = false;
+export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
+  if (schemaEnsured || !db) return;
+  try {
+    const stmts = [
+      `CREATE TABLE IF NOT EXISTS entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        preview_picture TEXT,
+        domain_name TEXT,
+        reading_time INTEGER DEFAULT 1,
+        language TEXT DEFAULT 'en',
+        author TEXT,
+        published_at TEXT,
+        is_archived INTEGER DEFAULT 0,
+        is_starred INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        revision INTEGER DEFAULT 1
+      )`,
+      `CREATE TABLE IF NOT EXISTS tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        label TEXT NOT NULL UNIQUE,
+        slug TEXT NOT NULL UNIQUE
+      )`,
+      `CREATE TABLE IF NOT EXISTS entry_tags (
+        entry_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (entry_id, tag_id),
+        FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS auth_rate_limits (
+        ip TEXT PRIMARY KEY,
+        failed_attempts INTEGER DEFAULT 0,
+        last_attempt_at INTEGER NOT NULL,
+        locked_until INTEGER DEFAULT 0
+      )`,
+      `CREATE TABLE IF NOT EXISTS annotations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_id INTEGER NOT NULL,
+        user_id TEXT DEFAULT 'wallaflare',
+        text TEXT DEFAULT '',
+        quote TEXT NOT NULL,
+        ranges TEXT DEFAULT '[]',
+        target TEXT DEFAULT NULL,
+        color TEXT DEFAULT 'yellow',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS sync_state (
+        id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL DEFAULT 1,
+        instance_id INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE IF NOT EXISTS deleted_entries (
+        entry_id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)`
+    ];
+
+    if (typeof (db as any).batch === 'function') {
+      await (db as any).batch(stmts.map(s => db.prepare(s)));
+    } else {
+      for (const s of stmts) {
+        await db.prepare(s).run().catch(() => {});
+      }
+    }
+
+    try { await db.prepare('ALTER TABLE sync_state ADD COLUMN instance_id INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run(); } catch {}
+
+    schemaEnsured = true;
+  } catch (err) {
+    console.error('Error ensuring database schema:', err);
+  }
+}
+
 import { EntryRow, WallabagEntry, AnnotationItem } from '../types';
 
 export interface TagItem {
@@ -292,7 +376,8 @@ export async function addTagsToEntry(db: D1Database, entryId: number, rawTags: s
     }
   }
 
-  await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+  const tagRev = await bumpSyncRevision(db);
+  await db.prepare('UPDATE entries SET updated_at = ?, revision = ? WHERE id = ?').bind(new Date().toISOString(), tagRev, entryId).run();
   return await getEntryTags(db, entryId);
 }
 
@@ -308,13 +393,48 @@ export async function removeTagFromEntry(db: D1Database, entryId: number, tagIdO
 
   if (tagId) {
     await db.prepare('DELETE FROM entry_tags WHERE entry_id = ? AND tag_id = ?').bind(entryId, tagId).run();
-    await db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').bind(new Date().toISOString(), entryId).run();
+    const tagRev = await bumpSyncRevision(db);
+  await db.prepare('UPDATE entries SET updated_at = ?, revision = ? WHERE id = ?').bind(new Date().toISOString(), tagRev, entryId).run();
   }
 
   return await getEntryTags(db, entryId);
 }
 
-export async function deleteTag(db: D1Database, tagId: number): Promise<boolean> {
+export interface LibraryCounts {
+  unread: number;
+  starred: number;
+  archive: number;
+  total: number;
+}
+
+export async function getLibraryCounts(db: D1Database): Promise<LibraryCounts> {
+  const row = await db.prepare(`
+    SELECT 
+      SUM(CASE WHEN is_archived = 0 THEN 1 ELSE 0 END) as unread,
+      SUM(CASE WHEN is_starred = 1 THEN 1 ELSE 0 END) as starred,
+      SUM(CASE WHEN is_archived = 1 THEN 1 ELSE 0 END) as archive,
+      COUNT(*) as total
+    FROM entries
+  `).first<{ unread: number | null; starred: number | null; archive: number | null; total: number | null }>();
+
+  return {
+    unread: row?.unread || 0,
+    starred: row?.starred || 0,
+    archive: row?.archive || 0,
+    total: row?.total || 0,
+  };
+}
+
+export async function deleteTag(db: D1Database, tagIdOrSlug: number | string): Promise<boolean> {
+  let tagId: number | null = null;
+  const num = Number(tagIdOrSlug);
+  if (!isNaN(num) && num > 0) {
+    tagId = num;
+  } else {
+    const tag = await db.prepare('SELECT id FROM tags WHERE slug = ? OR label = ? LIMIT 1').bind(String(tagIdOrSlug), String(tagIdOrSlug)).first<{ id: number }>();
+    if (tag) tagId = tag.id;
+  }
+  if (!tagId) return false;
   await db.prepare('DELETE FROM entry_tags WHERE tag_id = ?').bind(tagId).run();
   const res = await db.prepare('DELETE FROM tags WHERE id = ?').bind(tagId).run();
   return (res.meta?.changes ?? 0) > 0;
@@ -373,6 +493,11 @@ export async function getEntries(
     params.push(sinceIso);
   }
 
+  if (filter.since_rev !== undefined && !isNaN(filter.since_rev) && filter.since_rev > 0) {
+    conditions.push('revision > ?');
+    params.push(filter.since_rev);
+  }
+
   if (filter.search) {
     conditions.push('(title LIKE ? OR content LIKE ?)');
     params.push(`%${filter.search}%`);
@@ -390,8 +515,31 @@ export async function getEntries(
   const page = Math.max(1, filter.page || 1);
   const limit = Math.max(1, Math.min(100, filter.perPage || 30));
   const offset = (page - 1) * limit;
-  const sortCol = filter.sort === 'updated' ? 'updated_at' : 'created_at';
-  const sortOrder = (filter.order || 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  let sortCol = 'created_at';
+  let sortOrder = (filter.order || 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  const rawSort = String(filter.sort || '').toLowerCase();
+  if (rawSort === 'updated' || rawSort === 'updated_at') {
+    sortCol = 'updated_at';
+  } else if (rawSort === 'title') {
+    sortCol = 'title COLLATE NOCASE';
+    if (!filter.order) sortOrder = 'ASC';
+  } else if (rawSort === 'shortest') {
+    sortCol = 'reading_time';
+    sortOrder = 'ASC';
+  } else if (rawSort === 'longest') {
+    sortCol = 'reading_time';
+    sortOrder = 'DESC';
+  } else if (rawSort === 'reading_time') {
+    sortCol = 'reading_time';
+  } else if (rawSort === 'oldest') {
+    sortCol = 'created_at';
+    sortOrder = 'ASC';
+  } else if (rawSort === 'newest') {
+    sortCol = 'created_at';
+    sortOrder = 'DESC';
+  }
 
   const selectQuery = `
     SELECT * FROM entries 
@@ -447,13 +595,14 @@ export async function createEntry(
   db: D1Database,
   entry: Partial<EntryRow> & { tags?: string | string[] }
 ): Promise<EntryRow> {
+  const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
   const query = `
     INSERT INTO entries (
       url, title, content, preview_picture, domain_name, 
       reading_time, language, is_archived, is_starred, 
-      created_at, updated_at, author, published_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      created_at, updated_at, author, published_at, revision
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const res = await db.prepare(query).bind(
@@ -469,7 +618,8 @@ export async function createEntry(
     now,
     now,
     entry.author || null,
-    entry.published_at || null
+    entry.published_at || null,
+    newRev
   ).run();
 
   const id = res.meta?.last_row_id;
@@ -517,9 +667,10 @@ export async function updateEntry(
   const existing = await getEntryById(db, id);
   if (!existing) return null;
 
+  const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
-  const setClauses: string[] = ['updated_at = ?'];
-  const params: any[] = [now];
+  const setClauses: string[] = ['updated_at = ?', 'revision = ?'];
+  const params: any[] = [now, newRev];
 
   if (updates.title !== undefined) {
     setClauses.push('title = ?');
@@ -536,6 +687,26 @@ export async function updateEntry(
   if (updates.is_starred !== undefined) {
     setClauses.push('is_starred = ?');
     params.push(updates.is_starred);
+  }
+  if (updates.author !== undefined) {
+    setClauses.push('author = ?');
+    params.push(updates.author);
+  }
+  if (updates.reading_time !== undefined) {
+    setClauses.push('reading_time = ?');
+    params.push(updates.reading_time);
+  }
+  if (updates.preview_picture !== undefined) {
+    setClauses.push('preview_picture = ?');
+    params.push(updates.preview_picture);
+  }
+  if (updates.domain_name !== undefined) {
+    setClauses.push('domain_name = ?');
+    params.push(updates.domain_name);
+  }
+  if (updates.language !== undefined) {
+    setClauses.push('language = ?');
+    params.push(updates.language);
   }
 
   params.push(id);
@@ -555,14 +726,16 @@ export async function deleteEntriesBatch(db: D1Database, ids: number[]): Promise
   const placeholders = validIds.map(() => '?').join(',');
   await db.prepare(`DELETE FROM entry_tags WHERE entry_id IN (${placeholders})`).bind(...validIds).run();
   const res = await db.prepare(`DELETE FROM entries WHERE id IN (${placeholders})`).bind(...validIds).run();
+  await recordDeletedEntriesBatch(db, validIds);
   return res.meta?.changes ?? validIds.length;
 }
 
 export async function updateEntriesBatch(db: D1Database, ids: number[], updates: { is_starred?: number; is_archived?: number }): Promise<number> {
   const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
   if (validIds.length === 0) return 0;
-  const setClauses: string[] = ['updated_at = ?'];
-  const params: any[] = [new Date().toISOString()];
+  const newRev = await bumpSyncRevision(db);
+  const setClauses: string[] = ['updated_at = ?', 'revision = ?'];
+  const params: any[] = [new Date().toISOString(), newRev];
 
   if (updates.is_starred !== undefined) {
     setClauses.push('is_starred = ?');
@@ -601,7 +774,11 @@ export async function deleteEntry(db: D1Database, id: number): Promise<boolean> 
   await db.prepare('DELETE FROM entry_tags WHERE entry_id = ?').bind(id).run();
   const query = 'DELETE FROM entries WHERE id = ?';
   const res = await db.prepare(query).bind(id).run();
-  return (res.meta?.changes ?? 0) > 0;
+  const deleted = (res.meta?.changes ?? 0) > 0;
+  if (deleted) {
+    await recordDeletedEntry(db, id);
+  }
+  return deleted;
 }
 
 // -------------------------------------------------------------
@@ -746,4 +923,138 @@ export async function resetAuthRateLimit(db: D1Database, ip: string): Promise<vo
   try {
     await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(ip).run();
   } catch {}
+}
+
+// -------------------------------------------------------------
+// Monotonic Revision & Tombstone Sync Engine
+// -------------------------------------------------------------
+
+let syncTablesEnsured = false;
+export async function ensureSyncRevisionTables(db: D1Database): Promise<void> {
+  if (syncTablesEnsured) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS sync_state (
+        id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL DEFAULT 1,
+        instance_id INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    try {
+      await db.prepare('ALTER TABLE sync_state ADD COLUMN instance_id INTEGER NOT NULL DEFAULT 1').run();
+    } catch {}
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS deleted_entries (
+        entry_id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    await db.prepare(`
+      INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)
+    `).run();
+    try {
+      await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run();
+    } catch {
+      // Column already exists
+    }
+    syncTablesEnsured = true;
+  } catch (e) {
+    console.error('Error ensuring sync tables:', e);
+  }
+}
+
+export async function bumpSyncRevision(db: D1Database): Promise<number> {
+  await ensureSyncRevisionTables(db);
+  try {
+    await db.prepare(`
+      UPDATE sync_state 
+      SET revision = revision + 1, updated_at = datetime('now') 
+      WHERE id = 1
+    `).run();
+    const res = await db.prepare('SELECT revision FROM sync_state WHERE id = 1').first<{ revision: number }>();
+    return res?.revision || 2;
+  } catch (e) {
+    console.error('Error bumping sync revision:', e);
+    return Date.now();
+  }
+}
+
+export async function getCurrentSyncRevision(db: D1Database): Promise<number> {
+  await ensureSyncRevisionTables(db);
+  try {
+    const res = await db.prepare('SELECT revision FROM sync_state WHERE id = 1').first<{ revision: number }>();
+    return res?.revision || 1;
+  } catch (e) {
+    return 1;
+  }
+}
+
+export async function recordDeletedEntry(db: D1Database, entryId: number): Promise<number> {
+  await ensureSyncRevisionTables(db);
+  const newRev = await bumpSyncRevision(db);
+  try {
+    await db.prepare(`
+      INSERT OR REPLACE INTO deleted_entries (entry_id, revision, deleted_at) 
+      VALUES (?, ?, datetime('now'))
+    `).bind(entryId, newRev).run();
+  } catch (e) {}
+  return newRev;
+}
+
+export async function recordDeletedEntriesBatch(db: D1Database, entryIds: number[]): Promise<number> {
+  if (entryIds.length === 0) return await getCurrentSyncRevision(db);
+  await ensureSyncRevisionTables(db);
+  const newRev = await bumpSyncRevision(db);
+  for (const id of entryIds) {
+    try {
+      await db.prepare(`
+        INSERT OR REPLACE INTO deleted_entries (entry_id, revision, deleted_at) 
+        VALUES (?, ?, datetime('now'))
+      `).bind(id, newRev).run();
+    } catch (e) {}
+  }
+  return newRev;
+}
+
+export async function getDeletedEntriesSince(db: D1Database, sinceRevision: number): Promise<number[]> {
+  await ensureSyncRevisionTables(db);
+  try {
+    const { results } = await db.prepare(`
+      SELECT entry_id FROM deleted_entries WHERE revision > ?
+    `).bind(sinceRevision).all<{ entry_id: number }>();
+    return (results || []).map(r => r.entry_id);
+  } catch (e) {
+    return [];
+  }
+}
+
+
+export async function getSyncState(db: D1Database): Promise<{ revision: number; instance_id: number }> {
+  await ensureSyncRevisionTables(db);
+  try {
+    const res = await db.prepare('SELECT revision, instance_id FROM sync_state WHERE id = 1').first<{ revision: number; instance_id: number }>();
+    return {
+      revision: res?.revision || 1,
+      instance_id: res?.instance_id || 0
+    };
+  } catch (e) {
+    return { revision: 1, instance_id: 0 };
+  }
+}
+
+export async function wipeDatabase(db: D1Database): Promise<{ instance_id: number; revision: number }> {
+  await ensureDatabaseSchema(db);
+  const now = new Date().toISOString();
+  const currentSync = await getSyncState(db);
+  const newInstanceId = (currentSync.instance_id || 1) + 1;
+  await db.prepare('DELETE FROM entry_tags').run();
+  await db.prepare('DELETE FROM annotations').run();
+  await db.prepare('DELETE FROM entries').run();
+  await db.prepare('DELETE FROM tags').run();
+  await db.prepare('DELETE FROM deleted_entries').run();
+  await db.prepare('DELETE FROM sync_state').run();
+  await db.prepare('INSERT INTO sync_state (id, revision, instance_id, updated_at) VALUES (1, 1, ?, ?)').bind(newInstanceId, now).run();
+  return { instance_id: newInstanceId, revision: 1 };
 }

@@ -1,12 +1,32 @@
-import { buildEpubClientBundle } from "./bundle-epub-client";
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import * as fflate from 'fflate';
-import { renderDashboardHtml } from '../src/views/dashboard';
+
+// Ensure stub files exist before importing dashboard module
+const epubBundlePath = path.resolve(__dirname, '../src/views/epub-client-bundle.ts');
+if (!fs.existsSync(epubBundlePath)) {
+  fs.writeFileSync(epubBundlePath, 'export const clientEpubJs = "";\n', 'utf8');
+}
+
+const dashboardBundlePath = path.resolve(__dirname, '../src/views/dashboard-bundle.ts');
+if (!fs.existsSync(dashboardBundlePath)) {
+  fs.writeFileSync(dashboardBundlePath, 'export const clientDashboardCss = ""; export const clientDashboardJs = "";\n', 'utf8');
+}
+
+const otaBundlePath = path.resolve(__dirname, '../src/views/ota-bundle.ts');
+if (!fs.existsSync(otaBundlePath)) {
+  fs.writeFileSync(otaBundlePath, 'export const OTA_VERSION = "1.0.0"; export const OTA_MIN_NATIVE_VERSION = "1.0.0"; export const OTA_BUNDLE_B64 = ""; export const OTA_CHECKSUM = "";\n', 'utf8');
+}
+
+import { buildEpubClientBundle } from "./bundle-epub-client";
+import { buildClientBundle } from "./bundle-client";
 
 async function main() {
   await buildEpubClientBundle();
+  await buildClientBundle();
+
+  const { renderDashboardHtml } = await import('../src/views/dashboard');
 
   const wwwDir = path.resolve(__dirname, '../www');
   if (!fs.existsSync(wwwDir)) {
@@ -23,7 +43,9 @@ async function main() {
   const otaVersion = `${baseVersion}-${contentHash}`;
   const minNativeVersion = "1.0.0";
 
-  const capacitorHtml = rawHtml.replace('<head>', `<head>\n  <script>window.IS_CAPACITOR_APP = true; window.WF_BUILD_VERSION = "${otaVersion}"; window.WF_NATIVE_VERSION = "1.0.0";</script>`);
+  const capacitorHtml = rawHtml
+    .replace('<html lang="en" class="dark"', '<html lang="en" class="dark is-capacitor-app"')
+    .replace('<head>', `<head>\n  <script>window.IS_CAPACITOR_APP = true; window.WF_BUILD_VERSION = "${otaVersion}"; window.WF_NATIVE_VERSION = "1.0.0"; document.documentElement.classList.add("is-capacitor-app");</script>`);
   fs.writeFileSync(path.join(wwwDir, 'index.html'), capacitorHtml, 'utf8');
 
   // Zip index.html for OTA
