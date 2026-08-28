@@ -2,6 +2,7 @@ package com.idodos.wallaflare;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
@@ -78,6 +79,142 @@ public class MainActivity extends BridgeActivity {
                 .putString("server_url", url != null ? url.trim() : "")
                 .putString("auth_token", token != null ? token.trim() : "")
                 .apply();
+        }
+
+        private void purgeCookiesForDomain(String domain) {
+            if (domain == null || domain.trim().isEmpty()) return;
+            try {
+                android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                String clean = domain.toLowerCase()
+                    .replaceFirst("^https?://", "")
+                    .replaceFirst("/.*$", "")
+                    .replaceFirst("^www\\.", "");
+                String[] candidates = {
+                    clean,
+                    "." + clean,
+                    "www." + clean,
+                    "https://" + clean,
+                    "https://www." + clean,
+                    "http://" + clean
+                };
+                for (String host : candidates) {
+                    String existing = cm.getCookie(host);
+                    if (existing == null || existing.isEmpty()) continue;
+                    for (String pair : existing.split(";")) {
+                        String name = pair.split("=", 2)[0].trim();
+                        if (name.isEmpty()) continue;
+                        cm.setCookie(host, name + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/");
+                        cm.setCookie(host, name + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Domain=" + clean);
+                        cm.setCookie(host, name + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Domain=." + clean);
+                    }
+                }
+                cm.flush();
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void syncAllDomainCookies(String jsonString) {
+            try {
+                SharedPreferences cookiePrefs = getSharedPreferences("wallaflare_site_cookies", MODE_PRIVATE);
+                SharedPreferences.Editor editor = cookiePrefs.edit();
+                editor.clear();
+
+                android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                cm.removeAllCookies(null); // clean slate
+
+                if (jsonString != null && !jsonString.trim().isEmpty()) {
+                    org.json.JSONArray sitesArray = new org.json.JSONArray(jsonString);
+                    for (int i = 0; i < sitesArray.length(); i++) {
+                        org.json.JSONObject site = sitesArray.optJSONObject(i);
+                        if (site == null) continue;
+
+                        String rawDomain = site.optString("domain", "");
+                        if (rawDomain.isEmpty()) continue;
+
+                        String cleanDomain = rawDomain.toLowerCase()
+                                .replaceFirst("^https?://", "")
+                                .replaceFirst("/.*$", "")
+                                .replaceFirst("^www\\.", "");
+
+                        String cookies = site.optString("cookie_value", "");
+                        boolean enabled = site.optInt("is_enabled", 1) != 0;
+
+                        // Vault storage
+                        if (cookies != null && !cookies.isEmpty()) {
+                            editor.putString(cleanDomain, cookies);
+                            editor.putString(rawDomain.toLowerCase(), cookies);
+                        }
+                        editor.putBoolean(cleanDomain + "_enabled", enabled);
+                        editor.putBoolean(rawDomain.toLowerCase() + "_enabled", enabled);
+
+                        // Re-inject into WebView jar only when enabled
+                        if (enabled && cookies != null && !cookies.trim().isEmpty()) {
+                            String[] hosts = {
+                                "https://" + cleanDomain,
+                                "https://www." + cleanDomain,
+                                "http://" + cleanDomain,
+                                cleanDomain,
+                                "." + cleanDomain
+                            };
+                            for (String host : hosts) {
+                                for (String pair : cookies.split(";")) {
+                                    String trimmed = pair.trim();
+                                    if (trimmed.isEmpty()) continue;
+                                    String lower = trimmed.toLowerCase();
+                                    if (!lower.contains("path=")) trimmed += "; Path=/";
+                                    if (!lower.contains("domain=")) trimmed += "; Domain=." + cleanDomain;
+                                    cm.setCookie(host, trimmed);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                editor.commit(); // Synchronous write
+                cm.flush();
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void clearAllSiteCookies() {
+            try {
+                SharedPreferences cookiePrefs = getSharedPreferences("wallaflare_site_cookies", MODE_PRIVATE);
+                cookiePrefs.edit().clear().apply();
+                android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                cm.removeAllCookies(null);
+                cm.flush();
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void setDomainEnabled(String domain, boolean enabled) {
+            if (domain != null && !domain.isEmpty()) {
+                String cleanDomain = domain.toLowerCase().replaceFirst("^https?://", "").replaceFirst("/.*$", "").replaceFirst("^www\\.", "");
+                SharedPreferences cookiePrefs = getSharedPreferences("wallaflare_site_cookies", MODE_PRIVATE);
+                cookiePrefs.edit()
+                    .putBoolean(cleanDomain + "_enabled", enabled)
+                    .putBoolean(domain.toLowerCase() + "_enabled", enabled)
+                    .commit();
+
+                if (!enabled) {
+                    purgeCookiesForDomain(cleanDomain);
+                } else {
+                    String cookieVal = cookiePrefs.getString(cleanDomain, "");
+                    if (cookieVal != null && !cookieVal.trim().isEmpty()) {
+                        try {
+                            android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                            String url = "https://" + cleanDomain;
+                            for (String pair : cookieVal.split(";")) {
+                                String trimmed = pair.trim();
+                                if (!trimmed.isEmpty()) {
+                                    cm.setCookie(url, trimmed + "; Path=/; Domain=." + cleanDomain);
+                                }
+                            }
+                            cm.flush();
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
         }
 
         @JavascriptInterface

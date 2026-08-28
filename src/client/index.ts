@@ -230,7 +230,13 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
             '</button>'
           : '';
 
-        const focusModeBtn = (mode === 'reader')
+        const isSinglePane = typeof window !== 'undefined' && (
+          window.innerWidth < 1024 ||
+          document.body.classList.contains('mobile-view') ||
+          document.body.classList.contains('is-reading-mobile')
+        );
+
+        const focusModeBtn = (mode === 'reader' && !isSinglePane)
           ? '<button type="button" class="menu-item" onclick="' + closeFnName + '; toggleFocusMode();">' +
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>' +
               '<span>Toggle Focus Mode (f)</span>' +
@@ -355,6 +361,10 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     function closeReaderMoreMenu() {
       const menu = document.getElementById('readerMoreMenuDropdown');
       if (menu) menu.classList.remove('open');
+      const backdrop = document.getElementById('cardMenuBackdrop');
+      if (backdrop) backdrop.style.display = 'none';
+      const exportWrap = document.getElementById('readerExportWrap');
+      if (exportWrap) exportWrap.classList.remove('expanded');
     }
 
     function toggleReaderExportSubmenu() {
@@ -569,6 +579,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     function closeModal(id) {
       const modalEl = document.getElementById(id);
       if (modalEl) modalEl.classList.remove('open');
+      try {
+        if (document.activeElement && typeof (document.activeElement as HTMLElement).blur === 'function') {
+          (document.activeElement as HTMLElement).blur();
+        }
+      } catch (e) {}
     }
 
     // Confirmation dialog
@@ -585,14 +600,40 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       });
     }
 
+    
+
     function handleConfirmModalOk() {
+      const modalEl = document.getElementById('confirmModal');
+      if (modalEl) {
+        modalEl.style.pointerEvents = '';
+        modalEl.removeAttribute('aria-hidden');
+      }
+      try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
       closeModal('confirmModal');
-      if (confirmResolve) { confirmResolve(true); confirmResolve = null; }
+
+      if (confirmResolve) {
+        const resolve = confirmResolve;
+        confirmResolve = null;
+        resolve(true);
+      }
     }
 
     function handleConfirmModalCancel() {
+      const modalEl = document.getElementById('confirmModal');
+      if (modalEl) {
+        modalEl.style.pointerEvents = 'none';
+        modalEl.setAttribute('aria-hidden', 'true');
+      }
+      try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
+
       closeModal('confirmModal');
-      if (confirmResolve) { confirmResolve(false); confirmResolve = null; }
+      if (modalEl) modalEl.style.pointerEvents = '';
+
+      if (confirmResolve) {
+        const resolve = confirmResolve;
+        confirmResolve = null;
+        resolve(false);
+      }
     }
 
     let toastTimeout = null;
@@ -1193,6 +1234,24 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
           if (Array.isArray(data.tags)) {
             cachedGlobalTags = data.tags;
+          }
+          if (Array.isArray(data.site_cookies)) {
+            const cookiesJson = JSON.stringify(data.site_cookies);
+            const cookiesChanged = cookiesJson !== localStorage.getItem('wf_last_synced_cookies');
+            cachedSiteCookies = data.site_cookies;
+            renderSiteCookiesList();
+
+            if (cookiesChanged) {
+              localStorage.setItem('wf_last_synced_cookies', cookiesJson);
+              if (typeof (window as any).AndroidNative !== 'undefined' && typeof (window as any).AndroidNative.syncAllDomainCookies === 'function') {
+                (window as any).AndroidNative.syncAllDomainCookies(cookiesJson);
+              } else if (isCapacitorApp() && typeof window.Capacitor !== 'undefined') {
+                const nativePlugin = window.Capacitor.Plugins?.WallaflareNative;
+                if (nativePlugin && typeof nativePlugin.syncAllDomainCookies === 'function') {
+                  nativePlugin.syncAllDomainCookies({ sites: cachedSiteCookies }).catch(() => {});
+                }
+              }
+            }
           }
           if (data.counts) {
             serverLibraryCounts = data.counts;
@@ -2265,6 +2324,8 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (!item) return;
 
       activeArticleId = id;
+
+      // 1. Update title and meta
       document.getElementById('readerTitle').textContent = item.title;
 
       const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
@@ -2286,6 +2347,21 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       const readerBodyEl = document.getElementById('readerBody');
+      const scrollEl = document.getElementById('readerScrollContainer');
+      const contentWrapEl = scrollEl?.querySelector('.reader-content-wrap') as HTMLElement;
+
+      // 2. Hard-reset any overscroll / transform state BEFORE DOM mutation
+      if (contentWrapEl) {
+        contentWrapEl.style.transition = 'none';
+        contentWrapEl.style.transform = '';
+        contentWrapEl.style.willChange = '';
+      }
+      if (scrollEl) {
+        scrollEl.style.scrollBehavior = 'auto';
+        (scrollEl as any)._resetOverscroll?.();
+      }
+
+      // 3. Swap content
       const rawContent = item.content || '<p>No content available.</p>';
       readerBodyEl.innerHTML = rawContent;
       try {
@@ -2318,18 +2394,17 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       // RTL handling
       const isRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || item.content || ''));
-      const contentWrap = document.querySelector('.reader-content-wrap');
       const readerTitleEl = document.getElementById('readerTitle');
       const readerMetaEl = document.getElementById('readerMeta');
       if (isRtl) {
-        contentWrap?.classList.add('is-rtl');
-        contentWrap?.setAttribute('dir', 'rtl');
+        contentWrapEl?.classList.add('is-rtl');
+        contentWrapEl?.setAttribute('dir', 'rtl');
         readerBodyEl.setAttribute('dir', 'rtl');
         readerTitleEl?.setAttribute('dir', 'rtl');
         readerMetaEl?.removeAttribute('dir');
       } else {
-        contentWrap?.classList.remove('is-rtl');
-        contentWrap?.removeAttribute('dir');
+        contentWrapEl?.classList.remove('is-rtl');
+        contentWrapEl?.removeAttribute('dir');
         readerBodyEl.setAttribute('dir', 'ltr');
         readerTitleEl?.removeAttribute('dir');
         readerMetaEl?.removeAttribute('dir');
@@ -2358,17 +2433,26 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       showReaderTopBar(true);
       scheduleReaderTopBarAutoHide(700);
 
-      // Restore scroll position instantly with synchronous layout evaluation (zero jump/flicker)
-      const scrollEl = document.getElementById('readerScrollContainer');
+      // Synchronous layout evaluation & instant scroll restoration (zero jump / zero flicker)
+      if (contentWrapEl) {
+        contentWrapEl.style.transition = 'none';
+        contentWrapEl.style.transform = '';
+        contentWrapEl.style.willChange = '';
+      }
+
       lastReaderScrollTop = 0;
       readerScrollAnchorY = 0;
       readerScrollDirection = 'none';
+
       if (scrollEl) {
         scrollEl.style.scrollBehavior = 'auto';
+        scrollEl.style.pointerEvents = 'auto';
+        scrollEl.style.touchAction = 'pan-y';
+        (scrollEl as any)._resetOverscroll?.();
+
         const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
         if (savedRatio > 0.005) {
-          // Force layout reflow so scrollHeight & clientHeight are 100% computed before initial paint
-          void scrollEl.offsetHeight;
+          void scrollEl.offsetHeight; // force synchronous layout computation before first paint
           const total = scrollEl.scrollHeight - scrollEl.clientHeight;
           if (total > 0) {
             scrollEl.scrollTop = Math.round(savedRatio * total);
@@ -2584,6 +2668,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
     async function refetchArticleContent(id) {
+      closeReaderMoreMenu();
       const item = allEntries.find(e => e.id === id);
       if (!item || !item.url) return;
 
@@ -2598,19 +2683,27 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       showToast('Re-fetching article from source...');
       try {
         const res = await authFetch('/api/entries/' + id + '/reload.json', { method: 'PATCH' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || ('HTTP ' + res.status));
+        }
         const updated = await res.json();
         const idx = allEntries.findIndex(e => e.id === id);
         if (idx >= 0) allEntries[idx] = updated;
         else allEntries.unshift(updated);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-        filterArticles();
+
         if (activeArticleId === id) {
           await openReader(id, false);
         }
+
+        requestAnimationFrame(() => {
+          filterArticles();
+        });
+
         showToast('✓ Article content re-fetched successfully!');
       } catch (err) {
-        showToast('Failed to re-fetch: ' + err.message);
+        showToast(err.message || 'Failed to re-fetch article', true);
       }
     }
 
@@ -3931,6 +4024,14 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       scrollContainer.addEventListener('touchend', resetOverscroll, { passive: true });
       scrollContainer.addEventListener('touchcancel', resetOverscroll, { passive: true });
+
+      scrollContainer._resetOverscroll = () => {
+        isTracking = false;
+        currentPull = 0;
+        target.style.transition = 'none';
+        target.style.transform = '';
+        target.style.willChange = '';
+      };
     }
 
     function closeMobileNavMenu() {
@@ -4763,6 +4864,244 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
     }
 
+    let cachedSiteCookies = [];
+
+    async function loadSiteCookies() {
+      try {
+        const res = await authFetch('/api/site-cookies');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.sites)) {
+            cachedSiteCookies = data.sites;
+            renderSiteCookiesList();
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load site cookies:', e);
+      }
+    }
+
+    function renderSiteCookiesList() {
+      const container = document.getElementById('activeSiteCookiesList');
+      if (!container) return;
+
+      if (!cachedSiteCookies || cachedSiteCookies.length === 0) {
+        container.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 0.4rem 0;">No logged-in sites configured yet. Tap a preset above or + Add Site.</div>';
+        return;
+      }
+
+      container.innerHTML = cachedSiteCookies.map((site) => {
+        const name = site.site_name || site.domain;
+        const domain = site.domain;
+        const isEnabled = site.is_enabled !== 0;
+        const statusBadge = isEnabled
+          ? '<span style="color: #22c55e; font-weight: 500;">🟢 Enabled</span>'
+          : '<span style="color: var(--text-muted); font-weight: 500;">⚪ Disabled</span>';
+
+        return '<div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.45rem 0.65rem; font-size: 0.8rem; opacity: ' + (isEnabled ? '1' : '0.65') + '; transition: opacity 0.2s;">' +
+          '<div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">' +
+            '<span style="font-size: 0.9rem;">🔑</span>' +
+            '<div style="overflow: hidden;">' +
+              '<div style="font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + escapeHtml(name) + '</div>' +
+              '<div style="font-size: 0.7rem; color: var(--text-muted);">' + escapeHtml(domain) + ' &bull; ' + statusBadge + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display: flex; gap: 0.65rem; align-items: center;">' +
+            '<label class="site-cookie-switch" title="' + (isEnabled ? 'Disable authenticated scraping' : 'Enable authenticated scraping') + '">' +
+              '<input type="checkbox" ' + (isEnabled ? 'checked' : '') + ' onchange="handleToggleSiteCookie(\'' + escapeHtml(domain) + '\', this.checked)" />' +
+              '<span class="site-cookie-slider"></span>' +
+            '</label>' +
+            '<button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.72rem; color: var(--danger, #ef4444);" onclick="handleDeleteSiteCookie(\'' + escapeHtml(domain) + '\')" title="Remove logged-in session">' +
+              'Remove' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function openAddSiteCookieDialog(defaultDomain, defaultName) {
+      const domainInput = document.getElementById('siteCookieDomainInput');
+      const valInput = document.getElementById('siteCookieValueInput');
+      if (domainInput) domainInput.value = defaultDomain || '';
+      if (valInput) valInput.value = '';
+      const titleEl = document.getElementById('siteCookieModalTitle');
+      if (titleEl) titleEl.textContent = defaultName ? ('Log In to ' + defaultName) : 'Log In to Site';
+
+      const isNative = isCapacitorApp();
+      const mobileWrap = document.getElementById('siteCookieLoginActionWrap');
+      const webBanner = document.getElementById('siteCookieWebBanner');
+      const manualInput = document.getElementById('siteCookieValueInput');
+
+      if (mobileWrap) mobileWrap.style.display = isNative ? 'block' : 'none';
+      if (webBanner) webBanner.style.display = isNative ? 'none' : 'block';
+      if (manualInput) manualInput.required = !isNative;
+
+      openModal('siteCookieModal');
+      if (!isNative && defaultDomain && valInput) {
+        setTimeout(() => valInput.focus(), 150);
+      }
+    }
+
+    async function handlePresetSiteLogin(domain, name, loginUrl) {
+      if (isCapacitorApp() && typeof window.Capacitor !== 'undefined') {
+        const plugins = window.Capacitor.Plugins;
+        const nativePlugin = plugins?.WallaflareNative || plugins?.WallaflareNativePlugin;
+        if (nativePlugin && typeof nativePlugin.openSiteLogin === 'function') {
+          try {
+            const res = await nativePlugin.openSiteLogin({ domain: domain, name: name, url: loginUrl });
+            if (res && res.cookies) {
+              showToast('✓ Captured login session for ' + name);
+              await saveSiteCookieToServer(res.domain || domain, res.name || name, res.cookies);
+              await loadSiteCookies();
+              return;
+            }
+          } catch (err) {
+            console.warn('Native site login cancelled or failed:', err);
+          }
+        }
+      }
+      openAddSiteCookieDialog(domain, name);
+    }
+
+    async function launchInAppSiteLogin() {
+      const domainInput = document.getElementById('siteCookieDomainInput');
+      const domain = (domainInput ? domainInput.value : '').trim();
+      if (!domain) {
+        showToast('Please enter a domain first', true);
+        return;
+      }
+      const loginUrl = domain.startsWith('http://') || domain.startsWith('https://') ? domain : ('https://' + domain);
+      closeModal('siteCookieModal');
+      await handlePresetSiteLogin(domain, domain, loginUrl);
+    }
+
+    async function saveSiteCookieToServer(domain, siteName, cookieValue) {
+      try {
+        const res = await authFetch('/api/site-cookies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain: domain, site_name: siteName, cookie_value: cookieValue })
+        });
+        if (res.ok) {
+          showToast('Saved session for ' + domain + '!');
+          return true;
+        }
+      } catch (e) {}
+      showToast('Failed to save session to server', true);
+      return false;
+    }
+
+    async function handleSaveSiteCookieSubmit(e) {
+      if (e) e.preventDefault();
+      const domainInput = document.getElementById('siteCookieDomainInput');
+      const valInput = document.getElementById('siteCookieValueInput');
+      const domain = (domainInput ? domainInput.value : '').trim();
+      const cookieValue = (valInput ? valInput.value : '').trim();
+
+      if (!domain || !cookieValue) {
+        showToast('Please provide both domain and cookie string', true);
+        return;
+      }
+
+      const ok = await saveSiteCookieToServer(domain, domain, cookieValue);
+      if (ok) {
+        closeModal('siteCookieModal');
+        await loadSiteCookies();
+      }
+    }
+
+        async function handleToggleSiteCookie(domain, isEnabled) {
+      const site = cachedSiteCookies.find(s => s.domain === domain);
+      if (site) site.is_enabled = isEnabled ? 1 : 0;
+      renderSiteCookiesList();
+
+      if (isCapacitorApp() && typeof window.Capacitor !== 'undefined') {
+        const nativePlugin = window.Capacitor.Plugins?.WallaflareNative;
+        if (nativePlugin && typeof nativePlugin.setDomainEnabled === 'function') {
+          nativePlugin.setDomainEnabled({ domain: domain, enabled: isEnabled }).catch(() => {});
+        }
+      }
+
+      try {
+        const res = await authFetch('/api/site-cookies/' + encodeURIComponent(domain), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_enabled: isEnabled })
+        });
+        if (res.ok) {
+          showToast(domain + (isEnabled ? ' enabled' : ' disabled'));
+          return;
+        }
+      } catch (e) {}
+      showToast('Failed to update site toggle', true);
+    }
+
+    async function handleClearAllSiteCookies() {
+      const ok = await showConfirmDialog(
+        'Clear All Site Logins',
+        'Are you sure you want to remove all saved site login cookies from both your Cloudflare server and this device?',
+        'Clear All',
+        true
+      );
+      if (!ok) return;
+
+      try {
+        const res = await authFetch('/api/site-cookies', { method: 'DELETE' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        cachedSiteCookies = [];
+        renderSiteCookiesList();
+
+        if (typeof (window as any).AndroidNative !== 'undefined' && typeof (window as any).AndroidNative.clearAllSiteCookies === 'function') {
+          (window as any).AndroidNative.clearAllSiteCookies();
+        } else if (isCapacitorApp() && typeof window.Capacitor !== 'undefined') {
+          const nativePlugin = window.Capacitor.Plugins?.WallaflareNative;
+          if (nativePlugin && typeof nativePlugin.clearAllSiteCookies === 'function') {
+            nativePlugin.clearAllSiteCookies().catch(() => {});
+          }
+        }
+
+        showToast('✓ All site logins and cookies cleared');
+      } catch (err) {
+        showToast('Failed to clear cookies: ' + (err.message || 'Error'), true);
+      }
+    }
+
+    async function handleDeleteSiteCookie(domain) {
+      const confirmed = await showConfirmDialog(
+        'Remove Login Session',
+        'Are you sure you want to remove the saved login session for ' + domain + '?\n\nThis will delete the stored cookies and revert to anonymous scraping for this domain.',
+        'Remove Session',
+        true
+      );
+      if (!confirmed) return;
+
+      try {
+        const res = await authFetch('/api/site-cookies/' + encodeURIComponent(domain), {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          if (isCapacitorApp() && typeof window.Capacitor !== 'undefined') {
+            const nativePlugin = window.Capacitor.Plugins?.WallaflareNative;
+            if (nativePlugin && typeof nativePlugin.clearDomainCookies === 'function') {
+              nativePlugin.clearDomainCookies({ domain: domain }).catch(() => {});
+            }
+          }
+          showToast('Removed login session for ' + domain);
+          cachedSiteCookies = cachedSiteCookies.filter(s => s.domain !== domain);
+          renderSiteCookiesList();
+          if (isCapacitorApp() && typeof window.Capacitor !== 'undefined') {
+            const nativePlugin = window.Capacitor.Plugins?.WallaflareNative;
+            if (nativePlugin && typeof nativePlugin.syncAllDomainCookies === 'function') {
+              nativePlugin.syncAllDomainCookies({ sites: cachedSiteCookies }).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {
+        showToast('Failed to delete site session', true);
+      }
+    }
+
     function openSettingsModal() {
       const serverRow = document.getElementById('serverConnectionSettingsRow');
       if (serverRow) {
@@ -4770,6 +5109,9 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
       updateSettingsStats();
       updateParserEngineUI();
+      loadSiteCookies();
+      const webTip = document.getElementById('siteCookieWebTip');
+      if (webTip) webTip.style.display = isCapacitorApp() ? 'none' : 'block';
       openModal('settingsModal');
     }
 
@@ -5505,6 +5847,15 @@ if (typeof window !== "undefined") {
   try { (window as any).setParserEngine = setParserEngine; } catch (e) {}
   try { (window as any).updateParserEngineUI = updateParserEngineUI; } catch (e) {}
   try { (window as any).openSettingsModal = openSettingsModal; } catch (e) {}
+  try { (window as any).loadSiteCookies = loadSiteCookies; } catch (e) {}
+  try { (window as any).renderSiteCookiesList = renderSiteCookiesList; } catch (e) {}
+  try { (window as any).openAddSiteCookieDialog = openAddSiteCookieDialog; } catch (e) {}
+  try { (window as any).handlePresetSiteLogin = handlePresetSiteLogin; } catch (e) {}
+  try { (window as any).launchInAppSiteLogin = launchInAppSiteLogin; } catch (e) {}
+  try { (window as any).handleSaveSiteCookieSubmit = handleSaveSiteCookieSubmit; } catch (e) {}
+  try { (window as any).handleToggleSiteCookie = handleToggleSiteCookie; } catch (e) {}
+  try { (window as any).handleDeleteSiteCookie = handleDeleteSiteCookie; } catch (e) {}
+  try { (window as any).handleClearAllSiteCookies = handleClearAllSiteCookies; } catch (e) {}
   try { (window as any).reconcileDatabase = reconcileDatabase; } catch (e) {}
   try { (window as any).openServerConnectModal = openServerConnectModal; } catch (e) {}
   try { (window as any).handleSaveServerConnection = handleSaveServerConnection; } catch (e) {}

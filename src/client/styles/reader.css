@@ -311,3 +311,28 @@
     .hl-sort-btn.active { background: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; font-weight: 600; }
     .modal-hl-item { padding: 0.75rem 0.9rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.35rem; cursor: pointer; }
     .modal-hl-item:hover { border-color: var(--accent) !important; transform: translateY(-1px); }
+
+    .reader-body ul,
+    .reader-body ol {
+      margin: 1.25rem 0;
+      padding-left: 1.75rem;
+      padding-right: 0;
+      list-style-position: outside;
+    }
+    .reader-body[dir="rtl"] ul,
+    .reader-body[dir="rtl"] ol,
+    .reader-content-wrap.is-rtl .reader-body ul,
+    .reader-content-wrap.is-rtl .reader-body ol {
+      padding-left: 0;
+      padding-right: 1.75rem;
+    }
+    .reader-body li {
+      margin-bottom: 0.5rem;
+      line-height: var(--reader-line-height, 1.68);
+    }
+
+#readerScrollContainer, .reader-main-scroll {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}

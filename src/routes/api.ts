@@ -23,6 +23,12 @@ import {
   removeTagFromEntry,
   deleteTag,
   getLibraryCounts,
+  getSiteCookies,
+  getSiteCookieForDomain,
+  saveSiteCookie,
+  toggleSiteCookie,
+  deleteSiteCookie,
+  clearAllSiteCookies,
   getCurrentSyncRevision,
   getSyncState,
   getDeletedEntriesSince,
@@ -634,11 +640,12 @@ const syncHandler = async (c: any) => {
     since_rev: (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev > 0) ? sinceRev : undefined
   };
 
-  const [entriesResult, allTags, counts, deletedIds] = await Promise.all([
+  const [entriesResult, allTags, counts, deletedIds, siteCookies] = await Promise.all([
     getEntries(c.env.DB, entriesFilter),
     getTags(c.env.DB),
     getLibraryCounts(c.env.DB),
     sinceRev !== undefined && !isNaN(sinceRev) ? getDeletedEntriesSince(c.env.DB, sinceRev) : Promise.resolve([]),
+    getSiteCookies(c.env.DB, true),
   ]);
 
   c.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
@@ -650,6 +657,7 @@ const syncHandler = async (c: any) => {
     tags: allTags,
     counts: counts,
     deleted_ids: deletedIds,
+    site_cookies: siteCookies,
     total: entriesResult.total,
     page: entriesResult.page,
     limit: entriesResult.limit,
@@ -663,6 +671,55 @@ apiRouter.get('/api/sync', authMiddleware, syncHandler);
 apiRouter.get('/api/sync.json', authMiddleware, syncHandler);
 
 // -------------------------------------------------------------
+
+// -------------------------------------------------------------
+// Site Cookies Vault Endpoints (Paywalled & Logged-In Sites)
+// -------------------------------------------------------------
+apiRouter.get('/api/site-cookies', authMiddleware, async (c: any) => {
+  const list = await getSiteCookies(c.env.DB);
+  return c.json({
+    success: true,
+    sites: list
+  });
+});
+
+apiRouter.post('/api/site-cookies', authMiddleware, async (c: any) => {
+  const body = await c.req.json().catch(() => ({}));
+  const domain = String(body.domain || '').trim();
+  const siteName = String(body.site_name || body.name || '').trim();
+  const cookieValue = String(body.cookie_value || body.cookie || '').trim();
+
+  if (!domain || !cookieValue) {
+    return c.json({ error: 'Domain and cookie_value are required' }, 400);
+  }
+
+  await saveSiteCookie(c.env.DB, domain, siteName, cookieValue);
+  return c.json({ success: true, domain, site_name: siteName || domain });
+});
+
+apiRouter.patch('/api/site-cookies/:domain', authMiddleware, async (c: any) => {
+  const domain = c.req.param('domain') || '';
+  const body = await c.req.json().catch(() => ({}));
+  const isEnabled = body.is_enabled !== undefined ? Boolean(body.is_enabled) : true;
+  if (!domain) return c.json({ error: 'Domain is required' }, 400);
+
+  const success = await toggleSiteCookie(c.env.DB, domain, isEnabled);
+  return c.json({ success, domain, is_enabled: isEnabled ? 1 : 0 });
+});
+
+apiRouter.delete('/api/site-cookies', authMiddleware, async (c: any) => {
+  const cleared = await clearAllSiteCookies(c.env.DB);
+  return c.json({ success: cleared, message: 'All site cookies deleted' });
+});
+
+apiRouter.delete('/api/site-cookies/:domain', authMiddleware, async (c: any) => {
+  const domain = c.req.param('domain') || '';
+  if (!domain) return c.json({ error: 'Domain is required' }, 400);
+
+  const deleted = await deleteSiteCookie(c.env.DB, domain);
+  return c.json({ success: deleted });
+});
+
 // Ingest Article: POST /api/entries(.json)
 // -------------------------------------------------------------
 const postEntryHandler = async (c: any) => {
@@ -770,7 +827,12 @@ const postEntryHandler = async (c: any) => {
     }
 
     try {
-      const extracted = await extractArticleFromUrl(url);
+      const domain = extractDomain(url);
+      const storedCookie = await getSiteCookieForDomain(c.env.DB, domain);
+      if (storedCookie) {
+        console.log(`[API:Ingest] 🔑 Attached stored subscription cookie for domain: ${domain}`);
+      }
+      const extracted = await extractArticleFromUrl(url, storedCookie || undefined);
       console.log(`[API:Ingest] ☁️ Server scraping succeeded for: "${extracted.title || title || url}"`);
       entryData = {
         url,
@@ -1043,9 +1105,11 @@ const reloadEntryHandler = async (c: any) => {
   }
 
   try {
-    const extracted = await extractArticleFromUrl(entry.url);
+    const domain = extractDomain(entry.url);
+    const storedCookie = await getSiteCookieForDomain(c.env.DB, domain);
+    const extracted = await extractArticleFromUrl(entry.url, storedCookie || undefined);
     if (!extracted.content || extracted.content.length < 50) {
-      return c.json({ error: 'Extracted content was empty or invalid' }, 422);
+      return c.json({ error: 'Could not extract readable article text from source (page may be blocked or JS-rendered)' }, 422);
     }
 
     const updates: Partial<EntryRow> = {
@@ -1062,7 +1126,8 @@ const reloadEntryHandler = async (c: any) => {
     const updated = await updateEntry(c.env.DB, id, updates);
     return c.json(entryRowToWallabag(updated || entry), 200);
   } catch (err: any) {
-    return c.json({ error: `Failed to re-fetch: ${err.message || 'Network error'}` }, 500);
+    const msg = err.message || 'Could not fetch from source';
+    return c.json({ error: `Failed to re-fetch: ${msg}` }, 422);
   }
 };
 

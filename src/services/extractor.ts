@@ -345,15 +345,21 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   return extractArticleFromDom(document, originalUrl, formattedHtml);
 }
 
-export async function extractArticleFromUrl(url: string): Promise<ExtractedArticle> {
+export async function extractArticleFromUrl(url: string, cookies?: string): Promise<ExtractedArticle> {
   const parsedUrl = new URL(url);
 
+  const headers: Record<string, string> = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Wallaflare/1.0',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
+
+  if (cookies && cookies.trim().length > 0) {
+    headers['Cookie'] = cookies.trim();
+  }
+
   const response = await fetch(parsedUrl.toString(), {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Wallaflare/1.0',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
+    headers,
     redirect: 'follow',
   });
 

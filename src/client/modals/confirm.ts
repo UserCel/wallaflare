@@ -19,17 +19,35 @@ export function showConfirmDialog(title: string, message: string, confirmBtnText
 }
 
 export function handleConfirmModalOk(): void {
+  const modalEl = document.getElementById("confirmModal");
+  if (modalEl) {
+    modalEl.style.pointerEvents = "";
+    modalEl.removeAttribute("aria-hidden");
+  }
+  try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
   closeModal("confirmModal");
+
   if (state.confirmResolve) {
-    state.confirmResolve(true);
+    const resolve = state.confirmResolve;
     state.confirmResolve = null;
+    resolve(true);
   }
 }
 
 export function handleConfirmModalCancel(): void {
+  const modalEl = document.getElementById("confirmModal");
+  if (modalEl) {
+    modalEl.style.pointerEvents = "none";
+    modalEl.setAttribute("aria-hidden", "true");
+  }
+  try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
+
   closeModal("confirmModal");
+  if (modalEl) modalEl.style.pointerEvents = "";
+
   if (state.confirmResolve) {
-    state.confirmResolve(false);
+    const resolve = state.confirmResolve;
     state.confirmResolve = null;
+    resolve(false);
   }
 }

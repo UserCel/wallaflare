@@ -38,6 +38,12 @@
         </provider>
 
         <activity
+            android:name=".SiteLoginActivity"
+            android:label="Log In to Website"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:exported="false" />
+
+        <activity
             android:name=".ShareActivity"
             android:label="@string/app_name"
             android:theme="@style/Theme.FloatingShareDialog"

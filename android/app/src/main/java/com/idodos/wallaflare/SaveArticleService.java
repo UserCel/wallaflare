@@ -76,6 +76,13 @@ public class SaveArticleService extends Service {
             conn.setRequestProperty("Sec-Fetch-Mode", "navigate");
             conn.setRequestProperty("Sec-Fetch-Site", "cross-site");
 
+            try {
+                String cookies = WallaflareNativePlugin.getCookiesForUrl(this, urlString);
+                if (cookies != null && !cookies.isEmpty()) {
+                    conn.setRequestProperty("Cookie", cookies);
+                }
+            } catch (Exception ignored) {}
+
             int status = conn.getResponseCode();
             int redirects = 0;
             while ((status == HttpURLConnection.HTTP_MOVED_TEMP || 
@@ -99,7 +106,11 @@ public class SaveArticleService extends Service {
                 }
             }
 
-            InputStream in = (status >= 200 && status < 400) ? conn.getInputStream() : conn.getErrorStream();
+            if (status < 200 || status >= 400) {
+                // Do not parse 401/403/404 error pages
+                return null;
+            }
+            InputStream in = conn.getInputStream();
             if (in == null) return null;
 
             String encoding = conn.getContentEncoding();

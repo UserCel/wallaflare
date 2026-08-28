@@ -33,7 +33,13 @@ export function generateUnifiedArticleMenuHtml(opts: UnifiedMenuOptions): string
         '</button>'
       : '';
 
-    const focusModeBtn = (mode === 'reader')
+    const isSinglePane = typeof window !== 'undefined' && (
+      window.innerWidth < 1024 ||
+      document.body.classList.contains('mobile-view') ||
+      document.body.classList.contains('is-reading-mobile')
+    );
+
+    const focusModeBtn = (mode === 'reader' && !isSinglePane)
       ? '<button type="button" class="menu-item" onclick="' + closeFnName + '; toggleFocusMode();">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>' +
           '<span>Toggle Focus Mode (f)</span>' +

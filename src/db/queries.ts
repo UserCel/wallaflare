@@ -62,6 +62,17 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         revision INTEGER NOT NULL,
         deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
+      `CREATE TABLE IF NOT EXISTS site_cookies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        domain TEXT UNIQUE NOT NULL,
+        site_name TEXT,
+        cookie_value TEXT NOT NULL,
+        is_enabled INTEGER NOT NULL DEFAULT 1,
+        revision INTEGER NOT NULL DEFAULT 1,
+        user_id TEXT DEFAULT 'wallaflare',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
       `INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)`
     ];
 
@@ -75,6 +86,8 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
 
     try { await db.prepare('ALTER TABLE sync_state ADD COLUMN instance_id INTEGER NOT NULL DEFAULT 1').run(); } catch {}
     try { await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN revision INTEGER NOT NULL DEFAULT 1').run(); } catch {}
 
     schemaEnsured = true;
   } catch (err) {
@@ -964,6 +977,19 @@ export async function ensureSyncRevisionTables(db: D1Database): Promise<void> {
       )
     `).run();
     await db.prepare(`
+      CREATE TABLE IF NOT EXISTS site_cookies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        domain TEXT UNIQUE NOT NULL,
+        site_name TEXT,
+        cookie_value TEXT NOT NULL,
+        is_enabled INTEGER NOT NULL DEFAULT 1,
+        revision INTEGER NOT NULL DEFAULT 1,
+        user_id TEXT DEFAULT 'wallaflare',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `).run();
+    await db.prepare(`
       INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)
     `).run();
     try {
@@ -1069,4 +1095,144 @@ export async function wipeDatabase(db: D1Database): Promise<{ instance_id: numbe
   await db.prepare('DELETE FROM sync_state').run();
   await db.prepare('INSERT INTO sync_state (id, revision, instance_id, updated_at) VALUES (1, 1, ?, ?)').bind(newInstanceId, now).run();
   return { instance_id: newInstanceId, revision: 1 };
+}
+
+
+// -------------------------------------------------------------
+// Site Cookies Vault (Paywall & Logged-In Sites)
+// -------------------------------------------------------------
+
+export interface SiteCookieItem {
+  id?: number;
+  domain: string;
+  site_name?: string;
+  cookie_value?: string;
+  is_enabled?: number;
+  has_cookie?: boolean;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getSiteCookies(db: D1Database, includeValues: boolean = false): Promise<SiteCookieItem[]> {
+  await ensureDatabaseSchema(db);
+  try {
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN revision INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+
+    const query = includeValues
+      ? `SELECT id, domain, site_name, cookie_value, is_enabled, revision, created_at, updated_at, 1 as has_cookie FROM site_cookies ORDER BY domain ASC`
+      : `SELECT id, domain, site_name, is_enabled, revision, created_at, updated_at, 1 as has_cookie FROM site_cookies ORDER BY domain ASC`;
+
+    const { results } = await db.prepare(query).all<SiteCookieItem>();
+    
+    return (results || []).map(r => ({
+      ...r,
+      is_enabled: r.is_enabled !== undefined ? Number(r.is_enabled) : 1
+    }));
+  } catch (e) {
+    console.error('[CookieVault] getSiteCookies error:', e);
+    return [];
+  }
+}
+
+export async function getSiteCookieForDomain(db: D1Database, targetDomain: string): Promise<string | null> {
+  await ensureDatabaseSchema(db);
+  try {
+    const normalized = targetDomain.toLowerCase().replace(/^www\./, '');
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN revision INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+
+    const { results } = await db.prepare(`
+      SELECT domain, cookie_value, is_enabled
+      FROM site_cookies
+      WHERE is_enabled = 1
+    `).all<{ domain: string; cookie_value: string; is_enabled: number }>();
+
+    if (!results || results.length === 0) return null;
+
+    for (const row of results) {
+      const rowDomain = row.domain.toLowerCase().replace(/^www\./, '');
+      if (normalized === rowDomain || normalized.endsWith('.' + rowDomain)) {
+        return row.cookie_value;
+      }
+    }
+    return null;
+  } catch (e) {
+    console.error('[CookieVault] getSiteCookieForDomain error:', e);
+    return null;
+  }
+}
+
+export async function saveSiteCookie(
+  db: D1Database,
+  domain: string,
+  siteName: string,
+  cookieValue: string
+): Promise<void> {
+  await ensureDatabaseSchema(db);
+  const newRev = await bumpSyncRevision(db);
+  const now = new Date().toISOString();
+  const cleanDomain = domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  
+  try {
+    await db.prepare(`
+      INSERT INTO site_cookies (domain, site_name, cookie_value, is_enabled, revision, created_at, updated_at)
+      VALUES (?, ?, ?, 1, ?, ?, ?)
+      ON CONFLICT(domain) DO UPDATE SET
+        site_name = excluded.site_name,
+        cookie_value = excluded.cookie_value,
+        is_enabled = 1,
+        revision = excluded.revision,
+        updated_at = excluded.updated_at
+    `).bind(cleanDomain, siteName || cleanDomain, cookieValue, newRev, now, now).run();
+  } catch (err: any) {
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN revision INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+    
+    await db.prepare(`
+      INSERT INTO site_cookies (domain, site_name, cookie_value, is_enabled, revision, created_at, updated_at)
+      VALUES (?, ?, ?, 1, ?, ?, ?)
+      ON CONFLICT(domain) DO UPDATE SET
+        site_name = excluded.site_name,
+        cookie_value = excluded.cookie_value,
+        is_enabled = 1,
+        revision = excluded.revision,
+        updated_at = excluded.updated_at
+    `).bind(cleanDomain, siteName || cleanDomain, cookieValue, newRev, now, now).run();
+  }
+}
+
+export async function toggleSiteCookie(db: D1Database, domain: string, isEnabled: boolean): Promise<boolean> {
+  await ensureDatabaseSchema(db);
+  const newRev = await bumpSyncRevision(db);
+  const cleanDomain = domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  const now = new Date().toISOString();
+  try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+  try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN revision INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+
+  const res = await db.prepare(`
+    UPDATE site_cookies SET is_enabled = ?, revision = ?, updated_at = ? WHERE domain = ?
+  `).bind(isEnabled ? 1 : 0, newRev, now, cleanDomain).run();
+  return (res.meta?.changes ?? 0) > 0;
+}
+
+export async function deleteSiteCookie(db: D1Database, domain: string): Promise<boolean> {
+  await ensureDatabaseSchema(db);
+  await bumpSyncRevision(db);
+  const cleanDomain = domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  const res = await db.prepare('DELETE FROM site_cookies WHERE domain = ?').bind(cleanDomain).run();
+  return (res.meta?.changes ?? 0) > 0;
+}
+
+export async function clearAllSiteCookies(db: D1Database): Promise<boolean> {
+  await ensureDatabaseSchema(db);
+  try {
+    await bumpSyncRevision(db);
+    await db.prepare('DELETE FROM site_cookies').run();
+    return true;
+  } catch (e) {
+    console.error('[CookieVault] clearAllSiteCookies error:', e);
+    return false;
+  }
 }

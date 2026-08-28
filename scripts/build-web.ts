@@ -41,7 +41,7 @@ async function main() {
   // Compute deterministic content hash of the web dashboard
   const contentHash = crypto.createHash('sha256').update(rawHtml).digest('hex').slice(0, 10);
   const otaVersion = `${baseVersion}-${contentHash}`;
-  const minNativeVersion = "1.1";
+  const minNativeVersion = "1.3";
 
   const capacitorHtml = rawHtml
     .replace('<html lang="en" class="dark"', '<html lang="en" class="dark is-capacitor-app"')
