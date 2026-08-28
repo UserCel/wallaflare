@@ -300,6 +300,7 @@ export async function createAnnotation(
   entryId: number,
   data: { quote: string; text?: string; color?: string; ranges?: any[]; target?: any; user_id?: string }
 ): Promise<AnnotationItem> {
+  const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
   const rangesStr = JSON.stringify(data.ranges || []);
   const targetStr = data.target ? JSON.stringify(data.target) : null;
@@ -312,6 +313,11 @@ export async function createAnnotation(
     INSERT INTO annotations (entry_id, user_id, quote, text, color, ranges, target, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(entryId, userId, quote, text, color, rangesStr, targetStr, now, now).run();
+
+  // Bump parent entry's revision and updated_at so delta sync propagates the annotation to clients
+  await db.prepare(`
+    UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?
+  `).bind(newRev, now, entryId).run();
 
   const id = res.meta.last_row_id || 0;
   return formatAnnotationResponse({
@@ -332,6 +338,7 @@ export async function updateAnnotation(db: D1Database, id: number, data: { text?
   const existing = await db.prepare('SELECT * FROM annotations WHERE id = ? LIMIT 1').bind(id).first<any>();
   if (!existing) return null;
 
+  const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
   const text = data.text !== undefined ? data.text : existing.text;
   const color = data.color !== undefined ? data.color : existing.color;
@@ -340,6 +347,10 @@ export async function updateAnnotation(db: D1Database, id: number, data: { text?
   await db.prepare(`
     UPDATE annotations SET text = ?, color = ?, target = ?, updated_at = ? WHERE id = ?
   `).bind(text, color, targetStr, now, id).run();
+
+  await db.prepare(`
+    UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?
+  `).bind(newRev, now, existing.entry_id).run();
 
   return formatAnnotationResponse({
     ...existing,
@@ -351,8 +362,17 @@ export async function updateAnnotation(db: D1Database, id: number, data: { text?
 }
 
 export async function deleteAnnotation(db: D1Database, id: number): Promise<boolean> {
+  const existing = await db.prepare('SELECT entry_id FROM annotations WHERE id = ? LIMIT 1').bind(id).first<{ entry_id: number }>();
   const res = await db.prepare('DELETE FROM annotations WHERE id = ?').bind(id).run();
-  return (res.meta.changes || 0) > 0;
+  const changed = (res.meta.changes || 0) > 0;
+  if (changed && existing?.entry_id) {
+    const newRev = await bumpSyncRevision(db);
+    const now = new Date().toISOString();
+    await db.prepare(`
+      UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?
+    `).bind(newRev, now, existing.entry_id).run();
+  }
+  return changed;
 }
 
 export async function getAllEntryTagsBatch(db: D1Database, entryIds: number[]): Promise<Map<number, TagItem[]>> {

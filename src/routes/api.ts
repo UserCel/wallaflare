@@ -361,15 +361,21 @@ const createAnnotationHandler = async (c: any) => {
   }
 
   const body = await c.req.json().catch(() => ({}));
-  const quote = String(body.quote || body.text || '').trim();
-  if (!quote) {
-    return c.json({ error: 'Quote text is required' }, 400);
-  }
-  const text = body.text !== undefined && body.quote ? String(body.text) : (body.comment || '');
-  const color = String(body.color || 'yellow');
-  const ranges = body.ranges || [];
-
+  const rawQuote = body.quote !== undefined ? String(body.quote).trim() : '';
+  const rawText = body.text !== undefined && body.quote !== undefined ? String(body.text) : (body.comment !== undefined ? String(body.comment) : (body.text !== undefined ? String(body.text) : ''));
+  const ranges = Array.isArray(body.ranges) ? body.ranges : [];
   const target = body.target || null;
+
+  // An annotation is valid if it has a quote (pure highlight), a note (text/comment), or valid DOM ranges/target
+  const hasRanges = ranges.some((r: any) => r && (r.start || r.end || Number(r.startOffset) > 0 || Number(r.endOffset) > 0));
+  if (!rawQuote && !rawText && !hasRanges && !target) {
+    return c.json({ error: 'Annotation must contain quote text, a note, or valid ranges' }, 400);
+  }
+
+  const quote = rawQuote;
+  const text = rawText;
+  const color = String(body.color || 'yellow');
+
   const annotation = await createAnnotation(c.env.DB, entryId, { quote, text, color, ranges, target });
   return c.json(annotation, 201);
 };

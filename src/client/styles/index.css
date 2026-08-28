@@ -1718,3 +1718,90 @@
   box-shadow: none !important;
   -webkit-tap-highlight-color: transparent !important;
 }
+
+/* In-Reader Find Bar & Search Highlighting */
+.reader-search-bar {
+  position: absolute;
+  top: calc(var(--app-safe-top, 0px) + 58px);
+  right: 1.5rem;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.35rem 0.55rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.reader-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+#readerSearchInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  width: 165px;
+}
+.reader-search-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 0.2rem;
+  white-space: nowrap;
+}
+.reader-search-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reader-search-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.reader-search-close {
+  font-size: 1rem;
+  line-height: 1;
+}
+mark.reader-search-match {
+  background-color: rgba(250, 204, 21, 0.65) !important;
+  color: inherit !important;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+[data-theme="dark"] mark.reader-search-match,
+[data-theme="oled"] mark.reader-search-match {
+  background-color: rgba(161, 98, 7, 0.65) !important;
+}
+mark.reader-search-match.active-match {
+  background-color: #ea580c !important;
+  color: #ffffff !important;
+  outline: 2px solid #f97316;
+}
+
+@media (max-width: 640px) {
+  .reader-search-bar {
+    top: calc(var(--app-safe-top, 0px) + 52px) !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: calc(100vw - 1.5rem) !important;
+  }
+  #readerSearchInput {
+    flex: 1 !important;
+    width: auto !important;
+    min-width: 70px !important;
+  }
+}

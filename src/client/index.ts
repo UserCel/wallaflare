@@ -668,6 +668,19 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     // Keyboard Shortcuts & Modal Dismissal Hierarchy
     window.addEventListener('keydown', (e) => {
+      // Ctrl+F / Cmd+F: Fast in-reader search when reader is open, or library search when closed
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F' || e.code === 'KeyF')) {
+        if (activeArticleId) {
+          e.preventDefault();
+          openReaderSearchBar();
+          return;
+        } else {
+          e.preventDefault();
+          document.getElementById('searchInput')?.focus();
+          return;
+        }
+      }
+
       if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault();
         document.getElementById('searchInput')?.focus();
@@ -675,6 +688,14 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       if (e.key === 'Escape') {
+        // 0. Close In-Reader Find Bar
+        const readerSearchBar = document.getElementById('readerSearchBar');
+        if (readerSearchBar && readerSearchBar.style.display !== 'none') {
+          e.preventDefault();
+          closeReaderSearchBar();
+          return;
+        }
+
         // 1. Dismiss active text selection or highlight toolbar/popover
         const sel = window.getSelection();
         const highlightToolbar = document.getElementById('readerHighlightToolbar');
@@ -3136,7 +3157,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (countBadge) countBadge.textContent = String(annotations.length);
 
       if (annotations.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No highlights in this article yet.</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No highlights or notes in this article yet.</div>';
         return;
       }
 
@@ -3149,9 +3170,17 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       container.innerHTML = filtered.map(ann => {
         const colorBorder = ann.color === "green" ? "#22c55e" : (ann.color === "blue" ? "#3b82f6" : (ann.color === "purple" ? "#a855f7" : "#eab308"));
-        return '<div class="modal-hl-item" style="border-left: 4px solid ' + colorBorder + ';" onclick="scrollToAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')">' +
-          '<div style="font-weight: 500; font-size: 0.88rem;">\"' + escapeHtml(ann.quote) + '\"</div>' +
-          (ann.text ? '<div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.3rem;">💬 ' + escapeHtml(ann.text) + '</div>' : '') +
+        const rawQuote = (ann.quote || '').trim();
+        const quoteDisplay = rawQuote ? ('\"' + escapeHtml(rawQuote) + '\"') : (ann.text ? '📌 <em>(Article Note)</em>' : '📌 <em>(Range Highlight)</em>');
+        return '<div class="modal-hl-item" style="border-left: 4px solid ' + colorBorder + '; display: flex; flex-direction: column; gap: 0.35rem; position: relative;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">' +
+            '<div style="font-weight: 500; font-size: 0.88rem; flex: 1; cursor: pointer;" onclick="scrollToAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')">' + quoteDisplay + '</div>' +
+            '<div style="display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0;">' +
+              '<button type="button" class="btn-icon" style="padding: 2px 5px; font-size: 0.75rem;" onclick="event.stopPropagation(); editModalAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')" title="Edit Note">✏️</button>' +
+              '<button type="button" class="btn-icon" style="padding: 2px 5px; font-size: 0.75rem; color: var(--danger);" onclick="event.stopPropagation(); deleteModalAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')" title="Delete Highlight">🗑️</button>' +
+            '</div>' +
+          '</div>' +
+          (ann.text ? '<div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0.2rem; cursor: pointer;" onclick="scrollToAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')">💬 ' + escapeHtml(ann.text) + '</div>' : '') +
         '</div>';
       }).join('');
     }
@@ -3167,6 +3196,8 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
             mark.scrollIntoView({ behavior: "smooth", block: "center" });
             mark.style.outline = "3px solid var(--accent)";
             setTimeout(() => { mark.style.outline = ""; }, 2200);
+          } else {
+            showToast('📌 Note is unanchored (no text position in reader)');
           }
         }, 250);
         return;
@@ -3176,7 +3207,42 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         mark.scrollIntoView({ behavior: "smooth", block: "center" });
         mark.style.outline = "3px solid var(--accent)";
         setTimeout(() => { mark.style.outline = ""; }, 2200);
+      } else {
+        showToast('📌 Note is unanchored (no text position in reader)');
       }
+    }
+
+    async function deleteModalAnnotation(annId, articleId) {
+      const targetArticleId = articleId || activeModalHighlightsArticleId;
+      const item = allEntries.find(e => e.id === targetArticleId);
+      if (!item || !item.annotations) return;
+
+      const idx = item.annotations.findIndex(a => a.id === annId);
+      if (idx === -1) return;
+
+      item.annotations.splice(idx, 1);
+      if (activeArticleId === targetArticleId) {
+        applyAnnotationsToReader(item);
+      }
+      syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      renderModalHighlightsList();
+      showToast('Highlight deleted');
+
+      try {
+        await authFetch('/api/annotations/' + annId + '.json', { method: 'DELETE' });
+      } catch (e) {}
+    }
+
+    function editModalAnnotation(annId, articleId) {
+      const targetArticleId = articleId || activeModalHighlightsArticleId;
+      const item = allEntries.find(e => e.id === targetArticleId);
+      if (!item || !item.annotations) return;
+
+      const ann = item.annotations.find(a => a.id === annId);
+      if (!ann) return;
+
+      closeModal('readerHighlightsModal');
+      openAnnotationNoteModal(ann);
     }
 
     function openHighlightPopover(ann, targetEl) {
@@ -5648,6 +5714,162 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     initReaderSelectionHandlers();
     initCapacitorOtaUpdater();
 
+
+    // In-Reader Search Engine (Ctrl+F / Cmd+F)
+    let readerSearchMatches = [];
+    let activeReaderSearchIndex = -1;
+    let currentReaderSearchQuery = '';
+
+    
+    function toggleReaderSearchBar() {
+      const bar = document.getElementById('readerSearchBar');
+      if (bar && bar.style.display !== 'none') {
+        closeReaderSearchBar();
+      } else {
+        openReaderSearchBar();
+      }
+    }
+
+    function openReaderSearchBar() {
+      const bar = document.getElementById('readerSearchBar');
+      const input = document.getElementById('readerSearchInput');
+      if (!bar || !input) return;
+      bar.style.display = 'flex';
+      input.focus();
+      input.select();
+      if (input.value.trim()) {
+        performReaderSearch(input.value.trim());
+      }
+    }
+
+    function closeReaderSearchBar() {
+      const bar = document.getElementById('readerSearchBar');
+      if (bar) bar.style.display = 'none';
+      clearReaderSearchMatches();
+    }
+
+    function clearReaderSearchMatches() {
+      readerSearchMatches = [];
+      activeReaderSearchIndex = -1;
+      currentReaderSearchQuery = '';
+      const countEl = document.getElementById('readerSearchCount');
+      if (countEl) countEl.textContent = '0/0';
+
+      const container = document.getElementById('readerBody');
+      if (!container) return;
+      const marks = container.querySelectorAll('mark.reader-search-match');
+      marks.forEach(m => {
+        const parent = m.parentNode;
+        if (parent) {
+          while (m.firstChild) parent.insertBefore(m.firstChild, m);
+          parent.removeChild(m);
+          parent.normalize();
+        }
+      });
+    }
+
+    function handleReaderSearchInput(val) {
+      performReaderSearch(val);
+    }
+
+    function handleReaderSearchKeydown(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) jumpReaderSearchMatch(-1);
+        else jumpReaderSearchMatch(1);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeReaderSearchBar();
+      }
+    }
+
+    function performReaderSearch(query) {
+      const q = (query || '').trim();
+      clearReaderSearchMatches();
+      if (!q) return;
+
+      currentReaderSearchQuery = q;
+      const container = document.getElementById('readerBody');
+      if (!container) return;
+
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+      let node;
+      const textNodes = [];
+      while ((node = walker.nextNode())) {
+        if (node.parentElement && (node.parentElement.tagName === 'SCRIPT' || node.parentElement.tagName === 'STYLE')) continue;
+        textNodes.push(node);
+      }
+
+      const qLower = q.toLowerCase();
+      const matchElements = [];
+
+      for (const tNode of textNodes) {
+        let text = tNode.nodeValue || '';
+        let lower = text.toLowerCase();
+        let idx = lower.indexOf(qLower);
+        if (idx === -1) continue;
+
+        let currentNode = tNode;
+        while (idx !== -1) {
+          const matchText = (currentNode.nodeValue || '').substring(idx, idx + q.length);
+          const after = (currentNode.nodeValue || '').substring(idx + q.length);
+
+          const mark = document.createElement('mark');
+          mark.className = 'reader-search-match';
+          mark.textContent = matchText;
+
+          currentNode.nodeValue = (currentNode.nodeValue || '').substring(0, idx);
+          const afterNode = document.createTextNode(after);
+
+          const parent = currentNode.parentNode;
+          if (parent) {
+            parent.insertBefore(mark, currentNode.nextSibling);
+            parent.insertBefore(afterNode, mark.nextSibling);
+          }
+
+          matchElements.push(mark);
+
+          currentNode = afterNode;
+          lower = (currentNode.nodeValue || '').toLowerCase();
+          idx = lower.indexOf(qLower);
+        }
+      }
+
+      readerSearchMatches = matchElements;
+      const countEl = document.getElementById('readerSearchCount');
+      if (countEl) {
+        countEl.textContent = readerSearchMatches.length > 0 ? ('1/' + readerSearchMatches.length) : '0/0';
+      }
+
+      if (readerSearchMatches.length > 0) {
+        activeReaderSearchIndex = 0;
+        updateActiveReaderSearchMatch();
+      }
+    }
+
+    function jumpReaderSearchMatch(delta) {
+      if (readerSearchMatches.length === 0) return;
+      activeReaderSearchIndex = (activeReaderSearchIndex + delta + readerSearchMatches.length) % readerSearchMatches.length;
+      updateActiveReaderSearchMatch();
+    }
+
+    function updateActiveReaderSearchMatch() {
+      readerSearchMatches.forEach((m, idx) => {
+        if (idx === activeReaderSearchIndex) m.classList.add('active-match');
+        else m.classList.remove('active-match');
+      });
+
+      const countEl = document.getElementById('readerSearchCount');
+      if (countEl) {
+        countEl.textContent = (activeReaderSearchIndex + 1) + '/' + readerSearchMatches.length;
+      }
+
+      const currentMark = readerSearchMatches[activeReaderSearchIndex];
+      if (currentMark) {
+        currentMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
 // Attach all functions to window for HTML inline handlers & test compatibility
 if (typeof window !== "undefined") {
   try { (window as any).isRtlText = isRtlText; } catch (e) {}
@@ -5777,6 +5999,15 @@ if (typeof window !== "undefined") {
   try { (window as any).closeAnnotationNoteModal = closeAnnotationNoteModal; } catch (e) {}
   try { (window as any).handleSaveAnnotationNoteForm = handleSaveAnnotationNoteForm; } catch (e) {}
   try { (window as any).clearActiveTextSelection = clearActiveTextSelection; } catch (e) {}
+  try { (window as any).deleteModalAnnotation = deleteModalAnnotation; } catch (e) {}
+  try { (window as any).editModalAnnotation = editModalAnnotation; } catch (e) {}
+  try { (window as any).toggleReaderSearchBar = toggleReaderSearchBar; } catch (e) {}
+  try { (window as any).openReaderSearchBar = openReaderSearchBar; } catch (e) {}
+  try { (window as any).closeReaderSearchBar = closeReaderSearchBar; } catch (e) {}
+  try { (window as any).handleReaderSearchInput = handleReaderSearchInput; } catch (e) {}
+  try { (window as any).handleReaderSearchKeydown = handleReaderSearchKeydown; } catch (e) {}
+  try { (window as any).jumpReaderSearchMatch = jumpReaderSearchMatch; } catch (e) {}
+
   try { (window as any).initReaderSelectionHandlers = initReaderSelectionHandlers; } catch (e) {}
   try { (window as any).copyDirectText = copyDirectText; } catch (e) {}
   try { (window as any).copySyncValue = copySyncValue; } catch (e) {}
