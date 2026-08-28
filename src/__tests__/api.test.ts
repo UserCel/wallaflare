@@ -1652,7 +1652,7 @@ describe("Capacitor Android OTA Endpoints", () => {
     const data = await res.json<any>();
     expect(data.version).toBeDefined();
     expect(data.min_native_version).toBeDefined();
-    expect(data.min_native_version).toBe("1.3");
+    expect(data.min_native_version).toBe("1.3.1");
     expect(data.url).toBe("/api/app/bundle.zip");
     expect(data.checksum).toBeDefined();
   });

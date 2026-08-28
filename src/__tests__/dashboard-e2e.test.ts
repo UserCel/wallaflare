@@ -660,4 +660,213 @@ it("handles keyboard shortcuts: search (/), focus mode (f), and reader navigatio
     expect(savedUrl).toBe("https://wallaflare.example.com");
   });
 
+  it("verifies In-Reader Search Bar closes on Escape before closing the active article", async () => {
+    const testResult = await page.evaluate(async () => {
+      const w = window as any;
+
+      // 1. Open article 101 in reader
+      await w.openReader(101);
+      const articleOpen = w.activeArticleId === 101;
+
+      // 2. Open Search Bar
+      w.openReaderSearchBar();
+      const searchBar = document.getElementById("readerSearchBar");
+      const searchBarOpen = searchBar && searchBar.style.display !== "none";
+
+      // 3. Press Escape from search input
+      const searchInput = document.getElementById("readerSearchInput");
+      const escEvent = new KeyboardEvent("keydown", { key: "Escape", bubbles: true });
+      if (searchInput) {
+        searchInput.dispatchEvent(escEvent);
+      } else {
+        window.dispatchEvent(escEvent);
+      }
+
+      const searchBarClosedAfterEsc = !searchBar || searchBar.style.display === "none";
+      const articleStillOpenAfterEsc = w.activeArticleId === 101;
+
+      // 4. Press Escape second time -> closes article
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      const articleClosedAfterSecondEsc = w.activeArticleId === null;
+
+      return {
+        articleOpen,
+        searchBarOpen,
+        searchBarClosedAfterEsc,
+        articleStillOpenAfterEsc,
+        articleClosedAfterSecondEsc
+      };
+    });
+
+    expect(testResult.articleOpen).toBe(true);
+    expect(testResult.searchBarOpen).toBe(true);
+    expect(testResult.searchBarClosedAfterEsc).toBe(true);
+    expect(testResult.articleStillOpenAfterEsc).toBe(true);
+    expect(testResult.articleClosedAfterSecondEsc).toBe(true);
+  });
+
+  it("verifies settings dual-pane tab switching and mobile drill-down back hierarchy", async () => {
+    const testResult = await page.evaluate(async () => {
+      const w = window as any;
+
+      // 1. Open Settings modal on Appearance tab
+      w.openSettingsModal('appearance');
+      const settingsModal = document.getElementById("settingsModal");
+      const settingsOpenInitial = settingsModal?.classList.contains("open");
+      const appearancePanelActive = document.getElementById("settingsPanel-appearance")?.classList.contains("active");
+
+      // 2. Switch tab to Cookies / Integrations / Tags
+      w.switchSettingsTab('integrations');
+      const integrationsPanelActive = document.getElementById("settingsPanel-integrations")?.classList.contains("active");
+
+      // 3. Open Session Cookie sub-modal from settings
+      w.openAddSiteCookieDialog();
+      const siteCookieModal = document.getElementById("siteCookieModal");
+      const siteCookieOpen = siteCookieModal?.classList.contains("open");
+
+      // 4. Press Escape -> Site cookie sub-modal closes, Settings modal remains open
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      const siteCookieClosedEsc = !siteCookieModal?.classList.contains("open");
+      const settingsStillOpenEsc = settingsModal?.classList.contains("open");
+
+      // 5. Mobile Drill-down: Simulate entering a panel on mobile
+      settingsModal?.classList.add("is-viewing-panel");
+      const mobileViewingActive = settingsModal?.classList.contains("is-viewing-panel");
+
+      // 6. Android back gesture -> Exits mobile drill-down panel back to settings category list
+      const backHandled = w.handleAndroidBackButton();
+      const mobileViewingClosed = !settingsModal?.classList.contains("is-viewing-panel");
+      const settingsStillOpenAfterMobileBack = settingsModal?.classList.contains("open");
+
+      // 7. Press Escape -> Settings modal closes
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      const settingsClosedFinal = !settingsModal?.classList.contains("open");
+
+      return {
+        settingsOpenInitial,
+        appearancePanelActive,
+        integrationsPanelActive,
+        siteCookieOpen,
+        siteCookieClosedEsc,
+        settingsStillOpenEsc,
+        mobileViewingActive,
+        backHandled,
+        mobileViewingClosed,
+        settingsStillOpenAfterMobileBack,
+        settingsClosedFinal
+      };
+    });
+
+    expect(testResult.settingsOpenInitial).toBe(true);
+    expect(testResult.appearancePanelActive).toBe(true);
+    expect(testResult.integrationsPanelActive).toBe(true);
+    expect(testResult.siteCookieOpen).toBe(true);
+    expect(testResult.siteCookieClosedEsc).toBe(true);
+    expect(testResult.settingsStillOpenEsc).toBe(true);
+    expect(testResult.mobileViewingActive).toBe(true);
+    expect(testResult.backHandled).toBe(true);
+    expect(testResult.mobileViewingClosed).toBe(true);
+    expect(testResult.settingsStillOpenAfterMobileBack).toBe(true);
+    expect(testResult.settingsClosedFinal).toBe(true);
+  });
+  it("tests single-article and batch tag management modals including partial tag usage, apply-to-all (+), and remove-from-all (x)", async () => {
+    const testResult = await page.evaluate(async () => {
+      const w = window as any;
+
+      // Setup initial tags on articles:
+      // Article 101 has "tag-alpha", Article 102 has "tag-beta"
+      const a101 = w.allEntries.find((e: any) => e.id === 101);
+      const a102 = w.allEntries.find((e: any) => e.id === 102);
+      if (a101) a101.tags = [{ label: "tag-alpha", slug: "tag-alpha" }];
+      if (a102) a102.tags = [{ label: "tag-beta", slug: "tag-beta" }];
+
+      // 1. Single Article Tag Editing on 101
+      w.openTagModal(101);
+      const singleModalOpen = document.getElementById("tagModal")?.classList.contains("open");
+
+      // Add new tag via input
+      const tagInput = document.getElementById("newTagInput") as HTMLInputElement;
+      if (tagInput) tagInput.value = "single-extra-tag";
+      w.submitAddTag();
+
+      const a101Tags1 = (a101?.tags || []).map((t: any) => typeof t === "string" ? t : t.label);
+      w.closeTagModal();
+
+      // 2. Batch Tag Editing on [101, 102]
+      w.openTagModal([101, 102]);
+      const batchModalOpen = document.getElementById("tagModal")?.classList.contains("open");
+
+      // Check partial badges initially
+      const partialBadges = Array.from(document.querySelectorAll(".tag-badge-partial")).map(el => el.getAttribute("data-tag"));
+      const hasPartialAlpha = partialBadges.includes("tag-alpha");
+      const hasPartialBeta = partialBadges.includes("tag-beta");
+
+      // Verify partial tags do NOT appear in quick add section initially
+      const initialQuickBadges = Array.from(document.querySelectorAll("#tagModalAvailableTags .tag-badge")).map(el => el.getAttribute("data-tag"));
+      const quickHasPartialAlpha = initialQuickBadges.includes("tag-alpha");
+      const quickHasPartialBeta = initialQuickBadges.includes("tag-beta");
+
+      // Click "+" (apply to all) on tag-alpha
+      const alphaBadge = document.querySelector('.tag-badge-partial[data-tag="tag-alpha"] button[title*="Apply to all"]') as HTMLElement;
+      if (alphaBadge) {
+        w.handleAddTagBtnClick(alphaBadge);
+      }
+
+      // Check that both articles now have tag-alpha
+      const a101HasAlpha = (a101?.tags || []).some((t: any) => (t.label || t) === "tag-alpha");
+      const a102HasAlpha = (a102?.tags || []).some((t: any) => (t.label || t) === "tag-alpha");
+
+      // Click "x" (remove from all) on tag-beta
+      const betaBadge = document.querySelector('.tag-badge-partial[data-tag="tag-beta"] button[title*="Remove from all"]') as HTMLElement;
+      if (betaBadge) {
+        w.handleRemoveTagBtnClick(betaBadge);
+      }
+
+      // Check that neither article has tag-beta
+      const a101HasBeta = (a101?.tags || []).some((t: any) => (t.label || t) === "tag-beta");
+      const a102HasBeta = (a102?.tags || []).some((t: any) => (t.label || t) === "tag-beta");
+
+      // Now that tag-beta is removed from all selected articles, it should return to quick tags
+      const finalQuickBadges = Array.from(document.querySelectorAll("#tagModalAvailableTags .tag-badge")).map(el => el.getAttribute("data-tag"));
+      const quickHasRemovedBeta = finalQuickBadges.includes("tag-beta");
+
+      w.closeTagModal();
+
+      // 3. Standalone Manage All Tags Modal
+      w.openGlobalTagManager();
+      const globalModalOpen = document.getElementById("globalTagModal")?.classList.contains("open");
+      const globalTagsListItems = document.querySelectorAll("#globalTagListContainer > div").length;
+
+      return {
+        singleModalOpen,
+        hasSingleExtra: a101Tags1.includes("single-extra-tag"),
+        batchModalOpen,
+        hasPartialAlpha,
+        hasPartialBeta,
+        initialQuickBadges,
+        quickHasPartialAlpha,
+        quickHasPartialBeta,
+        a101HasAlpha,
+        a102HasAlpha,
+        a101HasBeta,
+        a102HasBeta,
+        globalModalOpen,
+        globalTagsListItems
+      };
+    });
+
+    expect(testResult.singleModalOpen).toBe(true);
+    expect(testResult.hasSingleExtra).toBe(true);
+    expect(testResult.batchModalOpen).toBe(true);
+    expect(testResult.hasPartialAlpha).toBe(true);
+    expect(testResult.hasPartialBeta).toBe(true);
+    expect(testResult.quickHasPartialAlpha).toBe(false);
+    expect(testResult.quickHasPartialBeta).toBe(false);
+    expect(testResult.a101HasAlpha).toBe(true);
+    expect(testResult.a102HasAlpha).toBe(true);
+    expect(testResult.a101HasBeta).toBe(false);
+    expect(testResult.a102HasBeta).toBe(false);
+    expect(testResult.globalModalOpen).toBe(true);
+    expect(testResult.globalTagsListItems).toBeGreaterThan(0);
+  });
 });

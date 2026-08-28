@@ -344,6 +344,7 @@ public class MainActivity extends BridgeActivity {
                 getBridge().getWebView().setOverScrollMode(android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS);
                 getBridge().getWebView().getSettings().setTextZoom(100);
                 getBridge().getWebView().setBackgroundColor(android.graphics.Color.parseColor("#0f172a"));
+                getBridge().getWebView().setHapticFeedbackEnabled(false);
             } catch (Exception ignored) {}
             getBridge().getWebView().addJavascriptInterface(new NativeInterface(), "AndroidNative");
         }

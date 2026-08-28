@@ -798,6 +798,12 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           closeModal('syncModal');
           return;
         }
+        const siteCookieModal = document.getElementById('siteCookieModal');
+        if (siteCookieModal && siteCookieModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('siteCookieModal');
+          return;
+        }
         const serverConnectModal = document.getElementById('serverConnectModal');
         if (serverConnectModal && serverConnectModal.classList.contains('open')) {
           e.preventDefault();
@@ -813,6 +819,10 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         const settingsModal = document.getElementById('settingsModal');
         if (settingsModal && settingsModal.classList.contains('open')) {
           e.preventDefault();
+          if (settingsModal.classList.contains('is-viewing-panel')) {
+            handleSettingsMobileBack();
+            return;
+          }
           closeModal('settingsModal');
           return;
         }
@@ -949,6 +959,13 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     // Android Back Button Navigation
     window.handleAndroidBackButton = function() {
+      // 0. In-Reader Search Bar
+      const readerSearchBar = document.getElementById('readerSearchBar');
+      if (readerSearchBar && readerSearchBar.style.display !== 'none') {
+        closeReaderSearchBar();
+        return true;
+      }
+
       // 1. Text Selection & Highlight Tools
       const highlightToolbar = document.getElementById('readerHighlightToolbar');
       const highlightPopover = document.getElementById('highlightPopover');
@@ -994,6 +1011,41 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       // 3. Modals & Dialogs
+      const confirmModal = document.getElementById('confirmModal');
+      if (confirmModal && confirmModal.classList.contains('open')) {
+        handleConfirmModalCancel();
+        return true;
+      }
+      const siteCookieModal = document.getElementById('siteCookieModal');
+      if (siteCookieModal && siteCookieModal.classList.contains('open')) {
+        closeModal('siteCookieModal');
+        return true;
+      }
+      const wipeDbModal = document.getElementById('wipeDbModal');
+      if (wipeDbModal && wipeDbModal.classList.contains('open')) {
+        closeModal('wipeDbModal');
+        return true;
+      }
+      const serverConnectModal = document.getElementById('serverConnectModal');
+      if (serverConnectModal && serverConnectModal.classList.contains('open')) {
+        closeModal('serverConnectModal');
+        return true;
+      }
+      const globalTagModal = document.getElementById('globalTagModal');
+      if (globalTagModal && globalTagModal.classList.contains('open')) {
+        closeGlobalTagModal();
+        return true;
+      }
+      const syncModal = document.getElementById('syncModal');
+      if (syncModal && syncModal.classList.contains('open')) {
+        closeModal('syncModal');
+        return true;
+      }
+      const devModal = document.getElementById('devModal');
+      if (devModal && devModal.classList.contains('open')) {
+        closeModal('devModal');
+        return true;
+      }
       const annotationNoteModal = document.getElementById('annotationNoteModal');
       if (annotationNoteModal && annotationNoteModal.classList.contains('open')) {
         closeAnnotationNoteModal();
@@ -1002,6 +1054,35 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       const readerHighlightsModal = document.getElementById('readerHighlightsModal');
       if (readerHighlightsModal && readerHighlightsModal.classList.contains('open')) {
         closeModal('readerHighlightsModal');
+        return true;
+      }
+      const tagModal = document.getElementById('tagModal');
+      if (tagModal && tagModal.classList.contains('open')) {
+        closeTagModal();
+        return true;
+      }
+      const editTitleModal = document.getElementById('editTitleModal');
+      if (editTitleModal && editTitleModal.classList.contains('open')) {
+        closeModal('editTitleModal');
+        return true;
+      }
+      const addUrlModal = document.getElementById('addUrlModal');
+      if (addUrlModal && addUrlModal.classList.contains('open')) {
+        closeModal('addUrlModal');
+        return true;
+      }
+      const addTextModal = document.getElementById('addTextModal');
+      if (addTextModal && addTextModal.classList.contains('open')) {
+        closeModal('addTextModal');
+        return true;
+      }
+      const settingsModal = document.getElementById('settingsModal');
+      if (settingsModal && settingsModal.classList.contains('open')) {
+        if (settingsModal.classList.contains('is-viewing-panel')) {
+          handleSettingsMobileBack();
+          return true;
+        }
+        closeModal('settingsModal');
         return true;
       }
       const openModalEl = document.querySelector('.modal-backdrop.open, .modal-overlay.open, .tag-modal-overlay.open, .modal.open');
@@ -2188,13 +2269,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       clearTimeout(cardLongPressTimer);
       cardLongPressTimer = setTimeout(() => {
         cardLongPressTriggered = true;
-        try {
-          if (window.Capacitor?.Plugins?.Haptics) {
-            window.Capacitor.Plugins.Haptics.impact({ style: 'medium' });
-          } else if (navigator.vibrate) {
-            navigator.vibrate(40);
-          }
-        } catch (_) {}
+        triggerHaptic('medium');
         toggleArticleSelection(id);
       }, 420);
     }
@@ -2268,9 +2343,13 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     function showReaderTopBar(restoreStatusBar = true) {
       const topBar = document.getElementById('readerTopBar');
+      const readerView = document.getElementById('readerView');
       if (topBar) {
         topBar.classList.remove('is-hidden');
         isReaderTopBarHidden = false;
+      }
+      if (readerView) {
+        readerView.classList.remove('top-bar-hidden');
       }
       if (restoreStatusBar) {
         setReaderStatusBar(false);
@@ -3965,6 +4044,27 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       enqueueMutation('batch_archive', { ids: targetIds, archive: newArchiveVal });
     }
 
+    
+    function openTagModalForSelection() {
+      if (selectedArticleIds.length === 0) {
+        showToast('No articles selected');
+        return;
+      }
+      openTagModal([...selectedArticleIds]);
+    }
+
+    function batchArchiveArticles() {
+      batchToggleArchive();
+    }
+
+    function batchStarArticles() {
+      batchToggleStar();
+    }
+
+    function toggleFocusMode() {
+      toggleReaderFocusMode();
+    }
+
     function batchManageTags() {
       if (selectedArticleIds.size === 0) return;
       openTagModal(Array.from(selectedArticleIds));
@@ -4480,51 +4580,118 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       document.getElementById('tagModal')?.classList.remove('open');
     }
 
+        
+        function handleAddTagBtnClick(btn) {
+      const parent = btn.closest('.tag-badge');
+      const enc = (parent && parent.getAttribute('data-tag')) || btn.getAttribute('data-tag');
+      if (enc) addQuickTagToActiveArticles(decodeURIComponent(enc));
+    }
+
+    function handleRemoveTagBtnClick(btn) {
+      const parent = btn.closest('.tag-badge');
+      const enc = (parent && parent.getAttribute('data-tag')) || btn.getAttribute('data-tag');
+      if (enc) removeTagFromActiveArticles(decodeURIComponent(enc));
+    }
+
+    function handleFilterByTagClick(el) {
+      const enc = el.getAttribute('data-tag');
+      if (!enc) return;
+      closeModal('settingsModal');
+      closeGlobalTagModal();
+      filterByTag(decodeURIComponent(enc));
+    }
+
+    function handleDeleteGlobalTagClick(btn) {
+      const enc = btn.getAttribute('data-tag');
+      if (!enc) return;
+      deleteGlobalTag(decodeURIComponent(enc));
+    }
+
     function renderTagModalUI() {
       const container = document.getElementById('tagModalCurrentTags');
       const availContainer = document.getElementById('tagModalAvailableTags');
       const quickSection = document.getElementById('quickTagsSection');
       if (!container) return;
 
-      // Collect all applied tags across active target articles
-      const appliedTagMap = new Map();
+      const totalSelected = activeTagModalIds.length;
+
+      // Count occurrences of each tag across selected articles
+      const tagCounts = new Map(); // key -> { label, count }
       activeTagModalIds.forEach(id => {
         const item = allEntries.find(e => e.id === id);
         if (item && item.tags) {
+          const seenInArticle = new Set();
           item.tags.forEach(t => {
             const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
-            const key = label.toLowerCase();
-            if (key) appliedTagMap.set(key, label);
+            const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
+            const key = (label || slug).toLowerCase();
+            const slugKey = (slug || label).toLowerCase();
+            if (key && !seenInArticle.has(key)) {
+              seenInArticle.add(key);
+              seenInArticle.add(slugKey);
+              const existing = tagCounts.get(key) || tagCounts.get(slugKey) || { label, slug, count: 0 };
+              existing.count++;
+              tagCounts.set(key, existing);
+              tagCounts.set(slugKey, existing);
+            }
           });
         }
       });
 
-      const appliedTags = Array.from(appliedTagMap.values());
-      if (appliedTags.length === 0) {
+      const seenBadgeKeys = new Set();
+      const allApplied = [];
+      tagCounts.forEach((val, k) => {
+        const normalized = val.label.toLowerCase();
+        if (!seenBadgeKeys.has(normalized)) {
+          seenBadgeKeys.add(normalized);
+          allApplied.push(val);
+        }
+      });
+      if (allApplied.length === 0) {
         container.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">No tags applied</span>';
       } else {
-        container.innerHTML = appliedTags.map(label => {
-          return '<span class="tag-badge" style="cursor: default; display: inline-flex; align-items: center; gap: 0.35rem;">' +
+        container.innerHTML = allApplied.map(({ label, count }) => {
+          const enc = encodeURIComponent(label);
+          const isPartial = totalSelected > 1 && count < totalSelected;
+
+          if (isPartial) {
+            return '<span class="tag-badge tag-badge-partial" style="cursor: default; display: inline-flex; align-items: center; gap: 0.4rem; background: var(--bg-tertiary); border: 1px dashed var(--accent); color: var(--text-primary); padding: 3px 7px; border-radius: var(--radius-sm);" data-tag="' + enc + '" title="Applied to ' + count + ' of ' + totalSelected + ' selected articles">' +
+              '<span>#' + escapeHtml(label) + '</span>' +
+              '<span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">(' + count + '/' + totalSelected + ')</span>' +
+              '<div style="display: inline-flex; align-items: center; gap: 0.25rem; border-left: 1px solid var(--border-color); padding-left: 0.35rem; margin-left: 0.1rem;">' +
+                '<button type="button" style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 0 2px; font-size: 0.85rem; line-height: 1; font-weight: 700;" onclick="handleAddTagBtnClick(this)" title="Apply to all ' + totalSelected + ' articles">+</button>' +
+                '<button type="button" style="background: none; border: none; color: var(--danger, #ef4444); cursor: pointer; padding: 0 2px; font-size: 0.85rem; line-height: 1;" onclick="handleRemoveTagBtnClick(this)" title="Remove from all selected articles">&times;</button>' +
+              '</div>' +
+            '</span>';
+          }
+
+          return '<span class="tag-badge" style="cursor: default; display: inline-flex; align-items: center; gap: 0.35rem;" data-tag="' + enc + '">' +
             '#' + escapeHtml(label) +
-            '<button type="button" style="background: none; border: none; color: currentColor; cursor: pointer; padding: 0; font-size: 0.85rem; line-height: 1;" onclick="removeTagFromActiveArticles(\\\'' + escapeHtml(label) + '\\\')" title="Remove tag">&times;</button>' +
+            '<button type="button" style="background: none; border: none; color: currentColor; cursor: pointer; padding: 0; font-size: 0.85rem; line-height: 1;" onclick="handleRemoveTagBtnClick(this)" title="Remove tag">&times;</button>' +
           '</span>';
         }).join(' ');
       }
 
-      // Available quick library tags to choose from
+      // Available quick library tags to choose from (tags not present on ANY selected article)
       const allLibTags = getEffectiveGlobalTags();
-      const availableQuickTags = allLibTags.filter(t => !appliedTagMap.has(t.label.toLowerCase()) && !appliedTagMap.has(t.slug.toLowerCase()));
+      const availableQuickTags = allLibTags.filter(t => {
+        const key = (t.label || t.slug || '').toLowerCase();
+        const slugKey = (t.slug || t.label || '').toLowerCase();
+        return !tagCounts.has(key) && !tagCounts.has(slugKey);
+      });
 
       if (availContainer && quickSection) {
         if (availableQuickTags.length > 0) {
           quickSection.style.display = 'block';
           availContainer.innerHTML = availableQuickTags.map(t => {
-            return '<button type="button" class="tag-badge" style="cursor: pointer; background: var(--bg-tertiary); border: 1px dashed var(--border-color);" onclick="addQuickTagToActiveArticles(\\\'' + escapeHtml(t.label) + '\\\')" title="Add tag">' +
+            const enc = encodeURIComponent(t.label);
+            return '<button type="button" class="tag-badge" style="cursor: pointer; background: var(--bg-tertiary); border: 1px dashed var(--border-color);" data-tag="' + enc + '" onclick="handleAddTagBtnClick(this)" title="Add tag to all selected">' +
               '+ #' + escapeHtml(t.label) +
             '</button>';
           }).join(' ');
         } else {
           quickSection.style.display = 'none';
+          availContainer.innerHTML = '';
         }
       }
     }
@@ -4609,31 +4776,48 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       closeModal('globalTagModal');
     }
 
-    function renderGlobalTagManagerUI() {
-      const container = document.getElementById('globalTagListContainer');
-      const countLabel = document.getElementById('globalTagCountLabel');
-      if (!container) return;
+        function renderGlobalTagManagerUI() {
+      const containers = [
+        document.getElementById('globalTagListContainer'),
+        document.getElementById('settingsGlobalTagListContainer')
+      ].filter(Boolean);
+
+      const countLabels = [
+        document.getElementById('globalTagCountLabel'),
+        document.getElementById('settingsGlobalTagCountLabel')
+      ].filter(Boolean);
 
       const tags = getEffectiveGlobalTags();
-      if (countLabel) countLabel.textContent = tags.length + ' tag' + (tags.length === 1 ? '' : 's') + ' total';
+      countLabels.forEach(lbl => {
+        lbl.textContent = tags.length + ' tag' + (tags.length === 1 ? '' : 's') + ' total';
+      });
 
       if (tags.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.88rem;">No tags in library yet</div>';
+        containers.forEach(c => {
+          c.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.88rem;">No tags in library yet</div>';
+        });
         return;
       }
 
-      container.innerHTML = tags.map(t => {
+      const html = tags.map(t => {
+        const enc = encodeURIComponent(t.slug || t.label);
         return '<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.65rem; background: var(--bg-tertiary); border-radius: var(--radius-sm);">' +
-          '<div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;" onclick="closeGlobalTagModal(); filterByTag(\'' + escapeHtml(t.slug || t.label).replace(/'/g, "\\'") + '\');">' +
+          '<div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;" data-tag="' + enc + '" onclick="handleFilterByTagClick(this)">' +
             '<span style="font-weight: 600; font-size: 0.88rem; color: var(--accent);">#' + escapeHtml(t.label) + '</span>' +
             '<span class="badge-count" style="font-size: 0.72rem;">' + t.count + ' article' + (t.count === 1 ? '' : 's') + '</span>' +
           '</div>' +
-          '<button class="btn-icon" style="color: var(--text-muted); padding: 0.2rem 0.4rem; height: auto;" onclick="deleteGlobalTag(\\\'' + escapeHtml(t.slug || t.label) + '\\\')" title="Remove tag from all articles">' +
+          '<button class="btn-icon" style="color: var(--text-muted); padding: 0.2rem 0.4rem; height: auto;" data-tag="' + enc + '" onclick="handleDeleteGlobalTagClick(this)" title="Remove tag from all articles">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
           '</button>' +
         '</div>';
       }).join('');
+
+      containers.forEach(c => {
+        c.innerHTML = html;
+      });
     }
+
+
 
     async function deleteGlobalTag(tagSlugOrLabel) {
       const tagLower = tagSlugOrLabel.toLowerCase();
@@ -4779,13 +4963,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       enqueueMutation('edit_title', { id: id, title: newTitle });
     }
 
-    function openWipeDbModal() {
-      const err = document.getElementById('wipeDbErrorMsg');
-      if (err) { err.textContent = ''; err.style.display = 'none'; }
-      const pass = document.getElementById('wipeDbPasswordInput');
-      if (pass) pass.value = '';
-      openModal('wipeDbModal');
-    }
+
 
     async function handleConfirmWipeDatabase(e) {
       e.preventDefault();
@@ -4879,6 +5057,21 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (revEl) {
         revEl.textContent = 'Rev ' + currentRev;
       }
+
+      // Populate Overview Stats in Appearance Panel
+      const unreadStatEl = document.getElementById('settingsStatUnread');
+      const starredStatEl = document.getElementById('settingsStatStarred');
+      const timeStatEl = document.getElementById('settingsStatReadingTime');
+
+      const unread = allEntries.filter(e => !e.is_archived).length;
+      const starred = allEntries.filter(e => e.is_starred).length;
+      const totalReadingMins = allEntries
+        .filter(e => !e.is_archived)
+        .reduce((sum, e) => sum + (e.reading_time || Math.max(1, Math.round((e.content?.length || 500) / 1000))), 0);
+
+      if (unreadStatEl) unreadStatEl.textContent = String(unread);
+      if (starredStatEl) starredStatEl.textContent = String(starred);
+      if (timeStatEl) timeStatEl.textContent = totalReadingMins >= 60 ? Math.floor(totalReadingMins / 60) + 'h ' + (totalReadingMins % 60) + 'm' : totalReadingMins + 'm';
     }
 
         function setParserEngine(mode: ParserMode) {
@@ -4948,7 +5141,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
     function renderSiteCookiesList() {
-      const container = document.getElementById('activeSiteCookiesList');
+      const container = document.getElementById('settingsSiteCookieList') || document.getElementById('activeSiteCookiesList');
       if (!container) return;
 
       if (!cachedSiteCookies || cachedSiteCookies.length === 0) {
@@ -5168,7 +5361,25 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
     }
 
-    function openSettingsModal() {
+    
+    let activeSettingsTab = 'appearance';
+
+    function openSettingsModal(initialTab = null) {
+      const modal = document.getElementById('settingsModal');
+      if (!modal) return;
+
+      const isMobile = window.innerWidth < 768;
+      const targetTab = initialTab || (isMobile ? 'root' : 'appearance');
+
+      const serverUrlEl = document.getElementById('syncServerUrl');
+      if (serverUrlEl) {
+        serverUrlEl.textContent = window.location.origin;
+      }
+      const syncClientSecretEl = document.getElementById('syncClientSecretDisplay');
+      if (syncClientSecretEl) {
+        syncClientSecretEl.textContent = 'wallaflare';
+      }
+
       const serverRow = document.getElementById('serverConnectionSettingsRow');
       if (serverRow) {
         serverRow.style.display = isCapacitorApp() ? 'flex' : 'none';
@@ -5178,8 +5389,105 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       loadSiteCookies();
       const webTip = document.getElementById('siteCookieWebTip');
       if (webTip) webTip.style.display = isCapacitorApp() ? 'none' : 'block';
+
+      if (isMobile) {
+        if (targetTab && targetTab !== 'root') {
+          switchSettingsTab(targetTab, true);
+          modal.classList.add('is-viewing-panel');
+          const backBtn = document.getElementById('settingsMobileBackBtn');
+          if (backBtn) backBtn.style.display = 'inline-flex';
+        } else {
+          modal.classList.remove('is-viewing-panel');
+          const backBtn = document.getElementById('settingsMobileBackBtn');
+          if (backBtn) backBtn.style.display = 'none';
+          const title = document.getElementById('settingsModalTitle');
+          if (title) title.textContent = 'Settings';
+        }
+      } else {
+        switchSettingsTab(targetTab === 'root' ? 'appearance' : targetTab, false);
+        modal.classList.remove('is-viewing-panel');
+      }
+
       openModal('settingsModal');
     }
+
+    function switchSettingsTab(tabName, activateMobile = true) {
+      activeSettingsTab = tabName || 'appearance';
+
+      // Update nav buttons
+      document.querySelectorAll('#settingsNavPane .settings-nav-item').forEach(btn => {
+        if (btn.getAttribute('data-tab') === activeSettingsTab) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Update panels
+      document.querySelectorAll('#settingsContentPane .settings-panel').forEach(panel => {
+        panel.classList.remove('active');
+        panel.style.display = 'none';
+      });
+
+      const activePanel = document.getElementById('settingsPanel-' + activeSettingsTab);
+      if (activePanel) {
+        activePanel.classList.add('active');
+        activePanel.style.display = 'block';
+      }
+
+      const titles = {
+        appearance: 'Theme & Appearance',
+        cookies: 'Cookie Vault & Paywalls',
+        integrations: 'Apps & KOReader Sync',
+        tags: 'Tag Management',
+        data: 'Server & Data',
+        about: 'About & Updates'
+      };
+
+      const titleEl = document.getElementById('settingsModalTitle');
+      const modal = document.getElementById('settingsModal');
+      const backBtn = document.getElementById('settingsMobileBackBtn');
+
+      if (window.innerWidth < 768 && activateMobile) {
+        if (modal) modal.classList.add('is-viewing-panel');
+        if (backBtn) backBtn.style.display = 'inline-flex';
+        if (titleEl) titleEl.textContent = titles[activeSettingsTab] || 'Settings';
+      } else {
+        if (titleEl) titleEl.textContent = 'Settings';
+      }
+
+      if (activeSettingsTab === 'tags') {
+        loadGlobalTags().then(() => renderGlobalTagManagerUI());
+      } else if (activeSettingsTab === 'cookies') {
+        loadSiteCookies();
+      }
+    }
+
+    function handleSettingsMobileBack() {
+      const modal = document.getElementById('settingsModal');
+      const backBtn = document.getElementById('settingsMobileBackBtn');
+      const titleEl = document.getElementById('settingsModalTitle');
+      if (modal) modal.classList.remove('is-viewing-panel');
+      if (backBtn) backBtn.style.display = 'none';
+      if (titleEl) titleEl.textContent = 'Settings';
+    }
+
+    function openGlobalTagModal() {
+      openSettingsModal('tags');
+    }
+
+    function openSyncModal() {
+      openSettingsModal('integrations');
+    }
+
+    function openServerConnectModal() {
+      openSettingsModal('data');
+    }
+
+    function openWipeDbModal() {
+      openSettingsModal('data');
+    }
+
 
     async function reconcileDatabase() {
       const ok = await showConfirmDialog(
@@ -5206,9 +5514,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       showToast('✓ Database fully reconciled');
     }
 
-    function openServerConnectModal() {
-      openModal('serverConnectModal');
-    }
+
     
     function normalizeUrl(url) {
       if (!url) return '';
@@ -5303,7 +5609,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
           wrap.style.visibility = 'visible';
           wrap.style.opacity = String(Math.min(1, progress * 2.5));
-          wrap.style.transform = 'translate(-50%, ' + pullDist + 'px)';
+          wrap.style.transform = 'translate(-50%, ' + (-20 + pullDist) + 'px)';
 
           const cardScale = 0.55 + (progress * 0.45);
           card.style.transform = 'scale(' + cardScale + ')';
@@ -5720,7 +6026,6 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     let activeReaderSearchIndex = -1;
     let currentReaderSearchQuery = '';
 
-    
     function toggleReaderSearchBar() {
       const bar = document.getElementById('readerSearchBar');
       if (bar && bar.style.display !== 'none') {
@@ -5737,24 +6042,22 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       bar.style.display = 'flex';
       input.focus();
       input.select();
-      if (input.value.trim()) {
-        performReaderSearch(input.value.trim());
+      const query = (input.value || '').trim();
+      if (query) {
+        // Standard browser behavior: Reopening restores matches & index without auto-scrolling
+        const rememberedIndex = (query.toLowerCase() === currentReaderSearchQuery.toLowerCase() && activeReaderSearchIndex >= 0) ? activeReaderSearchIndex : 0;
+        performReaderSearch(query, false, rememberedIndex);
       }
     }
 
     function closeReaderSearchBar() {
       const bar = document.getElementById('readerSearchBar');
       if (bar) bar.style.display = 'none';
-      clearReaderSearchMatches();
+      clearReaderSearchMarksOnly();
     }
 
-    function clearReaderSearchMatches() {
+    function clearReaderSearchMarksOnly() {
       readerSearchMatches = [];
-      activeReaderSearchIndex = -1;
-      currentReaderSearchQuery = '';
-      const countEl = document.getElementById('readerSearchCount');
-      if (countEl) countEl.textContent = '0/0';
-
       const container = document.getElementById('readerBody');
       if (!container) return;
       const marks = container.querySelectorAll('mark.reader-search-match');
@@ -5768,8 +6071,17 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       });
     }
 
+    function clearReaderSearchMatches() {
+      clearReaderSearchMarksOnly();
+      activeReaderSearchIndex = -1;
+      currentReaderSearchQuery = '';
+      const countEl = document.getElementById('readerSearchCount');
+      if (countEl) countEl.textContent = '0/0';
+    }
+
     function handleReaderSearchInput(val) {
-      performReaderSearch(val);
+      // User is actively editing the search query -> reset to match 0 and jump to first match
+      performReaderSearch(val, true, 0);
     }
 
     function handleReaderSearchKeydown(e) {
@@ -5779,14 +6091,21 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         else jumpReaderSearchMatch(1);
       } else if (e.key === 'Escape') {
         e.preventDefault();
+        e.stopPropagation();
         closeReaderSearchBar();
       }
     }
 
-    function performReaderSearch(query) {
+    function performReaderSearch(query, shouldScroll = true, targetIndex = 0) {
       const q = (query || '').trim();
-      clearReaderSearchMatches();
-      if (!q) return;
+      clearReaderSearchMarksOnly();
+      if (!q) {
+        currentReaderSearchQuery = '';
+        activeReaderSearchIndex = -1;
+        const countEl = document.getElementById('readerSearchCount');
+        if (countEl) countEl.textContent = '0/0';
+        return;
+      }
 
       currentReaderSearchQuery = q;
       const container = document.getElementById('readerBody');
@@ -5836,24 +6155,23 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       readerSearchMatches = matchElements;
-      const countEl = document.getElementById('readerSearchCount');
-      if (countEl) {
-        countEl.textContent = readerSearchMatches.length > 0 ? ('1/' + readerSearchMatches.length) : '0/0';
-      }
-
       if (readerSearchMatches.length > 0) {
-        activeReaderSearchIndex = 0;
-        updateActiveReaderSearchMatch();
+        activeReaderSearchIndex = Math.max(0, Math.min(targetIndex, readerSearchMatches.length - 1));
+        updateActiveReaderSearchMatch(shouldScroll);
+      } else {
+        activeReaderSearchIndex = -1;
+        const countEl = document.getElementById('readerSearchCount');
+        if (countEl) countEl.textContent = '0/0';
       }
     }
 
     function jumpReaderSearchMatch(delta) {
       if (readerSearchMatches.length === 0) return;
       activeReaderSearchIndex = (activeReaderSearchIndex + delta + readerSearchMatches.length) % readerSearchMatches.length;
-      updateActiveReaderSearchMatch();
+      updateActiveReaderSearchMatch(true);
     }
 
-    function updateActiveReaderSearchMatch() {
+    function updateActiveReaderSearchMatch(shouldScroll = true) {
       readerSearchMatches.forEach((m, idx) => {
         if (idx === activeReaderSearchIndex) m.classList.add('active-match');
         else m.classList.remove('active-match');
@@ -5861,16 +6179,18 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       const countEl = document.getElementById('readerSearchCount');
       if (countEl) {
-        countEl.textContent = (activeReaderSearchIndex + 1) + '/' + readerSearchMatches.length;
+        countEl.textContent = readerSearchMatches.length > 0 ? ((activeReaderSearchIndex + 1) + '/' + readerSearchMatches.length) : '0/0';
       }
 
-      const currentMark = readerSearchMatches[activeReaderSearchIndex];
-      if (currentMark) {
-        currentMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (shouldScroll && readerSearchMatches.length > 0 && activeReaderSearchIndex >= 0) {
+        const currentMark = readerSearchMatches[activeReaderSearchIndex];
+        if (currentMark) {
+          currentMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     }
 
-// Attach all functions to window for HTML inline handlers & test compatibility
+    // Attach all functions to window for HTML inline handlers & test compatibility
 if (typeof window !== "undefined") {
   try { (window as any).isRtlText = isRtlText; } catch (e) {}
   try { (window as any).initAppearanceSettings = initAppearanceSettings; } catch (e) {}
@@ -6036,6 +6356,11 @@ if (typeof window !== "undefined") {
   try { (window as any).batchToggleStar = batchToggleStar; } catch (e) {}
   try { (window as any).batchToggleArchive = batchToggleArchive; } catch (e) {}
   try { (window as any).batchManageTags = batchManageTags; } catch (e) {}
+  try { (window as any).openTagModalForSelection = openTagModalForSelection; } catch (e) {}
+  try { (window as any).batchArchiveArticles = batchArchiveArticles; } catch (e) {}
+  try { (window as any).batchStarArticles = batchStarArticles; } catch (e) {}
+  try { (window as any).toggleFocusMode = toggleFocusMode; } catch (e) {}
+
   try { (window as any).batchDeleteArticles = batchDeleteArticles; } catch (e) {}
   try { (window as any).toggleMobileNavMenu = toggleMobileNavMenu; } catch (e) {}
   try { (window as any).closeMobileNavMenu = closeMobileNavMenu; } catch (e) {}
@@ -6069,6 +6394,11 @@ if (typeof window !== "undefined") {
   try { (window as any).renderGlobalTagManagerUI = renderGlobalTagManagerUI; } catch (e) {}
   try { (window as any).deleteGlobalTag = deleteGlobalTag; } catch (e) {}
   try { (window as any).submitCreateGlobalTag = submitCreateGlobalTag; } catch (e) {}
+  try { (window as any).handleAddTagBtnClick = handleAddTagBtnClick; } catch (e) {}
+  try { (window as any).handleRemoveTagBtnClick = handleRemoveTagBtnClick; } catch (e) {}
+  try { (window as any).handleFilterByTagClick = handleFilterByTagClick; } catch (e) {}
+  try { (window as any).handleDeleteGlobalTagClick = handleDeleteGlobalTagClick; } catch (e) {}
+
   try { (window as any).cleanupUnusedTags = cleanupUnusedTags; } catch (e) {}
   try { (window as any).openEditTitleModal = openEditTitleModal; } catch (e) {}
   try { (window as any).handleSaveTitle = handleSaveTitle; } catch (e) {}
@@ -6078,6 +6408,10 @@ if (typeof window !== "undefined") {
   try { (window as any).setParserEngine = setParserEngine; } catch (e) {}
   try { (window as any).updateParserEngineUI = updateParserEngineUI; } catch (e) {}
   try { (window as any).openSettingsModal = openSettingsModal; } catch (e) {}
+  try { (window as any).switchSettingsTab = switchSettingsTab; } catch (e) {}
+  try { (window as any).handleSettingsMobileBack = handleSettingsMobileBack; } catch (e) {}
+  try { (window as any).openSyncModal = openSyncModal; } catch (e) {}
+
   try { (window as any).loadSiteCookies = loadSiteCookies; } catch (e) {}
   try { (window as any).renderSiteCookiesList = renderSiteCookiesList; } catch (e) {}
   try { (window as any).openAddSiteCookieDialog = openAddSiteCookieDialog; } catch (e) {}
