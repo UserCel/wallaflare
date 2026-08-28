@@ -11,20 +11,21 @@ export interface DeltaSyncPayload {
 }
 
 export function reconcileDeltaSync(localEntries: Article[], payload: DeltaSyncPayload, isDeltaSync: boolean): Article[] {
+  // If the server has 0 total items in the library, clear all local entries immediately
+  if (payload.counts?.total === 0 || (!isDeltaSync && payload.total === 0)) {
+    return [];
+  }
+
   let updated = [...localEntries];
 
-  // 1. Prune deleted items
+  // 1. Prune deleted items by tombstone ID
   if (Array.isArray(payload.deleted_ids) && payload.deleted_ids.length > 0) {
     const delSet = new Set(payload.deleted_ids);
     updated = updated.filter((e) => !delSet.has(e.id));
   }
 
-  const serverHasZeroTotal = payload.counts?.total === 0 || (!isDeltaSync && payload.total === 0);
-
-  // 2. Smart merge
-  if (!isDeltaSync && serverHasZeroTotal) {
-    return [];
-  } else if (payload.entries && payload.entries.length > 0) {
+  // 2. Smart merge fresh updated/new entries
+  if (payload.entries && payload.entries.length > 0) {
     const freshMap = new Map(payload.entries.map((e) => [e.id, e]));
     const merged = [...payload.entries];
     for (const existing of updated) {

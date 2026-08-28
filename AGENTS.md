@@ -101,8 +101,7 @@ npm run deploy
 ```
 > **Production Target**: `https://<your-instance>.workers.dev` (or your configured custom domain)
 
-6. **Rule 6: Strict Privacy & Personal Instance Scrubbing**:
-   - **NEVER** hardcode, embed, or commit personal domains, personal URLs, private server instances (e.g. private domains or custom personal URLs), API keys, or private user credentials anywhere in the codebase, tests, UI placeholders, scripts, documentation, or commit history. Always use generic placeholders like `wallaflare.example.com` or `https://<your-subdomain>.workers.dev`.
+
 
 ---
 
@@ -118,6 +117,13 @@ npm run deploy
    - `src/views/dashboard.ts` embeds client-side scripts inside TypeScript template literals (`` `...` ``). Always double-escape backslashes when writing literal newlines (e.g. `'\\n'`) to prevent unexpected token syntax errors in the browser.
 5. **Rule 5: Capacitor Native App Considerations**:
    - The app runs both in standard browsers and inside a native Android Capacitor container (`isCapacitorApp()`). Always preserve native features (e.g. `WallaflareNativePlugin` share intent, status bar notch clearance `#readerSafeTopFill`, and haptics).
+6. **Rule 6: Native Android APK Version Bumping & In-App Notification**:
+   - Whenever introducing changes to native Android code (e.g. in `android/`, `MainActivity.java`, `WallaflareNativePlugin.java`, `SaveArticleService.java`, native bridge interfaces, AndroidManifest, or background services):
+     1. Bump `versionCode` and `versionName` in `android/app/build.gradle`.
+     2. Bump `minNativeVersion` in `scripts/build-web.ts`.
+     3. Ensure the web client detects older installed APK builds via `min_native_version` in `/api/app/version.json` and displays an in-app toast/banner notifying the user that a new APK build is available for the latest native features.
+7. **Rule 7: Strict Privacy & Personal Instance Scrubbing**:
+   - **NEVER** hardcode, embed, or commit personal domains, personal URLs, private server instances (e.g. private domains or custom personal URLs), API keys, or private user credentials anywhere in the codebase, tests, UI placeholders, scripts, documentation, or commit history. Always use generic placeholders like `wallaflare.example.com` or `https://<your-subdomain>.workers.dev`.
 
 ---
 

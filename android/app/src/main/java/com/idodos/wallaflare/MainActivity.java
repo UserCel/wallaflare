@@ -52,6 +52,26 @@ public class MainActivity extends BridgeActivity {
             });
         }
         @JavascriptInterface
+        public String getAppVersion() {
+            try {
+                android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+                return pInfo.versionName;
+            } catch (Exception e) {
+                return "1.0";
+            }
+        }
+
+        @JavascriptInterface
+        public int getAppVersionCode() {
+            try {
+                android.content.pm.PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+                return pInfo.versionCode;
+            } catch (Exception e) {
+                return 1;
+            }
+        }
+
+        @JavascriptInterface
         public void saveServerConfig(String url, String token) {
             getSharedPreferences("wallaflare_config", MODE_PRIVATE)
                 .edit()

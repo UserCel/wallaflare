@@ -1,3 +1,4 @@
+import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
 // Wallaflare Modular Client Entry Point - Full Parity Architecture
 
 
@@ -1151,6 +1152,9 @@
             currentSyncRev = data.sync_rev || 1;
             localStorage.setItem('wf_sync_rev', String(currentSyncRev));
             showToast('Database reset detected — library reconciled', 3000);
+            if (activeArticleId) {
+              closeReader(true);
+            }
             updateCounts();
             renderSidebarTags();
             filterArticles();
@@ -1167,6 +1171,17 @@
             if (data.counts) {
               serverLibraryCounts = data.counts;
               updateCounts();
+              // If server reports total === 0, clear any stale local articles
+              if (data.counts.total === 0 && allEntries.length > 0) {
+                allEntries = [];
+                clearIndexedDB();
+                localStorage.removeItem('wf_cached_articles');
+                filterArticles();
+                if (activeArticleId) {
+                  closeReader(true);
+                  showToast('Article not found (deleted on server)', 4000);
+                }
+              }
             }
             return;
           }
@@ -1190,16 +1205,24 @@
             for (const delId of data.deleted_ids) {
               deleteEntryFromIndexedDB(delId);
             }
+            if (activeArticleId && delSet.has(activeArticleId)) {
+              closeReader(true);
+              showToast('Open article was deleted on another device', 4000);
+            }
           }
 
-          // 2. Smart merge fresh entries (only clear all if this was a full non-delta sync and server has 0 total items)
+          // 2. Smart merge fresh entries (wipe if server total count is 0)
           const isDeltaSync = Boolean(sinceParam);
           const serverHasZeroTotal = data.counts?.total === 0 || (!isDeltaSync && data.total === 0);
 
-          if (!isDeltaSync && serverHasZeroTotal) {
+          if (serverHasZeroTotal) {
             allEntries = [];
             clearIndexedDB();
             localStorage.removeItem('wf_cached_articles');
+            if (activeArticleId) {
+              closeReader(true);
+              showToast('Article not found (deleted on server)', 4000);
+            }
           } else {
             const freshEntries = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : (data._embedded?.items || []));
             if (freshEntries.length > 0) {
@@ -2226,6 +2249,15 @@
             if (idx >= 0) allEntries[idx] = fetched;
             else allEntries.unshift(fetched);
             item = fetched;
+          } else if (res.status === 404) {
+            // Article was deleted on server: prune from local cache and close reader
+            allEntries = allEntries.filter(e => e.id !== id);
+            deleteEntryFromIndexedDB(id);
+            syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+            filterArticles();
+            closeReader(true);
+            showToast('Article not found (deleted on server)', 4000);
+            return;
           }
         } catch (e) {}
       }
@@ -3592,9 +3624,7 @@
       if (backdrop) backdrop.style.display = 'none';
     }
 
-    function toggleBatchExportSubmenu() {
-      document.getElementById('batchExportWrap')?.classList.toggle('expanded');
-    }
+
 
     function batchOpenHighlights() {
       const ids = Array.from(selectedArticleIds);
@@ -3929,8 +3959,9 @@
       let isTracking = false;
       let isHorizontal = false;
 
-      drawer.addEventListener('touchstart', (e) => {
+      const handleTouchStart = (e) => {
         if (!drawer.classList.contains('open')) return;
+        if (!e.touches || e.touches.length !== 1) return;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         currentX = startX;
@@ -3938,10 +3969,10 @@
         isHorizontal = false;
         drawer.style.transition = 'none';
         backdrop.style.transition = 'none';
-      }, { passive: true });
+      };
 
-      drawer.addEventListener('touchmove', (e) => {
-        if (!isTracking) return;
+      const handleTouchMove = (e) => {
+        if (!isTracking || !e.touches || e.touches.length !== 1) return;
         currentX = e.touches[0].clientX;
         const currentY = e.touches[0].clientY;
         const diffX = currentX - startX;
@@ -3963,7 +3994,7 @@
           const progress = Math.max(0, Math.min(1, 1 + (diffX / drawerWidth)));
           backdrop.style.opacity = String(progress);
         }
-      }, { passive: true });
+      };
 
       const handleSwipeEnd = () => {
         if (!isTracking) return;
@@ -3972,7 +4003,7 @@
         backdrop.style.transition = 'opacity 0.25s ease';
 
         const diffX = currentX - startX;
-        if (isHorizontal && diffX < -65) {
+        if (isHorizontal && diffX < -50) {
           closeMobileNavMenu();
           setTimeout(() => {
             drawer.style.transform = '';
@@ -3990,8 +4021,15 @@
         }
       };
 
+      drawer.addEventListener('touchstart', handleTouchStart, { passive: true });
+      drawer.addEventListener('touchmove', handleTouchMove, { passive: true });
       drawer.addEventListener('touchend', handleSwipeEnd, { passive: true });
       drawer.addEventListener('touchcancel', handleSwipeEnd, { passive: true });
+
+      backdrop.addEventListener('touchstart', handleTouchStart, { passive: true });
+      backdrop.addEventListener('touchmove', handleTouchMove, { passive: true });
+      backdrop.addEventListener('touchend', handleSwipeEnd, { passive: true });
+      backdrop.addEventListener('touchcancel', handleSwipeEnd, { passive: true });
     }
 
     function closeAllCardMenus() {
@@ -4153,8 +4191,13 @@
 
     async function handleIngestUrl(e) {
       e.preventDefault();
-      const input = document.getElementById('urlInput');
-      const btn = document.getElementById('ingestUrlBtn');
+      const input = document.getElementById('urlInput') as HTMLInputElement;
+      const btn = document.getElementById('ingestUrlBtn') as HTMLButtonElement;
+      const errEl = document.getElementById('addUrlErrorMsg');
+      if (errEl) {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+      }
       let url = (input?.value || '').trim();
       if (!url) return;
       url = normalizeUrl(url);
@@ -4163,25 +4206,42 @@
       btn.textContent = 'Extracting...';
 
       try {
-        const res = await authFetch('/api/entries.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const item = await res.json();
+        const result = await saveArticleWithFallback(url);
+        if (!result.ok) throw new Error(result.error || 'Failed to save article');
+        const item = result.data;
         closeModal('addUrlModal');
-        input.value = '';
-        allEntries.unshift(item);
-        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-        checkNativePendingSavedArticles();
-        updateCounts();
-        renderSidebarTags();
-        filterArticles();
-        showToast('✓ Article saved successfully!');
-        openReader(item.id);
-      } catch (err) {
-        showToast('Failed to save article: ' + err.message);
+        if (input) input.value = '';
+        if (item && item.id) {
+          allEntries.unshift(item);
+          syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+          checkNativePendingSavedArticles();
+          updateCounts();
+          renderSidebarTags();
+          filterArticles();
+          if (result.alreadyExists) {
+            showToast('Article is already in your library!');
+          } else if (result.emptyContent) {
+            showToast('⚠️ Saved link only (article text was blocked or empty)', true, 5000);
+          } else {
+            showToast(result.parserUsed === 'device' ? '✓ Article extracted on device & saved!' : '✓ Article saved successfully!');
+          }
+          openReader(item.id);
+        } else {
+          showToast(result.alreadyExists ? 'Article is already in your library!' : '✓ Article saved successfully!');
+          loadArticles(false);
+        }
+      } catch (err: any) {
+        let friendlyError = err?.message || 'Failed to save article';
+        if (/exceeded CPU time limit|CPU limit/i.test(friendlyError)) {
+          friendlyError = "⚡ Cloudflare Worker exceeded CPU time limit parsing this large webpage. Tip: Extract via the Wallaflare Android App (device parser) or save as Custom Text.";
+        } else if (/NetworkError|CORS|Failed to fetch/i.test(friendlyError)) {
+          friendlyError = "⚠️ Device extraction failed due to browser CORS security restrictions. Standard desktop browsers cannot scrape external websites directly. Switch to 'Auto' in Settings for server fallback, or use the Wallaflare Android App.";
+        }
+        if (errEl) {
+          errEl.textContent = friendlyError;
+          errEl.style.display = 'block';
+        }
+        showToast(friendlyError, true, 7000);
       } finally {
         btn.disabled = false;
         btn.textContent = 'Fetch & Save';
@@ -4654,12 +4714,62 @@
       }
     }
 
+        function setParserEngine(mode: ParserMode) {
+      setParserMode(mode);
+      updateParserEngineUI();
+      showToast(`Article extractor set to: ${mode.toUpperCase()}`);
+    }
+
+        function updateParserEngineUI() {
+      const currentMode = getParserMode();
+      const isCap = isCapacitorApp();
+      
+      const btnsContainer = document.getElementById('settingsParserBtns');
+      const webNotice = document.getElementById('settingsParserWebNotice');
+      const descEl = document.getElementById('settingsParserEngineDesc');
+
+      if (isCap) {
+        if (btnsContainer) btnsContainer.style.display = 'grid';
+        if (webNotice) webNotice.style.display = 'none';
+
+        const btns = document.querySelectorAll('#settingsParserBtns .opt-parser-btn');
+        btns.forEach((btn) => {
+          const p = btn.getAttribute('data-parser');
+          if (p === currentMode) {
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-outline');
+          } else {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline');
+          }
+        });
+
+        if (descEl) {
+          if (currentMode === 'auto') {
+            descEl.textContent = 'Auto (Recommended): Extracts on-device via mobile connection to bypass bot checks & CPU limits; falls back to Cloudflare Worker if needed.';
+          } else if (currentMode === 'device') {
+            descEl.textContent = 'Device Only: Extracts articles entirely on your phone. Zero server-side scraping compute.';
+          } else {
+            descEl.textContent = 'Server Only: Sends URL to Cloudflare Worker to scrape on edge.';
+          }
+        }
+      } else {
+        if (btnsContainer) btnsContainer.style.display = 'none';
+        if (webNotice) webNotice.style.display = 'block';
+
+        if (descEl) {
+          descEl.textContent = 'Web browsers enforce Same-Origin (CORS) security policies that block direct webpage scraping from external sites. Articles added from the web dashboard are parsed via your Cloudflare Worker. On-device extraction is active in the Wallaflare Android App.';
+        }
+      }
+    }
+
     function openSettingsModal() {
       const serverRow = document.getElementById('serverConnectionSettingsRow');
       if (serverRow) {
         serverRow.style.display = isCapacitorApp() ? 'flex' : 'none';
       }
       updateSettingsStats();
+      updateParserEngineUI();
       openModal('settingsModal');
     }
 
@@ -4936,12 +5046,22 @@
     // -------------------------------------------------------------
     // Capacitor OTA Updater Engine
     // -------------------------------------------------------------
-    function isCapacitorApp() {
-      return !!(window.IS_CAPACITOR_APP || window.Capacitor?.isNativePlatform?.() || window.AndroidNative);
-    }
+
+
+    let currentMinNativeVersion = '1.0.0';
 
     function getAppWebVersion() {
       return window.WF_BUILD_VERSION || '${OTA_VERSION}';
+    }
+
+    function getRunningNativeVersion() {
+      if (typeof (window as any).AndroidNative?.getAppVersion === 'function') {
+        try {
+          const v = (window as any).AndroidNative.getAppVersion();
+          if (v) return String(v);
+        } catch (e) {}
+      }
+      return (window as any).WF_NATIVE_VERSION || '1.0';
     }
 
     function compareSemVer(a, b) {
@@ -4956,6 +5076,19 @@
       return 0;
     }
 
+    function checkNativeApkVersion(minNative) {
+      if (!isCapacitorApp() || !minNative) return;
+      currentMinNativeVersion = minNative;
+      const runningNativeVer = getRunningNativeVersion();
+      if (compareSemVer(runningNativeVer, minNative) < 0) {
+        console.warn('[OTA] Native app update available. Installed APK:', runningNativeVer, 'Required:', minNative);
+        setTimeout(() => {
+          showToast('📲 New Android APK (v' + minNative + ') available! Install updated APK for latest native features.', 10000);
+        }, 1200);
+        updateVersionDisplay();
+      }
+    }
+
     let isDownloadingOta = false;
     async function checkCapacitorOtaFromVersion(serverVer, minNative) {
       if (!isCapacitorApp() || isDownloadingOta || !serverVer) return;
@@ -4964,12 +5097,6 @@
 
       const currentLocal = window.WF_BUILD_VERSION || (await updater.getLatest().catch(() => null))?.version || '';
       if (serverVer === currentLocal) return;
-
-      const nativeVer = window.WF_NATIVE_VERSION || '1.0.0';
-      if (minNative && compareSemVer(nativeVer, minNative) < 0) {
-        console.warn('[OTA] Native app update required for web version:', serverVer);
-        return;
-      }
 
       isDownloadingOta = true;
       try {
@@ -5029,8 +5156,13 @@
           const res = await fetch(serverBase + '/api/app/version.json?_t=' + Date.now()).catch(() => null);
           if (res && res.ok) {
             const manifest = await res.json().catch(() => null);
-            if (manifest && manifest.version) {
-              checkCapacitorOtaFromVersion(manifest.version, manifest.min_native_version);
+            if (manifest) {
+              if (manifest.min_native_version) {
+                checkNativeApkVersion(manifest.min_native_version);
+              }
+              if (manifest.version) {
+                checkCapacitorOtaFromVersion(manifest.version, manifest.min_native_version);
+              }
             }
           }
         }
@@ -5042,7 +5174,15 @@
       const label = document.getElementById('sidebarVersionLabel');
       const mobileLabel = document.getElementById('mobileVersionLabel');
       const settingsLabel = document.getElementById('settingsVersionLabel');
-      const text = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      
+      let text = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      if (isCapacitorApp()) {
+        const nativeVer = getRunningNativeVersion();
+        const isOutdated = currentMinNativeVersion && compareSemVer(nativeVer, currentMinNativeVersion) < 0;
+        text = isOutdated 
+          ? 'Wallaflare (APK: v' + nativeVer + ' ⚠️ update to v' + currentMinNativeVersion + ' • Web: ' + ver + ')'
+          : 'Wallaflare (APK: v' + nativeVer + ' • Web: ' + ver + ')';
+      }
       if (label) label.textContent = text;
       if (mobileLabel) mobileLabel.textContent = text;
       if (settingsLabel) settingsLabel.textContent = text;
@@ -5362,6 +5502,8 @@ if (typeof window !== "undefined") {
   try { (window as any).openWipeDbModal = openWipeDbModal; } catch (e) {}
   try { (window as any).handleConfirmWipeDatabase = handleConfirmWipeDatabase; } catch (e) {}
   try { (window as any).updateSettingsStats = updateSettingsStats; } catch (e) {}
+  try { (window as any).setParserEngine = setParserEngine; } catch (e) {}
+  try { (window as any).updateParserEngineUI = updateParserEngineUI; } catch (e) {}
   try { (window as any).openSettingsModal = openSettingsModal; } catch (e) {}
   try { (window as any).reconcileDatabase = reconcileDatabase; } catch (e) {}
   try { (window as any).openServerConnectModal = openServerConnectModal; } catch (e) {}

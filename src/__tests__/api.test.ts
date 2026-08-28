@@ -1337,6 +1337,8 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(typeof syncData.counts.archive).toBe('number');
     expect(typeof syncData.counts.total).toBe('number');
     expect(syncData.tags.some((t: any) => t.slug === 'unused-standalone-tag')).toBe(true);
+    expect(syncData.ota_version).toBeDefined();
+    expect(syncData.ota_checksum).toBeDefined();
   });
 
   it("handles large database pagination, sorting by title / date, and live library counts", async () => {
@@ -1649,7 +1651,8 @@ describe("Capacitor Android OTA Endpoints", () => {
     expect(res.status).toBe(200);
     const data = await res.json<any>();
     expect(data.version).toBeDefined();
-    expect(data.min_native_version).toBe("1.0.0");
+    expect(data.min_native_version).toBeDefined();
+    expect(data.min_native_version).toBe("1.1");
     expect(data.url).toBe("/api/app/bundle.zip");
     expect(data.checksum).toBeDefined();
   });

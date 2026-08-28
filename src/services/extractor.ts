@@ -29,7 +29,6 @@ export function extractDomain(url: string): string {
   }
 }
 
-
 export function sanitizeArticleDom(doc: any): void {
   if (!doc) return;
 
@@ -55,7 +54,6 @@ export function sanitizeArticleDom(doc: any): void {
   // 2. Strip all inline JavaScript event handlers (on*) and dangerous URL schemes
   const allElements = doc.querySelectorAll('*');
   allElements.forEach((el: any) => {
-    // Strip on* attributes (e.g. onerror, onload, onclick)
     const attrs = Array.from(el.attributes || []) as any[];
     attrs.forEach(attr => {
       if (attr && attr.name && attr.name.toLowerCase().startsWith('on')) {
@@ -63,7 +61,6 @@ export function sanitizeArticleDom(doc: any): void {
       }
     });
 
-    // Strip javascript: / vbscript: / data:text/html from href and src
     const href = el.getAttribute('href');
     if (href && /^(javascript|vbscript|data:text\/html)/i.test(href.trim())) {
       el.removeAttribute('href');
@@ -83,7 +80,6 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
 
     // Resolve <img> and <source> src, srcset, and lazy-loaded attributes
     document.querySelectorAll('img, source').forEach((el: any) => {
-      // Handle lazy load data-src fallback if src is missing or transparent placeholder
       const dataSrc = el.getAttribute('data-src') || el.getAttribute('data-original') || el.getAttribute('data-lazy-src') || el.getAttribute('data-url');
       const src = el.getAttribute('src');
 
@@ -101,7 +97,6 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
         }
       }
 
-      // Canonicalize protocol-relative and relative srcset (e.g. //upload.wikimedia.org/... 2x)
       const srcset = el.getAttribute('srcset') || el.getAttribute('data-srcset');
       if (srcset) {
         try {
@@ -167,16 +162,16 @@ export function preserveSemanticInlineFormatting(document: any): void {
   } catch {}
 }
 
-export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
-  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(html);
-  const formattedHtml = hasHtmlTags
-    ? html
-    : html.split(/\n\s*\n/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
-  const fullHtml = formattedHtml.includes('<html') || formattedHtml.includes('<!DOCTYPE')
-    ? formattedHtml
-    : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${formattedHtml}</body></html>`;
-  const { document } = parseHTML(fullHtml);
+export function parseHtmlIsomorphic(html: string): { document: any } {
+  if (typeof window !== 'undefined' && typeof window.DOMParser !== 'undefined') {
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return { document: doc };
+  }
+  return parseHTML(html);
+}
 
+export function extractArticleFromDom(document: any, originalUrl?: string, rawHtmlFallback?: string): ExtractedArticle {
   if (originalUrl) {
     resolveRelativeUrls(document, originalUrl);
   }
@@ -185,18 +180,18 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   // Extract meta tags for fallback/preview
   const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
   const twitterTitle = document.querySelector('meta[name="twitter:title"]')?.getAttribute('content');
-  const docTitle = document.title;
+  const docTitle = document.title || document.querySelector('title')?.textContent;
 
   const ogDescription = document.querySelector('meta[property="og:description"]')?.getAttribute('content');
   const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
 
   const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
   const twitterImage = document.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
-  const firstArticleImg = document.querySelector('article img, main img, .content img, .post img, #content img, .article-body img')?.getAttribute('src') || null;
+  const firstArticleImg = document.querySelector('article img, main img, .content img, .post img, #content img, .article-body img, .post-content img, .entry-content img, #storyContent img, #chapterContent img')?.getAttribute('src') || null;
 
   // Enhanced Author / Byline extraction
   let extractedAuthor: string | null = null;
-  const authorMeta = document.querySelector('meta[name="author"], meta[property="article:author"], meta[property="books:author"], meta[property="og:article:author"], meta[name="twitter:creator"]');
+  const authorMeta = document.querySelector('meta[name="author"], meta[property="article:author"], meta[property="books:author"], meta[property="og:article:author"], meta[name="twitter:creator"], meta[property="book:author"]');
   if (authorMeta) {
     const contentVal = authorMeta.getAttribute('content')?.trim();
     if (contentVal && !contentVal.startsWith('http') && !contentVal.startsWith('@') && contentVal.length < 100 && !contentVal.toLowerCase().includes('follow')) {
@@ -207,7 +202,6 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   }
 
   if (!extractedAuthor) {
-    // Check dedicated profile / author links (e.g. RoyalRoad <a href="/profile/107213">Author Name</a>)
     const profileLink = document.querySelector('a[href^="/profile/"], a[href*="/profile/"], a[href*="/author/"], a[rel="author"], [property="author"]');
     if (profileLink) {
       const textVal = profileLink.textContent?.trim();
@@ -282,8 +276,6 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     a.remove();
   });
 
-
-
   let parsed: any = null;
   try {
     const reader = new Readability(document, {
@@ -292,25 +284,23 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
     });
     parsed = reader.parse();
   } catch (err) {
-    // Graceful fallback for minimal body-less or malformed HTML trees
     parsed = null;
   }
 
   const domainName = originalUrl ? extractDomain(originalUrl) : 'direct-input';
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
   const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
-  let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || html}</p>`;
+  let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || rawHtmlFallback || ''}</p>`;
   let contentFirstImg: string | null = null;
   if (content) {
     try {
-      const { document: contentDoc } = parseHTML('<!DOCTYPE html><html><body>' + content + '</body></html>');
+      const { document: contentDoc } = parseHtmlIsomorphic('<!DOCTYPE html><html><body>' + content + '</body></html>');
       if (originalUrl) {
         resolveRelativeUrls(contentDoc, originalUrl);
       }
       sanitizeArticleDom(contentDoc);
       content = contentDoc.body ? contentDoc.body.innerHTML : content;
 
-      // Extract first lead image from parsed and sanitized article content
       const imgEl = contentDoc.querySelector('img');
       if (imgEl) {
         const src = imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || imgEl.getAttribute('data-original');
@@ -343,6 +333,18 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   };
 }
 
+export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
+  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(html);
+  const formattedHtml = hasHtmlTags
+    ? html
+    : html.split(/\n\s*\n/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  const fullHtml = formattedHtml.includes('<html') || formattedHtml.includes('<!DOCTYPE')
+    ? formattedHtml
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${formattedHtml}</body></html>`;
+  const { document } = parseHtmlIsomorphic(fullHtml);
+  return extractArticleFromDom(document, originalUrl, formattedHtml);
+}
+
 export async function extractArticleFromUrl(url: string): Promise<ExtractedArticle> {
   const parsedUrl = new URL(url);
 
@@ -362,7 +364,6 @@ export async function extractArticleFromUrl(url: string): Promise<ExtractedArtic
   const html = await response.text();
   return extractArticleFromHtml(html, url);
 }
-
 
 export async function extractCoverImageFromUrl(url: string): Promise<string | null> {
   try {

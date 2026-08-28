@@ -617,6 +617,8 @@ const syncHandler = async (c: any) => {
       sync_rev: currentRev,
       instance_id: instanceId,
       counts: counts,
+      ota_version: OTA_VERSION,
+      ota_checksum: OTA_CHECKSUM,
     });
   }
 
@@ -652,6 +654,8 @@ const syncHandler = async (c: any) => {
     page: entriesResult.page,
     limit: entriesResult.limit,
     pages: entriesResult.pages,
+    ota_version: OTA_VERSION,
+    ota_checksum: OTA_CHECKSUM,
   });
 };
 
@@ -694,8 +698,14 @@ const postEntryHandler = async (c: any) => {
   }
 
   let entryData: Partial<EntryRow> & { tags?: string | string[] } = {};
+  const rawHtml = body.html ? String(body.html).trim() : '';
 
   if (title && content) {
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+      console.log(`[API:Ingest] 📱 Client-extracted article: "${title}" (${url}) [${content.length} chars]`);
+    } else {
+      console.log(`[API:Ingest] 📝 Custom text note: "${title}" [${content.length} chars]`);
+    }
     // Custom pasted / manual text entry
     const extracted = extractArticleFromHtml(content, url || undefined);
     let previewPicture = body.preview_picture || extracted.previewPicture || null;
@@ -723,7 +733,30 @@ const postEntryHandler = async (c: any) => {
       is_starred: body.starred ? Number(body.starred) : 0,
       tags: rawTags,
     };
+  } else if (url && rawHtml) {
+    console.log(`[API:Ingest] 📱 Native Android pre-fetched HTML received for: ${url} [${rawHtml.length} chars]`);
+    const extracted = extractArticleFromHtml(rawHtml, url);
+    let previewPicture = body.preview_picture || extracted.previewPicture || null;
+    if (!previewPicture) {
+      previewPicture = await extractCoverImageFromUrl(url);
+    }
+    const domainName = extracted.domainName || extractDomain(url);
+    entryData = {
+      url,
+      title: body.title || extracted.title || 'Untitled Article',
+      content: extracted.content,
+      preview_picture: previewPicture,
+      domain_name: domainName,
+      reading_time: extracted.readingTime || 1,
+      language: body.language || extracted.language || 'en',
+      author: body.author ? String(body.author).trim() : (extracted.byline || null),
+      published_at: body.published_at || extracted.publishedAt || null,
+      is_archived: body.archive ? Number(body.archive) : 0,
+      is_starred: body.starred ? Number(body.starred) : 0,
+      tags: rawTags,
+    };
   } else if (url) {
+    console.log(`[API:Ingest] ☁️ Server-side scraping triggered on Cloudflare Worker for: ${url}`);
     // Automated web scraper
     const existing = await getEntryByUrl(c.env.DB, url);
     if (existing) {
@@ -738,6 +771,7 @@ const postEntryHandler = async (c: any) => {
 
     try {
       const extracted = await extractArticleFromUrl(url);
+      console.log(`[API:Ingest] ☁️ Server scraping succeeded for: "${extracted.title || title || url}"`);
       entryData = {
         url,
         title: title || extracted.title,
@@ -753,6 +787,7 @@ const postEntryHandler = async (c: any) => {
         tags: rawTags,
       };
     } catch (err: any) {
+      console.warn(`[API:Ingest] ⚠️ Server scraping error for ${url}: ${err?.message}`);
       entryData = {
         url,
         title: title || url,

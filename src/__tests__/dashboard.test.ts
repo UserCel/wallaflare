@@ -696,4 +696,14 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(localEntries.length).toBe(2);
     expect(localEntries.map(e => e.id)).toEqual([1, 3]);
   });
+
+  it('renders article parser engine options in settings modal', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="settingsParserBtns"');
+    expect(html).toContain('data-parser="auto"');
+    expect(html).toContain('data-parser="device"');
+    expect(html).toContain('data-parser="server"');
+    expect(html).toContain('id="settingsParserEngineDesc"');
+    expect(html).toContain('setParserEngine');
+  });
 });

@@ -20,12 +20,34 @@
       max-width: 520px;
       max-height: 90vh;
       overflow-y: auto;
+      overflow-x: hidden;
       box-shadow: var(--shadow-lg);
-      padding: 1.5rem;
+      padding: 1.5rem 0.55rem 1.5rem 1.5rem;
+      scrollbar-gutter: stable;
       display: flex;
       flex-direction: column;
       gap: 1.15rem;
       animation: modalFadeIn 0.2s ease-out;
+    }
+    .modal > *, .tag-modal > * {
+      padding-right: 0.95rem;
+    }
+    .modal::-webkit-scrollbar,
+    .tag-modal::-webkit-scrollbar {
+      width: 6px;
+    }
+    .modal::-webkit-scrollbar-track,
+    .tag-modal::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .modal::-webkit-scrollbar-thumb,
+    .tag-modal::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    .modal::-webkit-scrollbar-thumb:hover,
+    .tag-modal::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
     }
     @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
     .modal-header { display: flex; align-items: center; justify-content: space-between; }
@@ -105,3 +127,19 @@
     .menu-sub-items { display: none; flex-direction: column; background: var(--bg-primary); border-radius: var(--radius-sm); margin: 0.2rem 0.4rem; padding: 0.2rem 0; border: 1px solid var(--border-color); }
     .menu-item-expandable.expanded .menu-sub-items { display: flex; }
     .menu-sub-item { padding-left: 1.5rem !important; font-size: 0.8rem !important; }
+
+
+    /* Strict Rounded Corner Clipping for all Modals including scrollbars */
+    .modal, .tag-modal {
+      border-radius: var(--radius-lg) !important;
+      clip-path: inset(0 round var(--radius-lg));
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      mask-image: radial-gradient(white, black);
+    }
+    #settingsModal .modal {
+      border-radius: var(--radius-lg) !important;
+      clip-path: inset(0 round var(--radius-lg)) !important;
+      -webkit-mask-image: -webkit-radial-gradient(white, black) !important;
+      mask-image: radial-gradient(white, black) !important;
+    }
+

@@ -443,3 +443,43 @@
         stroke-dashoffset: -53.407;
       }
     }
+
+
+    /* Article Parser Engine Selector in Settings */
+    .opt-parser-btn {
+      transition: all 0.15s ease;
+    }
+    .opt-parser-btn .parser-subtext {
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      transition: color 0.15s ease, opacity 0.15s ease;
+    }
+    .opt-parser-btn.btn-primary {
+      background: var(--accent) !important;
+      color: #ffffff !important;
+      border-color: var(--accent) !important;
+    }
+    .opt-parser-btn.btn-primary span,
+    .opt-parser-btn.btn-primary .parser-subtext {
+      color: #ffffff !important;
+      opacity: 0.92;
+    }
+
+
+    .toast { z-index: 100000 !important; }
+
+
+    .parser-web-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--bg-tertiary, rgba(255, 255, 255, 0.06));
+      border: 1px solid var(--border-color);
+      padding: 0.35rem 0.65rem;
+      border-radius: var(--radius-sm, 6px);
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      margin-bottom: 0.35rem;
+    }
+

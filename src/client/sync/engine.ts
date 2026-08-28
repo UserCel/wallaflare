@@ -89,11 +89,16 @@ export async function loadArticles(isBackground: boolean = false): Promise<void>
     const res = await authFetch("/api/sync");
     if (res.ok) {
       const data = (await res.json()) as any;
-      if (data && Array.isArray(data.entries)) {
-        state.allEntries = reconcileDeltaSync(state.allEntries, data, true);
-        state.allEntries = deduplicateEntries(state.allEntries);
-        await saveEntriesToIndexedDB(state.allEntries);
-        updateOfflineUI(false);
+      if (data) {
+        if (data.ota_version && typeof (window as any).checkCapacitorOtaFromVersion === "function") {
+          (window as any).checkCapacitorOtaFromVersion(data.ota_version);
+        }
+        if (Array.isArray(data.entries)) {
+          state.allEntries = reconcileDeltaSync(state.allEntries, data, true);
+          state.allEntries = deduplicateEntries(state.allEntries);
+          await saveEntriesToIndexedDB(state.allEntries);
+          updateOfflineUI(false);
+        }
       }
     } else {
       handleConnectionFailure(false);

@@ -2,6 +2,7 @@ import { isCapacitorApp, authFetch } from "../sync/api";
 import { showToast } from "../components/toast";
 import { state } from "../state";
 import { Article } from "../types";
+import { saveArticleWithFallback } from "../extractor";
 
 export function prependSavedArticles(articles: Article[]): void {
   if (!Array.isArray(articles) || articles.length === 0) return;
@@ -22,6 +23,42 @@ export async function pollPendingSavedArticles(): Promise<void> {
   await checkNativePendingSavedArticles();
 }
 
+export async function handleAndroidSharedText(text: string): Promise<void> {
+  if (!text || !text.trim()) return;
+  const match = text.match(/https?:\/\/[^\s]+/i);
+  const url = match ? match[0] : null;
+  if (url) {
+    showToast("Extracting shared article...");
+    const res = await saveArticleWithFallback(url);
+    if (res.ok) {
+      showToast(res.alreadyExists ? "Article is already in your library!" : "Article saved!");
+      if ((window as any).loadArticles) (window as any).loadArticles(false);
+    } else {
+      showToast(res.error || "Failed to save shared article", true);
+    }
+  } else {
+    try {
+      const res = await authFetch("/api/entries.json", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Shared Note",
+          content: `<p>${text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`,
+          url: "wallaflare://shared-text"
+        })
+      });
+      if (res.ok) {
+        showToast("Shared note saved!");
+        if ((window as any).loadArticles) (window as any).loadArticles(false);
+      } else {
+        showToast("Failed to save shared note", true);
+      }
+    } catch {
+      showToast("Network error saving shared note", true);
+    }
+  }
+}
+
 export function initCapacitorBridge(): void {
   if (typeof window !== "undefined") {
     const w = window as any;
@@ -30,6 +67,7 @@ export function initCapacitorBridge(): void {
     w.checkNativePendingSavedArticles = checkNativePendingSavedArticles;
     w.refreshArticlesSilently = refreshArticlesSilently;
     w.pollPendingSavedArticles = pollPendingSavedArticles;
+    w.handleAndroidSharedText = handleAndroidSharedText;
   }
 
   if (!isCapacitorApp()) return;
@@ -63,21 +101,19 @@ export function handleAndroidBackButton(): void {
 
 export async function checkNativePendingSavedArticles(): Promise<void> {
   if (!isCapacitorApp() || typeof (window as any).Capacitor === "undefined") return;
-  const NativePlugin = (window as any).Capacitor.Plugins?.WallaflareNativePlugin;
+  const NativePlugin = (window as any).Capacitor.Plugins?.WallaflareNativePlugin || (window as any).Capacitor.Plugins?.WallaflareNative;
   if (!NativePlugin || !NativePlugin.getPendingSharedUrls) return;
 
   try {
     const res = await NativePlugin.getPendingSharedUrls();
     if (res && Array.isArray(res.urls) && res.urls.length > 0) {
       for (const url of res.urls) {
-        await authFetch("/api/entries.json", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url })
-        });
+        await saveArticleWithFallback(url);
       }
       showToast(`Imported ${res.urls.length} shared article(s)!`);
-      await NativePlugin.clearPendingSharedUrls();
+      if (typeof NativePlugin.clearPendingSharedUrls === "function") {
+        await NativePlugin.clearPendingSharedUrls();
+      }
       if ((window as any).loadArticles) (window as any).loadArticles(false);
     }
   } catch (e) {
@@ -91,8 +127,5 @@ if (typeof window !== "undefined") {
   (window as any).checkNativePendingSavedArticles = checkNativePendingSavedArticles;
   (window as any).refreshArticlesSilently = refreshArticlesSilently;
   (window as any).pollPendingSavedArticles = pollPendingSavedArticles;
-  // window.prependSavedArticles
-  // window.prependSavedArticle
-  // window.checkNativePendingSavedArticles
-  // window.refreshArticlesSilently
+  (window as any).handleAndroidSharedText = handleAndroidSharedText;
 }

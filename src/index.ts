@@ -20,7 +20,7 @@ app.use('*', async (c, next) => {
   c.header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
   c.header(
     'Content-Security-Policy',
-    "default-src 'self' 'unsafe-inline' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' https: http: data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self';"
+    "default-src 'self' 'unsafe-inline' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' https: http: data: blob:; connect-src 'self' https: http: data: blob:; object-src 'none'; base-uri 'self';"
   );
   return next();
 });
