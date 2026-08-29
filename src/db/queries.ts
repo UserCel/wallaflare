@@ -876,39 +876,79 @@ export function timingSafeCompare(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
-export async function checkAuthRateLimit(db: D1Database, ip: string): Promise<RateLimitStatus> {
-  await ensureAuthRateLimitsTable(db);
-  try {
-    const row = await db.prepare(
-      'SELECT failed_attempts, last_attempt_at, locked_until FROM auth_rate_limits WHERE ip = ? LIMIT 1'
-    ).bind(ip).first<{ failed_attempts: number; last_attempt_at: number; locked_until: number }>();
+export type AuthRateLimitScope = 'admin' | 'opds';
 
-    if (!row) {
-      return { allowed: true, attempts_left: MAX_FAILED_ATTEMPTS, locked: false };
+function getRateLimitKey(ip: string, scope: AuthRateLimitScope): string {
+  return scope === 'admin' ? ip : `${scope}:${ip}`;
+}
+
+export async function checkAuthRateLimit(db: D1Database, ip: string, scope: AuthRateLimitScope = 'admin'): Promise<RateLimitStatus> {
+  await ensureAuthRateLimitsTable(db);
+  const now = Date.now();
+  try {
+    // 1. Admin lockout check: If admin is locked out, block ALL scopes (admin & opds)
+    const adminKey = getRateLimitKey(ip, 'admin');
+    const adminRow = await db.prepare(
+      'SELECT failed_attempts, last_attempt_at, locked_until FROM auth_rate_limits WHERE ip = ? LIMIT 1'
+    ).bind(adminKey).first<{ failed_attempts: number; last_attempt_at: number; locked_until: number }>();
+
+    if (adminRow) {
+      if (adminRow.locked_until > now) {
+        const remainingSeconds = Math.max(1, Math.ceil((adminRow.locked_until - now) / 1000));
+        const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+        return {
+          allowed: false,
+          attempts_left: 0,
+          locked: true,
+          remaining_seconds: remainingSeconds,
+          remaining_minutes: remainingMinutes
+        };
+      }
+      if (adminRow.locked_until > 0 || (now - adminRow.last_attempt_at > FAILURE_WINDOW_MS)) {
+        await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(adminKey).run().catch(() => {});
+      }
     }
 
-    const now = Date.now();
+    // 2. If scope is admin, return remaining admin attempts
+    if (scope === 'admin') {
+      const attemptsLeft = adminRow && (now - adminRow.last_attempt_at <= FAILURE_WINDOW_MS) && adminRow.locked_until <= now
+        ? Math.max(0, MAX_FAILED_ATTEMPTS - adminRow.failed_attempts)
+        : MAX_FAILED_ATTEMPTS;
 
-    // If currently locked
-    if (row.locked_until > now) {
-      const remainingSeconds = Math.max(1, Math.ceil((row.locked_until - now) / 1000));
-      const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
       return {
-        allowed: false,
-        attempts_left: 0,
-        locked: true,
-        remaining_seconds: remainingSeconds,
-        remaining_minutes: remainingMinutes
+        allowed: attemptsLeft > 0,
+        attempts_left: attemptsLeft,
+        locked: false
       };
     }
 
-    // If locked_until expired, or window expired (e.g. 15 min since last attempt), reset counter
-    if (row.locked_until > 0 || (now - row.last_attempt_at > FAILURE_WINDOW_MS)) {
-      await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(ip).run().catch(() => {});
-      return { allowed: true, attempts_left: MAX_FAILED_ATTEMPTS, locked: false };
+    // 3. If scope is opds, check the opds-specific counter
+    const opdsKey = getRateLimitKey(ip, 'opds');
+    const opdsRow = await db.prepare(
+      'SELECT failed_attempts, last_attempt_at, locked_until FROM auth_rate_limits WHERE ip = ? LIMIT 1'
+    ).bind(opdsKey).first<{ failed_attempts: number; last_attempt_at: number; locked_until: number }>();
+
+    if (opdsRow) {
+      if (opdsRow.locked_until > now) {
+        const remainingSeconds = Math.max(1, Math.ceil((opdsRow.locked_until - now) / 1000));
+        const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+        return {
+          allowed: false,
+          attempts_left: 0,
+          locked: true,
+          remaining_seconds: remainingSeconds,
+          remaining_minutes: remainingMinutes
+        };
+      }
+      if (opdsRow.locked_until > 0 || (now - opdsRow.last_attempt_at > FAILURE_WINDOW_MS)) {
+        await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(opdsKey).run().catch(() => {});
+      }
     }
 
-    const attemptsLeft = Math.max(0, MAX_FAILED_ATTEMPTS - row.failed_attempts);
+    const attemptsLeft = opdsRow && (now - opdsRow.last_attempt_at <= FAILURE_WINDOW_MS) && opdsRow.locked_until <= now
+      ? Math.max(0, MAX_FAILED_ATTEMPTS - opdsRow.failed_attempts)
+      : MAX_FAILED_ATTEMPTS;
+
     return {
       allowed: attemptsLeft > 0,
       attempts_left: attemptsLeft,
@@ -919,13 +959,14 @@ export async function checkAuthRateLimit(db: D1Database, ip: string): Promise<Ra
   }
 }
 
-export async function recordFailedAuthAttempt(db: D1Database, ip: string): Promise<RateLimitStatus> {
+export async function recordFailedAuthAttempt(db: D1Database, ip: string, scope: AuthRateLimitScope = 'admin'): Promise<RateLimitStatus> {
   await ensureAuthRateLimitsTable(db);
   const now = Date.now();
+  const targetKey = getRateLimitKey(ip, scope);
   try {
     const row = await db.prepare(
       'SELECT failed_attempts, last_attempt_at, locked_until FROM auth_rate_limits WHERE ip = ? LIMIT 1'
-    ).bind(ip).first<{ failed_attempts: number; last_attempt_at: number; locked_until: number }>();
+    ).bind(targetKey).first<{ failed_attempts: number; last_attempt_at: number; locked_until: number }>();
 
     let newCount = 1;
     if (row) {
@@ -944,7 +985,7 @@ export async function recordFailedAuthAttempt(db: D1Database, ip: string): Promi
         failed_attempts = excluded.failed_attempts,
         last_attempt_at = excluded.last_attempt_at,
         locked_until = excluded.locked_until
-    `).bind(ip, newCount, now, lockedUntil).run();
+    `).bind(targetKey, newCount, now, lockedUntil).run();
 
     const attemptsLeft = Math.max(0, MAX_FAILED_ATTEMPTS - newCount);
     const remainingMinutes = locked ? 15 : undefined;
@@ -963,10 +1004,16 @@ export async function recordFailedAuthAttempt(db: D1Database, ip: string): Promi
   }
 }
 
-export async function resetAuthRateLimit(db: D1Database, ip: string): Promise<void> {
+export async function resetAuthRateLimit(db: D1Database, ip: string, scope: AuthRateLimitScope = 'admin'): Promise<void> {
   await ensureAuthRateLimitsTable(db);
   try {
-    await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(ip).run();
+    if (scope === 'admin') {
+      // Master AUTH_TOKEN resets both admin and opds counters
+      await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ? OR ip = ?').bind(ip, `opds:${ip}`).run();
+    } else {
+      // OPDS_TOKEN only resets the opds counter
+      await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(`opds:${ip}`).run();
+    }
   } catch {}
 }
 

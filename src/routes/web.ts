@@ -142,9 +142,14 @@ webRouter.get('/manifest.json', (c) => {
   return c.json(getManifest(c));
 });
 
-webRouter.get('/share-target', (c) => {
-  return c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN)));
-});
+async function renderWebDashboard(c: any) {
+  const appName = c.env?.APP_NAME || 'Wallaflare';
+  const hasOpds = Boolean(c.env?.OPDS_TOKEN);
+  const isAuthed = c.env?.AUTH_TOKEN ? await validateSessionToken(c, c.env) : true;
+  return c.html(renderDashboardHtml(appName, hasOpds, isAuthed));
+}
+
+webRouter.get('/share-target', (c) => renderWebDashboard(c));
 
 // -----------------------------------------------------------------
 // Wallabag Android App Exact Regex Handshake
@@ -388,22 +393,17 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
 }
 
 // Direct article & filter sub-URLs
-webRouter.get('/read/:id', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
-webRouter.get('/view/:id', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
-webRouter.get('/unread', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
-webRouter.get('/starred', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
-webRouter.get('/archive', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
+webRouter.get('/read/:id', (c) => renderWebDashboard(c));
+webRouter.get('/view/:id', (c) => renderWebDashboard(c));
+webRouter.get('/unread', (c) => renderWebDashboard(c));
+webRouter.get('/starred', (c) => renderWebDashboard(c));
+webRouter.get('/archive', (c) => renderWebDashboard(c));
 
 // Root page
-webRouter.get('/', (c) => {
-  const appName = c.env.APP_NAME || 'Wallaflare';
-  return c.html(renderDashboardHtml(appName, Boolean(c.env?.OPDS_TOKEN)));
-});
+webRouter.get('/', (c) => renderWebDashboard(c));
 
 // Login page (renders the unified Wallaflare UI)
-webRouter.get('/login', (c) => {
-  return c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN)));
-});
+webRouter.get('/login', (c) => renderWebDashboard(c));
 
 // Login submission by Wallabagger / Android app / browser
 webRouter.post('/login_check', async (c) => {

@@ -350,9 +350,8 @@ function createMockD1Database() {
             });
             return { meta: { changes: 1 } };
           }
-          if (query.includes('DELETE FROM auth_rate_limits WHERE ip = ?')) {
-            const ip = boundParams[0];
-            rateLimits.delete(ip);
+          if (query.includes('DELETE FROM auth_rate_limits')) {
+            boundParams.forEach(p => rateLimits.delete(p));
             return { meta: { changes: 1 } };
           }
           return { meta: { changes: 1 } };

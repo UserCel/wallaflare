@@ -110,7 +110,10 @@ Wallaflare serves a native **OPDS 1.2 Book Catalog** for instant browsing and do
   ```
   https://<your-subdomain>.workers.dev/opds
   ```
-  - **KOReader**: Go to **Tools > OPDS catalog > Add new catalog**, enter the catalog URL, and sign in with Username `wallaflare` and Password `OPDS_TOKEN` (or `AUTH_TOKEN`).
+  - **KOReader**: Go to **Tools > OPDS catalog > Add new catalog**, enter the catalog URL, and sign in with:
+    - **Username**: `wallaflare`
+    - **Password**: Your `OPDS_TOKEN` (if configured) or master `AUTH_TOKEN`
+    *(Note: If a dedicated `OPDS_TOKEN` is set, only `OPDS_TOKEN` is accepted on `/opds` for strict security isolation).*
   - **In-Catalog Search**: Full support for OpenSearch 1.1 search queries (`/opds/search?q=...`) inside KOReader and OPDS apps.
 
 - **Pre-Authenticated Direct URL (Crosspoint / Embedded E-readers)**:

@@ -6,6 +6,7 @@ function createMockD1Database() {
   let entries: EntryRow[] = [];
   let tags: Array<{ id: number; label: string; slug: string }> = [];
   let entryTags: Array<{ entry_id: number; tag_id: number }> = [];
+  let rateLimits: Map<string, { failed_attempts: number; last_attempt_at: number; locked_until: number }> = new Map();
   let autoId = 1;
   let autoTagId = 1;
 
@@ -73,6 +74,10 @@ function createMockD1Database() {
             const id = boundParams[0];
             return (entries.find((e) => e.id === id) || null) as T;
           }
+          if (query.includes('FROM auth_rate_limits WHERE ip = ?')) {
+            const ip = boundParams[0];
+            return (rateLimits.get(ip) || null) as T;
+          }
           return null as T;
         },
         async all<T = any>() {
@@ -123,6 +128,19 @@ function createMockD1Database() {
           return { results: [] as T[] };
         },
         async run() {
+          if (query.includes('auth_rate_limits') && query.includes('INSERT INTO')) {
+            const ip = boundParams[0];
+            rateLimits.set(ip, {
+              failed_attempts: boundParams[1],
+              last_attempt_at: boundParams[2],
+              locked_until: boundParams[3]
+            });
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('DELETE FROM auth_rate_limits')) {
+            boundParams.forEach(p => rateLimits.delete(p));
+            return { meta: { changes: 1 } };
+          }
           return { success: true };
         },
       };
@@ -190,14 +208,64 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     expect(text).toContain(`token=${AUTH_SECRET}`);
   });
 
-  it('accepts dedicated OPDS_TOKEN when configured in environment', async () => {
+  it('accepts dedicated OPDS_TOKEN and rejects AUTH_TOKEN on /opds when OPDS_TOKEN is set', async () => {
     const dedicatedToken = 'readonly_opds_secret';
+    const masterToken = 'master_admin_secret';
+
+    // 1. Valid OPDS_TOKEN succeeds
     const res = await app.request(`/opds?token=${dedicatedToken}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
-      AUTH_TOKEN: 'master_admin_secret',
+      AUTH_TOKEN: masterToken,
       OPDS_TOKEN: dedicatedToken,
+    });
+
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('urn:wallaflare:opds:root');
+
+    // 2. AUTH_TOKEN is strictly rejected on /opds when OPDS_TOKEN is configured
+    const masterOnOpdsRes = await app.request(`/opds?token=${masterToken}`, {
+      method: 'GET',
+    }, {
+      DB: mockDb as any,
+      AUTH_TOKEN: masterToken,
+      OPDS_TOKEN: dedicatedToken,
+    });
+    expect(masterOnOpdsRes.status).toBe(401);
+  });
+
+  it('falls back to AUTH_TOKEN on /opds when OPDS_TOKEN is NOT set', async () => {
+    const masterToken = 'master_admin_secret_only';
+
+    // 1. AUTH_TOKEN succeeds on /opds
+    const res = await app.request(`/opds?token=${masterToken}`, {
+      method: 'GET',
+    }, {
+      DB: mockDb as any,
+      AUTH_TOKEN: masterToken,
+    });
+
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('urn:wallaflare:opds:root');
+
+    // 2. Wrong token is rejected
+    const wrongRes = await app.request('/opds?token=wrong_token', {
+      method: 'GET',
+    }, {
+      DB: mockDb as any,
+      AUTH_TOKEN: masterToken,
+    });
+    expect(wrongRes.status).toBe(401);
+  });
+
+  it('allows open access to /opds when no secrets are configured in environment', async () => {
+    const res = await app.request('/opds', {
+      method: 'GET',
+    }, {
+      DB: mockDb as any,
     });
 
     expect(res.status).toBe(200);
@@ -318,5 +386,115 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     expect(bytes[1]).toBe(0x4b);
     expect(bytes[2]).toBe(0x03);
     expect(bytes[3]).toBe(0x04);
+  });
+  it('enforces rate limiting on OPDS endpoints: tracks failed attempts and locks out after 5 failures', async () => {
+    const testIp = '192.168.10.50';
+
+    // Attempts 1 to 5 with wrong password
+    for (let i = 1; i <= 5; i++) {
+      const basicAuth = 'Basic ' + Buffer.from('wallaflare:wrong_token_' + i).toString('base64');
+      const res = await app.request('/opds', {
+        method: 'GET',
+        headers: {
+          'Authorization': basicAuth,
+          'CF-Connecting-IP': testIp
+        }
+      }, {
+        DB: mockDb as any,
+        AUTH_TOKEN: AUTH_SECRET,
+      });
+
+      if (i < 5) {
+        expect(res.status).toBe(401);
+        const text = await res.text();
+        expect(text).toContain((5 - i) + ' attempt');
+      } else {
+        // 5th attempt locks out
+        expect(res.status).toBe(429);
+        const text = await res.text();
+        expect(text).toContain('Locked out for 15 minutes');
+      }
+    }
+
+    // 6th attempt is immediately rejected with 429 even before validating password
+    const lockedRes = await app.request('/opds', {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from('wallaflare:' + AUTH_SECRET).toString('base64'),
+        'CF-Connecting-IP': testIp
+      }
+    }, {
+      DB: mockDb as any,
+      AUTH_TOKEN: AUTH_SECRET,
+    });
+    expect(lockedRes.status).toBe(429);
+  });
+
+  it('resets failed OPDS rate limit attempts upon successful authentication', async () => {
+    const testIp = '192.168.10.51';
+
+    // 2 failed attempts
+    for (let i = 0; i < 2; i++) {
+      await app.request('/opds?token=wrong_secret', {
+        method: 'GET',
+        headers: { 'CF-Connecting-IP': testIp }
+      }, {
+        DB: mockDb as any,
+        AUTH_TOKEN: AUTH_SECRET,
+      });
+    }
+
+    // Successful authentication with ?token=AUTH_SECRET
+    const goodRes = await app.request(`/opds?token=${AUTH_SECRET}`, {
+      method: 'GET',
+      headers: { 'CF-Connecting-IP': testIp }
+    }, {
+      DB: mockDb as any,
+      AUTH_TOKEN: AUTH_SECRET,
+    });
+    expect(goodRes.status).toBe(200);
+
+    // After success, a wrong attempt should start fresh (4 attempts left, not 2)
+    const freshWrongRes = await app.request('/opds?token=wrong_again', {
+      method: 'GET',
+      headers: { 'CF-Connecting-IP': testIp }
+    }, {
+      DB: mockDb as any,
+      AUTH_TOKEN: AUTH_SECRET,
+    });
+    expect(freshWrongRes.status).toBe(401);
+    const text = await freshWrongRes.text();
+    expect(text).toContain('4 attempts remaining');
+  });
+  it('does NOT consume failed rate limit attempts on empty/cancelled authentication', async () => {
+    const testIp = '192.168.10.99';
+
+    // 10 visits with no auth or cancelled prompt (empty password)
+    for (let i = 0; i < 10; i++) {
+      const basicEmpty = 'Basic ' + Buffer.from('wallaflare:').toString('base64');
+      const res = await app.request('/opds', {
+        method: 'GET',
+        headers: {
+          'Authorization': i % 2 === 0 ? basicEmpty : '',
+          'CF-Connecting-IP': testIp
+        }
+      }, {
+        DB: mockDb as any,
+        AUTH_TOKEN: AUTH_SECRET,
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.headers.get('WWW-Authenticate')).toContain('Basic realm="Wallaflare OPDS"');
+    }
+
+    // Since zero failed attempts were recorded, a valid request immediately succeeds
+    const goodRes = await app.request(`/opds?token=${AUTH_SECRET}`, {
+      method: 'GET',
+      headers: { 'CF-Connecting-IP': testIp }
+    }, {
+      DB: mockDb as any,
+      AUTH_TOKEN: AUTH_SECRET,
+    });
+    expect(goodRes.status).toBe(200);
   });
 });

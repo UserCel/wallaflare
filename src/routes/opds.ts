@@ -7,8 +7,13 @@ import {
   getEntryById,
   getAllEntryTagsBatch,
   timingSafeCompare,
+  checkAuthRateLimit,
+  recordFailedAuthAttempt,
+  resetAuthRateLimit,
 } from '../db/queries';
+import { getClientIp } from './api';
 import { generateEpub } from '../services/epub';
+import { validateSessionToken } from '../services/auth';
 import {
   generateRootCatalogXml,
   generateTagsCatalogXml,
@@ -30,7 +35,7 @@ function getBaseUrl(c: Context): string {
 export function extractOpdsToken(c: Context<{ Bindings: Env }>): string | null {
   // 1. URL Query Parameter (?token=... / ?access_token=... / ?key=...)
   const queryToken = c.req.query('token') || c.req.query('access_token') || c.req.query('key');
-  if (queryToken) {
+  if (queryToken && queryToken.trim().length > 0) {
     return queryToken.trim();
   }
 
@@ -44,24 +49,20 @@ export function extractOpdsToken(c: Context<{ Bindings: Env }>): string | null {
         const decoded = atob(trimmed.substring(6).trim());
         const colonIdx = decoded.indexOf(':');
         if (colonIdx !== -1) {
-          const pass = decoded.substring(colonIdx + 1);
-          return pass.trim() || decoded.substring(0, colonIdx).trim();
+          const pass = decoded.substring(colonIdx + 1).trim();
+          if (pass.length > 0) {
+            return pass;
+          }
+          return null;
         }
-        return decoded.trim();
+        const token = decoded.trim();
+        return token.length > 0 ? token : null;
       } catch {}
     }
     // Bearer Token
     if (trimmed.toLowerCase().startsWith('bearer ')) {
-      return trimmed.substring(7).trim();
-    }
-  }
-
-  // 3. Cookie (for browser previews)
-  const cookie = c.req.header('Cookie');
-  if (cookie) {
-    const match = cookie.match(/(?:^|;\s*)(?:wf_auth_token|PHPSESSID)=([^;]+)/);
-    if (match) {
-      return decodeURIComponent(match[1].trim());
+      const token = trimmed.substring(7).trim();
+      return token.length > 0 ? token : null;
     }
   }
 
@@ -70,27 +71,71 @@ export function extractOpdsToken(c: Context<{ Bindings: Env }>): string | null {
 
 export async function opdsAuthMiddleware(c: Context<{ Bindings: Env }>, next: () => Promise<void>) {
   const masterSecret = c.env?.AUTH_TOKEN || c.env?.CLIENT_SECRET;
-  const opdsSecret = c.env?.OPDS_TOKEN || masterSecret;
+  const opdsSecret = c.env?.OPDS_TOKEN;
+  const effectiveSecret = opdsSecret || masterSecret;
 
   // Open access if no secret configured
-  if (!opdsSecret && !masterSecret) {
+  if (!effectiveSecret) {
+    return await next();
+  }
+
+  // 1. If user is logged into the web dashboard (valid session cookie), grant access
+  if (c.env && (await validateSessionToken(c, c.env))) {
     return await next();
   }
 
   const provided = extractOpdsToken(c);
 
-  const isValid = provided && (
-    (opdsSecret && timingSafeCompare(provided, opdsSecret)) ||
-    (masterSecret && timingSafeCompare(provided, masterSecret))
-  );
-
-  if (!isValid) {
+  // 2. If no active token was provided (or empty credentials / unauthenticated browser probe),
+  // challenge with 401 WWW-Authenticate without consuming rate-limit attempts.
+  if (!provided) {
     c.header('WWW-Authenticate', 'Basic realm="Wallaflare OPDS"');
     c.header('Content-Type', 'text/plain; charset=utf-8');
-    return c.text('401 Unauthorized: Invalid or missing OPDS credentials\n', 401);
+    return c.text('401 Unauthorized: Authentication required. Please log in.\n', 401);
   }
 
-  await next();
+  // 3. Active token was submitted: check IP rate limit on 'opds' scope (which also blocks if admin is locked)
+  const ip = getClientIp(c);
+  if (c.env?.DB) {
+    const rateLimit = await checkAuthRateLimit(c.env.DB, ip, 'opds');
+    if (!rateLimit.allowed) {
+      c.header('Content-Type', 'text/plain; charset=utf-8');
+      return c.text(
+        `429 Too Many Requests: Too many failed login attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.\n`,
+        429
+      );
+    }
+  }
+
+  // When OPDS_TOKEN is configured, strictly validate against OPDS_TOKEN.
+  // When OPDS_TOKEN is not configured, fall back to masterSecret.
+  const isValid = Boolean(effectiveSecret && timingSafeCompare(provided, effectiveSecret));
+
+  if (isValid) {
+    if (c.env?.DB) {
+      // If OPDS_TOKEN is dedicated, reset only 'opds' scope; if single masterSecret, reset 'admin'
+      await resetAuthRateLimit(c.env.DB, ip, opdsSecret ? 'opds' : 'admin');
+    }
+    return await next();
+  }
+
+  // 4. Record failed attempt on 'opds' scope
+  let attemptsLeft = 5;
+  if (c.env?.DB) {
+    const failure = await recordFailedAuthAttempt(c.env.DB, ip, 'opds');
+    attemptsLeft = failure.attempts_left;
+    if (failure.locked) {
+      c.header('Content-Type', 'text/plain; charset=utf-8');
+      return c.text('429 Too Many Requests: Too many failed login attempts. Locked out for 15 minutes.\n', 429);
+    }
+  }
+
+  c.header('WWW-Authenticate', 'Basic realm="Wallaflare OPDS"');
+  c.header('Content-Type', 'text/plain; charset=utf-8');
+  return c.text(
+    `401 Unauthorized: Invalid OPDS credentials. ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining before a 15-minute lockout.\n`,
+    401
+  );
 }
 
 // Apply authentication to all OPDS routes

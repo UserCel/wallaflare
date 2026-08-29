@@ -486,11 +486,13 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
     function showAuthOverlay() {
+      document.documentElement.classList.add('wf-needs-auth');
       const overlay = document.getElementById('authOverlay');
       if (overlay) overlay.style.display = 'flex';
     }
 
     function hideAuthOverlay() {
+      document.documentElement.classList.remove('wf-needs-auth');
       const overlay = document.getElementById('authOverlay');
       if (overlay) overlay.style.display = 'none';
     }
@@ -3833,21 +3835,35 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     function updateOpdsTokenBadge(hasDedicatedOpdsToken) {
       const opdsBadgeEl = document.getElementById('syncOpdsTokenStatusBadge');
-      if (!opdsBadgeEl) return;
-      opdsBadgeEl.style.display = 'flex';
-      opdsBadgeEl.style.alignItems = 'center';
-      opdsBadgeEl.style.flexWrap = 'wrap';
-      opdsBadgeEl.style.gap = '0.35rem';
-      if (hasDedicatedOpdsToken) {
-        opdsBadgeEl.style.background = 'rgba(34, 197, 94, 0.1)';
-        opdsBadgeEl.style.border = '1px solid rgba(34, 197, 94, 0.25)';
-        opdsBadgeEl.style.color = 'var(--success, #22c55e)';
-        opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🟢 Dedicated OPDS_TOKEN is active</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Read-only catalog key)</span>';
-      } else {
-        opdsBadgeEl.style.background = 'rgba(234, 179, 8, 0.08)';
-        opdsBadgeEl.style.border = '1px solid rgba(234, 179, 8, 0.2)';
-        opdsBadgeEl.style.color = 'var(--warning, #eab308)';
-        opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🔑 Using master AUTH_TOKEN</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Set OPDS_TOKEN in Cloudflare Secrets for a dedicated read-only key)</span>';
+      const helpEl = document.getElementById('syncOpdsCredentialsHelp');
+
+      if (opdsBadgeEl) {
+        opdsBadgeEl.style.display = 'flex';
+        opdsBadgeEl.style.alignItems = 'center';
+        opdsBadgeEl.style.flexWrap = 'wrap';
+        opdsBadgeEl.style.gap = '0.35rem';
+        if (hasDedicatedOpdsToken) {
+          opdsBadgeEl.style.background = 'rgba(34, 197, 94, 0.1)';
+          opdsBadgeEl.style.border = '1px solid rgba(34, 197, 94, 0.25)';
+          opdsBadgeEl.style.color = 'var(--success, #22c55e)';
+          opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🟢 Dedicated OPDS_TOKEN Active</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Isolated read-only access)</span>';
+        } else {
+          opdsBadgeEl.style.background = 'rgba(234, 179, 8, 0.08)';
+          opdsBadgeEl.style.border = '1px solid rgba(234, 179, 8, 0.2)';
+          opdsBadgeEl.style.color = 'var(--warning, #eab308)';
+          opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🔑 Using Master AUTH_TOKEN</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Set OPDS_TOKEN in Cloudflare Secrets to isolate e-readers)</span>';
+        }
+      }
+
+      if (helpEl) {
+        if (hasDedicatedOpdsToken) {
+          helpEl.innerHTML = '<div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.15rem;">KOReader / E-Reader Credentials:</div>' +
+            '<div>• Username: <code>wallaflare</code> &nbsp;•&nbsp; Password: <code>OPDS_TOKEN</code></div>' +
+            '<div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 0.15rem;">(Master AUTH_TOKEN is rejected on /opds for security isolation)</div>';
+        } else {
+          helpEl.innerHTML = '<div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.15rem;">KOReader / E-Reader Credentials:</div>' +
+            '<div>• Username: <code>wallaflare</code> &nbsp;•&nbsp; Password: <code>AUTH_TOKEN</code></div>';
+        }
       }
     }
 
