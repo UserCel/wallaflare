@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { Env } from './types';
 import { apiRouter } from './routes/api';
 import { webRouter } from './routes/web';
+import { opdsRouter } from './routes/opds';
 import { ensureDatabaseSchema } from './db/queries';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -42,6 +43,7 @@ app.use('*', cors({
 // Route groups
 app.route('/', webRouter);
 app.route('/', apiRouter);
+app.route('/', opdsRouter);
 
 // Global Error Handler
 app.onError((err, c) => {

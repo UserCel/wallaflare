@@ -29,7 +29,7 @@
         ├─────────────────────────────┤                               ├─────────────────────────────┤
         │ • /api/sync (Unified Sync)  │                               │ • 3-Pane Workspace Desktop  │
         │ • /api/entries (Wallabag v2)│                               │ • Infinite Scroll & Sorting │
-        │ • /api/annotations (W3C+v2) │                               │ • Mobile Slide Drawer (1:1) │
+        │ • /opds (OPDS 1.2 Catalog)  │\n        │ • /api/annotations (W3C+v2) │                               │ • Mobile Slide Drawer (1:1) │
         │ • /api/tags & batch routes  │                               │ • On-Device EPUB / PDF / MD │
         │ • Readability Extractor     │                               │ • Multi-color Annotations   │
         │ • Rate limiting & Security  │                               │ • 4 Themes (Dark,Light,OLED)│
@@ -63,9 +63,11 @@
 │   ├── index.ts               # Cloudflare Worker entry point (Hono application)
 │   ├── routes/
 │   │   ├── api.ts             # Wallabag v2 REST API + Wallaflare extended batch endpoints
+│   │   ├── opds.ts            # OPDS 1.2 catalog navigation, acquisition feeds & EPUB delivery
 │   │   └── web.ts             # Web UI routes, PWA manifest, export downloads
 │   ├── services/
 │   │   ├── db.ts              # D1 Database schema, auto-migrations, and SQL queries
+│   │   ├── opds.ts            # OPDS 1.2 Atom XML & OpenSearch description generator
 │   │   ├── epub.ts            # Isomorphic, book-grade EPUB 3 generator (strict XHTML)
 │   │   ├── extractor.ts       # Linkedom readability & DOM sanitizer scraper
 │   │   └── pdf.ts             # 3-section formatted PDF generator (pdf-lib)

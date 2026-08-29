@@ -138,9 +138,10 @@ apiRouter.get('/api/version.json', versionHandler);
 
 const infoHandler = (c: any) => {
   return c.json({
-    appname: c.env.APP_NAME || 'Wallaflare',
+    appname: c.env?.APP_NAME || 'Wallaflare',
     version: '2.6.9',
     allowed_registration: false,
+    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
   });
 };
 
@@ -154,7 +155,8 @@ const appVersionHandler = (c: any) => {
     version: OTA_VERSION,
     min_native_version: OTA_MIN_NATIVE_VERSION,
     checksum: OTA_CHECKSUM,
-    url: '/api/app/bundle.zip'
+    url: '/api/app/bundle.zip',
+    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
   });
 };
 
@@ -631,6 +633,7 @@ const syncHandler = async (c: any) => {
       counts: counts,
       ota_version: OTA_VERSION,
       ota_checksum: OTA_CHECKSUM,
+      has_opds_token: Boolean(c.env?.OPDS_TOKEN),
     });
   }
 
@@ -670,6 +673,7 @@ const syncHandler = async (c: any) => {
     pages: entriesResult.pages,
     ota_version: OTA_VERSION,
     ota_checksum: OTA_CHECKSUM,
+    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
   });
 };
 
@@ -1223,6 +1227,7 @@ apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
     client_id: 'wallaflare',
     client_secret: clientSecret,
     username: 'wallaflare',
+    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
   });
 });
 

@@ -38,6 +38,12 @@
 - **🖍️ Multi-Color Annotations & W3C Highlights**:
   - Resilient W3C text position/quote selectors across theme and font size changes.
   - 4-color palette (`🟡`, `🟢`, `🔵`, `🟣`), attached notes, in-memory batching, and Markdown export with highlights (`==text==`) and footnotes (`[^note]`).
+- **📚 OPDS 1.2 Book Catalog & Acquisition Feeds**:
+  - Full OPDS 1.2 Atom XML catalog compatibility for **KOReader**, **Crosspoint**, **Moon+ Reader**, **Librera**, **Foliate**, and e-ink e-readers.
+  - Dedicated feeds for Unread, Starred, All, Archive, and Tags, with OpenSearch 1.1 in-app catalog search.
+  - Dynamic, on-the-fly EPUB 3 downloads with embedded cover art and metadata.
+  - Supports HTTP Basic Auth (`wallaflare` / `AUTH_TOKEN` or `OPDS_TOKEN`), Bearer headers, and pre-authenticated direct URLs (`?token=...`) with recursive child link token propagation.
+  - Optional read-only `OPDS_TOKEN` secret to isolate e-reader credentials from administrative controls.
 - **📦 On-Device Multi-Format Exports**:
   - Client-side **EPUB 3** (with cover art and metadata), **GitHub-flavored Markdown** (with YAML frontmatter), and **PDF** generation without third-party services.
   - Bulk ZIP exports for multiple selected articles.
@@ -82,6 +88,11 @@ npm run db:migrate:remote
 npx wrangler secret put AUTH_TOKEN
 ```
 
+*(Optional)* Set a dedicated read-only token for OPDS e-readers (KOReader, Crosspoint):
+```bash
+npx wrangler secret put OPDS_TOKEN
+```
+
 ### 5. Deploy
 ```bash
 npm run deploy
@@ -92,7 +103,25 @@ Your instance is now live worldwide! 🎉
 
 ## 📱 Client Setup Guide
 
-### 📚 KOReader (Kindle / Kobo / Android / Linux)
+### 📖 OPDS 1.2 Book Catalog (KOReader, Crosspoint, Moon+ Reader)
+Wallaflare serves a native **OPDS 1.2 Book Catalog** for instant browsing and downloading articles directly as formatted EPUBs:
+
+- **Standard Catalog URL**:
+  ```
+  https://<your-subdomain>.workers.dev/opds
+  ```
+  - **KOReader**: Go to **Tools > OPDS catalog > Add new catalog**, enter the catalog URL, and sign in with Username `wallaflare` and Password `OPDS_TOKEN` (or `AUTH_TOKEN`).
+  - **In-Catalog Search**: Full support for OpenSearch 1.1 search queries (`/opds/search?q=...`) inside KOReader and OPDS apps.
+
+- **Pre-Authenticated Direct URL (Crosspoint / Embedded E-readers)**:
+  ```
+  https://<your-subdomain>.workers.dev/opds?token=YOUR_TOKEN
+  ```
+  *(Automatically propagates `?token=...` across all catalog categories and EPUB acquisition links so embedded readers download in 1 click without separate authentication dialogs).*
+
+---
+
+### 📚 KOReader Wallabag 2-Way Sync
 1. In KOReader, go to **Tools > Wallabag > Settings > Configure Wallabag server**.
 2. Enter the parameters:
    - **Server URL**: `https://<your-subdomain>.workers.dev` (or your custom domain)

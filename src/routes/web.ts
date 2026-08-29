@@ -143,7 +143,7 @@ webRouter.get('/manifest.json', (c) => {
 });
 
 webRouter.get('/share-target', (c) => {
-  return c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare'));
+  return c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN)));
 });
 
 // -----------------------------------------------------------------
@@ -388,21 +388,21 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
 }
 
 // Direct article & filter sub-URLs
-webRouter.get('/read/:id', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
-webRouter.get('/view/:id', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
-webRouter.get('/unread', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
-webRouter.get('/starred', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
-webRouter.get('/archive', (c) => c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare')));
+webRouter.get('/read/:id', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
+webRouter.get('/view/:id', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
+webRouter.get('/unread', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
+webRouter.get('/starred', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
+webRouter.get('/archive', (c) => c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN))));
 
 // Root page
 webRouter.get('/', (c) => {
   const appName = c.env.APP_NAME || 'Wallaflare';
-  return c.html(renderDashboardHtml(appName));
+  return c.html(renderDashboardHtml(appName, Boolean(c.env?.OPDS_TOKEN)));
 });
 
 // Login page (renders the unified Wallaflare UI)
 webRouter.get('/login', (c) => {
-  return c.html(renderDashboardHtml(c.env.APP_NAME || 'Wallaflare'));
+  return c.html(renderDashboardHtml(c.env?.APP_NAME || 'Wallaflare', Boolean(c.env?.OPDS_TOKEN)));
 });
 
 // Login submission by Wallabagger / Android app / browser

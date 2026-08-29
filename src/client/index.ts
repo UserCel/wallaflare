@@ -470,7 +470,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
       const response = await fetch(fullUrl, { ...options, headers });
       if (response.status === 401) {
-        showAuthOverlay();
+        checkSetupStatus().then((isSetup) => {
+          if (!isSetup) {
+            showAuthOverlay();
+          }
+        });
       }
       // Inspect header-reported web asset version and trigger background OTA if newer
       const webVer = response.headers.get('X-Wallaflare-Web-Version');
@@ -490,6 +494,153 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       const overlay = document.getElementById('authOverlay');
       if (overlay) overlay.style.display = 'none';
     }
+
+    async function checkSetupStatus() {
+      try {
+        const res = await fetch(getApiBaseUrl() + "/api/setup/status");
+        if (res.ok) {
+          const data = await res.json();
+
+          if (data && typeof data.has_opds_token === 'boolean') {
+            (window as any).WF_HAS_OPDS_TOKEN = data.has_opds_token;
+            localStorage.setItem('wf_has_opds_token', data.has_opds_token ? 'true' : 'false');
+            updateOpdsTokenBadge(data.has_opds_token);
+          }
+          if (data.setup_required) {
+            openSetupModal();
+            return true;
+          }
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    function openSetupModal() {
+      const modal = document.getElementById("setupModal");
+      if (modal) modal.style.display = "flex";
+    }
+
+    function closeSetupModal() {
+      const modal = document.getElementById("setupModal");
+      if (modal) modal.style.display = "none";
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const el = document.getElementById(inputId) as HTMLInputElement;
+      if (!el) return;
+      if (el.type === "password") {
+        el.type = "text";
+        if (btn) btn.textContent = "Hide";
+      } else {
+        el.type = "password";
+        if (btn) btn.textContent = "Show";
+      }
+    }
+
+    async function handleInitialSetup(e) {
+      if (e) e.preventDefault();
+      const authInput = document.getElementById("setupAuthTokenInput") as HTMLInputElement;
+      const opdsInput = document.getElementById("setupOpdsTokenInput") as HTMLInputElement;
+      const submitBtn = document.getElementById("btnInitSetup") as HTMLButtonElement;
+
+      const authToken = (authInput?.value || "").trim();
+      const opdsToken = (opdsInput?.value || "").trim();
+
+      if (!authToken || authToken.length < 4) {
+        showToast("Master password must be at least 4 characters");
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Saving Master Password...";
+      }
+
+      try {
+        const res = await fetch(getApiBaseUrl() + "/api/setup/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ auth_token: authToken, opds_token: opdsToken || undefined })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || "Setup failed");
+          return;
+        }
+
+        setAuthToken(authToken);
+        closeSetupModal();
+        hideAuthOverlay();
+        showToast("✓ Master password configured! Welcome to Wallaflare.");
+        loadArticles(false);
+      } catch (err) {
+        showToast("Failed to connect to server");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Complete Setup & Enter Library";
+        }
+      }
+    }
+
+    async function handleUpdateSecurityTokens(btn) {
+      const currentInput = document.getElementById("settingsCurrentAuthToken") as HTMLInputElement;
+      const newInput = document.getElementById("settingsNewAuthToken") as HTMLInputElement;
+      const opdsInput = document.getElementById("settingsNewOpdsToken") as HTMLInputElement;
+
+      const currentAuthToken = (currentInput?.value || "").trim();
+      const newAuthToken = (newInput?.value || "").trim();
+      const newOpdsToken = (opdsInput?.value || "").trim();
+
+      if (!currentAuthToken) {
+        showToast("Please enter your current master password");
+        currentInput?.focus();
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Updating...";
+      }
+
+      try {
+        const res = await authFetch("/api/admin/tokens", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_auth_token: currentAuthToken,
+            new_auth_token: newAuthToken || undefined,
+            new_opds_token: newOpdsToken === "" ? null : (newOpdsToken || undefined)
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showToast("Error: " + (data.error || "Failed to update credentials"));
+          return;
+        }
+
+        if (newAuthToken) {
+          setAuthToken(newAuthToken);
+        }
+
+        if (currentInput) currentInput.value = "";
+        if (newInput) newInput.value = "";
+        if (opdsInput) opdsInput.value = "";
+
+        populateServerConfigInputs();
+        showToast("✓ Security credentials updated in D1 database");
+      } catch (err) {
+        showToast("Network error updating credentials");
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Update Credentials";
+        }
+      }
+    }
+
 
     async function handleLogin(e) {
       e.preventDefault();
@@ -3674,6 +3825,32 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (el) copyDirectText(el.textContent.trim(), btn);
     }
 
+    function copySyncOpdsAuthUrl(btn) {
+      const el = document.getElementById('syncOpdsAuthUrl');
+      const fullUrl = el?.getAttribute('data-full-url') || el?.textContent?.trim() || '';
+      if (fullUrl) copyDirectText(fullUrl, btn);
+    }
+
+    function updateOpdsTokenBadge(hasDedicatedOpdsToken) {
+      const opdsBadgeEl = document.getElementById('syncOpdsTokenStatusBadge');
+      if (!opdsBadgeEl) return;
+      opdsBadgeEl.style.display = 'flex';
+      opdsBadgeEl.style.alignItems = 'center';
+      opdsBadgeEl.style.flexWrap = 'wrap';
+      opdsBadgeEl.style.gap = '0.35rem';
+      if (hasDedicatedOpdsToken) {
+        opdsBadgeEl.style.background = 'rgba(34, 197, 94, 0.1)';
+        opdsBadgeEl.style.border = '1px solid rgba(34, 197, 94, 0.25)';
+        opdsBadgeEl.style.color = 'var(--success, #22c55e)';
+        opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🟢 Dedicated OPDS_TOKEN is active</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Read-only catalog key)</span>';
+      } else {
+        opdsBadgeEl.style.background = 'rgba(234, 179, 8, 0.08)';
+        opdsBadgeEl.style.border = '1px solid rgba(234, 179, 8, 0.2)';
+        opdsBadgeEl.style.color = 'var(--warning, #eab308)';
+        opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🔑 Using master AUTH_TOKEN</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Set OPDS_TOKEN in Cloudflare Secrets for a dedicated read-only key)</span>';
+      }
+    }
+
     // View Modes (List / Grid / Compact) & Sorting
     function setViewMode(mode) {
       currentViewMode = mode;
@@ -5419,6 +5596,30 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         serverUrlEl.textContent = effectiveServerUrl;
       }
 
+      const opdsUrlEl = document.getElementById('syncOpdsUrl');
+      if (opdsUrlEl) {
+        opdsUrlEl.textContent = effectiveServerUrl + '/opds';
+      }
+
+      const opdsAuthUrlEl = document.getElementById('syncOpdsAuthUrl');
+      if (opdsAuthUrlEl) {
+        if (savedAuthToken) {
+          opdsAuthUrlEl.textContent = effectiveServerUrl + '/opds?token=••••••••••••';
+          opdsAuthUrlEl.setAttribute('data-full-url', effectiveServerUrl + '/opds?token=' + encodeURIComponent(savedAuthToken));
+        } else {
+          opdsAuthUrlEl.textContent = effectiveServerUrl + '/opds?token=OPDS_TOKEN';
+          opdsAuthUrlEl.setAttribute('data-full-url', effectiveServerUrl + '/opds?token=OPDS_TOKEN');
+        }
+      }
+
+      const initialHasOpds = (window as any).WF_HAS_OPDS_TOKEN !== undefined 
+        ? Boolean((window as any).WF_HAS_OPDS_TOKEN)
+        : (localStorage.getItem('wf_has_opds_token') === 'true');
+      updateOpdsTokenBadge(initialHasOpds);
+
+
+
+
       const urlInputs = [
         document.getElementById('settingsServerUrlInput'),
         document.getElementById('serverUrlInput')
@@ -5976,6 +6177,14 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           if (res && res.ok) {
             const manifest = await res.json().catch(() => null);
             if (manifest) {
+              if (typeof manifest.has_opds_token === 'boolean') {
+                (window as any).WF_HAS_OPDS_TOKEN = manifest.has_opds_token;
+                localStorage.setItem('wf_has_opds_token', manifest.has_opds_token ? 'true' : 'false');
+                updateOpdsTokenBadge(manifest.has_opds_token);
+              }
+              if (manifest.has_opds_token !== undefined) {
+                (window as any).WF_HAS_OPDS_TOKEN = Boolean(manifest.has_opds_token);
+              }
               if (manifest.min_native_version) {
                 checkNativeApkVersion(manifest.min_native_version);
               }
@@ -6096,7 +6305,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     updateVersionDisplay();
     renderFromInstantLocalCache();
     handleRouteState();
-    loadArticles(true);
+    checkSetupStatus().then((isSetup) => {
+      if (!isSetup) {
+        loadArticles(true);
+      }
+    });
     function initInfiniteScroll() {
       const scrollContainer = document.getElementById('articlesScrollContainer');
       if (!scrollContainer) return;
@@ -6436,6 +6649,7 @@ if (typeof window !== "undefined") {
   try { (window as any).initReaderSelectionHandlers = initReaderSelectionHandlers; } catch (e) {}
   try { (window as any).copyDirectText = copyDirectText; } catch (e) {}
   try { (window as any).copySyncValue = copySyncValue; } catch (e) {}
+  try { (window as any).copySyncOpdsAuthUrl = copySyncOpdsAuthUrl; } catch (e) {}
   try { (window as any).setViewMode = setViewMode; } catch (e) {}
   try { (window as any).cycleViewMode = cycleViewMode; } catch (e) {}
   try { (window as any).toggleSortMenu = toggleSortMenu; } catch (e) {}
@@ -6529,6 +6743,10 @@ if (typeof window !== "undefined") {
   try { (window as any).reconcileDatabase = reconcileDatabase; } catch (e) {}
   try { (window as any).openServerConnectModal = openServerConnectModal; } catch (e) {}
   try { (window as any).handleSaveServerConnection = handleSaveServerConnection; } catch (e) {}
+  try { (window as any).handleInitialSetup = handleInitialSetup; } catch (e) {}
+  try { (window as any).handleUpdateSecurityTokens = handleUpdateSecurityTokens; } catch (e) {}
+  try { (window as any).togglePasswordVisibility = togglePasswordVisibility; } catch (e) {}
+  try { (window as any).checkSetupStatus = checkSetupStatus; } catch (e) {}
   try { (window as any).saveArticlesToOfflineDb = saveArticlesToOfflineDb; } catch (e) {}
   try { (window as any).getArticlesFromOfflineDb = getArticlesFromOfflineDb; } catch (e) {}
   try { (window as any).initPullToRefresh = initPullToRefresh; } catch (e) {}
