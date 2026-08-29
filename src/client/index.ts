@@ -423,19 +423,34 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           if (window.Capacitor?.Plugins?.WallaflareNative?.saveServerConfig) {
             window.Capacitor.Plugins.WallaflareNative.saveServerConfig({ url, token }).catch(() => {});
           }
-        } else if (window.AndroidNative && typeof window.AndroidNative.getServerConfig === 'function') {
-          try {
-            const raw = window.AndroidNative.getServerConfig();
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (parsed.server_url && !localStorage.getItem('wf_server_url')) {
-                localStorage.setItem('wf_server_url', parsed.server_url);
+        } else {
+          if (window.AndroidNative && typeof window.AndroidNative.getServerConfig === 'function') {
+            try {
+              const raw = window.AndroidNative.getServerConfig();
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.server_url && !localStorage.getItem('wf_server_url')) {
+                  localStorage.setItem('wf_server_url', parsed.server_url);
+                }
+                if (parsed.auth_token && !localStorage.getItem('wf_auth_token')) {
+                  localStorage.setItem('wf_auth_token', parsed.auth_token);
+                }
               }
-              if (parsed.auth_token && !localStorage.getItem('wf_auth_token')) {
-                localStorage.setItem('wf_auth_token', parsed.auth_token);
+            } catch (e) {}
+          }
+          if (window.Capacitor?.Plugins?.WallaflareNative?.getServerConfig) {
+            window.Capacitor.Plugins.WallaflareNative.getServerConfig().then(res => {
+              if (res) {
+                if (res.server_url && !localStorage.getItem('wf_server_url')) {
+                  localStorage.setItem('wf_server_url', res.server_url);
+                }
+                if (res.auth_token && !localStorage.getItem('wf_auth_token')) {
+                  localStorage.setItem('wf_auth_token', res.auth_token);
+                }
+                populateServerConfigInputs();
               }
-            }
-          } catch (e) {}
+            }).catch(() => {});
+          }
         }
       } catch (e) {}
     }
@@ -1150,6 +1165,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     // Article Loading, Pagination & Caching
     let isLoadingArticles = false;
+        hasCompletedInitialLoad = true;
     let currentArticlesPage = 1;
     let totalArticlesPages = 1;
     let totalArticlesCount = 0;
@@ -1161,6 +1177,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     // Connection State & Offline Management
     // -------------------------------------------------------------
     let isOfflineMode = false;
+    let hasCompletedInitialLoad = false;
     let lastOfflineToastTime = 0;
 
     function updateOfflineUI(offline) {
@@ -2011,18 +2028,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       let archive = 0;
       let total = 0;
 
-      if (allEntries.length > 0) {
-        for (const e of allEntries) {
-          if (!e.is_archived) unread++;
-          if (e.is_starred) starred++;
-          if (e.is_archived) archive++;
-          total++;
-        }
-      } else if (serverLibraryCounts && typeof serverLibraryCounts.total === 'number') {
-        unread = serverLibraryCounts.unread;
-        starred = serverLibraryCounts.starred;
-        archive = serverLibraryCounts.archive;
-        total = serverLibraryCounts.total;
+      for (const e of (allEntries || [])) {
+        if (!e.is_archived) unread++;
+        if (e.is_starred) starred++;
+        if (e.is_archived) archive++;
+        total++;
       }
 
       const unreadEl = document.getElementById('countUnread');
@@ -2749,8 +2759,16 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       const item = allEntries.find(e => e.id === id);
       allEntries = allEntries.filter(e => e.id !== id);
       deleteEntryFromIndexedDB(id);
+      if (serverLibraryCounts) {
+        serverLibraryCounts.total = allEntries.length;
+        serverLibraryCounts.unread = allEntries.filter(e => !e.is_archived).length;
+        serverLibraryCounts.starred = allEntries.filter(e => e.is_starred).length;
+        serverLibraryCounts.archive = allEntries.filter(e => e.is_archived).length;
+      }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       updateCounts();
+      renderSidebarTags();
+      updateSettingsStats();
       filterArticles();
       if (activeArticleId === id) {
         closeReader(true);
@@ -4082,8 +4100,17 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       for (const id of deleteIds) {
         deleteEntryFromIndexedDB(id);
       }
+      if (serverLibraryCounts) {
+        serverLibraryCounts.total = allEntries.length;
+        serverLibraryCounts.unread = allEntries.filter(e => !e.is_archived).length;
+        serverLibraryCounts.starred = allEntries.filter(e => e.is_starred).length;
+        serverLibraryCounts.archive = allEntries.filter(e => e.is_archived).length;
+      }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       clearArticleSelection();
+      updateCounts();
+      renderSidebarTags();
+      updateSettingsStats();
       filterArticles();
       showToast('✓ ' + deleteIds.length + ' articles deleted');
       enqueueMutation('batch_delete', { ids: deleteIds, snapshots: items });
@@ -5058,7 +5085,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         revEl.textContent = 'Rev ' + currentRev;
       }
 
-      // Populate Overview Stats in Appearance Panel
+      // Populate Overview Stats in Server & Data Panel
       const unreadStatEl = document.getElementById('settingsStatUnread');
       const starredStatEl = document.getElementById('settingsStatStarred');
       const timeStatEl = document.getElementById('settingsStatReadingTime');
@@ -5364,6 +5391,58 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     
     let activeSettingsTab = 'appearance';
 
+    
+    async function populateServerConfigInputs() {
+      let savedServerUrl = localStorage.getItem('wf_server_url') || '';
+      let savedAuthToken = localStorage.getItem('wf_auth_token') || '';
+
+      if (isCapacitorApp() && (!savedServerUrl || !savedAuthToken) && window.Capacitor?.Plugins?.WallaflareNative?.getServerConfig) {
+        try {
+          const res = await window.Capacitor.Plugins.WallaflareNative.getServerConfig();
+          if (res) {
+            if (res.server_url && !savedServerUrl) {
+              savedServerUrl = res.server_url;
+              localStorage.setItem('wf_server_url', savedServerUrl);
+            }
+            if (res.auth_token && !savedAuthToken) {
+              savedAuthToken = res.auth_token;
+              localStorage.setItem('wf_auth_token', savedAuthToken);
+            }
+          }
+        } catch (e) {}
+      }
+
+      const effectiveServerUrl = (isCapacitorApp() ? savedServerUrl : (savedServerUrl || window.location.origin)) || window.location.origin;
+
+      const serverUrlEl = document.getElementById('syncServerUrl');
+      if (serverUrlEl) {
+        serverUrlEl.textContent = effectiveServerUrl;
+      }
+
+      const urlInputs = [
+        document.getElementById('settingsServerUrlInput'),
+        document.getElementById('serverUrlInput')
+      ].filter(Boolean) as HTMLInputElement[];
+
+      const tokenInputs = [
+        document.getElementById('settingsServerTokenInput'),
+        document.getElementById('serverTokenInput')
+      ].filter(Boolean) as HTMLInputElement[];
+
+      urlInputs.forEach(input => {
+        input.value = effectiveServerUrl;
+      });
+
+      tokenInputs.forEach(input => {
+        input.value = '';
+        if (savedAuthToken) {
+          input.placeholder = '•••••••••••• (Saved - leave blank to keep)';
+        } else {
+          input.placeholder = 'Enter AUTH_TOKEN';
+        }
+      });
+    }
+
     function openSettingsModal(initialTab = null) {
       const modal = document.getElementById('settingsModal');
       if (!modal) return;
@@ -5371,10 +5450,6 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       const isMobile = window.innerWidth < 768;
       const targetTab = initialTab || (isMobile ? 'root' : 'appearance');
 
-      const serverUrlEl = document.getElementById('syncServerUrl');
-      if (serverUrlEl) {
-        serverUrlEl.textContent = window.location.origin;
-      }
       const syncClientSecretEl = document.getElementById('syncClientSecretDisplay');
       if (syncClientSecretEl) {
         syncClientSecretEl.textContent = 'wallaflare';
@@ -5384,9 +5459,9 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (serverRow) {
         serverRow.style.display = isCapacitorApp() ? 'flex' : 'none';
       }
+      populateServerConfigInputs();
       updateSettingsStats();
       updateParserEngineUI();
-      loadSiteCookies();
       const webTip = document.getElementById('siteCookieWebTip');
       if (webTip) webTip.style.display = isCapacitorApp() ? 'none' : 'block';
 
@@ -5411,8 +5486,35 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       openModal('settingsModal');
     }
 
+    let lastDataTabSyncTime = 0;
+    let lastCookiesTabFetchTime = 0;
+    let lastTagsTabFetchTime = 0;
+
     function switchSettingsTab(tabName, activateMobile = true) {
       activeSettingsTab = tabName || 'appearance';
+      updateSettingsStats();
+
+      const now = Date.now();
+      populateServerConfigInputs();
+
+      if (activeSettingsTab === 'data') {
+        if (now - lastDataTabSyncTime > 15000) {
+          lastDataTabSyncTime = now;
+          loadArticles(true, false).then(() => {
+            updateSettingsStats();
+          }).catch(() => {});
+        }
+      } else if (activeSettingsTab === 'cookies') {
+        if (now - lastCookiesTabFetchTime > 15000) {
+          lastCookiesTabFetchTime = now;
+          loadSiteCookies();
+        }
+      } else if (activeSettingsTab === 'tags') {
+        if (now - lastTagsTabFetchTime > 15000) {
+          lastTagsTabFetchTime = now;
+          loadGlobalTags().then(() => renderGlobalTagManagerUI()).catch(() => {});
+        }
+      }
 
       // Update nav buttons
       document.querySelectorAll('#settingsNavPane .settings-nav-item').forEach(btn => {
@@ -5456,11 +5558,6 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         if (titleEl) titleEl.textContent = 'Settings';
       }
 
-      if (activeSettingsTab === 'tags') {
-        loadGlobalTags().then(() => renderGlobalTagManagerUI());
-      } else if (activeSettingsTab === 'cookies') {
-        loadSiteCookies();
-      }
     }
 
     function handleSettingsMobileBack() {
@@ -5528,9 +5625,14 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
     function handleSaveServerConnection(e) {
-      e.preventDefault();
-      let url = (document.getElementById('serverUrlInput')?.value || '').trim();
-      const token = (document.getElementById('serverTokenInput')?.value || '').trim();
+      if (e) e.preventDefault();
+      const form = (e && e.target && e.target.tagName === 'FORM') ? e.target : document;
+      const urlInput = (form.querySelector('#settingsServerUrlInput') || form.querySelector('#serverUrlInput') || document.getElementById('settingsServerUrlInput') || document.getElementById('serverUrlInput')) as HTMLInputElement;
+      const tokenInput = (form.querySelector('#settingsServerTokenInput') || form.querySelector('#serverTokenInput') || document.getElementById('settingsServerTokenInput') || document.getElementById('serverTokenInput')) as HTMLInputElement;
+
+      let url = (urlInput?.value || '').trim();
+      const token = (tokenInput?.value || '').trim();
+
       if (url) {
         url = normalizeUrl(url).replace(/\/+$/, '');
         localStorage.setItem('wf_server_url', url);
@@ -5539,7 +5641,10 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         localStorage.setItem('wf_auth_token', token);
       }
       syncNativeServerConfig();
+      populateServerConfigInputs();
       closeModal('serverConnectModal');
+      closeModal('settingsModal');
+      showToast('✓ Server settings saved');
       loadArticles(false);
     }
 

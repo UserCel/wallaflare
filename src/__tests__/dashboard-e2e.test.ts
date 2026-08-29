@@ -646,12 +646,12 @@ it("handles keyboard shortcuts: search (/), focus mode (f), and reader navigatio
   it("normalizes server URL without https:// to valid https:// URL upon saving", async () => {
     const savedUrl = await page.evaluate(() => {
       const w = window as any;
-      const urlInput = document.getElementById("serverUrlInput") as HTMLInputElement;
-      const tokenInput = document.getElementById("serverTokenInput") as HTMLInputElement;
+      const urlInput = (document.getElementById("settingsServerUrlInput") || document.getElementById("serverUrlInput")) as HTMLInputElement;
+      const tokenInput = (document.getElementById("settingsServerTokenInput") || document.getElementById("serverTokenInput")) as HTMLInputElement;
       if (urlInput) urlInput.value = "wallaflare.example.com/";
       if (tokenInput) tokenInput.value = "my_secret_token";
 
-      const mockEvent = { preventDefault: () => {} };
+      const mockEvent = { preventDefault: () => {}, target: urlInput?.closest('form') || null };
       w.handleSaveServerConnection(mockEvent);
 
       return localStorage.getItem("wf_server_url");
@@ -868,5 +868,56 @@ it("handles keyboard shortcuts: search (/), focus mode (f), and reader navigatio
     expect(testResult.a102HasBeta).toBe(false);
     expect(testResult.globalModalOpen).toBe(true);
     expect(testResult.globalTagsListItems).toBeGreaterThan(0);
+  });
+  it("verifies deleting articles immediately zeroes sidebar counts and settings displays Cloudflare D1 sync status", async () => {
+    const testResult = await page.evaluate(async () => {
+      const w = window as any;
+
+      // 1. Check initial counts
+      w.allEntries = [
+        { id: 201, title: "Item 1", domain_name: "test.com", content: "<p>Text</p>", created_at: "2026-08-20T10:00:00Z", is_archived: 0, is_starred: 0 },
+        { id: 202, title: "Item 2", domain_name: "test.com", content: "<p>Text</p>", created_at: "2026-08-20T10:00:00Z", is_archived: 0, is_starred: 0 }
+      ];
+      w.updateCounts();
+      const countBeforeUnread = document.getElementById("countUnread")?.textContent;
+      const countBeforeAll = document.getElementById("countAll")?.textContent;
+
+      // 2. Select all articles and batch delete
+      w.selectedArticleIds = new Set([201, 202]);
+      w.allEntries = [];
+      w.updateCounts();
+
+      const countAfterUnread = document.getElementById("countUnread")?.textContent;
+      const countAfterAll = document.getElementById("countAll")?.textContent;
+
+      // 3. Open Settings -> Server & Data (Panel: data)
+      w.openSettingsModal("data");
+      w.updateSettingsStats();
+
+      const localStatsText = document.getElementById("statsLocalArticles")?.textContent;
+      const serverStatsText = document.getElementById("statsServerArticles")?.textContent;
+      const syncStatusText = document.getElementById("statsSyncComparison")?.textContent;
+      const syncRevText = document.getElementById("statsSyncRevision")?.textContent;
+
+      w.closeModal("settingsModal");
+
+      return {
+        countBeforeUnread,
+        countBeforeAll,
+        countAfterUnread,
+        countAfterAll,
+        localStatsText,
+        serverStatsText,
+        syncStatusText,
+        syncRevText
+      };
+    });
+
+    expect(testResult.countBeforeUnread).toBe("2");
+    expect(testResult.countBeforeAll).toBe("2");
+    expect(testResult.countAfterUnread).toBe("0");
+    expect(testResult.countAfterAll).toBe("0");
+    expect(testResult.localStatsText).toContain("0 (0 unread)");
+    expect(testResult.syncRevText).toContain("Rev");
   });
 });
