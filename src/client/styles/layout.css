@@ -307,16 +307,33 @@
       overflow: hidden;
       position: relative;
     }
+    @media (min-width: 1024px) {
+      body:not(.focus-mode) .pane-reader.has-keyboard-focus::after {
+        content: "";
+        position: absolute;
+        inset: 2px;
+        pointer-events: none;
+        border: 2px solid var(--accent);
+        opacity: 0.45;
+        z-index: 150;
+        box-shadow: inset 0 0 10px var(--accent-glow);
+        transition: opacity 0.2s ease;
+      }
+    }
     .reader-empty-pane {
       flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 2.5rem 1.5rem;
+      justify-content: flex-start;
+      padding: 2.5rem 1.5rem 3rem 1.5rem;
       text-align: center;
       color: var(--text-muted);
       user-select: none;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
     }
     .reader-empty-pane svg {
       width: 54px;
@@ -343,10 +360,11 @@
       border: 1px solid var(--border-color);
       border-radius: var(--radius);
       padding: 1rem 1.25rem;
-      max-width: 350px;
+      max-width: 380px;
       width: 100%;
       text-align: left;
       box-shadow: var(--shadow-sm);
+      margin-bottom: 2rem;
     }
     .reader-shortcuts-box-title {
       font-size: 0.72rem;
@@ -355,6 +373,16 @@
       letter-spacing: 0.06em;
       color: var(--accent);
       margin-bottom: 0.6rem;
+    }
+    .shortcut-group-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      padding: 0.2rem 0;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 0.35rem;
     }
     .shortcut-row {
       display: flex;
@@ -632,13 +660,20 @@
     }
     .article-card.is-reading {
       border-color: var(--accent) !important;
-      background: var(--bg-card) !important;
-      box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-sm);
-    }
-    .article-card.is-selected {
-      border-color: var(--accent) !important;
       background: rgba(249, 115, 22, 0.08) !important;
-      box-shadow: 0 0 0 1px var(--accent), var(--shadow);
+      box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-sm);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    body.reader-pane-focused .article-card.is-reading:not(.is-selected) {
+      border-color: rgba(249, 115, 22, 0.35) !important;
+      background: rgba(249, 115, 22, 0.08) !important;
+      box-shadow: none !important;
+    }
+    .article-card.is-selected,
+    body.reader-pane-focused .article-card.is-selected {
+      border-color: var(--accent) !important;
+      background: rgba(249, 115, 22, 0.14) !important;
+      box-shadow: 0 0 0 1.5px var(--accent), var(--shadow) !important;
     }
     .card-select-wrap {
       position: absolute;

@@ -78,6 +78,26 @@ function createMockServer(): Promise<http.Server> {
         }
       }
 
+      if (url.pathname.startsWith('/api/sync')) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          instance_id: 'mock-instance',
+          latest_rev: 1,
+          since_rev: 0,
+          page: 1,
+          pages: 1,
+          total: sampleEntries.length,
+          counts: { unread: 1, starred: 0, archive: 0, all: 1 },
+          items: sampleEntries,
+          tags: [
+            { id: 1, label: 'koreader', slug: 'koreader' },
+            { id: 2, label: 'guide', slug: 'guide' },
+            { id: 3, label: 'e-ink', slug: 'e-ink' }
+          ]
+        }));
+        return;
+      }
+
       if (url.pathname === '/api/entries.json' || url.pathname === '/api/entries') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
@@ -280,6 +300,7 @@ async function main() {
       const modal = document.getElementById('serverConnectModal');
       if (modal) modal.classList.remove('open');
       (window as any).allEntries = entries;
+      if ((window as any).updateOfflineUI) (window as any).updateOfflineUI(false);
       if ((window as any).filterArticles) (window as any).filterArticles();
       if ((window as any).updateCounts) (window as any).updateCounts();
     }, sampleEntries);
@@ -299,6 +320,7 @@ async function main() {
       const modal = document.getElementById('serverConnectModal');
       if (modal) modal.classList.remove('open');
       (window as any).allEntries = entries;
+      if ((window as any).updateOfflineUI) (window as any).updateOfflineUI(false);
       if ((window as any).filterArticles) (window as any).filterArticles();
       if ((window as any).updateCounts) (window as any).updateCounts();
     }, sampleEntries);

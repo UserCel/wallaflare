@@ -9,6 +9,19 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     let allEntries = [];
     let currentFilter = 'unread';
     let activeArticleId = null;
+    let activeKeyboardPane = "list"; // "list" | "reader"
+
+    function setKeyboardPaneFocus(pane) {
+      activeKeyboardPane = pane;
+      const paneReader = document.getElementById("paneReader");
+      if (pane === "reader" && !isFocusMode && window.innerWidth >= 1024 && activeArticleId) {
+        paneReader?.classList.add("has-keyboard-focus");
+        document.body.classList.add("reader-pane-focused");
+      } else {
+        paneReader?.classList.remove("has-keyboard-focus");
+        document.body.classList.remove("reader-pane-focused");
+      }
+    }
     let selectedArticleIds = new Set();
     let currentViewMode = 'list';
     let currentSortOrder = 'newest';
@@ -199,9 +212,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       if (isFocusMode) {
         document.body.classList.add('focus-mode');
+        setKeyboardPaneFocus('reader');
         showToast('Focus Mode activated (press f or Esc to exit)', 2000);
       } else {
         document.body.classList.remove('focus-mode');
+        setKeyboardPaneFocus('list');
       }
     }
 
@@ -697,6 +712,48 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     // Keyboard Shortcuts & Modal Dismissal Hierarchy
     window.addEventListener('keydown', (e) => {
+      // Ctrl+K / Cmd+K: Open Add URL dialog
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK') &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        e.preventDefault();
+        openModal('addUrlModal');
+        return;
+      }
+
+      // Ctrl+A / Cmd+A: Select all visible articles in the list
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A' || e.code === 'KeyA') &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen) {
+          e.preventDefault();
+          const visibleEntries = getFilteredEntries();
+          if (visibleEntries && visibleEntries.length > 0) {
+            visibleEntries.forEach(item => selectedArticleIds.add(item.id));
+            updateBatchUI();
+          }
+          return;
+        }
+      }
+
+      // ? key: Toggle Keyboard Shortcuts Modal
+      if ((e.key === '?' || (e.shiftKey && e.key === '/')) &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        e.preventDefault();
+        const shortcutsModal = document.getElementById('shortcutsModal');
+        if (shortcutsModal?.classList.contains('open')) {
+          closeModal('shortcutsModal');
+        } else {
+          openModal('shortcutsModal');
+        }
+        return;
+      }
+
       // Ctrl+F / Cmd+F: Fast in-reader search when reader is open, or library search when closed
       if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F' || e.code === 'KeyF')) {
         if (activeArticleId) {
@@ -717,7 +774,20 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       if (e.key === 'Escape') {
-        // 0. Close In-Reader Find Bar
+        // 0. Blur and clear library search input if focused (preserves active article)
+        const searchInput = document.getElementById('searchInput');
+        if (document.activeElement === searchInput) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (searchInput && searchInput.value) {
+            clearSearchInput();
+          }
+          searchInput?.blur();
+          setKeyboardPaneFocus('list');
+          return;
+        }
+
+        // 0.1. Close In-Reader Find Bar
         const readerSearchBar = document.getElementById('readerSearchBar');
         if (readerSearchBar && readerSearchBar.style.display !== 'none') {
           e.preventDefault();
@@ -861,6 +931,12 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           closeModal('devModal');
           return;
         }
+        const shortcutsModal = document.getElementById('shortcutsModal');
+        if (shortcutsModal && shortcutsModal.classList.contains('open')) {
+          e.preventDefault();
+          closeModal('shortcutsModal');
+          return;
+        }
         const anyOpenModal = document.querySelector('.modal-backdrop.open, .modal-overlay.open, .tag-modal-overlay.open, .modal.open');
         if (anyOpenModal) {
           e.preventDefault();
@@ -868,14 +944,21 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           return;
         }
 
-        // 4. Focus Mode
+        // 4. Selection Mode (Clear multi-selection first, preserving open reader)
+        if (isSelectionMode()) {
+          e.preventDefault();
+          clearArticleSelection();
+          return;
+        }
+
+        // 5. Focus Mode
         if (isFocusMode) {
           e.preventDefault();
           toggleReaderFocusMode(false);
           return;
         }
 
-        // 5. Article Deselect / Reader Back
+        // 6. Article Deselect / Reader Back
         if (document.body.classList.contains('is-reading-mobile')) {
           e.preventDefault();
           handleReaderBack();
@@ -886,23 +969,111 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           closeReader(true);
           return;
         }
+      }
 
-        // 6. Selection Mode
-        if (isSelectionMode()) {
+      // Pane Switching: ArrowRight (focus reader) / ArrowLeft (focus article list)
+      if (e.key === 'ArrowRight' &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen && activeArticleId) {
           e.preventDefault();
-          clearArticleSelection();
+          setKeyboardPaneFocus('reader');
           return;
         }
       }
 
-      // Keyboard Navigation: j / k / ArrowDown / ArrowUp
+      if (e.key === 'ArrowLeft' &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen) {
+          if (activeKeyboardPane === 'reader') {
+            e.preventDefault();
+            if (window.innerWidth < 1024 || document.body.classList.contains('is-reading-mobile')) {
+              handleReaderBack();
+            } else if (isFocusMode) {
+              toggleReaderFocusMode(false);
+            } else {
+              setKeyboardPaneFocus('list');
+            }
+            return;
+          }
+        }
+      }
+
+      // Smooth Reader Scrolling: Space / Shift+Space / PageDown / PageUp
+      if ((e.key === ' ' || e.key === 'Space' || e.code === 'Space' || e.key === 'PageDown' || e.key === 'PageUp') &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen && activeKeyboardPane === 'reader' && activeArticleId) {
+          e.preventDefault();
+          const scrollEl = document.getElementById('readerScrollContainer');
+          if (scrollEl) {
+            const pageH = Math.max(300, Math.round(scrollEl.clientHeight * 0.8));
+            const isUp = e.shiftKey || e.key === 'PageUp';
+            scrollEl.scrollBy({ top: isUp ? -pageH : pageH, behavior: 'smooth' });
+          }
+          return;
+        }
+      }
+
+      // Shift+Up / Shift+Down: Extend selection
+      if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen) {
+          const visibleEntries = getFilteredEntries();
+          if (visibleEntries && visibleEntries.length > 0) {
+            e.preventDefault();
+            const isDown = e.key === 'ArrowDown';
+            let currentIdx = -1;
+            if (activeArticleId) {
+              currentIdx = visibleEntries.findIndex(item => item.id === activeArticleId);
+            }
+            if (currentIdx === -1) currentIdx = isDown ? 0 : visibleEntries.length - 1;
+
+            if (activeArticleId) selectedArticleIds.add(activeArticleId);
+
+            const nextIdx = isDown ? Math.min(visibleEntries.length - 1, currentIdx + 1) : Math.max(0, currentIdx - 1);
+            const targetEntry = visibleEntries[nextIdx];
+            if (targetEntry) {
+              selectedArticleIds.add(targetEntry.id);
+              activeArticleId = targetEntry.id;
+              updateBatchUI();
+              const card = document.getElementById('entry-card-' + targetEntry.id);
+              card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            return;
+          }
+        }
+      }
+
+      // Keyboard Navigation / Scrolling: j / k / ArrowDown / ArrowUp
       if ((e.key === 'j' || e.key === 'ArrowDown' || e.key === 'k' || e.key === 'ArrowUp') &&
-          document.activeElement.tagName !== 'INPUT' &&
-          document.activeElement.tagName !== 'TEXTAREA' &&
-          !document.activeElement.isContentEditable) {
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (modalOpen) return;
 
+        // If reader pane has keyboard focus and up/down arrow is pressed: scroll the reader!
+        if (activeKeyboardPane === 'reader' && activeArticleId && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+          e.preventDefault();
+          const scrollEl = document.getElementById('readerScrollContainer');
+          if (scrollEl) {
+            scrollEl.scrollBy({ top: e.key === 'ArrowDown' ? 80 : -80, behavior: 'smooth' });
+          }
+          return;
+        }
+
+        // Otherwise (or if j/k is pressed): navigate articles in the list!
         const visibleEntries = getFilteredEntries();
         if (!visibleEntries || visibleEntries.length === 0) return;
 
@@ -940,8 +1111,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         }
       }
 
-      // 'e' key for Archive
-      if (e.key === 'e' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && !document.activeElement.isContentEditable) {
+      // 'e' or 'a' key for Archive
+      if ((e.key === 'e' || e.key === 'a') &&
+          document.activeElement.tagName !== 'INPUT' &&
+          document.activeElement.tagName !== 'TEXTAREA' &&
+          !document.activeElement.isContentEditable) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (!modalOpen) {
           if (isSelectionMode() && selectedArticleIds.size > 0) {
@@ -954,8 +1128,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         }
       }
 
-      // 's' key for Star
-      if (e.key === 's' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && !document.activeElement.isContentEditable) {
+      // 's' or 'l' key for Star / Like
+      if ((e.key === 's' || e.key === 'l') &&
+          document.activeElement.tagName !== 'INPUT' &&
+          document.activeElement.tagName !== 'TEXTAREA' &&
+          !document.activeElement.isContentEditable) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (!modalOpen) {
           if (isSelectionMode() && selectedArticleIds.size > 0) {
@@ -968,8 +1145,25 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         }
       }
 
-      // Delete / Backspace key
-      if ((e.key === 'Delete' || e.key === 'Backspace') &&
+      // 't' key for Tags Manager
+      if (e.key === 't' &&
+          document.activeElement.tagName !== 'INPUT' &&
+          document.activeElement.tagName !== 'TEXTAREA' &&
+          !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen) {
+          if (isSelectionMode() && selectedArticleIds.size > 0) {
+            e.preventDefault();
+            openBatchTagModal();
+          } else if (activeArticleId) {
+            e.preventDefault();
+            openTagModal(activeArticleId);
+          }
+        }
+      }
+
+      // 'd' / Delete / Backspace key for Delete
+      if ((e.key === 'd' || e.key === 'Delete' || e.key === 'Backspace') &&
           document.activeElement.tagName !== 'INPUT' &&
           document.activeElement.tagName !== 'TEXTAREA' &&
           !document.activeElement.isContentEditable) {
@@ -2319,6 +2513,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
     function handleCardClick(e, id) {
+      setKeyboardPaneFocus("list");
       if (e.target.closest('button, a, .card-dropdown-menu, .card-select-wrap, .tag-badge')) return;
 
       if (cardLongPressTriggered) {
@@ -2409,6 +2604,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
     function handleReaderBodyClick(e) {
+      setKeyboardPaneFocus("reader");
       if (e.target.closest('a, button, mark, input, .annotation-note-card, .reader-top-bar, .reader-appearance-popover')) return;
       const sel = window.getSelection();
       if (sel && sel.toString().trim().length > 0) return;
@@ -2450,6 +2646,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (!item) return;
 
       activeArticleId = id;
+      if (window.innerWidth < 1024) {
+        setKeyboardPaneFocus("reader");
+      } else {
+        setKeyboardPaneFocus("list");
+      }
 
       // 1. Update title and meta
       document.getElementById('readerTitle').textContent = item.title;
@@ -2595,6 +2796,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     function closeReader(updateHistory = true) {
       activeArticleId = null;
+      setKeyboardPaneFocus("list");
       clearTimeout(readerTopBarAutoHideTimer);
       showReaderTopBar(true);
       setReaderStatusBar(false);
@@ -3821,14 +4023,49 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       filterArticles();
     }
 
+    function handleSearchInputKeydown(e) {
+      const input = document.getElementById('searchInput');
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (input && input.value) {
+          clearSearchInput();
+        }
+        input?.blur();
+        setKeyboardPaneFocus('list');
+      } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        const visibleEntries = getFilteredEntries();
+        if (visibleEntries && visibleEntries.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          openReader(visibleEntries[0].id, true);
+          const card = document.getElementById('entry-card-' + visibleEntries[0].id);
+          card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          input?.blur();
+          setKeyboardPaneFocus('list');
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        input?.blur();
+        setKeyboardPaneFocus('list');
+      }
+    }
+
     // Batch Selection Mode
     function isSelectionMode() {
       return selectedArticleIds.size > 0;
     }
 
     function toggleArticleSelection(id, force) {
-      if (selectedArticleIds.has(id)) selectedArticleIds.delete(id);
-      else selectedArticleIds.add(id);
+      const numId = typeof id === 'string' ? parseInt(id, 10) : Number(id);
+      if (typeof force === 'boolean') {
+        if (force) selectedArticleIds.add(numId);
+        else selectedArticleIds.delete(numId);
+      } else {
+        if (selectedArticleIds.has(numId)) selectedArticleIds.delete(numId);
+        else selectedArticleIds.add(numId);
+      }
 
       updateBatchUI();
     }
@@ -6293,6 +6530,15 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         e.preventDefault();
         e.stopPropagation();
         closeReaderSearchBar();
+        setKeyboardPaneFocus('reader');
+      } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || (e.ctrlKey && e.key === 'ArrowDown')) {
+        e.preventDefault();
+        const scrollEl = document.getElementById('readerScrollContainer');
+        scrollEl?.scrollBy({ top: e.key === 'ArrowDown' ? 80 : 250, behavior: 'smooth' });
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp' || (e.ctrlKey && e.key === 'ArrowUp')) {
+        e.preventDefault();
+        const scrollEl = document.getElementById('readerScrollContainer');
+        scrollEl?.scrollBy({ top: e.key === 'ArrowUp' ? -80 : -250, behavior: 'smooth' });
       }
     }
 
@@ -6523,6 +6769,7 @@ if (typeof window !== "undefined") {
   try { (window as any).editModalAnnotation = editModalAnnotation; } catch (e) {}
   try { (window as any).toggleReaderSearchBar = toggleReaderSearchBar; } catch (e) {}
   try { (window as any).openReaderSearchBar = openReaderSearchBar; } catch (e) {}
+  try { (window as any).handleSearchInputKeydown = handleSearchInputKeydown; } catch (e) {}
   try { (window as any).closeReaderSearchBar = closeReaderSearchBar; } catch (e) {}
   try { (window as any).handleReaderSearchInput = handleReaderSearchInput; } catch (e) {}
   try { (window as any).handleReaderSearchKeydown = handleReaderSearchKeydown; } catch (e) {}

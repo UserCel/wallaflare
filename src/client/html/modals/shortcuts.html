@@ -1,0 +1,15 @@
+<!-- Keyboard Shortcuts Modal (#shortcutsModal) -->
+<div class="modal-backdrop" id="shortcutsModal" onclick="if(event.target === this) closeModal('shortcutsModal')">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" style="max-width: 440px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="shortcutsModalTitle" style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8"></path></svg>
+        Keyboard Shortcuts
+      </h2>
+      <button type="button" class="close-btn" onclick="closeModal('shortcutsModal')" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 1rem 1.25rem; max-height: 70vh; overflow-y: auto;">
+      <!-- @include ../components/shortcuts-table.html -->
+    </div>
+  </div>
+</div>

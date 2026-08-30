@@ -384,7 +384,7 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
     expect(result.isDark).toBe(true);
   });
 
-  it("verifies all 12 modal dialogs exist and modal open/close lifecycle functions properly", async () => {
+  it("verifies all modal dialogs exist and modal open/close lifecycle functions properly", async () => {
     const expectedModalIds = [
       "settingsModal",
       "addUrlModal",
@@ -397,7 +397,8 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
       "confirmModal",
       "annotationNoteModal",
       "editTitleModal",
-      "syncModal"
+      "syncModal",
+      "shortcutsModal"
     ];
 
     const result = await page.evaluate((modalIds) => {
