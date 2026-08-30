@@ -1,0 +1,42 @@
+<!-- Modal: Tag Management -->
+  <div class="tag-modal-overlay" id="tagModal" onclick="if(event.target === this) closeTagModal()">
+    <div class="tag-modal">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 600; margin: 0;" id="tagModalHeaderTitle">Manage Tags</h3>
+        <button class="close-btn" onclick="closeTagModal()">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="tagModalArticleTitle"></p>
+      <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;" id="tagModalCurrentTagsLabel">Applied Tags:</div>
+      <div class="card-tags" id="tagModalCurrentTags" style="margin-bottom: 1.25rem;"></div>
+      <form onsubmit="event.preventDefault(); submitAddTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+        <input type="text" id="newTagInput" class="input" placeholder="Type new tag(s) separated by commas..." style="flex: 1;" />
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+      <div id="quickTagsSection" style="display: none;">
+        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Add Library Tags:</div>
+        <div class="card-tags" id="tagModalAvailableTags"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Global Tag Manager -->
+  <div class="tag-modal-overlay" id="globalTagModal" onclick="if(event.target === this) closeGlobalTagModal()">
+    <div class="tag-modal" style="max-width: 520px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin: 0;">Manage All Tags</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; margin-bottom: 0;">Overview of all tags in your library</p>
+        </div>
+        <button class="close-btn" onclick="closeGlobalTagModal()">&times;</button>
+      </div>
+      <form onsubmit="event.preventDefault(); submitCreateGlobalTag();" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <input type="text" id="newGlobalTagInput" class="input" placeholder="Create new tag (e.g. tech, research)..." style="flex: 1;" />
+        <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; white-space: nowrap;">Create Tag</button>
+      </form>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <span id="globalTagCountLabel" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+        <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.3rem 0.65rem;" onclick="cleanupUnusedTags()">Delete Unused Tags</button>
+      </div>
+      <div id="globalTagListContainer" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.25rem;"></div>
+    </div>
+  </div>

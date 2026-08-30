@@ -1,0 +1,69 @@
+<!-- Modal: Add URL -->
+  <div class="modal-backdrop" id="addUrlModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Save Article from Web</h3>
+        <button class="close-btn" onclick="closeModal('addUrlModal')">&times;</button>
+      </div>
+      <form onsubmit="handleIngestUrl(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
+        <div class="form-group">
+          <label for="urlInput">Article URL</label>
+          <input type="text" inputmode="url" id="urlInput" placeholder="example.com/article" required autofocus autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
+        <div id="addUrlErrorMsg" style="color: var(--danger, #ef4444); font-size: 0.8rem; line-height: 1.4; display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 6px; padding: 0.45rem 0.65rem;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('addUrlModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="ingestUrlBtn">Fetch &amp; Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Text -->
+  <div class="modal-backdrop" id="addTextModal">
+    <div class="modal" style="max-width: 560px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Custom Text / Markdown</h3>
+        <button class="close-btn" onclick="closeModal('addTextModal')">&times;</button>
+      </div>
+      <form onsubmit="handleIngestText(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
+        <div class="form-group">
+          <label for="textTitle">Title *</label>
+          <input type="text" id="textTitle" placeholder="Article or Chapter Title" required autofocus>
+        </div>
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label for="textAuthor">Author (Optional)</label>
+            <input type="text" id="textAuthor" placeholder="e.g. Brandon Sanderson">
+          </div>
+          <div class="form-group">
+            <label for="textPublishedAt">Publication Date (Optional)</label>
+            <input type="date" id="textPublishedAt">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="textTags">Tags (Optional, comma-separated)</label>
+          <input type="text" id="textTags" placeholder="e.g. fantasy, novel" oninput="syncAddTextTagChips()">
+          <div id="addTextTagsContainer" style="display: none; margin-top: 0.45rem;">
+            <div class="card-tags" id="addTextAvailableTags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="textUrl">Source URL (Optional)</label>
+          <input type="text" inputmode="url" id="textUrl" placeholder="original-source.com/article" autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label for="textPreviewPicture">Preview / Cover Image URL (Optional)</label>
+          <input type="text" inputmode="url" id="textPreviewPicture" placeholder="example.com/cover.jpg" autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label for="textContent">Content (HTML or Markdown) *</label>
+          <textarea id="textContent" placeholder="Paste your text, chapter, or markdown here..." rows="7" required></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('addTextModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="ingestTextBtn">Save Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>

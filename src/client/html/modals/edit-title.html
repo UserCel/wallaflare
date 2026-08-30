@@ -1,0 +1,20 @@
+<!-- Modal: Edit Title -->
+  <div class="modal-backdrop" id="editTitleModal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Article Title</h3>
+        <button class="close-btn" onclick="closeModal('editTitleModal')">&times;</button>
+      </div>
+      <form onsubmit="handleSaveTitle(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
+        <input type="hidden" id="editTitleEntryId" />
+        <div class="form-group">
+          <label for="editTitleInput">Title *</label>
+          <input type="text" id="editTitleInput" required autofocus />
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('editTitleModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveTitleBtn">Save Title</button>
+        </div>
+      </form>
+    </div>
+  </div>

@@ -1,0 +1,26 @@
+<!-- Modal: Wipe Database Confirmation -->
+  <div class="modal-backdrop" id="wipeDbModal" onclick="if(event.target === this) closeModal('wipeDbModal')">
+    <div class="modal" style="max-width: 460px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--danger, #ef4444);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <h3 class="modal-title" style="color: var(--danger, #ef4444);">Wipe Cloudflare D1 Database</h3>
+        </div>
+        <button class="close-btn" onclick="closeModal('wipeDbModal')">&times;</button>
+      </div>
+      <form onsubmit="handleConfirmWipeDatabase(event)" style="display: flex; flex-direction: column; gap: 0.95rem; font-size: 0.875rem;">
+        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-sm); padding: 0.75rem; color: var(--text-primary); line-height: 1.5;">
+          <strong>⚠️ Warning:</strong> This will permanently erase <strong>ALL articles, tags, annotations, tombstones, and revisions</strong> from Cloudflare D1. This action <strong>CANNOT</strong> be undone.
+        </div>
+        <div class="form-group">
+          <label for="wipeDbPasswordInput" style="font-weight: 600; font-size: 0.82rem;">Enter AUTH_TOKEN / Password to Confirm *</label>
+          <input type="password" id="wipeDbPasswordInput" placeholder="Server AUTH_TOKEN or password" autocomplete="current-password" required style="width: 100%;">
+        </div>
+        <div id="wipeDbErrorMsg" style="color: var(--danger, #ef4444); font-size: 0.8rem; display: none;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.4rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('wipeDbModal')">Cancel</button>
+          <button type="submit" class="btn btn-danger" id="wipeDbSubmitBtn">Permanently Wipe Database</button>
+        </div>
+      </form>
+    </div>
+  </div>

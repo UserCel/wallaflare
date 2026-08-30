@@ -9,6 +9,11 @@ if (!fs.existsSync(epubBundlePath)) {
   fs.writeFileSync(epubBundlePath, 'export const clientEpubJs = "";\n', 'utf8');
 }
 
+const dashboardHtmlPath = path.resolve(__dirname, '../src/views/dashboard-html.ts');
+if (!fs.existsSync(dashboardHtmlPath)) {
+  fs.writeFileSync(dashboardHtmlPath, 'export function getDashboardHtmlBody(appName: string = "Wallaflare"): string { return "<body></body>"; }\n', 'utf8');
+}
+
 const dashboardBundlePath = path.resolve(__dirname, '../src/views/dashboard-bundle.ts');
 if (!fs.existsSync(dashboardBundlePath)) {
   fs.writeFileSync(dashboardBundlePath, 'export const clientDashboardCss = ""; export const clientDashboardJs = "";\n', 'utf8');
@@ -19,10 +24,12 @@ if (!fs.existsSync(otaBundlePath)) {
   fs.writeFileSync(otaBundlePath, 'export const OTA_VERSION = "1.0.0"; export const OTA_MIN_NATIVE_VERSION = "1.0.0"; export const OTA_BUNDLE_B64 = ""; export const OTA_CHECKSUM = "";\n', 'utf8');
 }
 
+import { buildHtmlBundle } from "./bundle-html";
 import { buildEpubClientBundle } from "./bundle-epub-client";
 import { buildClientBundle } from "./bundle-client";
 
 async function main() {
+  await buildHtmlBundle();
   await buildEpubClientBundle();
   await buildClientBundle();
 

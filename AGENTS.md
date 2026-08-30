@@ -58,8 +58,14 @@
 │   └── DASHBOARD_REFACTOR.md  # Detailed architecture of the 3-pane dashboard refactor
 ├── scripts/                   # Build, bundling, and test utility scripts
 │   ├── build-web.ts           # Bundles web client, inlines deps, computes OTA hash
+│   ├── bundle-html.ts         # Assembles modular HTML source tree into dashboard-html.ts
+│   ├── bundle-client.ts       # Bundles client JS & CSS into dashboard-bundle.ts
 │   └── bundle-epub-client.ts  # Bundles browser EPUB engine & fflate zipper
 ├── src/
+│   ├── client/                # Isomorphic Web UI Source Tree
+│   │   ├── html/              # Modular HTML component templates (workspace, modals, overlays)
+│   │   ├── styles/            # Modular CSS design system
+│   │   └── index.ts           # Client JavaScript application entry point
 │   ├── index.ts               # Cloudflare Worker entry point (Hono application)
 │   ├── routes/
 │   │   ├── api.ts             # Wallabag v2 REST API + Wallaflare extended batch endpoints
@@ -72,7 +78,9 @@
 │   │   ├── extractor.ts       # Linkedom readability & DOM sanitizer scraper
 │   │   └── pdf.ts             # 3-section formatted PDF generator (pdf-lib)
 │   ├── views/
-│   │   ├── dashboard.ts       # Single-page isomorphic dashboard HTML, CSS, and client JS
+│   │   ├── dashboard.ts       # Single-page isomorphic dashboard renderer
+│   │   ├── dashboard-html.ts  # Auto-generated HTML bundle (do not edit manually, edit in src/client/html/)
+│   │   ├── dashboard-bundle.ts# Auto-generated JS/CSS bundle (do not edit manually, edit in src/client/)
 │   │   ├── epub-client-bundle.ts # Auto-generated client bundle for EPUB + fflate
 │   │   └── ota-bundle.ts      # Auto-generated OTA zip payload for native Android app
 │   └── __tests__/             # Vitest test suite (API, Dashboard syntax, EPUB, PDF, Scraper)
@@ -111,8 +119,8 @@ npm run deploy
 
 1. **Rule 1: Git Commit & Push Authorization**:
    - **NEVER** run `git commit` or `git push` unless the user explicitly instructs you to do so in the prompt.
-2. **Rule 2: Project-Scoped Files**:
-   - Always write migrations, scripts, artifacts, and scratch files inside the project directory (`/data/data/com.termux/files/home/wallaflare`). Never write outside the project boundary to avoid sandbox permissions errors.
+2. **Rule 2: Project-Scoped Files & Workspace Boundary**:
+   - Always write migrations, scripts, artifacts, and scratch files strictly inside the project root directory. Never write outside the workspace repository boundary (e.g. system `/tmp`, `/var`, or external user dirs) to prevent sandbox permission errors and maintain isolation.
 3. **Rule 3: Test Verification**:
    - Before completing any task involving code changes, verify with `npm run build:web && npm test` to ensure zero compilation or syntax errors.
 4. **Rule 4: Client-Side Template Escaping**:
@@ -131,5 +139,5 @@ npm run deploy
 
 ## 📚 Related Documentation
 
-- [DASHBOARD_REFACTOR.md](file:///data/data/com.termux/files/home/wallaflare/docs/DASHBOARD_REFACTOR.md) — Comprehensive design guide for the 3-pane dashboard workspace.
-- [README.md](file:///data/data/com.termux/files/home/wallaflare/README.md) — Public documentation, features, and setup instructions.
+- [DASHBOARD_REFACTOR.md](docs/DASHBOARD_REFACTOR.md) — Comprehensive design guide for the 3-pane dashboard workspace.
+- [README.md](README.md) — Public documentation, features, and setup instructions.

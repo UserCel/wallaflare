@@ -1,0 +1,5 @@
+<!-- Backdrop for card menus -->
+  <div id="cardMenuBackdrop" style="position: fixed; inset: 0; z-index: 90; display: none;" onclick="closeAllCardMenus()" oncontextmenu="event.preventDefault(); closeAllCardMenus();"></div>
+
+  <!-- Floating Context Menu for Article Cards (Right Click) -->
+  <div id="cardContextMenu" class="card-dropdown-menu" style="position: fixed; display: none; z-index: 10050; width: 225px;" onclick="event.stopPropagation()" oncontextmenu="event.preventDefault(); event.stopPropagation();"></div>

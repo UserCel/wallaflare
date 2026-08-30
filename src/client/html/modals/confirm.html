@@ -1,0 +1,14 @@
+<!-- Modal: Confirmation Dialog -->
+  <div class="modal-backdrop" id="confirmModal" style="z-index: 9999 !important;">
+    <div class="modal" style="max-width: 440px; text-align: left;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="confirmModalTitle">Confirm Action</h3>
+        <button class="close-btn" onclick="handleConfirmModalCancel()">&times;</button>
+      </div>
+      <div id="confirmModalMsg" style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5; margin: 1rem 0 1.25rem 0; white-space: pre-line;"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button type="button" class="btn btn-secondary" onclick="handleConfirmModalCancel()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmModalBtn" onclick="handleConfirmModalOk()">Confirm</button>
+      </div>
+    </div>
+  </div>

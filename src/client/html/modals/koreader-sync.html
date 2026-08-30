@@ -1,0 +1,52 @@
+<!-- Modal: KOReader / Wallabag Sync -->
+  <div class="modal-backdrop" id="syncModal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 class="modal-title">KOReader &amp; Client Setup</h3>
+        <button class="close-btn" onclick="closeModal('syncModal')">&times;</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.875rem;">
+        <p style="color: var(--text-secondary);">Enter these parameters into the <strong>KOReader Wallabag Plugin</strong>:</p>
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">1. Server URL</label>
+            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copySyncValue('syncServerUrl', this)">Copy</button>
+          </div>
+          <div class="code-box" id="syncServerUrl" style="word-break: break-all;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+              <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">2. Client ID</label>
+              <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+            </div>
+            <div class="code-box">wallaflare</div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+              <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">4. Username</label>
+              <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+            </div>
+            <div class="code-box">wallaflare</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;">3. Client Secret</label>
+            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyDirectText('wallaflare', this)">Copy</button>
+          </div>
+          <div class="code-box" id="syncClientSecretDisplay">wallaflare</div>
+        </div>
+
+        <div>
+          <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">5. Password</label>
+          <div class="code-box" style="color: var(--text-muted);">Your private AUTH_TOKEN password</div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+        <button class="btn btn-primary" onclick="closeModal('syncModal')">Done</button>
+      </div>
+    </div>
+  </div>

@@ -2384,8 +2384,10 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       const topBar = document.getElementById('readerTopBar');
       const popover = document.getElementById('readerAppearancePopover');
       const moreMenu = document.getElementById('readerMoreMenuDropdown');
+      const searchBar = document.getElementById('readerSearchBar');
       if (popover && popover.style.display !== 'none') return;
       if (moreMenu && moreMenu.classList.contains('open')) return;
+      if (searchBar && searchBar.style.display !== 'none') return;
 
       if (topBar) {
         topBar.classList.add('is-hidden');
@@ -2555,7 +2557,6 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         document.body.classList.add('is-reading-mobile');
       }
       showReaderTopBar(true);
-      scheduleReaderTopBarAutoHide(700);
 
       // Synchronous layout evaluation & instant scroll restoration (zero jump / zero flicker)
       if (contentWrapEl) {
@@ -6237,6 +6238,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       const bar = document.getElementById('readerSearchBar');
       const input = document.getElementById('readerSearchInput');
       if (!bar || !input) return;
+      showReaderTopBar(true);
       bar.style.display = 'flex';
       input.focus();
       input.select();

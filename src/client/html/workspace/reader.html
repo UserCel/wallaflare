@@ -1,0 +1,207 @@
+<!-- Pane 3: Right Active Reader Pane (.pane-reader, flex 1) -->
+    <main class="pane-reader" id="paneReader">
+      <!-- Empty state when no article is active -->
+      <div class="reader-empty-pane" id="readerEmptyPane">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+        <div class="reader-empty-title">Select an article to read</div>
+        <div class="reader-empty-desc">Choose any story from your library on the left, or use quick keyboard navigation.</div>
+        
+        <div class="reader-shortcuts-box">
+          <div class="reader-shortcuts-box-title">Keyboard Shortcuts</div>
+          <div class="shortcut-row"><span>Next article</span><span><kbd class="shortcut-kbd">j</kbd> or <kbd class="shortcut-kbd">↓</kbd></span></div>
+          <div class="shortcut-row"><span>Previous article</span><span><kbd class="shortcut-kbd">k</kbd> or <kbd class="shortcut-kbd">↑</kbd></span></div>
+          <div class="shortcut-row"><span>Focus / Zen Mode</span><kbd class="shortcut-kbd">f</kbd></div>
+          <div class="shortcut-row"><span>Archive / Unarchive</span><kbd class="shortcut-kbd">e</kbd></div>
+          <div class="shortcut-row"><span>Star / Unstar</span><kbd class="shortcut-kbd">s</kbd></div>
+          <div class="shortcut-row"><span>Search library</span><kbd class="shortcut-kbd">/</kbd></div>
+          <div class="shortcut-row"><span>Close / Deselect</span><kbd class="shortcut-kbd">Esc</kbd></div>
+        </div>
+      </div>
+
+      <!-- Active Reader Content View (#readerView) -->
+      <div class="reader-view" id="readerView" style="display: none; width: 100%; height: 100%; flex-direction: column; overflow: hidden; position: relative;">
+        <!-- Filled Status Bar Clearance for Punch-Hole and Notch -->
+        <div class="reader-safe-top-fill" id="readerSafeTopFill"></div>
+        <div class="reader-top-hover-trigger" onmouseenter="showReaderTopBar(true)"></div>
+
+        <!-- In-Reader Search Widget (Ctrl+F / Cmd+F) -->
+        <div class="reader-search-bar" id="readerSearchBar" style="display: none;">
+          <svg class="reader-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="readerSearchInput" placeholder="Find in article..." autocomplete="off" spellcheck="false" oninput="handleReaderSearchInput(this.value)" onkeydown="handleReaderSearchKeydown(event)" />
+          <span class="reader-search-count" id="readerSearchCount">0/0</span>
+          <button type="button" class="reader-search-btn" id="readerSearchPrevBtn" onclick="jumpReaderSearchMatch(-1)" title="Previous Match (Shift+Enter)">▲</button>
+          <button type="button" class="reader-search-btn" id="readerSearchNextBtn" onclick="jumpReaderSearchMatch(1)" title="Next Match (Enter)">▼</button>
+          <button type="button" class="reader-search-btn reader-search-close" id="readerSearchCloseBtn" onclick="closeReaderSearchBar()" title="Close (Esc)">&times;</button>
+        </div>
+
+        <!-- Unified Top Action Bar -->
+        <div class="reader-top-bar" id="readerTopBar">
+          <!-- 1. Standard Default Header -->
+          <div id="readerTopBarDefault" style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%;">
+            <div class="reader-top-bar-group">
+              <button class="btn-icon" onclick="handleReaderBack()" title="Back to library / Deselect (Esc)">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              </button>
+              <button class="btn-icon desktop-focus-btn" id="focusModeToggleBtn" onclick="toggleReaderFocusMode()" title="Toggle Focus Mode (f)">
+                <svg id="focusModeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              </button>
+            </div>
+
+            <div class="reader-top-bar-group" style="margin-left: auto;">
+              <button class="btn-icon" id="readerFindBtn" onclick="toggleReaderSearchBar()" title="Find in article (Ctrl+F)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              </button>
+              <button class="btn-icon" id="readerAppearanceBtn" onclick="toggleReaderAppearancePopover(event)" title="Typography &amp; Theme (Aa)">
+                <span style="font-family: serif; font-weight: bold; font-size: 1.05rem;">Aa</span>
+              </button>
+              <button class="btn-icon" id="readerMobileHighlightsBtn" onclick="toggleReaderHighlightsModal()" title="Highlights &amp; Notes" style="position: relative;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                <span id="readerHighlightsBadgeMobile" style="position: absolute; top: -2px; right: -2px; background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px;">0</span>
+              </button>
+              <button class="btn-icon" id="readerStarBtn" onclick="toggleActiveStar()" title="Toggle Star (s)">
+                <svg width="17" height="17" id="readerStarIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              </button>
+              <button class="btn-icon" id="readerArchiveBtn" onclick="toggleActiveArchive()" title="Toggle Archive (e)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+              </button>
+              <button class="btn-icon" onclick="openTagModal(activeArticleId)" title="Edit Tags">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+              </button>
+              
+              <div class="card-menu-wrap" style="position: relative;">
+                <button class="btn-icon" id="readerMoreMenuBtn" onclick="toggleReaderMoreMenu(event)" title="More Actions">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </button>
+                <div class="card-dropdown-menu" id="readerMoreMenuDropdown" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 6px); bottom: auto !important; right: 0; left: auto; min-width: 205px;">
+                  <div class="menu-item-expandable" id="readerExportWrap">
+                    <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleReaderExportSubmenu()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                      <span>Export</span>
+                      <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="menu-sub-items" id="readerExportSub">
+                      <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); downloadActiveEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>EPUB (.epub)</span></button>
+                      <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActiveMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>Markdown (.md)</span></button>
+                      <button class="menu-item menu-sub-item" onclick="closeReaderMoreMenu(); exportActivePdf();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h3a1.5 1.5 0 0 0 0-3H8v6"></path><path d="M14 10v6"></path></svg><span>PDF (.pdf)</span></button>
+                    </div>
+                  </div>
+                  <button class="menu-item" id="readerRefetchMenuItem" onclick="closeReaderMoreMenu(); refetchActiveArticleContent();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Re-fetch Content</span></button>
+                  <button class="menu-item" id="readerOpenOriginalMenuItem" onclick="closeReaderMoreMenu(); openActiveOriginalLink();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Open Original Link</span></button>
+                  <button class="menu-item" onclick="closeReaderMoreMenu(); openEditTitleModal(activeArticleId);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg><span>Edit Title</span></button>
+                  <div class="menu-divider"></div>
+                  <button class="menu-item menu-item-danger" onclick="closeReaderMoreMenu(); deleteActiveArticle();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg><span>Delete Article</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Mobile Contextual Text Selection & Annotation Header -->
+          <div id="readerTopBarAnnotation" style="display: none; align-items: center; justify-content: space-between; width: 100%; height: 100%; gap: 0.35rem;">
+            <div class="reader-top-bar-group" style="gap: 0.3rem; flex-shrink: 0;">
+              <button class="btn-icon" onclick="clearActiveTextSelection()" title="Cancel Selection" style="color: var(--text-secondary);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 68px;" id="readerTopBarSelCount">Highlight</div>
+            </div>
+
+            <div class="reader-top-bar-group" style="margin-left: auto; gap: 0.35rem;">
+              <div class="reader-topbar-hl-colors" style="display: flex; align-items: center; gap: 0.35rem;">
+                <button class="hl-color-btn hl-yellow" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('yellow')" title="Yellow Highlight"></button>
+                <button class="hl-color-btn hl-green" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('green')" title="Green Highlight"></button>
+                <button class="hl-color-btn hl-blue" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('blue')" title="Blue Highlight"></button>
+                <button class="hl-color-btn hl-purple" onmousedown="event.preventDefault()" onclick="handleCreateHighlight('purple')" title="Purple Highlight"></button>
+              </div>
+              <div class="hl-divider" style="height: 18px; width: 1px; background: var(--border-color); margin: 0 0.1rem;"></div>
+              <button class="btn-icon" onmousedown="event.preventDefault()" onclick="handleCreateHighlightWithNote()" title="Add Note" style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; padding: 0 0.45rem; width: auto; height: 32px; border-radius: 6px; background: var(--bg-tertiary);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                <span style="font-weight: 500;">Note</span>
+              </button>
+              <button class="btn-icon" onmousedown="event.preventDefault()" onclick="handleCopySelection()" title="Copy text" style="width: 32px; height: 32px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Floating Typography Popover -->
+        <div class="reader-appearance-popover" id="readerAppearancePopover" style="display: none;" onclick="event.stopPropagation()">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
+            <span style="font-weight: 700; font-size: 0.92rem;">Typography &amp; Theme</span>
+            <button class="close-btn" onclick="toggleReaderAppearancePopover()">&times;</button>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Font Family</label>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem;" id="popoverFontFamilyBtns">
+              <button class="btn btn-outline opt-font-btn" data-font="sans" onclick="setReaderFontFamily('sans')">Sans</button>
+              <button class="btn btn-outline opt-font-btn" data-font="serif" onclick="setReaderFontFamily('serif')">Serif</button>
+              <button class="btn btn-outline opt-font-btn" data-font="mono" onclick="setReaderFontFamily('mono')">Mono</button>
+              <button class="btn btn-outline opt-font-btn" data-font="dyslexic" onclick="setReaderFontFamily('dyslexic')">Dyslexic</button>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Font Size</label>
+              <span id="fontSizeDisplay" style="font-size: 0.8rem; font-weight: 700; color: var(--accent);">18px</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-weight: bold;" onclick="adjustReaderFontSize(-1)">A-</button>
+              <input type="range" id="fontSizeRange" min="12" max="32" step="1" style="flex: 1; accent-color: var(--accent); cursor: pointer;" oninput="setReaderFontSize(parseInt(this.value, 10))">
+              <button class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-weight: bold;" onclick="adjustReaderFontSize(1)">A+</button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Line Spacing</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem;" id="popoverLineHeightBtns">
+              <button class="btn btn-outline opt-lh-btn" data-lh="1.4" onclick="setReaderLineHeight('1.4')">Compact</button>
+              <button class="btn btn-outline opt-lh-btn" data-lh="1.68" onclick="setReaderLineHeight('1.68')">Normal</button>
+              <button class="btn btn-outline opt-lh-btn" data-lh="1.9" onclick="setReaderLineHeight('1.9')">Relaxed</button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Content Width</label>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem;" id="popoverContentWidthBtns">
+              <button class="btn btn-outline opt-width-btn" data-width="620px" onclick="setReaderContentWidth('620px')">Narrow</button>
+              <button class="btn btn-outline opt-width-btn" data-width="740px" onclick="setReaderContentWidth('740px')">Medium</button>
+              <button class="btn btn-outline opt-width-btn" data-width="880px" onclick="setReaderContentWidth('880px')">Wide</button>
+              <button class="btn btn-outline opt-width-btn" data-width="1060px" onclick="setReaderContentWidth('1060px')">Wider</button>
+            </div>
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Text Alignment</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem;" id="popoverAlignmentBtns">
+              <button class="btn btn-outline opt-align-btn" data-align="start" onclick="setReaderTextAlignment('start')">Align Start</button>
+              <button class="btn btn-outline opt-align-btn" data-align="justify" onclick="setReaderTextAlignment('justify')">Justify</button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.35rem;">Theme</label>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.45rem;" id="popoverThemeBtns">
+              <button class="btn btn-outline opt-theme-btn" data-theme="light" onclick="setTheme('light')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffffff;border:1px solid #94a3b8;flex-shrink:0;"></span><span>Light</span></button>
+              <button class="btn btn-outline opt-theme-btn" data-theme="sepia" onclick="setTheme('sepia')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f4ecd8;border:1px solid #b45309;flex-shrink:0;"></span><span>Sepia</span></button>
+              <button class="btn btn-outline opt-theme-btn" data-theme="dark" onclick="setTheme('dark')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#0f172a;border:1px solid #475569;flex-shrink:0;"></span><span>Dark</span></button>
+              <button class="btn btn-outline opt-theme-btn" data-theme="oled" onclick="setTheme('oled')" style="justify-content: flex-start; gap: 0.45rem; padding: 0.45rem 0.6rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#000000;border:1px solid #334155;flex-shrink:0;"></span><span>OLED</span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reader Scroll Area -->
+        <section class="reader-main-scroll" id="readerScrollContainer" onscroll="handleReaderScroll()" onclick="handleReaderBodyClick(event)">
+          <div class="reader-content-wrap">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
+              <h1 id="readerTitle" style="font-size: 2.1rem; font-weight: 700; line-height: 1.28; margin: 0; flex: 1;"></h1>
+              <button class="action-btn" id="readerEditTitleBtn" onclick="openEditTitleModal(activeArticleId)" title="Edit Article Title" style="margin-top: 0.3rem; padding: 0.4rem; opacity: 0.75;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              </button>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.8rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border-color);" id="readerMeta"></div>
+            <div id="readerCoverWrap"></div>
+            <article class="reader-body" id="readerBody"></article>
+          </div>
+        </section>
+      </div>
+    </main>

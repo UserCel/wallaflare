@@ -1,0 +1,100 @@
+<!-- Pane 1: Left Navigation Sidebar (.pane-sidebar, 250px fixed, desktop only) -->
+    <aside class="pane-sidebar" id="paneSidebar">
+      <div class="sidebar-brand-wrap">
+        <div class="brand" onclick="navigateTo('/')">
+          <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </div>
+          <span>${appName}</span>
+          <span class="brand-tag">Edge E-ink</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="sidebarAddArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL" style="width: 100%; justify-content: center; padding: 0.55rem 0.85rem; font-weight: 600;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Add URL</span>
+      </button>
+
+      <div class="sidebar-nav-group">
+        <button class="sidebar-nav-item active" id="tabUnread" onclick="setFilter('unread')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            <span>Unread</span>
+          </div>
+          <span class="badge-count" id="countUnread">0</span>
+        </button>
+        <button class="sidebar-nav-item" id="tabStarred" onclick="setFilter('starred')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>Starred</span>
+          </div>
+          <span class="badge-count" id="countStarred">0</span>
+        </button>
+        <button class="sidebar-nav-item" id="tabArchive" onclick="setFilter('archive')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+            <span>Archive</span>
+          </div>
+          <span class="badge-count" id="countArchive">0</span>
+        </button>
+        <button class="sidebar-nav-item" id="tabAll" onclick="setFilter('all')">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            <span>All Articles</span>
+          </div>
+          <span class="badge-count" id="countAll">0</span>
+        </button>
+      </div>
+
+      <!-- Collapsible Tag List -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-header" onclick="toggleSidebarTagsCollapse()">
+          <span>Tags</span>
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <span class="badge-count" id="sidebarTagCount">0</span>
+            <svg class="chevron-icon" id="sidebarTagChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+        </div>
+        <div class="sidebar-tag-list" id="sidebarTagList"></div>
+        <button class="sidebar-sub-action-btn" onclick="openGlobalTagManager()" title="Manage &amp; Clean Tags">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          <span>Manage Tags</span>
+        </button>
+      </div>
+
+      <!-- Bottom Utility Actions -->
+      <div class="sidebar-footer-actions">
+        <div class="sidebar-theme-picker" id="sidebarThemePicker" title="Theme Selector">
+          <button type="button" class="theme-swatch-btn" data-theme="dark" onclick="setTheme('dark')" title="Dark Theme">
+            <span class="theme-swatch-circle" style="background: #0f172a; border: 1.5px solid #475569;"></span>
+            <span class="theme-swatch-label">Dark</span>
+          </button>
+          <button type="button" class="theme-swatch-btn" data-theme="light" onclick="setTheme('light')" title="Light Theme">
+            <span class="theme-swatch-circle" style="background: #ffffff; border: 1.5px solid #cbd5e1;"></span>
+            <span class="theme-swatch-label">Light</span>
+          </button>
+          <button type="button" class="theme-swatch-btn" data-theme="sepia" onclick="setTheme('sepia')" title="Sepia Theme">
+            <span class="theme-swatch-circle" style="background: #f4ecd8; border: 1.5px solid #d97706;"></span>
+            <span class="theme-swatch-label">Sepia</span>
+          </button>
+          <button type="button" class="theme-swatch-btn" data-theme="oled" onclick="setTheme('oled')" title="OLED Black Theme">
+            <span class="theme-swatch-circle" style="background: #000000; border: 1.5px solid #334155;"></span>
+            <span class="theme-swatch-label">OLED</span>
+          </button>
+        </div>
+
+        <button class="sidebar-nav-item" id="sidebarSettingsBtn" onclick="openSettingsModal()" title="Settings">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
+          </div>
+        </button>
+
+        <div style="font-size: 0.7rem; color: var(--text-muted); padding: 0.35rem 0.5rem 0 0.5rem; text-align: center;">
+          <span id="sidebarVersionLabel">Wallaflare v1.0.0</span>
+        </div>
+      </div>
+    </aside>
