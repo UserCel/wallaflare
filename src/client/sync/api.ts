@@ -37,7 +37,19 @@ export function getAuthToken(): string {
 
 export function setAuthToken(token: string): void {
   try {
-    localStorage.setItem(PREF_KEYS.AUTH_TOKEN, token);
+    if (token) {
+      localStorage.setItem(PREF_KEYS.AUTH_TOKEN, token);
+      if (typeof document !== "undefined") {
+        const isHttps = typeof location !== "undefined" && location.protocol === "https:";
+        document.cookie = `wf_auth_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=31536000${isHttps ? "; Secure" : ""}`;
+      }
+    } else {
+      localStorage.removeItem(PREF_KEYS.AUTH_TOKEN);
+      if (typeof document !== "undefined") {
+        document.cookie = "wf_auth_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "PHPSESSID=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      }
+    }
   } catch (e) {}
 }
 

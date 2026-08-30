@@ -2,7 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { renderDashboardHtml } from "../views/dashboard";
 
-describe("Dashboard End-to-End (E2E) Browser Integration Tests", () => {
+describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true")(
+  "Dashboard End-to-End (E2E) Browser Integration Tests",
+  () => {
   let browser: Browser;
   let page: Page;
 

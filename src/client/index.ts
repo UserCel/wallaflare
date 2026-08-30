@@ -456,8 +456,19 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
     function setAuthToken(token) {
-      if (token) localStorage.setItem('wf_auth_token', token);
-      else localStorage.removeItem('wf_auth_token');
+      if (token) {
+        localStorage.setItem('wf_auth_token', token);
+        try {
+          const isHttps = location.protocol === 'https:';
+          document.cookie = 'wf_auth_token=' + encodeURIComponent(token) + '; Path=/; SameSite=Lax; Max-Age=31536000' + (isHttps ? '; Secure' : '');
+        } catch (e) {}
+      } else {
+        localStorage.removeItem('wf_auth_token');
+        try {
+          document.cookie = 'wf_auth_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'PHPSESSID=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        } catch (e) {}
+      }
       syncNativeServerConfig();
     }
 
@@ -470,11 +481,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
       const response = await fetch(fullUrl, { ...options, headers });
       if (response.status === 401) {
-        checkSetupStatus().then((isSetup) => {
-          if (!isSetup) {
-            showAuthOverlay();
-          }
-        });
+        showAuthOverlay();
       }
       // Inspect header-reported web asset version and trigger background OTA if newer
       const webVer = response.headers.get('X-Wallaflare-Web-Version');
@@ -495,152 +502,6 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       document.documentElement.classList.remove('wf-needs-auth');
       const overlay = document.getElementById('authOverlay');
       if (overlay) overlay.style.display = 'none';
-    }
-
-    async function checkSetupStatus() {
-      try {
-        const res = await fetch(getApiBaseUrl() + "/api/setup/status");
-        if (res.ok) {
-          const data = await res.json();
-
-          if (data && typeof data.has_opds_token === 'boolean') {
-            (window as any).WF_HAS_OPDS_TOKEN = data.has_opds_token;
-            localStorage.setItem('wf_has_opds_token', data.has_opds_token ? 'true' : 'false');
-            updateOpdsTokenBadge(data.has_opds_token);
-          }
-          if (data.setup_required) {
-            openSetupModal();
-            return true;
-          }
-        }
-      } catch (e) {}
-      return false;
-    }
-
-    function openSetupModal() {
-      const modal = document.getElementById("setupModal");
-      if (modal) modal.style.display = "flex";
-    }
-
-    function closeSetupModal() {
-      const modal = document.getElementById("setupModal");
-      if (modal) modal.style.display = "none";
-    }
-
-    function togglePasswordVisibility(inputId, btn) {
-      const el = document.getElementById(inputId) as HTMLInputElement;
-      if (!el) return;
-      if (el.type === "password") {
-        el.type = "text";
-        if (btn) btn.textContent = "Hide";
-      } else {
-        el.type = "password";
-        if (btn) btn.textContent = "Show";
-      }
-    }
-
-    async function handleInitialSetup(e) {
-      if (e) e.preventDefault();
-      const authInput = document.getElementById("setupAuthTokenInput") as HTMLInputElement;
-      const opdsInput = document.getElementById("setupOpdsTokenInput") as HTMLInputElement;
-      const submitBtn = document.getElementById("btnInitSetup") as HTMLButtonElement;
-
-      const authToken = (authInput?.value || "").trim();
-      const opdsToken = (opdsInput?.value || "").trim();
-
-      if (!authToken || authToken.length < 4) {
-        showToast("Master password must be at least 4 characters");
-        return;
-      }
-
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Saving Master Password...";
-      }
-
-      try {
-        const res = await fetch(getApiBaseUrl() + "/api/setup/init", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ auth_token: authToken, opds_token: opdsToken || undefined })
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          showToast(data.error || "Setup failed");
-          return;
-        }
-
-        setAuthToken(authToken);
-        closeSetupModal();
-        hideAuthOverlay();
-        showToast("✓ Master password configured! Welcome to Wallaflare.");
-        loadArticles(false);
-      } catch (err) {
-        showToast("Failed to connect to server");
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Complete Setup & Enter Library";
-        }
-      }
-    }
-
-    async function handleUpdateSecurityTokens(btn) {
-      const currentInput = document.getElementById("settingsCurrentAuthToken") as HTMLInputElement;
-      const newInput = document.getElementById("settingsNewAuthToken") as HTMLInputElement;
-      const opdsInput = document.getElementById("settingsNewOpdsToken") as HTMLInputElement;
-
-      const currentAuthToken = (currentInput?.value || "").trim();
-      const newAuthToken = (newInput?.value || "").trim();
-      const newOpdsToken = (opdsInput?.value || "").trim();
-
-      if (!currentAuthToken) {
-        showToast("Please enter your current master password");
-        currentInput?.focus();
-        return;
-      }
-
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = "Updating...";
-      }
-
-      try {
-        const res = await authFetch("/api/admin/tokens", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            current_auth_token: currentAuthToken,
-            new_auth_token: newAuthToken || undefined,
-            new_opds_token: newOpdsToken === "" ? null : (newOpdsToken || undefined)
-          })
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          showToast("Error: " + (data.error || "Failed to update credentials"));
-          return;
-        }
-
-        if (newAuthToken) {
-          setAuthToken(newAuthToken);
-        }
-
-        if (currentInput) currentInput.value = "";
-        if (newInput) newInput.value = "";
-        if (opdsInput) opdsInput.value = "";
-
-        populateServerConfigInputs();
-        showToast("✓ Security credentials updated in D1 database");
-      } catch (err) {
-        showToast("Network error updating credentials");
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = "Update Credentials";
-        }
-      }
     }
 
 
@@ -5855,7 +5716,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         localStorage.setItem('wf_server_url', url);
       }
       if (token) {
-        localStorage.setItem('wf_auth_token', token);
+        setAuthToken(token);
       }
       syncNativeServerConfig();
       populateServerConfigInputs();
@@ -6316,16 +6177,19 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       document.documentElement.classList.add('is-capacitor-app');
       syncNativeServerConfig();
     }
+    try {
+      const storedToken = localStorage.getItem('wf_auth_token');
+      if (storedToken && document.cookie.indexOf('wf_auth_token') === -1) {
+        const isHttps = location.protocol === 'https:';
+        document.cookie = 'wf_auth_token=' + encodeURIComponent(storedToken) + '; Path=/; SameSite=Lax; Max-Age=31536000' + (isHttps ? '; Secure' : '');
+      }
+    } catch (e) {}
     initAppearanceSettings();
     setViewMode(localStorage.getItem('wf_view_mode') || 'list');
     updateVersionDisplay();
     renderFromInstantLocalCache();
     handleRouteState();
-    checkSetupStatus().then((isSetup) => {
-      if (!isSetup) {
-        loadArticles(true);
-      }
-    });
+    loadArticles(true);
     function initInfiniteScroll() {
       const scrollContainer = document.getElementById('articlesScrollContainer');
       if (!scrollContainer) return;
@@ -6759,10 +6623,6 @@ if (typeof window !== "undefined") {
   try { (window as any).reconcileDatabase = reconcileDatabase; } catch (e) {}
   try { (window as any).openServerConnectModal = openServerConnectModal; } catch (e) {}
   try { (window as any).handleSaveServerConnection = handleSaveServerConnection; } catch (e) {}
-  try { (window as any).handleInitialSetup = handleInitialSetup; } catch (e) {}
-  try { (window as any).handleUpdateSecurityTokens = handleUpdateSecurityTokens; } catch (e) {}
-  try { (window as any).togglePasswordVisibility = togglePasswordVisibility; } catch (e) {}
-  try { (window as any).checkSetupStatus = checkSetupStatus; } catch (e) {}
   try { (window as any).saveArticlesToOfflineDb = saveArticlesToOfflineDb; } catch (e) {}
   try { (window as any).getArticlesFromOfflineDb = getArticlesFromOfflineDb; } catch (e) {}
   try { (window as any).initPullToRefresh = initPullToRefresh; } catch (e) {}

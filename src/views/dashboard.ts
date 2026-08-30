@@ -4,9 +4,8 @@ import { clientDashboardCss, clientDashboardJs } from './dashboard-bundle';
 import { getDashboardHtmlBody } from './dashboard-html';
 
 export function renderDashboardHtml(appName: string = 'Wallaflare', hasOpdsToken: boolean = false, isAuthenticated?: boolean): string {
-  const htmlClass = isAuthenticated === false ? 'dark wf-needs-auth' : 'dark';
   return `<!DOCTYPE html>
-<html lang="en" class="${htmlClass}">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -18,9 +17,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare', hasOpdsToken
     window.WF_HAS_OPDS_TOKEN = ${hasOpdsToken ? 'true' : 'false'};
     try {
       var hasLocalToken = !!(localStorage.getItem('wf_auth_token') || localStorage.getItem('wf_server_token'));
-      var hasCookie = document.cookie.indexOf('PHPSESSID') !== -1;
-      var serverAuthed = ${isAuthenticated === true ? 'true' : isAuthenticated === false ? 'false' : 'null'};
-      if (serverAuthed === false || (serverAuthed !== true && !hasLocalToken && !hasCookie)) {
+      var hasCookie = document.cookie.indexOf('PHPSESSID') !== -1 || document.cookie.indexOf('wf_auth_token') !== -1;
+      var serverAuthed = ${isAuthenticated === true ? 'true' : 'null'};
+      if (serverAuthed !== true && !hasLocalToken && !hasCookie) {
         document.documentElement.classList.add('wf-needs-auth');
       }
     } catch(e) {}
