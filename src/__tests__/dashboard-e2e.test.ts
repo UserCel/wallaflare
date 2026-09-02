@@ -449,7 +449,35 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
   });
 
 
-it("handles keyboard shortcuts: search (/), focus mode (f), and reader navigation", async () => {
+
+  it("displays published date with formatted label and tooltip in readerMeta when published_at is present", async () => {
+    const metaResult = await page.evaluate(async () => {
+      const w = window as any;
+      w.allEntries.push({
+        id: 301,
+        title: "Article with Published Date",
+        domain_name: "nature.com",
+        author: "Dr. Scientist",
+        reading_time: 7,
+        content: "<p>Scientific findings...</p>",
+        published_at: "2024-05-18T10:00:00Z",
+        created_at: "2024-06-01T12:00:00Z",
+        is_archived: 0,
+        is_starred: 0,
+      });
+      await w.openReader(301);
+      const metaEl = document.getElementById("readerMeta");
+      return {
+        html: metaEl?.innerHTML || "",
+        text: metaEl?.textContent || "",
+      };
+    });
+
+    expect(metaResult.text).toContain("Published May 18, 2024");
+    expect(metaResult.text).toContain("Saved Jun 1, 2024");
+  });
+
+  it("handles keyboard shortcuts: search (/), focus mode (f), and reader navigation", async () => {
     await page.evaluate(() => { (window as any).closeReader?.(); (document.activeElement as HTMLElement)?.blur(); });
     await page.keyboard.press("/");
     const isSearchFocused = await page.evaluate(() => document.activeElement?.id === "searchInput");

@@ -71,8 +71,8 @@ export function extractOpdsToken(c: Context<{ Bindings: Env }>): string | null {
 
 export async function opdsAuthMiddleware(c: Context<{ Bindings: Env }>, next: () => Promise<void>) {
   const masterSecret = c.env?.AUTH_TOKEN || c.env?.CLIENT_SECRET;
-  const opdsSecret = c.env?.OPDS_TOKEN;
-  const effectiveSecret = opdsSecret || masterSecret;
+  const readSecret = c.env?.READ_TOKEN;
+  const effectiveSecret = readSecret || masterSecret;
 
   // Open access if no secret configured
   if (!effectiveSecret) {
@@ -107,14 +107,14 @@ export async function opdsAuthMiddleware(c: Context<{ Bindings: Env }>, next: ()
     }
   }
 
-  // When OPDS_TOKEN is configured, strictly validate against OPDS_TOKEN.
-  // When OPDS_TOKEN is not configured, fall back to masterSecret.
+  // When READ_TOKEN is configured, strictly validate against READ_TOKEN.
+  // When READ_TOKEN is not configured, fall back to masterSecret.
   const isValid = Boolean(effectiveSecret && timingSafeCompare(provided, effectiveSecret));
 
   if (isValid) {
     if (c.env?.DB) {
-      // If OPDS_TOKEN is dedicated, reset only 'opds' scope; if single masterSecret, reset 'admin'
-      await resetAuthRateLimit(c.env.DB, ip, opdsSecret ? 'opds' : 'admin');
+      // If READ_TOKEN is dedicated, reset only 'opds' scope; if single masterSecret, reset 'admin'
+      await resetAuthRateLimit(c.env.DB, ip, readSecret ? 'opds' : 'admin');
     }
     return await next();
   }

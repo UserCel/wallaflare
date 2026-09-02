@@ -971,8 +971,30 @@
       text-align: right !important;
     }
     #readerMeta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.55rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 1.8rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--border-color);
       direction: ltr !important;
       text-align: left !important;
+      line-height: 1.4;
+    }
+    #readerMeta > span,
+    #readerMeta > a {
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    #readerMeta .meta-divider {
+      color: var(--border-color, rgba(255, 255, 255, 0.25));
+      user-select: none;
+      font-size: 0.75rem;
     }
 
     /* Highlights & Notes */

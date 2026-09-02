@@ -3,7 +3,7 @@ import { clientEpubJs } from './epub-client-bundle';
 import { clientDashboardCss, clientDashboardJs } from './dashboard-bundle';
 import { getDashboardHtmlBody } from './dashboard-html';
 
-export function renderDashboardHtml(appName: string = 'Wallaflare', hasOpdsToken: boolean = false, isAuthenticated?: boolean): string {
+export function renderDashboardHtml(appName: string = 'Wallaflare', hasReadToken: boolean = false, isAuthenticated?: boolean): string {
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -14,7 +14,7 @@ export function renderDashboardHtml(appName: string = 'Wallaflare', hasOpdsToken
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
   <title>${appName}</title>
   <script>
-    window.WF_HAS_OPDS_TOKEN = ${hasOpdsToken ? 'true' : 'false'};
+    window.WF_HAS_READ_TOKEN = ${hasReadToken ? 'true' : 'false'};
     try {
       var hasLocalToken = !!(localStorage.getItem('wf_auth_token') || localStorage.getItem('wf_server_token'));
       var hasCookie = document.cookie.indexOf('PHPSESSID') !== -1 || document.cookie.indexOf('wf_auth_token') !== -1;

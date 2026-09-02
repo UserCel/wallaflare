@@ -146,6 +146,35 @@
                 </div>
               </div>
 
+              
+              <div>
+                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">RSS 2.0 &amp; Atom Feeds</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Subscribe to your saved articles in <strong>NetNewsWire</strong>, <strong>Reeder</strong>, <strong>Feedly</strong>, or any RSS aggregator:</p>
+                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                      <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">Unread Articles Feed</label>
+                      <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="copySyncValue('syncRssUnreadUrl', this)">Copy URL</button>
+                    </div>
+                    <div class="code-box" id="syncRssUnreadUrl" style="word-break: break-all; font-size: 0.82rem; padding: 0.45rem 0.75rem; color: var(--text-muted);"></div>
+                  </div>
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                      <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">Starred Articles Feed</label>
+                      <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="copySyncValue('syncRssStarredUrl', this)">Copy URL</button>
+                    </div>
+                    <div class="code-box" id="syncRssStarredUrl" style="word-break: break-all; font-size: 0.82rem; padding: 0.45rem 0.75rem; color: var(--text-muted);"></div>
+                  </div>
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                      <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">Archive Feed</label>
+                      <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="copySyncValue('syncRssArchiveUrl', this)">Copy URL</button>
+                    </div>
+                    <div class="code-box" id="syncRssArchiveUrl" style="word-break: break-all; font-size: 0.82rem; padding: 0.45rem 0.75rem; color: var(--text-muted);"></div>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">KOReader &amp; Wallabag 2-Way Sync</h4>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Enter these parameters into the <strong>KOReader Wallabag Plugin</strong> (Tools &gt; Wallabag &gt; Settings) or official Wallabag mobile app for 2-way read sync:</p>

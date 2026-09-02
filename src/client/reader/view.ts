@@ -89,16 +89,34 @@ export async function openReader(idOrArticle: any, pushHistory: boolean = true):
     else titleEl.removeAttribute("dir");
   }
 
-  const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : "");
+    const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : "");
   const author = (rawAuthor && rawAuthor !== "wallaflare" && rawAuthor !== "Unknown") ? rawAuthor : "";
-  let metaHtml = "<span>" + escapeHtml(item.domain_name || "") + "</span>";
-  if (author) metaHtml += " &bull; <span style=\"font-weight: 500;\">by " + escapeHtml(author) + "</span>";
-  metaHtml += " &bull; <span>" + (item.reading_time || 1) + " min read</span>" +
-    " &bull; <span>" + (item.created_at ? new Date(item.created_at).toLocaleDateString() : "") + "</span>";
-  if (item.url) {
-    metaHtml += " &bull; <a href=\"" + escapeHtml(item.url) + "\" target=\"_blank\" rel=\"noopener\" class=\"reader-original-link\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"vertical-align: middle;\"><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"></path><polyline points=\"15 3 21 3 21 9\"></polyline><line x1=\"10\" y1=\"14\" x2=\"21\" y2=\"3\"></line></svg><span>Original Link</span></a>";
+  
+  const metaParts: string[] = [];
+  if (item.domain_name) metaParts.push("<span>" + escapeHtml(item.domain_name) + "</span>");
+  if (author) metaParts.push("<span style=\"font-weight: 500;\">by " + escapeHtml(author) + "</span>");
+  metaParts.push("<span>" + (item.reading_time || 1) + " min read</span>");
+
+  const rawPubDate = item.published_at ? new Date(item.published_at) : null;
+  const rawSavedDate = item.created_at ? new Date(item.created_at) : null;
+  const isPubValid = rawPubDate && !isNaN(rawPubDate.getTime());
+  const isSavedValid = rawSavedDate && !isNaN(rawSavedDate.getTime());
+
+  if (isSavedValid) {
+    const savedFormatted = rawSavedDate.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    metaParts.push("<span>Saved " + escapeHtml(savedFormatted) + "</span>");
   }
-  if (metaEl) metaEl.innerHTML = metaHtml;
+
+  if (isPubValid) {
+    const pubFormatted = rawPubDate.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    metaParts.push("<span>Published " + escapeHtml(pubFormatted) + "</span>");
+  }
+
+  if (item.url) {
+    metaParts.push("<a href=\"" + escapeHtml(item.url) + "\" target=\"_blank\" rel=\"noopener\" class=\"reader-original-link\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"vertical-align: middle;\"><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"></path><polyline points=\"15 3 21 3 21 9\"></polyline><line x1=\"10\" y1=\"14\" x2=\"21\" y2=\"3\"></line></svg><span>Original Link</span></a>");
+  }
+
+  if (metaEl) metaEl.innerHTML = metaParts.join("<span class=\"meta-divider\">&bull;</span>");
 
   if (coverWrap) {
     if (item.preview_picture) {

@@ -144,9 +144,9 @@ webRouter.get('/manifest.json', (c) => {
 
 async function renderWebDashboard(c: any) {
   const appName = c.env?.APP_NAME || 'Wallaflare';
-  const hasOpds = Boolean(c.env?.OPDS_TOKEN);
+  const hasReadToken = Boolean(c.env?.READ_TOKEN);
   const isAuthed = c.env?.AUTH_TOKEN ? await validateSessionToken(c, c.env) : true;
-  return c.html(renderDashboardHtml(appName, hasOpds, isAuthed));
+  return c.html(renderDashboardHtml(appName, hasReadToken, isAuthed));
 }
 
 webRouter.get('/share-target', (c) => renderWebDashboard(c));

@@ -208,35 +208,35 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     expect(text).toContain(`token=${AUTH_SECRET}`);
   });
 
-  it('accepts dedicated OPDS_TOKEN and rejects AUTH_TOKEN on /opds when OPDS_TOKEN is set', async () => {
+  it('accepts dedicated READ_TOKEN and rejects AUTH_TOKEN on /opds when READ_TOKEN is set', async () => {
     const dedicatedToken = 'readonly_opds_secret';
     const masterToken = 'master_admin_secret';
 
-    // 1. Valid OPDS_TOKEN succeeds
+    // 1. Valid READ_TOKEN succeeds
     const res = await app.request(`/opds?token=${dedicatedToken}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: masterToken,
-      OPDS_TOKEN: dedicatedToken,
+      READ_TOKEN: dedicatedToken,
     });
 
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toContain('urn:wallaflare:opds:root');
 
-    // 2. AUTH_TOKEN is strictly rejected on /opds when OPDS_TOKEN is configured
+    // 2. AUTH_TOKEN is strictly rejected on /opds when READ_TOKEN is configured
     const masterOnOpdsRes = await app.request(`/opds?token=${masterToken}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: masterToken,
-      OPDS_TOKEN: dedicatedToken,
+      READ_TOKEN: dedicatedToken,
     });
     expect(masterOnOpdsRes.status).toBe(401);
   });
 
-  it('falls back to AUTH_TOKEN on /opds when OPDS_TOKEN is NOT set', async () => {
+  it('falls back to AUTH_TOKEN on /opds when READ_TOKEN is NOT set', async () => {
     const masterToken = 'master_admin_secret_only';
 
     // 1. AUTH_TOKEN succeeds on /opds

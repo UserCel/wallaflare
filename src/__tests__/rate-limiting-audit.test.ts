@@ -62,7 +62,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
 
   // Extract all unique route paths from Hono router
   const registeredRoutes = app.routes
-    .filter((r) => r.path && !r.path.includes('*') && !r.path.includes(':id') && !r.path.includes(':tag') && !r.path.includes(':domain'))
+    .filter((r) => r.path && !r.path.includes('*') && !r.path.includes(':id') && !r.path.includes(':tag') && !r.path.includes(':domain') && !r.path.includes(':user') && !r.path.includes(':token'))
     .map((r) => ({ method: r.method, path: r.path }));
 
   // Deduplicate method + path combinations
@@ -218,11 +218,11 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     });
     expect(loginLocked.status).toBe(429);
   });
-  it('blocks token-interleaving attacks: valid OPDS_TOKEN cannot reset admin brute-force counter', async () => {
+  it('blocks token-interleaving attacks: valid READ_TOKEN cannot reset admin brute-force counter', async () => {
     const mockDb = createMockRateLimitDb();
     const attackerIp = '198.51.100.99';
     const MASTER_TOKEN = 'secret_admin_master_123';
-    const OPDS_TOKEN = 'valid_opds_reader_key_777';
+    const READ_TOKEN = 'valid_opds_reader_key_777';
 
     // 1. Attacker sends 4 failed guesses against admin endpoint
     for (let i = 1; i <= 4; i++) {
@@ -236,7 +236,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
       }, {
         DB: mockDb as any,
         AUTH_TOKEN: MASTER_TOKEN,
-        OPDS_TOKEN: OPDS_TOKEN,
+        READ_TOKEN: READ_TOKEN,
       });
 
       expect(res.status).toBe(400);
@@ -244,8 +244,8 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
       expect(json.attempts_left).toBe(5 - i);
     }
 
-    // 2. Attacker uses valid OPDS_TOKEN on /opds to try resetting the rate-limit counter
-    const opdsRes = await app.request(`/opds?token=${OPDS_TOKEN}`, {
+    // 2. Attacker uses valid READ_TOKEN on /opds to try resetting the rate-limit counter
+    const opdsRes = await app.request(`/opds?token=${READ_TOKEN}`, {
       method: 'GET',
       headers: {
         'CF-Connecting-IP': attackerIp,
@@ -253,7 +253,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
     expect(opdsRes.status).toBe(200);
 
@@ -269,7 +269,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
 
     expect(fifthGuessRes.status).toBe(429);
@@ -277,7 +277,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     expect(lockedJson.locked).toBe(true);
 
     // 4. Once admin is locked out, all scopes including OPDS are blocked
-    const lockedOpdsRes = await app.request(`/opds?token=${OPDS_TOKEN}`, {
+    const lockedOpdsRes = await app.request(`/opds?token=${READ_TOKEN}`, {
       method: 'GET',
       headers: {
         'CF-Connecting-IP': attackerIp,
@@ -285,7 +285,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
     expect(lockedOpdsRes.status).toBe(429);
   });
@@ -294,7 +294,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     const mockDb = createMockRateLimitDb();
     const homeIp = '198.51.100.100';
     const MASTER_TOKEN = 'secret_admin_master_123';
-    const OPDS_TOKEN = 'valid_opds_reader_key_777';
+    const READ_TOKEN = 'valid_opds_reader_key_777';
 
     // 1. E-reader at home sends 5 failed requests with wrong token to /opds
     for (let i = 1; i <= 5; i++) {
@@ -306,7 +306,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
       }, {
         DB: mockDb as any,
         AUTH_TOKEN: MASTER_TOKEN,
-        OPDS_TOKEN: OPDS_TOKEN,
+        READ_TOKEN: READ_TOKEN,
       });
 
       if (i < 5) {
@@ -323,7 +323,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
     expect(opdsLocked.status).toBe(429);
 
@@ -338,26 +338,26 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
     expect(adminRes.status).toBe(200);
 
     // 4. Authenticating with master AUTH_TOKEN also cleared the OPDS lockout!
-    const opdsUnlocked = await app.request(`/opds?token=${OPDS_TOKEN}`, {
+    const opdsUnlocked = await app.request(`/opds?token=${READ_TOKEN}`, {
       method: 'GET',
       headers: { 'CF-Connecting-IP': homeIp },
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
     expect(opdsUnlocked.status).toBe(200);
   });
-  it('enforces strict credential segregation: AUTH_TOKEN cannot be probed or cracked via /opds when OPDS_TOKEN is set', async () => {
+  it('enforces strict credential segregation: AUTH_TOKEN cannot be probed or cracked via /opds when READ_TOKEN is set', async () => {
     const mockDb = createMockRateLimitDb();
     const probeIp = '198.51.100.101';
     const MASTER_TOKEN = 'secret_admin_master_123';
-    const OPDS_TOKEN = 'valid_opds_reader_key_777';
+    const READ_TOKEN = 'valid_opds_reader_key_777';
 
     // Attacker tries to pass the real AUTH_TOKEN on /opds
     const res = await app.request(`/opds?token=${MASTER_TOKEN}`, {
@@ -368,14 +368,14 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
 
-    // When OPDS_TOKEN is set, /opds strictly rejects AUTH_TOKEN
+    // When READ_TOKEN is set, /opds strictly rejects AUTH_TOKEN
     expect(res.status).toBe(401);
 
-    // Only OPDS_TOKEN is accepted on /opds
-    const validOpdsRes = await app.request(`/opds?token=${OPDS_TOKEN}`, {
+    // Only READ_TOKEN is accepted on /opds
+    const validOpdsRes = await app.request(`/opds?token=${READ_TOKEN}`, {
       method: 'GET',
       headers: {
         'CF-Connecting-IP': probeIp,
@@ -383,7 +383,7 @@ describe('Automated Rate-Limiting Security Audit for All Protected Endpoints', (
     }, {
       DB: mockDb as any,
       AUTH_TOKEN: MASTER_TOKEN,
-      OPDS_TOKEN: OPDS_TOKEN,
+      READ_TOKEN: READ_TOKEN,
     });
     expect(validOpdsRes.status).toBe(200);
   });

@@ -38,12 +38,17 @@
 - **🖍️ Multi-Color Annotations & W3C Highlights**:
   - Resilient W3C text position/quote selectors across theme and font size changes.
   - 4-color palette (`🟡`, `🟢`, `🔵`, `🟣`), attached notes, in-memory batching, and Markdown export with highlights (`==text==`) and footnotes (`[^note]`).
+- **📡 RSS 2.0 & Atom Feed Syndication**:
+  - Full-text RSS feeds with sanitized `<content:encoded>` HTML for **NetNewsWire**, **Reeder**, **Feeder**, **Feedly**, **NewsFlash**, and RSS aggregators.
+  - Dedicated endpoints for Unread (`/feed/unread`), Starred (`/feed/starred`), Archive (`/feed/archive`), All (`/feed/all`), and Tags (`/feed/tags/:tag`).
+  - Compatible with Wallabag v2 single-user legacy feed paths (`/feed/:user/:token/unread`).
+  - Strict read-only credential isolation via `READ_TOKEN` with IP-based brute-force rate-limiting.
 - **📚 OPDS 1.2 Book Catalog & Acquisition Feeds**:
   - Full OPDS 1.2 Atom XML catalog compatibility for **KOReader**, **Crosspoint**, **Moon+ Reader**, **Librera**, **Foliate**, and e-ink e-readers.
   - Dedicated feeds for Unread, Starred, All, Archive, and Tags, with OpenSearch 1.1 in-app catalog search.
   - Dynamic, on-the-fly EPUB 3 downloads with embedded cover art and metadata.
-  - Supports HTTP Basic Auth (`wallaflare` / `AUTH_TOKEN` or `OPDS_TOKEN`), Bearer headers, and pre-authenticated direct URLs (`?token=...`) with recursive child link token propagation.
-  - Optional read-only `OPDS_TOKEN` secret to isolate e-reader credentials from administrative controls.
+  - Supports HTTP Basic Auth (`wallaflare` / `AUTH_TOKEN` or `READ_TOKEN`), Bearer headers, and pre-authenticated direct URLs (`?token=...`) with recursive child link token propagation.
+  - Optional read-only `READ_TOKEN` secret to isolate e-reader and RSS feed credentials from administrative controls.
 - **📦 On-Device Multi-Format Exports**:
   - Client-side **EPUB 3** (with cover art and metadata), **GitHub-flavored Markdown** (with YAML frontmatter), and **PDF** generation without third-party services.
   - Bulk ZIP exports for multiple selected articles.
@@ -88,9 +93,9 @@ npm run db:migrate:remote
 npx wrangler secret put AUTH_TOKEN
 ```
 
-*(Optional)* Set a dedicated read-only token for OPDS e-readers (KOReader, Crosspoint):
+*(Optional)* Set a dedicated read-only token for OPDS e-readers and RSS readers (KOReader, Feeder, NetNewsWire):
 ```bash
-npx wrangler secret put OPDS_TOKEN
+npx wrangler secret put READ_TOKEN
 ```
 
 ### 5. Deploy
@@ -112,8 +117,8 @@ Wallaflare serves a native **OPDS 1.2 Book Catalog** for instant browsing and do
   ```
   - **KOReader**: Go to **Tools > OPDS catalog > Add new catalog**, enter the catalog URL, and sign in with:
     - **Username**: `wallaflare`
-    - **Password**: Your `OPDS_TOKEN` (if configured) or master `AUTH_TOKEN`
-    *(Note: If a dedicated `OPDS_TOKEN` is set, only `OPDS_TOKEN` is accepted on `/opds` for strict security isolation).*
+    - **Password**: Your `READ_TOKEN` (if configured) or master `AUTH_TOKEN`
+    *(Note: If a dedicated `READ_TOKEN` is set, only `READ_TOKEN` is accepted on `/opds` for strict security isolation).*
   - **In-Catalog Search**: Full support for OpenSearch 1.1 search queries (`/opds/search?q=...`) inside KOReader and OPDS apps.
 
 - **Pre-Authenticated Direct URL (Crosspoint / Embedded E-readers)**:
@@ -121,6 +126,26 @@ Wallaflare serves a native **OPDS 1.2 Book Catalog** for instant browsing and do
   https://<your-subdomain>.workers.dev/opds?token=YOUR_TOKEN
   ```
   *(Automatically propagates `?token=...` across all catalog categories and EPUB acquisition links so embedded readers download in 1 click without separate authentication dialogs).*
+
+---
+
+### 📡 RSS 2.0 & Atom Feeds (Feeder, NetNewsWire, Reeder, Feedly)
+Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies:
+
+- **Available Feed Endpoints**:
+  | Feed Type | URL |
+  | :--- | :--- |
+  | **Unread Queue** | `https://<your-subdomain>.workers.dev/feed/unread?token=READ_TOKEN` |
+  | **Starred Articles** | `https://<your-subdomain>.workers.dev/feed/starred?token=READ_TOKEN` |
+  | **Archive** | `https://<your-subdomain>.workers.dev/feed/archive?token=READ_TOKEN` |
+  | **All Articles** | `https://<your-subdomain>.workers.dev/feed/all?token=READ_TOKEN` |
+  | **Tagged Articles** | `https://<your-subdomain>.workers.dev/feed/tags/<tag>?token=READ_TOKEN` |
+
+- **HTTP Basic Auth Mode (No Token in URL)**:
+  If your RSS reader supports HTTP Basic Auth (e.g. NetNewsWire, Reeder, Feeder):
+  - **Feed URL**: `https://<your-subdomain>.workers.dev/feed/unread`
+  - **Username**: `wallaflare`
+  - **Password**: Your `READ_TOKEN` (or master `AUTH_TOKEN`)
 
 ---
 

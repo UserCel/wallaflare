@@ -2697,14 +2697,32 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
       const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
-      let metaHtml = '<span>' + escapeHtml(item.domain_name || '') + '</span>';
-      if (author) metaHtml += ' &bull; <span style="font-weight: 500;">by ' + escapeHtml(author) + '</span>';
-      metaHtml += ' &bull; <span>' + (item.reading_time || 1) + ' min read</span>' +
-        ' &bull; <span>' + (item.created_at ? new Date(item.created_at).toLocaleDateString() : '') + '</span>';
-      if (item.url) {
-        metaHtml += ' &bull; <a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="reader-original-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Original Link</span></a>';
+
+      const metaParts: string[] = [];
+      if (item.domain_name) metaParts.push('<span>' + escapeHtml(item.domain_name) + '</span>');
+      if (author) metaParts.push('<span style="font-weight: 500;">by ' + escapeHtml(author) + '</span>');
+      metaParts.push('<span>' + (item.reading_time || 1) + ' min read</span>');
+
+      const rawPubDate = item.published_at ? new Date(item.published_at) : null;
+      const rawSavedDate = item.created_at ? new Date(item.created_at) : null;
+      const isPubValid = rawPubDate && !isNaN(rawPubDate.getTime());
+      const isSavedValid = rawSavedDate && !isNaN(rawSavedDate.getTime());
+
+      if (isSavedValid) {
+        const savedFormatted = rawSavedDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        metaParts.push('<span>Saved ' + escapeHtml(savedFormatted) + '</span>');
       }
-      document.getElementById('readerMeta').innerHTML = metaHtml;
+
+      if (isPubValid) {
+        const pubFormatted = rawPubDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        metaParts.push('<span>Published ' + escapeHtml(pubFormatted) + '</span>');
+      }
+
+      if (item.url) {
+        metaParts.push('<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="reader-original-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg><span>Original Link</span></a>');
+      }
+
+      document.getElementById('readerMeta').innerHTML = metaParts.join('<span class="meta-divider">&bull;</span>');
 
       const coverWrap = document.getElementById('readerCoverWrap');
       if (item.preview_picture) {
@@ -3928,7 +3946,8 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     function copySyncValue(elementId, btn) {
       const el = document.getElementById(elementId);
-      if (el) copyDirectText(el.textContent.trim(), btn);
+      const fullUrl = el?.getAttribute('data-full-url') || el?.textContent?.trim() || '';
+      if (fullUrl) copyDirectText(fullUrl, btn);
     }
 
     function copySyncOpdsAuthUrl(btn) {
@@ -3937,7 +3956,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (fullUrl) copyDirectText(fullUrl, btn);
     }
 
-    function updateOpdsTokenBadge(hasDedicatedOpdsToken) {
+    function updateOpdsTokenBadge(hasDedicatedReadToken) {
       const opdsBadgeEl = document.getElementById('syncOpdsTokenStatusBadge');
       const helpEl = document.getElementById('syncOpdsCredentialsHelp');
 
@@ -3946,26 +3965,26 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         opdsBadgeEl.style.alignItems = 'center';
         opdsBadgeEl.style.flexWrap = 'wrap';
         opdsBadgeEl.style.gap = '0.35rem';
-        if (hasDedicatedOpdsToken) {
+        if (hasDedicatedReadToken) {
           opdsBadgeEl.style.background = 'rgba(34, 197, 94, 0.1)';
           opdsBadgeEl.style.border = '1px solid rgba(34, 197, 94, 0.25)';
           opdsBadgeEl.style.color = 'var(--success, #22c55e)';
-          opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🟢 Dedicated OPDS_TOKEN Active</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Isolated read-only access)</span>';
+          opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🟢 Dedicated READ_TOKEN Active</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Isolated read-only access)</span>';
         } else {
           opdsBadgeEl.style.background = 'rgba(234, 179, 8, 0.08)';
           opdsBadgeEl.style.border = '1px solid rgba(234, 179, 8, 0.2)';
           opdsBadgeEl.style.color = 'var(--warning, #eab308)';
-          opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🔑 Using Master AUTH_TOKEN</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Set OPDS_TOKEN in Cloudflare Secrets to isolate e-readers)</span>';
+          opdsBadgeEl.innerHTML = '<span style="font-weight: 600;">🔑 Using Master AUTH_TOKEN</span><span style="color: var(--text-secondary); font-size: 0.72rem;">(Set READ_TOKEN in Cloudflare Secrets to isolate readers & feeds)</span>';
         }
       }
 
       if (helpEl) {
-        if (hasDedicatedOpdsToken) {
-          helpEl.innerHTML = '<div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.15rem;">KOReader / E-Reader Credentials:</div>' +
-            '<div>• Username: <code>wallaflare</code> &nbsp;•&nbsp; Password: <code>OPDS_TOKEN</code></div>' +
-            '<div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 0.15rem;">(Master AUTH_TOKEN is rejected on /opds for security isolation)</div>';
+        if (hasDedicatedReadToken) {
+          helpEl.innerHTML = '<div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.15rem;">HTTP Basic Auth Credentials (OPDS & Feeds):</div>' +
+            '<div>• Username: <code>wallaflare</code> &nbsp;•&nbsp; Password: <code>READ_TOKEN</code></div>' +
+            '<div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 0.15rem;">(Master AUTH_TOKEN is rejected on /opds and /feed for security isolation)</div>';
         } else {
-          helpEl.innerHTML = '<div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.15rem;">KOReader / E-Reader Credentials:</div>' +
+          helpEl.innerHTML = '<div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.15rem;">HTTP Basic Auth Credentials (OPDS & Feeds):</div>' +
             '<div>• Username: <code>wallaflare</code> &nbsp;•&nbsp; Password: <code>AUTH_TOKEN</code></div>';
         }
       }
@@ -5751,6 +5770,13 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         serverUrlEl.textContent = effectiveServerUrl;
       }
 
+      const initialHasReadToken = (window as any).WF_HAS_READ_TOKEN !== undefined 
+        ? Boolean((window as any).WF_HAS_READ_TOKEN)
+        : (localStorage.getItem('wf_has_read_token') === 'true');
+      updateOpdsTokenBadge(initialHasReadToken);
+
+      const tokenParam = initialHasReadToken ? '?token=READ_TOKEN' : '?token=AUTH_TOKEN';
+
       const opdsUrlEl = document.getElementById('syncOpdsUrl');
       if (opdsUrlEl) {
         opdsUrlEl.textContent = effectiveServerUrl + '/opds';
@@ -5758,19 +5784,29 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       const opdsAuthUrlEl = document.getElementById('syncOpdsAuthUrl');
       if (opdsAuthUrlEl) {
-        if (savedAuthToken) {
-          opdsAuthUrlEl.textContent = effectiveServerUrl + '/opds?token=••••••••••••';
-          opdsAuthUrlEl.setAttribute('data-full-url', effectiveServerUrl + '/opds?token=' + encodeURIComponent(savedAuthToken));
-        } else {
-          opdsAuthUrlEl.textContent = effectiveServerUrl + '/opds?token=OPDS_TOKEN';
-          opdsAuthUrlEl.setAttribute('data-full-url', effectiveServerUrl + '/opds?token=OPDS_TOKEN');
-        }
+        opdsAuthUrlEl.textContent = effectiveServerUrl + '/opds' + tokenParam;
+        opdsAuthUrlEl.removeAttribute('data-full-url');
       }
 
-      const initialHasOpds = (window as any).WF_HAS_OPDS_TOKEN !== undefined 
-        ? Boolean((window as any).WF_HAS_OPDS_TOKEN)
-        : (localStorage.getItem('wf_has_opds_token') === 'true');
-      updateOpdsTokenBadge(initialHasOpds);
+      const rssUnreadEl = document.getElementById('syncRssUnreadUrl');
+      if (rssUnreadEl) {
+        rssUnreadEl.textContent = effectiveServerUrl + '/feed/unread' + tokenParam;
+        rssUnreadEl.removeAttribute('data-full-url');
+      }
+
+      const rssStarredEl = document.getElementById('syncRssStarredUrl');
+      if (rssStarredEl) {
+        rssStarredEl.textContent = effectiveServerUrl + '/feed/starred' + tokenParam;
+        rssStarredEl.removeAttribute('data-full-url');
+      }
+
+      const rssArchiveEl = document.getElementById('syncRssArchiveUrl');
+      if (rssArchiveEl) {
+        rssArchiveEl.textContent = effectiveServerUrl + '/feed/archive' + tokenParam;
+        rssArchiveEl.removeAttribute('data-full-url');
+      }
+
+      
 
 
 
@@ -6332,13 +6368,13 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           if (res && res.ok) {
             const manifest = await res.json().catch(() => null);
             if (manifest) {
-              if (typeof manifest.has_opds_token === 'boolean') {
-                (window as any).WF_HAS_OPDS_TOKEN = manifest.has_opds_token;
-                localStorage.setItem('wf_has_opds_token', manifest.has_opds_token ? 'true' : 'false');
-                updateOpdsTokenBadge(manifest.has_opds_token);
+              if (typeof manifest.has_read_token === 'boolean') {
+                (window as any).WF_HAS_READ_TOKEN = manifest.has_read_token;
+                localStorage.setItem('wf_has_read_token', manifest.has_read_token ? 'true' : 'false');
+                updateOpdsTokenBadge(manifest.has_read_token);
               }
-              if (manifest.has_opds_token !== undefined) {
-                (window as any).WF_HAS_OPDS_TOKEN = Boolean(manifest.has_opds_token);
+              if (manifest.has_read_token !== undefined) {
+                (window as any).WF_HAS_READ_TOKEN = Boolean(manifest.has_read_token);
               }
               if (manifest.min_native_version) {
                 checkNativeApkVersion(manifest.min_native_version);

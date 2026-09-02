@@ -141,7 +141,7 @@ const infoHandler = (c: any) => {
     appname: c.env?.APP_NAME || 'Wallaflare',
     version: '2.6.9',
     allowed_registration: false,
-    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
+    has_read_token: Boolean(c.env?.READ_TOKEN),
   });
 };
 
@@ -156,7 +156,7 @@ const appVersionHandler = (c: any) => {
     min_native_version: OTA_MIN_NATIVE_VERSION,
     checksum: OTA_CHECKSUM,
     url: '/api/app/bundle.zip',
-    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
+    has_read_token: Boolean(c.env?.READ_TOKEN),
   });
 };
 
@@ -633,7 +633,7 @@ const syncHandler = async (c: any) => {
       counts: counts,
       ota_version: OTA_VERSION,
       ota_checksum: OTA_CHECKSUM,
-      has_opds_token: Boolean(c.env?.OPDS_TOKEN),
+      has_read_token: Boolean(c.env?.READ_TOKEN),
     });
   }
 
@@ -673,7 +673,7 @@ const syncHandler = async (c: any) => {
     pages: entriesResult.pages,
     ota_version: OTA_VERSION,
     ota_checksum: OTA_CHECKSUM,
-    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
+    has_read_token: Boolean(c.env?.READ_TOKEN),
   });
 };
 
@@ -1227,7 +1227,7 @@ apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
     client_id: 'wallaflare',
     client_secret: clientSecret,
     username: 'wallaflare',
-    has_opds_token: Boolean(c.env?.OPDS_TOKEN),
+    has_read_token: Boolean(c.env?.READ_TOKEN),
   });
 });
 

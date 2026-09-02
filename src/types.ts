@@ -18,7 +18,7 @@ export interface Env {
   CLIENT_SECRET?: string;
   APP_NAME?: string;
   JWT_SECRET?: string;
-  OPDS_TOKEN?: string;
+  READ_TOKEN?: string;
 }
 
 export interface EntryRow {

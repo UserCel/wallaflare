@@ -1011,7 +1011,7 @@ export async function resetAuthRateLimit(db: D1Database, ip: string, scope: Auth
       // Master AUTH_TOKEN resets both admin and opds counters
       await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ? OR ip = ?').bind(ip, `opds:${ip}`).run();
     } else {
-      // OPDS_TOKEN only resets the opds counter
+      // READ_TOKEN only resets the opds counter
       await db.prepare('DELETE FROM auth_rate_limits WHERE ip = ?').bind(`opds:${ip}`).run();
     }
   } catch {}
