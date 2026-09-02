@@ -1,3 +1,4 @@
+import { formatCardDate } from "../client/utils/format";
 import { describe, it, expect } from 'vitest';
 import { renderDashboardHtml } from '../views/dashboard';
 import vm from 'node:vm';
@@ -706,4 +707,43 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('id="settingsParserEngineDesc"');
     expect(html).toContain('setParserEngine');
   });
+
+  describe("Graduated Relative Date Formatting (formatCardDate)", () => {
+    it("formats dates < 45s ago as Just now", () => {
+      const date = new Date(Date.now() - 10 * 1000).toISOString();
+      const res = formatCardDate(date);
+      expect(res.label).toBe("Just now");
+      expect(res.tooltip).toBeTruthy();
+    });
+
+    it("formats dates < 1 hour ago as Xm ago", () => {
+      const date = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const res = formatCardDate(date);
+      expect(res.label).toBe("15m ago");
+    });
+
+    it("formats dates < 24 hours ago as Xh ago", () => {
+      const date = new Date(Date.now() - 4 * 3600 * 1000).toISOString();
+      const res = formatCardDate(date);
+      expect(res.label).toBe("4h ago");
+    });
+
+    it("formats dates < 7 days ago as Xd ago", () => {
+      const date = new Date(Date.now() - 3 * 86400 * 1000).toISOString();
+      const res = formatCardDate(date);
+      expect(res.label).toBe("3d ago");
+    });
+
+    it("formats dates < 30 days ago as Xw ago", () => {
+      const date = new Date(Date.now() - 14 * 86400 * 1000).toISOString();
+      const res = formatCardDate(date);
+      expect(res.label).toBe("2w ago");
+    });
+
+    it("handles null or empty dates gracefully", () => {
+      expect(formatCardDate(null).label).toBe("");
+      expect(formatCardDate("").label).toBe("");
+    });
+  });
+
 });

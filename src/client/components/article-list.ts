@@ -1,3 +1,4 @@
+import { formatCardDate } from "../utils/format";
 import { state } from "../state";
 import { Article } from "../types";
 import { openReader } from "../reader/view";
@@ -89,9 +90,7 @@ export function renderArticlesChunked(entries?: Article[]): void {
         item.author ||
         (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : "");
       const author = rawAuthor && rawAuthor !== "wallaflare" && rawAuthor !== "Unknown" ? rawAuthor : "";
-      const date = item.created_at
-        ? new Date(item.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-        : "";
+      const dateInfo = formatCardDate(item.created_at);
       const rawContentText =
         item.text ||
         item.excerpt ||
@@ -180,9 +179,7 @@ export function renderArticlesChunked(entries?: Article[]): void {
         imgHtml +
         "</div>" +
         '<div class="card-footer">' +
-        '<span class="card-date">' +
-        date +
-        "</span>" +
+        '<span class="card-date" data-created-at="' + escapeHtml(item.created_at || '') + '" title="' + escapeHtml(dateInfo.tooltip) + '">' + escapeHtml(dateInfo.label) + '</span>' +
         '<span style="font-size: 0.75rem; color: var(--text-muted);">' +
         readingProgressText +
         "</span>" +

@@ -710,6 +710,46 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         .replace(/'/g, '&#039;');
     }
 
+    function formatCardDate(dateInput) {
+      if (!dateInput) return { label: "", tooltip: "" };
+      const d = typeof dateInput === "object" && dateInput instanceof Date ? dateInput : new Date(dateInput);
+      const time = d.getTime();
+      if (isNaN(time)) return { label: "", tooltip: "" };
+
+      const tooltip = d.toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short"
+      });
+
+      const now = Date.now();
+      const diffSec = Math.floor((now - time) / 1000);
+
+      if (diffSec < 45) return { label: "Just now", tooltip: tooltip };
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return { label: diffMin + "m ago", tooltip: tooltip };
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return { label: diffHour + "h ago", tooltip: tooltip };
+      const diffDay = Math.floor(diffHour / 24);
+      if (diffDay < 7) return { label: diffDay + "d ago", tooltip: tooltip };
+      if (diffDay < 30) {
+        const diffWeek = Math.floor(diffDay / 7);
+        return { label: diffWeek + "w ago", tooltip: tooltip };
+      }
+
+      const currentYear = new Date().getFullYear();
+      if (d.getFullYear() === currentYear) {
+        return {
+          label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+          tooltip: tooltip
+        };
+      }
+      return {
+        label: d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+        tooltip: tooltip
+      };
+    }
+
+
     // Keyboard Shortcuts & Modal Dismissal Hierarchy
     window.addEventListener('keydown', (e) => {
       // Ctrl+K / Cmd+K: Open Add URL dialog
@@ -2405,7 +2445,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         const domain = item.domain_name || 'direct-input';
         const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
         const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
-        const date = item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+        const dateInfo = formatCardDate(item.created_at);
         const rawContentText = (item.excerpt && !item.excerpt.includes("{\"parts\":")) ? item.excerpt : (item.text || (item.content ? item.content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ").replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"').replace(/\{"parts":[\s\S]*?\}\}\]\}/g, " ").replace(/\s+/g, " ").trim() : ""));
         const excerpt = rawContentText ? (rawContentText.length > 160 ? rawContentText.slice(0, 160) + "..." : rawContentText) : "No preview available";
         const isChecked = selectedArticleIds.has(item.id);
@@ -2462,7 +2502,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
             imgHtml +
           '</div>' +
           '<div class="card-footer">' +
-            '<span class="card-date">' + date + '</span>' +
+            '<span class="card-date" data-created-at="' + escapeHtml(item.created_at || '') + '" title="' + escapeHtml(dateInfo.tooltip) + '">' + escapeHtml(dateInfo.label) + '</span>' +
             '<span style="font-size: 0.75rem; color: var(--text-muted);" id="card-progress-' + item.id + '">' + readingProgressText + '</span>' +
             '<div style="display: flex; gap: 0.35rem;">' +
               '<button class="action-btn ' + (item.is_starred ? 'active-star' : '') + '" title="Star" onclick="event.stopPropagation(); toggleStar(' + item.id + ', ' + item.is_starred + ')">' + starSvg + '</button>' +
@@ -6331,7 +6371,57 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (settingsLabel) settingsLabel.textContent = text;
     }
 
-    function initReaderHoverTopBar() {
+    
+    
+    function updateLiveRelativeTimestamps() {
+      const dateEls = document.querySelectorAll('.card-date[data-created-at]');
+      if (!dateEls.length) return;
+      for (let i = 0; i < dateEls.length; i++) {
+        const el = dateEls[i];
+        const rawDate = el.getAttribute('data-created-at');
+        if (!rawDate) continue;
+        const info = formatCardDate(rawDate);
+        if (el.textContent !== info.label) {
+          el.textContent = info.label;
+        }
+        if (info.tooltip && el.getAttribute('title') !== info.tooltip) {
+          el.setAttribute('title', info.tooltip);
+        }
+      }
+    }
+
+    function initLiveTimestamps() {
+      setInterval(updateLiveRelativeTimestamps, 30000);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) updateLiveRelativeTimestamps();
+      });
+      window.addEventListener('focus', updateLiveRelativeTimestamps);
+      document.addEventListener('resume', updateLiveRelativeTimestamps);
+    }
+
+function initPaneFocusListeners() {
+      // Switch focus between Articles List and Reader on mouse / pointer click
+      document.addEventListener('pointerdown', (e) => {
+        if (window.innerWidth < 1024) return;
+        const target = e.target;
+        if (!target) return;
+
+        // 1. Click inside articles column (empty spaces, cards, search bar, header, scroll container) or sidebar
+        if (target.closest('.pane-articles, #paneArticles, .pane-sidebar, #paneSidebar')) {
+          if (activeKeyboardPane !== 'list') {
+            setKeyboardPaneFocus('list');
+          }
+        }
+        // 2. Click inside reader pane (reading content, empty space, top bar, scroll container)
+        else if (target.closest('.pane-reader, #paneReader')) {
+          if (activeArticleId && activeKeyboardPane !== 'reader') {
+            setKeyboardPaneFocus('reader');
+          }
+        }
+      }, { passive: true });
+    }
+
+function initReaderHoverTopBar() {
       const readerPane = document.getElementById('paneReader');
       if (!readerPane) return;
       readerPane.addEventListener('mousemove', (e) => {
@@ -6452,6 +6542,8 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     setupElasticOverscroll(document.getElementById('articlesScrollContainer'), document.getElementById('articlesGrid'), { allowPullDown: false, allowPullUp: true });
     setupElasticOverscroll(document.getElementById('readerScrollContainer'), document.querySelector('.reader-content-wrap'), { allowPullDown: true, allowPullUp: true });
     initReaderHoverTopBar();
+    initPaneFocusListeners();
+    initLiveTimestamps();
     initSelectionDeselectListener();
     initReaderSelectionHandlers();
     initCapacitorOtaUpdater();
@@ -6894,6 +6986,10 @@ if (typeof window !== "undefined") {
 if (typeof window !== "undefined") {
   const w = window as any;
   w.syncAddTextTagChips = syncAddTextTagChips;
+  w.setKeyboardPaneFocus = setKeyboardPaneFocus;
+  w.initPaneFocusListeners = initPaneFocusListeners;
+  w.updateLiveRelativeTimestamps = updateLiveRelativeTimestamps;
+  w.initLiveTimestamps = initLiveTimestamps;
   w.setReaderFont = setReaderFont;
 
   try {
