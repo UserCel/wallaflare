@@ -105,13 +105,10 @@ export const OTA_CHECKSUM = ${JSON.stringify(contentHash)};
       }
     }
 
-    // Extract base version from _meta.lua
+    // Extract canonical SemVer version from _meta.lua
     const metaFile = pluginFilesText["_meta.lua"] || "";
     const versionMatch = metaFile.match(/version\s*=\s*["']([^"']+)["']/);
-    const pluginBaseVersion = versionMatch ? versionMatch[1] : "1.0.0";
-
-    const pluginHash = crypto.createHash("sha256").update(combinedContent).digest("hex").slice(0, 10);
-    const kopluginVersion = `${pluginBaseVersion}-${pluginHash}`;
+    const kopluginVersion = versionMatch ? versionMatch[1] : "1.0.0";
 
     const pluginZipped = fflate.zipSync(pluginZipObj);
     const downloadDir = path.join(wwwDir, "download");

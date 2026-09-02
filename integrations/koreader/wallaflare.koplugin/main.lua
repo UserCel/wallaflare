@@ -89,7 +89,7 @@ end
 function Wallaflare:init()
     self.settings = Store:loadSettings()
     local ddir = Store:getDownloadDir()
-    if lfs.attributes(ddir, "mode") ~= "directory" then
+    if ddir and lfs.attributes(ddir, "mode") ~= "directory" then
         pcall(lfs.mkdir, ddir)
     end
     self:onDispatcherRegisterActions()
@@ -212,7 +212,7 @@ function Wallaflare:addToMainMenu(menu_items)
                                 end,
                             },
                             {
-                                text = _("Keep local files"),
+                                text = _("Archive & Keep Old Files"),
                                 checked_func = function() return self.settings.db_reset_action == "keep" end,
                                 callback = function()
                                     self.settings.db_reset_action = "keep"
@@ -250,45 +250,45 @@ end
 
 function Wallaflare:openDownloadFolder()
     local download_dir = Store:getDownloadDir()
+    if not download_dir or download_dir == "" then
+        UIManager:show(InfoMessage:new{
+            text = _("Please set a download folder in Wallaflare Settings first."),
+            timeout = 4,
+        })
+        return
+    end
+
     if FileManager.instance then
-        FileManager.instance:reinit(download_dir)
+        if FileManager.instance.reinit then
+            FileManager.instance:reinit(download_dir)
+        elseif FileManager.instance.showFiles then
+            FileManager.instance:showFiles(download_dir)
+        end
     else
         FileManager:showFiles(download_dir)
     end
 end
 
 function Wallaflare:chooseDownloadDir(touchmenu_instance, on_confirm_callback)
-    local initial_path = self.settings.download_dir
-    if not initial_path or initial_path == "" or lfs.attributes(initial_path, "mode") ~= "directory" then
-        initial_path = G_reader_settings and (G_reader_settings:readSetting("home_dir") or G_reader_settings:readSetting("lastdir"))
-        if not initial_path or initial_path == "" then
-            initial_path = DataStorage:getDataDir()
-        end
-    end
-
-    local path_chooser = PathChooser:new{
-        title = _("Select Wallaflare download directory"),
-        select_file = false,
-        show_files = false,
-        path = initial_path,
-        onConfirm = function(dir_path)
-            if dir_path and dir_path ~= "" then
-                self.settings.download_dir = dir_path
+    local DownloadMgr = require("ui/downloadmgr")
+    DownloadMgr:new{
+        onConfirm = function(path)
+            if path and path ~= "" then
+                self.settings.download_dir = path
                 Store:saveSettings()
                 if touchmenu_instance and touchmenu_instance.updateItems then
                     touchmenu_instance:updateItems()
                 end
                 UIManager:show(InfoMessage:new{
-                    text = _("Download folder set to:\n") .. dir_path,
+                    text = string.format(_("Download folder set to:\n%s"), path),
                     timeout = 3,
                 })
                 if on_confirm_callback then
-                    on_confirm_callback(dir_path)
+                    on_confirm_callback(path)
                 end
             end
         end,
-    }
-    UIManager:show(path_chooser)
+    }:chooseDir()
 end
 
 function Wallaflare:editServerSettings()
@@ -346,7 +346,7 @@ end
 function Wallaflare:showStatusDialog()
     local download_dir = Store:getDownloadDir()
     local file_count = 0
-    if lfs.attributes(download_dir, "mode") == "directory" then
+    if download_dir and lfs.attributes(download_dir, "mode") == "directory" then
         for f in lfs.dir(download_dir) do
             if f:match("%.epub$") then
                 file_count = file_count + 1
@@ -505,6 +505,36 @@ function Wallaflare:promptResetSyncCache()
     UIManager:show(confirm)
 end
 
+function Wallaflare:archiveLocalLibrary(old_instance_id)
+    local download_dir = Store:getDownloadDir()
+    if not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
+        return
+    end
+
+    local archive_folder_name = "Archive_Instance_" .. tostring(old_instance_id or "previous")
+    local archive_dir = download_dir .. "/" .. archive_folder_name
+
+    local ffiUtil_ok, ffiUtil = pcall(require, "ffi/util")
+    if ffiUtil_ok and ffiUtil and ffiUtil.makePath then
+        pcall(ffiUtil.makePath, archive_dir)
+    else
+        pcall(lfs.mkdir, archive_dir)
+    end
+
+    local moved_count = 0
+    for file in lfs.dir(download_dir) do
+        if file ~= "." and file ~= ".." and not file:match("^Archive_Instance_") then
+            local full_path = download_dir .. "/" .. file
+            local target_path = archive_dir .. "/" .. file
+            local ok_rename = os.rename(full_path, target_path)
+            if ok_rename then
+                moved_count = moved_count + 1
+            end
+        end
+    end
+    logger.info("Wallaflare: Archived " .. moved_count .. " items to " .. archive_dir)
+end
+
 function Wallaflare:wipeLocalLibrary()
     local download_dir = Store:getDownloadDir()
     if lfs.attributes(download_dir, "mode") == "directory" then
@@ -527,7 +557,18 @@ end
 
 function Wallaflare:startSync()
     if not self.settings.server_url or self.settings.server_url == "" then
-        self:editServerSettings()
+        self:editServerSettings(function()
+            self:startSync()
+        end)
+        return
+    end
+
+    local download_dir = Store:getDownloadDir()
+    if not download_dir or download_dir == "" then
+        UIManager:show(InfoMessage:new{
+            text = _("Please set a download folder in Wallaflare Settings before syncing."),
+            timeout = 4,
+        })
         return
     end
 
@@ -592,10 +633,12 @@ function Wallaflare:performSync()
             self:wipeLocalLibrary()
             self:applySyncPayload(data, server_instance, progress_info)
         elseif self.settings.db_reset_action == "keep" then
+            self:archiveLocalLibrary(local_instance or "previous")
             self.settings.instance_id = server_instance
-            self.settings.sync_rev = data.sync_rev or 0
+            self.settings.sync_rev = 0
+            self.settings.article_revs = {}
             Store:saveSettings()
-            self:applySyncPayload(data, server_instance)
+            self:applySyncPayload(data, server_instance, progress_info)
         else
             -- Default: Interactive prompt
             local confirm = MultiConfirmBox:new{
@@ -603,17 +646,20 @@ function Wallaflare:performSync()
                 choice1_text = _("Wipe & Resync"),
                 choice1_callback = function()
                     self:wipeLocalLibrary()
-                    self:applySyncPayload(data, server_instance)
+                    self:applySyncPayload(data, server_instance, progress_info)
                 end,
-                choice2_text = _("Keep Local Files"),
+                choice2_text = _("Archive & Keep Old Files"),
                 choice2_callback = function()
+                    self:archiveLocalLibrary(local_instance or "previous")
                     self.settings.instance_id = server_instance
-                    self.settings.sync_rev = data.sync_rev or 0
+                    self.settings.sync_rev = 0
+                    self.settings.article_revs = {}
                     Store:saveSettings()
-                    self:applySyncPayload(data, server_instance)
+                    self:applySyncPayload(data, server_instance, progress_info)
                 end,
                 cancel_text = _("Cancel"),
                 cancel_callback = function()
+                    if progress_info then UIManager:close(progress_info) end
                     UIManager:show(InfoMessage:new{ text = _("Sync cancelled. No changes made."), timeout = 3 })
                 end,
             }
@@ -621,7 +667,7 @@ function Wallaflare:performSync()
             return
         end
     else
-        self:applySyncPayload(data, server_instance)
+        self:applySyncPayload(data, server_instance, progress_info)
     end
 end
 
@@ -658,6 +704,11 @@ end
 
 function Wallaflare:applySyncPayload(data, server_instance, progress_info)
     local download_dir = Store:getDownloadDir()
+    if not download_dir or download_dir == "" then
+        if progress_info then UIManager:close(progress_info) end
+        UIManager:show(InfoMessage:new{ text = _("Wallaflare: No download folder set."), timeout = 4 })
+        return
+    end
     local deleted_count = 0
     local downloaded_count = 0
 

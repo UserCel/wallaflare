@@ -382,7 +382,7 @@ describe("1. Plugin Metadata & Manifest", function()
     it("declares valid plugin name and version", function()
         assert_eq(Meta.name, "wallaflare", "Plugin name must be wallaflare")
         assert_true(Meta.fullname ~= nil and Meta.fullname ~= "", "Fullname should be defined")
-        assert_eq(Meta.version, "1.0.0", "Base version should be 1.0.0")
+        assert_eq(Meta.version, "1.0.0", "Version should be 1.0.0")
     end)
 end)
 
@@ -544,6 +544,24 @@ describe("4. Wallaflare Sync Engine & Auto-Pruning", function()
         assert_true(f == nil, "Article file must be deleted")
         assert_true(#mock_history_deleted >= 1, "ReadHistory item must be removed")
         -- sidecar directory pruned
+    end)
+
+    it("archives old files to Archive_Instance subfolder on database reset", function()
+        local ddir = Store:getDownloadDir()
+        -- Create dummy file from instance 1
+        local f = io.open(ddir .. "/1_Old_Article.epub", "w")
+        if f then f:write("OLD_CONTENT"); f:close() end
+
+        app:archiveLocalLibrary(1)
+
+        -- Check that 1_Old_Article.epub was moved to Archive_Instance_1
+        local moved_file = io.open(ddir .. "/Archive_Instance_1/1_Old_Article.epub", "r")
+        assert_true(moved_file ~= nil, "Old article should be in Archive_Instance_1")
+        if moved_file then moved_file:close() end
+
+        -- Top-level file should no longer exist
+        local top_file = io.open(ddir .. "/1_Old_Article.epub", "r")
+        assert_true(top_file == nil, "Old article should not remain in root download directory")
     end)
 
     it("handles database wipe / epoch reset with MultiConfirmBox", function()
