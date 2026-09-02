@@ -69,4 +69,5 @@ export interface WallabagEntry {
   text?: string;
   annotations?: any[];
   origin_url?: string | null;
+  revision?: number;
 }

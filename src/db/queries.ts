@@ -173,6 +173,7 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
     is_starred: row?.is_starred ? 1 : 0,
     starred_at: row?.is_starred ? updatedAt : null,
     user_name: 'wallaflare',
+    revision: Number(row?.revision || 1),
     user_email: 'user@wallaflare.local',
     user_id: 1,
     tags: entryTags,

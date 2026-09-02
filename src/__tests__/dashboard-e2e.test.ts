@@ -1,3 +1,4 @@
+import http from 'http';
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { renderDashboardHtml } from "../views/dashboard";
@@ -7,21 +8,20 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
   () => {
   let browser: Browser;
   let page: Page;
+  let server: http.Server;
 
   beforeAll(async () => {
-    // Force headless Chrome to use iGPU / SwiftShader without waking up the dGPU
+    server = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderDashboardHtml("Wallaflare"));
+    }).listen(0);
+    const port = (server.address() as any).port;
+
     browser = await puppeteer.launch({
       headless: true,
-      env: {
-        ...process.env,
-        DRI_PRIME: "0",
-        __NV_PRIME_RENDER_OFFLOAD: "0",
-        __GLX_VENDOR_LIBRARY_NAME: "mesa"
-      },
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-gpu",
         "--disable-dev-shm-usage",
         "--disable-vulkan",
         "--disable-features=Vulkan",
@@ -30,12 +30,11 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
       ]
     });
     page = await browser.newPage();
-    await page.goto("http://example.com");
-    const html = renderDashboardHtml("Wallaflare");
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.goto(`http://127.0.0.1:${port}`, { waitUntil: "domcontentloaded" });
   });
 
   afterAll(async () => {
+    if (server) server.close();
     if (browser) await browser.close();
   });
 

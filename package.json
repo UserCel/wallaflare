@@ -17,7 +17,8 @@
     "build:apk:release": "tsx scripts/build-web.ts && npx cap sync android && cd android && export JAVA_HOME=/var/home/ido/.jdks/jdk-21 && export ANDROID_HOME=/home/ido/Android/Sdk && ./gradlew assembleRelease --no-daemon",
     "screenshot": "tsx scripts/generate-screenshots.ts",
     "prepare": "tsx scripts/build-web.ts",
-    "bundle:html": "tsx scripts/bundle-html.ts"
+    "bundle:html": "tsx scripts/bundle-html.ts",
+    "test:koplugin": "luajit integrations/koreader/wallaflare.koplugin/__tests__/test_plugin.lua"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

@@ -1,4 +1,5 @@
 import { OTA_VERSION, OTA_MIN_NATIVE_VERSION, OTA_BUNDLE_B64, OTA_CHECKSUM } from '../views/ota-bundle';
+import { KOPLUGIN_VERSION, KOPLUGIN_FILES } from '../views/koplugin-bundle';
 import { Hono } from 'hono';
 import { Env, EntryRow, WallabagEntry } from '../types';
 import {
@@ -162,6 +163,32 @@ const appVersionHandler = (c: any) => {
 
 apiRouter.get('/api/app/version', appVersionHandler);
 apiRouter.get('/api/app/version.json', appVersionHandler);
+
+// -------------------------------------------------------------
+// KOReader Plugin OTA Endpoints
+// -------------------------------------------------------------
+const kopluginVersionHandler = (c: any) => {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return c.json({
+    version: KOPLUGIN_VERSION,
+    zip_url: '/download/wallaflare.koplugin.zip',
+    files_url: '/api/app/koplugin/files.json',
+  });
+};
+
+const kopluginFilesHandler = (c: any) => {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return c.json({
+    version: KOPLUGIN_VERSION,
+    files: KOPLUGIN_FILES,
+  });
+};
+
+apiRouter.get('/api/app/koplugin/version', kopluginVersionHandler);
+apiRouter.get('/api/app/koplugin/version.json', kopluginVersionHandler);
+apiRouter.get('/api/app/koplugin/files', kopluginFilesHandler);
+apiRouter.get('/api/app/koplugin/files.json', kopluginFilesHandler);
+
 
 apiRouter.get('/api/app/bundle.zip', (c: any) => {
   const binaryString = atob(OTA_BUNDLE_B64);
@@ -633,6 +660,8 @@ const syncHandler = async (c: any) => {
       counts: counts,
       ota_version: OTA_VERSION,
       ota_checksum: OTA_CHECKSUM,
+      koplugin_version: KOPLUGIN_VERSION,
+      koplugin_url: '/download/wallaflare.koplugin.zip',
       has_read_token: Boolean(c.env?.READ_TOKEN),
     });
   }
@@ -673,6 +702,8 @@ const syncHandler = async (c: any) => {
     pages: entriesResult.pages,
     ota_version: OTA_VERSION,
     ota_checksum: OTA_CHECKSUM,
+    koplugin_version: KOPLUGIN_VERSION,
+    koplugin_url: '/download/wallaflare.koplugin.zip',
     has_read_token: Boolean(c.env?.READ_TOKEN),
   });
 };

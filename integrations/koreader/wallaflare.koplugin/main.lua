@@ -1,0 +1,831 @@
+--[[
+    Wallaflare KOReader Plugin
+    High-Performance Delta Sync, Auto-Pruning, OTA Updates, and Offline Read-it-Later
+--]]
+
+local WidgetContainer = require("ui/widget/container/widgetcontainer")
+local Dispatcher = require("dispatcher")
+local UIManager = require("ui/uimanager")
+local NetworkMgr = require("ui/network/manager")
+local InfoMessage = require("ui/widget/infomessage")
+local MultiConfirmBox = require("ui/widget/multiconfirmbox")
+local ConfirmBox = require("ui/widget/confirmbox")
+local InputDialog = require("ui/widget/inputdialog")
+local MultiInputDialog = require("ui/widget/multiinputdialog")
+local PathChooser = require("ui/widget/pathchooser")
+local ReadHistory = require("readhistory")
+local ReadCollection = require("readcollection")
+local DocSettings = require("docsettings")
+local FileManager = require("apps/filemanager/filemanager")
+local filemanagerutil = require("apps/filemanager/filemanagerutil")
+local DataStorage = require("datastorage")
+local lfs = require("libs/libkoreader-lfs")
+local util = require("util")
+local ffiUtil = require("ffi/util")
+local _ = require("gettext")
+local logger = require("logger")
+
+local plugin_dir = debug.getinfo(1, "S").source:match("^@?(.*)/[^/]+$") or "."
+local Store = package.loaded["store"] or dofile(plugin_dir .. "/store.lua")
+package.loaded["store"] = Store
+local Api = package.loaded["api"] or dofile(plugin_dir .. "/api.lua")
+package.loaded["api"] = Api
+
+local Wallaflare = WidgetContainer:extend{
+    name = "wallaflare",
+    is_doc_only = false,
+    version = "1.0.0",
+}
+
+local function getPluginDir()
+    local src = debug.getinfo(1, "S").source
+    if src:match("^@") then
+        src = src:sub(2)
+    end
+    return src:match("^(.*)/[^/]+$") or "."
+end
+
+local function sanitizeFilename(name)
+    if not name or name == "" then return "article" end
+    local clean = name:gsub("[%s%p]+", "_"):gsub("^_+", ""):gsub("_+$", "")
+    if clean == "" then clean = "article" end
+    if clean:len() > 60 then
+        clean = clean:sub(1, 60)
+    end
+    return clean
+end
+
+local function removeDirRecursive(path)
+    if lfs.attributes(path, "mode") ~= "directory" then
+        os.remove(path)
+        return
+    end
+    for file in lfs.dir(path) do
+        if file ~= "." and file ~= ".." then
+            local f = path .. "/" .. file
+            if lfs.attributes(f, "mode") == "directory" then
+                removeDirRecursive(f)
+            else
+                os.remove(f)
+            end
+        end
+    end
+    lfs.rmdir(path)
+end
+
+function Wallaflare:onDispatcherRegisterActions()
+    Dispatcher:registerAction("wallaflare_sync", {
+        category = "none",
+        event = "WallaflareSync",
+        title = _("Wallaflare sync"),
+        general = true,
+    })
+end
+
+function Wallaflare:onWallaflareSync()
+    self:startSync()
+end
+
+function Wallaflare:init()
+    self.settings = Store:loadSettings()
+    local ddir = Store:getDownloadDir()
+    if lfs.attributes(ddir, "mode") ~= "directory" then
+        pcall(lfs.mkdir, ddir)
+    end
+    self:onDispatcherRegisterActions()
+    if self.ui and self.ui.menu then
+        self.ui.menu:registerToMainMenu(self)
+    end
+
+    if self.settings.sync_on_startup and self.settings.server_url ~= "" then
+        NetworkMgr:runWhenConnected(function()
+            self:performSync()
+        end)
+    end
+end
+
+function Wallaflare:addToMainMenu(menu_items)
+    menu_items.wallaflare = {
+        sorting_hint = "tools",
+        text = _("Wallaflare"),
+        sub_item_table = {
+            {
+                text = _("Sync now"),
+                keep_menu_open = false,
+                callback = function()
+                    self:startSync()
+                end,
+            },
+            {
+                text = _("Open download folder"),
+                keep_menu_open = false,
+                callback = function()
+                    self:openDownloadFolder()
+                end,
+            },
+            {
+                text = _("Settings"),
+                sub_item_table = {
+                    {
+                        text = _("Server settings"),
+                        help_text = _("Configure Server URL and API Token"),
+                        callback = function()
+                            self:editServerSettings()
+                        end,
+                    },
+                    {
+                        text_func = function()
+                            local path = Store:getDownloadDir()
+                            if not path or path == "" then
+                                return _("Download folder: not set")
+                            end
+                            local folder_name = path:match("([^/]+)/?$") or path
+                            return string.format(_("Download folder: %s"), folder_name)
+                        end,
+                        help_text = _("Choose where downloaded articles are saved"),
+                        callback = function(touchmenu_instance)
+                            self:chooseDownloadDir(touchmenu_instance)
+                        end,
+                    },
+                    {
+                        text = _("Sync Filter"),
+                        sub_item_table = {
+                            {
+                                text = _("Unread only"),
+                                checked_func = function() return self.settings.sync_filter == "unread" end,
+                                callback = function()
+                                    self.settings.sync_filter = "unread"
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("All articles"),
+                                checked_func = function() return self.settings.sync_filter == "all" end,
+                                callback = function()
+                                    self.settings.sync_filter = "all"
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Starred only"),
+                                checked_func = function() return self.settings.sync_filter == "starred" end,
+                                callback = function()
+                                    self.settings.sync_filter = "starred"
+                                    Store:saveSettings()
+                                end,
+                            },
+                        },
+                    },
+                    {
+                        text = _("Auto-delete removed articles"),
+                        checked_func = function() return self.settings.auto_delete end,
+                        callback = function()
+                            self.settings.auto_delete = not self.settings.auto_delete
+                            Store:saveSettings()
+                        end,
+                    },
+                    {
+                        text = _("Sync on KOReader start"),
+                        checked_func = function() return self.settings.sync_on_startup end,
+                        callback = function()
+                            self.settings.sync_on_startup = not self.settings.sync_on_startup
+                            Store:saveSettings()
+                        end,
+                    },
+                    {
+                        text = _("Database reset action"),
+                        sub_item_table = {
+                            {
+                                text = _("Always ask (Recommended)"),
+                                checked_func = function() return self.settings.db_reset_action == "ask" end,
+                                callback = function()
+                                    self.settings.db_reset_action = "ask"
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Auto-wipe & resync"),
+                                checked_func = function() return self.settings.db_reset_action == "wipe" end,
+                                callback = function()
+                                    self.settings.db_reset_action = "wipe"
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Keep local files"),
+                                checked_func = function() return self.settings.db_reset_action == "keep" end,
+                                callback = function()
+                                    self.settings.db_reset_action = "keep"
+                                    Store:saveSettings()
+                                end,
+                            },
+                        },
+                    },
+                    {
+                        text = _("Check for plugin updates"),
+                        keep_menu_open = false,
+                        callback = function()
+                            self:checkForPluginUpdate(true)
+                        end,
+                    },
+                    {
+                        text = _("Reset local sync state"),
+                        keep_menu_open = false,
+                        callback = function()
+                            self:promptResetSyncCache()
+                        end,
+                    },
+                },
+            },
+            {
+                text = _("Status & Info"),
+                keep_menu_open = false,
+                callback = function()
+                    self:showStatusDialog()
+                end,
+            },
+        },
+    }
+end
+
+function Wallaflare:openDownloadFolder()
+    local download_dir = Store:getDownloadDir()
+    if FileManager.instance then
+        FileManager.instance:reinit(download_dir)
+    else
+        FileManager:showFiles(download_dir)
+    end
+end
+
+function Wallaflare:chooseDownloadDir(touchmenu_instance, on_confirm_callback)
+    local initial_path = self.settings.download_dir
+    if not initial_path or initial_path == "" or lfs.attributes(initial_path, "mode") ~= "directory" then
+        initial_path = G_reader_settings and (G_reader_settings:readSetting("home_dir") or G_reader_settings:readSetting("lastdir"))
+        if not initial_path or initial_path == "" then
+            initial_path = DataStorage:getDataDir()
+        end
+    end
+
+    local path_chooser = PathChooser:new{
+        title = _("Select Wallaflare download directory"),
+        select_file = false,
+        show_files = false,
+        path = initial_path,
+        onConfirm = function(dir_path)
+            if dir_path and dir_path ~= "" then
+                self.settings.download_dir = dir_path
+                Store:saveSettings()
+                if touchmenu_instance and touchmenu_instance.updateItems then
+                    touchmenu_instance:updateItems()
+                end
+                UIManager:show(InfoMessage:new{
+                    text = _("Download folder set to:\n") .. dir_path,
+                    timeout = 3,
+                })
+                if on_confirm_callback then
+                    on_confirm_callback(dir_path)
+                end
+            end
+        end,
+    }
+    UIManager:show(path_chooser)
+end
+
+function Wallaflare:editServerSettings()
+    local dialog
+    dialog = MultiInputDialog:new{
+        title = _("Wallaflare Server Settings"),
+        fields = {
+            {
+                text = self.settings.server_url or "",
+                description = _("Server URL:"),
+                hint = "https://<your-subdomain>.workers.dev",
+            },
+            {
+                text = self.settings.auth_token or "",
+                description = _("API Token (AUTH_TOKEN, or READ_TOKEN for read-only):"),
+                hint = "AUTH_TOKEN or READ_TOKEN",
+                text_type = "password",
+            },
+        },
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    id = "close",
+                    callback = function()
+                        UIManager:close(dialog)
+                    end,
+                },
+                {
+                    text = _("Save"),
+                    is_enter_default = true,
+                    callback = function()
+                        local fields = dialog:getFields()
+                        local raw_url = fields[1] or ""
+                        local raw_token = fields[2] or ""
+
+                        local clean_url = Api.normalizeUrl(raw_url)
+                        local clean_token = raw_token:gsub("^%s+", ""):gsub("%s+$", "")
+
+                        self.settings.server_url = clean_url
+                        self.settings.auth_token = clean_token
+                        Store:saveSettings()
+
+                        UIManager:close(dialog)
+                        UIManager:show(InfoMessage:new{ text = _("Wallaflare settings saved."), timeout = 2 })
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
+end
+
+function Wallaflare:showStatusDialog()
+    local download_dir = Store:getDownloadDir()
+    local file_count = 0
+    if lfs.attributes(download_dir, "mode") == "directory" then
+        for f in lfs.dir(download_dir) do
+            if f:match("%.epub$") then
+                file_count = file_count + 1
+            end
+        end
+    end
+
+    local outbox_count = #(Store:getOutbox())
+    local status_text = string.format(
+        _("Plugin Version: %s\nServer URL: %s\nFolder: %s\nSync Revision: %d\nInstance ID: %s\nLocal Articles: %d\nPending Outbox: %d\nAuto-Delete: %s"),
+        self.version,
+        self.settings.server_url ~= "" and self.settings.server_url or _("(Not set)"),
+        download_dir,
+        self.settings.sync_rev or 0,
+        self.settings.instance_id and self.settings.instance_id:sub(1, 12) .. "..." or _("None"),
+        file_count,
+        outbox_count,
+        self.settings.auto_delete and _("Enabled") or _("Disabled")
+    )
+
+    UIManager:show(InfoMessage:new{
+        text = status_text,
+        timeout = 6,
+    })
+end
+
+function Wallaflare:checkForPluginUpdate(is_manual)
+    if not self.settings.server_url or self.settings.server_url == "" then
+        if is_manual then self:editServerSettings() end
+        return
+    end
+
+    NetworkMgr:runWhenConnected(function()
+        if is_manual then
+            UIManager:show(InfoMessage:new{ text = _("Wallaflare: Checking for updates..."), timeout = 2 })
+        end
+
+        local has_update, latest_ver, err = Api.checkPluginUpdate(
+            self.settings.server_url,
+            self.settings.auth_token,
+            self.version
+        )
+
+        if not has_update then
+            if is_manual then
+                UIManager:show(InfoMessage:new{
+                    text = string.format(_("Wallaflare plugin is up to date (v%s)."), self.version),
+                    timeout = 3,
+                })
+            end
+            return
+        end
+
+        local confirm = ConfirmBox:new{
+            text = string.format(
+                _("Wallaflare Plugin Update Available\n\nA new version (%s) is available on your server.\nYour current version is %s.\n\nWould you like to install the update now?"),
+                tostring(latest_ver),
+                self.version
+            ),
+            ok_text = _("Update Now"),
+            cancel_text = _("Later"),
+            ok_callback = function()
+                self:installPluginUpdate(latest_ver)
+            end,
+        }
+        UIManager:show(confirm)
+    end)
+end
+
+function Wallaflare:installPluginUpdate(target_version)
+    UIManager:show(InfoMessage:new{ text = _("Wallaflare: Downloading plugin update..."), timeout = 3 })
+
+    local files, ver_or_err = Api.fetchPluginFiles(self.settings.server_url, self.settings.auth_token)
+    if not files or type(files) ~= "table" then
+        UIManager:show(InfoMessage:new{
+            text = _("Update Failed: ") .. tostring(ver_or_err or "Invalid files payload"),
+            timeout = 5,
+        })
+        return
+    end
+
+    local pdir = getPluginDir()
+    local staging_dir = pdir .. ".update"
+
+    if lfs.attributes(staging_dir, "mode") == "directory" then
+        removeDirRecursive(staging_dir)
+    end
+    pcall(lfs.mkdir, staging_dir)
+
+    -- Write files to staging
+    local success = true
+    for filename, content in pairs(files) do
+        local staging_file = staging_dir .. "/" .. filename
+        local f = io.open(staging_file, "wb")
+        if f then
+            f:write(content)
+            f:close()
+        else
+            success = false
+            break
+        end
+    end
+
+    if not success or lfs.attributes(staging_dir .. "/main.lua", "mode") ~= "file" then
+        removeDirRecursive(staging_dir)
+        UIManager:show(InfoMessage:new{ text = _("Update Failed: Could not write staging files"), timeout = 5 })
+        return
+    end
+
+    -- Atomically overwrite target files
+    for filename, _ in pairs(files) do
+        local src_f = staging_dir .. "/" .. filename
+        local dst_f = pdir .. "/" .. filename
+        local src_handle = io.open(src_f, "rb")
+        if src_handle then
+            local data = src_handle:read("*all")
+            src_handle:close()
+            local dst_handle = io.open(dst_f, "wb")
+            if dst_handle then
+                dst_handle:write(data)
+                dst_handle:close()
+            end
+        end
+    end
+
+    removeDirRecursive(staging_dir)
+
+    local confirm = ConfirmBox:new{
+        text = string.format(
+            _("Wallaflare Plugin successfully updated to v%s!\n\nPlease restart KOReader now to apply the update."),
+            tostring(target_version or "latest")
+        ),
+        ok_text = _("Restart Now"),
+        cancel_text = _("Later"),
+        ok_callback = function()
+            if UIManager.restartKOReader then
+                UIManager:restartKOReader()
+            elseif UIManager.exitKOReader then
+                UIManager:exitKOReader()
+            end
+        end,
+    }
+    UIManager:show(confirm)
+end
+
+function Wallaflare:promptResetSyncCache()
+    local confirm = ConfirmBox:new{
+        text = _("Reset local sync state?\n\nThis resets your last sync revision so the next sync will check the entire library again. Existing files will NOT be deleted."),
+        ok_text = _("Reset"),
+        cancel_text = _("Cancel"),
+        ok_callback = function()
+            Store:resetSyncState()
+            UIManager:show(InfoMessage:new{ text = _("Sync cache reset."), timeout = 2 })
+        end,
+    }
+    UIManager:show(confirm)
+end
+
+function Wallaflare:wipeLocalLibrary()
+    local download_dir = Store:getDownloadDir()
+    if lfs.attributes(download_dir, "mode") == "directory" then
+        for file in lfs.dir(download_dir) do
+            if file ~= "." and file ~= ".." then
+                local full = download_dir .. "/" .. file
+                local mode = lfs.attributes(full, "mode")
+                if mode == "file" then
+                    DocSettings.purgeSettings(full)
+                    ReadHistory:deleteItem(full)
+                    ReadCollection:deleteItem(full)
+                    os.remove(full)
+                elseif mode == "directory" then
+                    removeDirRecursive(full)
+                end
+            end
+        end
+    end
+end
+
+function Wallaflare:startSync()
+    if not self.settings.server_url or self.settings.server_url == "" then
+        self:editServerSettings()
+        return
+    end
+
+    NetworkMgr:runWhenConnected(function()
+        self:performSync()
+    end)
+end
+
+function Wallaflare:performSync()
+    local progress_info = InfoMessage:new{ text = _("Wallaflare: Checking for updates…") }
+    UIManager:show(progress_info)
+    if UIManager.forceRePaint then UIManager:forceRePaint() end
+
+    -- 1. Flush Outbox actions (e.g. offline archives or stars)
+    local outbox = Store:getOutbox()
+    if #outbox > 0 then
+        for _, item in ipairs(outbox) do
+            if item.action == "archive" then
+                Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { archive = 1 })
+            elseif item.action == "star" then
+                Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 1 })
+            elseif item.action == "unstar" then
+                Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 0 })
+            end
+        end
+        Store:clearOutbox()
+    end
+
+    -- 2. Fetch delta sync from server
+    local since_rev = self.settings.sync_rev or 0
+    local data, err = Api.fetchSync(
+        self.settings.server_url,
+        self.settings.auth_token,
+        since_rev,
+        self.settings.sync_filter,
+        1,
+        100
+    )
+
+    if not data or type(data) ~= "table" then
+        UIManager:show(InfoMessage:new{
+            text = _("Wallaflare Sync Failed: ") .. (err or _("Unknown error")),
+            timeout = 5,
+        })
+        return
+    end
+
+    -- 3. Database Epoch / Reset Watchdog
+    local server_instance = data.instance_id and tostring(data.instance_id) or nil
+    local local_instance = self.settings.instance_id and tostring(self.settings.instance_id) or nil
+    local is_epoch_reset = false
+
+    if server_instance ~= nil and local_instance ~= nil and server_instance ~= local_instance then
+        is_epoch_reset = true
+    end
+    if self.settings.sync_rev > 1 and data.sync_rev and data.sync_rev < self.settings.sync_rev then
+        is_epoch_reset = true
+    end
+
+    if is_epoch_reset then
+        if self.settings.db_reset_action == "wipe" then
+            self:wipeLocalLibrary()
+            self:applySyncPayload(data, server_instance, progress_info)
+        elseif self.settings.db_reset_action == "keep" then
+            self.settings.instance_id = server_instance
+            self.settings.sync_rev = data.sync_rev or 0
+            Store:saveSettings()
+            self:applySyncPayload(data, server_instance)
+        else
+            -- Default: Interactive prompt
+            local confirm = MultiConfirmBox:new{
+                text = _("Server Database Reset Detected\n\nThe remote database was wiped or recreated.\nHow would you like to handle your local files?"),
+                choice1_text = _("Wipe & Resync"),
+                choice1_callback = function()
+                    self:wipeLocalLibrary()
+                    self:applySyncPayload(data, server_instance)
+                end,
+                choice2_text = _("Keep Local Files"),
+                choice2_callback = function()
+                    self.settings.instance_id = server_instance
+                    self.settings.sync_rev = data.sync_rev or 0
+                    Store:saveSettings()
+                    self:applySyncPayload(data, server_instance)
+                end,
+                cancel_text = _("Cancel"),
+                cancel_callback = function()
+                    UIManager:show(InfoMessage:new{ text = _("Sync cancelled. No changes made."), timeout = 3 })
+                end,
+            }
+            UIManager:show(confirm)
+            return
+        end
+    else
+        self:applySyncPayload(data, server_instance)
+    end
+end
+
+function Wallaflare:pruneOrphanArticleRevs(download_dir)
+    if type(self.settings.article_revs) ~= "table" then
+        self.settings.article_revs = {}
+        return
+    end
+    if not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
+        return
+    end
+
+    local active_ids = {}
+    for f in lfs.dir(download_dir) do
+        if f:match("%.epub$") then
+            local id_num = tonumber(f:match("^(%d+)[%._]"))
+            if id_num then
+                active_ids[id_num] = true
+                active_ids[tostring(id_num)] = true
+            end
+        end
+    end
+
+    for saved_id, _ in pairs(self.settings.article_revs) do
+        local nid = tonumber(saved_id)
+        if nid and not active_ids[nid] then
+            logger.info("Wallaflare: Pruning deleted/missing article #" .. tostring(saved_id) .. " from article_revs")
+            self.settings.article_revs[saved_id] = nil
+            self.settings.article_revs[nid] = nil
+            self.settings.article_revs[tostring(nid)] = nil
+        end
+    end
+end
+
+function Wallaflare:applySyncPayload(data, server_instance, progress_info)
+    local download_dir = Store:getDownloadDir()
+    local deleted_count = 0
+    local downloaded_count = 0
+
+    -- Handle up-to-date response
+    if data.up_to_date == true then
+        if progress_info then UIManager:close(progress_info) end
+        if server_instance then self.settings.instance_id = server_instance end
+        if data.sync_rev then self.settings.sync_rev = data.sync_rev end
+        self:pruneOrphanArticleRevs(download_dir)
+        Store:saveSettings()
+        UIManager:show(InfoMessage:new{ text = _("Wallaflare: Library is up to date."), timeout = 3 })
+        if UIManager.forceRePaint then UIManager:forceRePaint() end
+        return
+    end
+
+    -- 1. Handle deleted articles (tombstones) and cleanup article_revs
+    if type(data.deleted_ids) == "table" and #data.deleted_ids > 0 then
+        local del_set = {}
+        for _, id in ipairs(data.deleted_ids) do
+            local num_id = tonumber(id)
+            if num_id then
+                del_set[num_id] = true
+                if type(self.settings.article_revs) == "table" then
+                    self.settings.article_revs[num_id] = nil
+                    self.settings.article_revs[tostring(num_id)] = nil
+                end
+            end
+        end
+
+        if self.settings.auto_delete and lfs.attributes(download_dir, "mode") == "directory" then
+            for file in lfs.dir(download_dir) do
+                if file:match("%.epub$") then
+                    local id_str = file:match("^(%d+)[%._]")
+                    if id_str and del_set[tonumber(id_str)] then
+                        local full_path = download_dir .. "/" .. file
+                        local sdr_dir = full_path:gsub("%.epub$", ".sdr")
+                        if ReadHistory and ReadHistory.deleteItem then
+                            pcall(ReadHistory.deleteItem, ReadHistory, full_path)
+                        end
+                        if ReadCollection and ReadCollection.deleteItem then
+                            pcall(ReadCollection.deleteItem, ReadCollection, full_path)
+                        end
+                        os.remove(full_path)
+                        if lfs.attributes(sdr_dir, "mode") == "directory" then
+                            removeDirRecursive(sdr_dir)
+                        end
+                        deleted_count = deleted_count + 1
+                    end
+                end
+            end
+        end
+    end
+
+    self:pruneOrphanArticleRevs(download_dir)
+
+    -- 2. Handle new or modified entries with live progress display
+    local download_errors = {}
+    if type(data.entries) == "table" and #data.entries > 0 then
+        local total_entries = #data.entries
+        logger.info("Wallaflare: Processing " .. total_entries .. " entries from server...")
+        for idx, entry in ipairs(data.entries) do
+            local clean_title = sanitizeFilename(entry.title)
+            local filename = entry.id .. "_" .. clean_title .. ".epub"
+            local full_path = download_dir .. "/" .. filename
+
+            local target_rev = type(entry.revision) == "number" and entry.revision or (tonumber(entry.revision) or 1)
+            local recorded_raw = (type(self.settings.article_revs) == "table") and (self.settings.article_revs[entry.id] or self.settings.article_revs[tostring(entry.id)]) or nil
+            local recorded_rev = type(recorded_raw) == "number" and recorded_raw or tonumber(recorded_raw)
+            local attr_size = lfs.attributes(full_path, "size")
+            local size = type(attr_size) == "table" and attr_size.size or (tonumber(attr_size) or 0)
+            local file_exists = size > 0
+
+            if file_exists and recorded_rev ~= nil and recorded_rev >= target_rev then
+                logger.dbg("Wallaflare: Skipping #" .. tostring(entry.id) .. " (already on disk at rev " .. tostring(recorded_rev) .. ")")
+                downloaded_count = downloaded_count + 1
+            else
+                if progress_info then UIManager:close(progress_info) end
+                local short_title = entry.title and (entry.title:sub(1, 35) .. (entry.title:len() > 35 and "…" or "")) or "Article"
+                progress_info = InfoMessage:new{
+                    text = string.format(_("Wallaflare: Downloading %d of %d…\n%s"), idx, total_entries, short_title),
+                }
+                UIManager:show(progress_info)
+                if UIManager.forceRePaint then UIManager:forceRePaint() end
+
+                logger.info("Wallaflare: Downloading #" .. tostring(entry.id) .. " (rev " .. tostring(target_rev) .. ") -> " .. filename)
+                local ok_dl, dl_err = Api.downloadEpub(self.settings.server_url, self.settings.auth_token, entry.id, full_path)
+                if ok_dl then
+                    downloaded_count = downloaded_count + 1
+                    if type(self.settings.article_revs) ~= "table" then
+                        self.settings.article_revs = {}
+                    end
+                    self.settings.article_revs[entry.id] = target_rev
+                else
+                    logger.err("Wallaflare: Download failed for #" .. tostring(entry.id) .. ": " .. tostring(dl_err))
+                    table.insert(download_errors, "#" .. tostring(entry.id) .. ": " .. tostring(dl_err))
+                end
+            end
+        end
+    else
+        logger.info("Wallaflare: Server returned 0 entries for current filter.")
+    end
+
+    if progress_info then
+        UIManager:close(progress_info)
+    end
+
+    -- 3. Update sync state only if all downloads succeeded
+    if server_instance then self.settings.instance_id = server_instance end
+    if #download_errors == 0 and data.sync_rev then
+        self.settings.sync_rev = data.sync_rev
+    end
+    Store:saveSettings()
+
+    -- Refresh file manager if currently open or in download dir
+    self:refreshFileManager()
+
+    local msg = string.format(_("Wallaflare: Sync complete.\n%d downloaded, %d deleted."), downloaded_count, deleted_count)
+    if #download_errors > 0 then
+        msg = msg .. "\n\n" .. _("Download errors:") .. "\n" .. table.concat(download_errors, "\n"):sub(1, 150)
+    end
+    UIManager:show(InfoMessage:new{ text = msg, timeout = (#download_errors > 0 and 6 or 4) })
+    if UIManager.forceRePaint then UIManager:forceRePaint() end
+end
+
+function Wallaflare:refreshFileManager()
+    if FileManager.instance then
+        if FileManager.instance.onRefresh then
+            FileManager.instance:onRefresh()
+        elseif FileManager.instance.reinit then
+            FileManager.instance:reinit()
+        end
+    end
+end
+
+function Wallaflare:onCloseDocument()
+    if not self.ui or not self.ui.document then return end
+    local file_path = self.ui.document.file
+    local download_dir = Store:getDownloadDir()
+    if not file_path or string.find(file_path, download_dir, 1, true) ~= 1 then return end
+
+    local article_id = file_path:match("/(%d+)[%._][^/]*%.epub$")
+    if not article_id then return end
+
+    local page = self.view and self.view.state and self.view.state.page
+    local total_pages = self.ui.document.info and self.ui.document.info.number_of_pages
+    local is_100_percent = (page and total_pages and page >= total_pages)
+
+    local status = nil
+    if DocSettings and DocSettings.open then
+        local pcall_ok, doc_settings = pcall(DocSettings.open, DocSettings, file_path)
+        if pcall_ok and doc_settings and doc_settings.readSetting then
+            local summary = doc_settings:readSetting("summary")
+            status = summary and summary.status
+        end
+    end
+
+    local should_archive = false
+    if status == "complete" and self.settings.archive_finished then
+        should_archive = true
+    elseif status == "abandoned" and self.settings.archive_abandoned then
+        should_archive = true
+    elseif is_100_percent and self.settings.archive_read then
+        should_archive = true
+    end
+
+    if should_archive then
+        Store:queueAction("archive", tonumber(article_id))
+    end
+end
+
+return Wallaflare

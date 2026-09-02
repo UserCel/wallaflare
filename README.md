@@ -108,6 +108,24 @@ Your instance is now live worldwide! 🎉
 
 ## 📱 Client Setup Guide
 
+### 📖 Native KOReader Plugin (Kindle, Kobo, Android, Linux)
+Wallaflare provides an official **KOReader Plugin** (`wallaflare.koplugin`) with high-performance delta sync, battery-saving `since_rev` revision handshakes, and **automatic deletion of removed articles**:
+
+1. **Download the Plugin**:
+   - Download the `wallaflare.koplugin.zip` package from your Wallaflare dashboard (**Settings > Integrations**) or from `https://<your-subdomain>.workers.dev/download/wallaflare.koplugin.zip`.
+2. **Install**:
+   - Copy the `wallaflare.koplugin` folder into your device's KOReader `plugins/` directory:
+     - **Kindle / Kobo / Linux**: `/mnt/onboard/.koreader/plugins/wallaflare.koplugin`
+     - **Android**: `/sdcard/koreader/plugins/wallaflare.koplugin`
+3. **Configure**:
+   - In KOReader, open **Tools > Wallaflare > Settings**:
+     - **Server URL**: `https://<your-subdomain>.workers.dev`
+     - **API Token**: Your `READ_TOKEN` (or master `AUTH_TOKEN`)
+4. **Sync**:
+   - Tap **Sync now** — new articles download instantly as formatted EPUBs, and articles removed on your server are automatically pruned from your e-reader!
+
+---
+
 ### 📖 OPDS 1.2 Book Catalog (KOReader, Crosspoint, Moon+ Reader)
 Wallaflare serves a native **OPDS 1.2 Book Catalog** for instant browsing and downloading articles directly as formatted EPUBs:
 

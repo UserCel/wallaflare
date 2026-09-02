@@ -493,6 +493,16 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
   });
 
 
+  
+  it("serves the KOReader native plugin bundle as a downloadable zip on GET /download/wallaflare.koplugin.zip", async () => {
+    const res = await app.request("/download/wallaflare.koplugin.zip", {}, { DB: mockDb });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/zip");
+    expect(res.headers.get("Content-Disposition")).toContain("wallaflare.koplugin.zip");
+    const buf = await res.arrayBuffer();
+    expect(buf.byteLength).toBeGreaterThan(100);
+  });
+
   it('supports full tag lifecycle: adding, listing, filtering, and removing tags', async () => {
     
 
@@ -1809,6 +1819,26 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     expect(entry.annotations.length).toBeGreaterThan(0);
     expect(entry.annotations[0].quote).toBe("Embedded highlight");
     expect(entry.annotations[0].color).toBe("blue");
+  });
+
+
+  it("serves KOReader plugin OTA version manifest and file payload", async () => {
+    const verRes = await app.request("/api/app/koplugin/version.json", {}, { DB: mockDb });
+    expect(verRes.status).toBe(200);
+    const verData = await verRes.json<any>();
+    expect(verData.version).toBeDefined();
+    expect(verData.zip_url).toBe("/download/wallaflare.koplugin.zip");
+    expect(verData.files_url).toBe("/api/app/koplugin/files.json");
+
+    const filesRes = await app.request("/api/app/koplugin/files.json", {}, { DB: mockDb });
+    expect(filesRes.status).toBe(200);
+    const filesData = await filesRes.json<any>();
+    expect(filesData.version).toBe(verData.version);
+    expect(filesData.files).toBeDefined();
+    expect(filesData.files["_meta.lua"]).toBeDefined();
+    expect(filesData.files["main.lua"]).toBeDefined();
+    expect(filesData.files["api.lua"]).toBeDefined();
+    expect(filesData.files["store.lua"]).toBeDefined();
   });
 
   it("resets and wipes Cloudflare D1 database on POST /api/admin/reset-database with valid password", async () => {
