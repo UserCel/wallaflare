@@ -398,7 +398,23 @@ describe("2. State Storage & Settings Persistence", function()
         assert_eq(Store:getDownloadDir(), test_sandbox_dir .. "/books/Wallaflare")
     end)
 
-    it("persists and updates settings via LuaSettings", function()
+    it("fully resets sync state, tracked article revisions, and outbox on Store:resetSyncState", function()
+    Store.settings.sync_rev = 500
+    Store.settings.instance_id = "5"
+    Store.settings.article_revs = { [101] = 500 }
+    Store.settings.article_content_revs = { [101] = 2 }
+    Store.settings.outbox = { { action = "archive", id = 101 } }
+    Store:saveSettings()
+
+    Store:resetSyncState()
+    assert_eq(Store.settings.sync_rev, 0, "sync_rev should be reset to 0")
+    assert_true(Store.settings.instance_id == nil, "instance_id should be nil")
+    assert_true(next(Store.settings.article_revs) == nil, "article_revs should be empty table")
+    assert_true(next(Store.settings.article_content_revs) == nil, "article_content_revs should be empty table")
+    assert_true(#Store.settings.outbox == 0, "outbox should be empty")
+  end)
+
+  it("persists and updates settings via LuaSettings", function()
         Store.settings.server_url = "https://test.example.com"
         Store.settings.auth_token = "secret123"
         Store.settings.sync_rev = 42
@@ -507,7 +523,71 @@ describe("4. Wallaflare Sync Engine & Auto-Pruning", function()
         assert_eq(app.settings.article_revs[501], 5, "Article revision 5 should be recorded")
     end)
 
-    it("skips re-downloading files that already exist at current revision", function()
+  
+    it("skips re-download when content_revision is unchanged even if sync revision bumped", function()
+    local app = Wallaflare:new{}
+    app.settings = Store:loadSettings()
+    local old_download_epub = Api.downloadEpub
+    local download_called_count = 0
+    Api.downloadEpub = function(server_url, auth_token, entry_id, target_file)
+      download_called_count = download_called_count + 1
+      local f = io.open(target_file, "w")
+      if f then f:write("Dummy EPUB payload"); f:close() end
+      return true, nil
+    end
+
+    -- Article was previously downloaded at content_revision = 1
+    local article_id = 99123
+    local entry_file = test_sandbox_dir .. "/books/Wallaflare/" .. article_id .. "_Test_Article.epub"
+    local f = io.open(entry_file, "w")
+    if f then f:write("Dummy EPUB content"); f:close() end
+    app.settings.article_content_revs = { [article_id] = 1 }
+    app.settings.article_revs = { [article_id] = 1 }
+
+    -- Server sends sync payload where revision bumped to 5 (due to highlights/tags), but content_revision is still 1
+    local data = {
+      sync_rev = 5,
+      entries = {
+        {
+          id = article_id,
+          title = "Test Article",
+          revision = 5,
+          content_revision = 1,
+          annotations = { { id = 1, quote = "Nice phrase" } }
+        }
+      }
+    }
+
+    local ok = pcall(function()
+      app:applySyncPayload(data, "1001", nil)
+    end)
+    assert_true(ok, "Sync should process without error")
+    assert_eq(download_called_count, 0, "Should skip downloading because content_revision is already 1")
+
+    -- Now server sends payload where title/content was re-fetched (content_revision = 2)
+    local data2 = {
+      sync_rev = 6,
+      entries = {
+        {
+          id = article_id,
+          title = "Test Article (Updated)",
+          revision = 6,
+          content_revision = 2,
+        }
+      }
+    }
+
+    local ok2 = pcall(function()
+      app:applySyncPayload(data2, "1001", nil)
+    end)
+    assert_true(ok2, "Sync should process updated content")
+    assert_eq(download_called_count, 1, "Should download new EPUB when content_revision increments to 2")
+    assert_eq(app.settings.article_content_revs[article_id], 2, "Should record content_revision = 2")
+
+    Api.downloadEpub = old_download_epub
+  end)
+
+  it("skips re-downloading files that already exist at current revision", function()
         mock_http_requests = {}
         app:applySyncPayload({
             up_to_date = false,

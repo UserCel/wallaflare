@@ -18,7 +18,8 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         is_starred INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        revision INTEGER DEFAULT 1
+        revision INTEGER DEFAULT 1,
+        content_revision INTEGER DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,6 +175,7 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
     starred_at: row?.is_starred ? updatedAt : null,
     user_name: 'wallaflare',
     revision: Number(row?.revision || 1),
+    content_revision: Number(row?.content_revision || 1),
     user_email: 'user@wallaflare.local',
     user_id: 1,
     tags: entryTags,
@@ -315,10 +317,7 @@ export async function createAnnotation(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(entryId, userId, quote, text, color, rangesStr, targetStr, now, now).run();
 
-  // Bump parent entry's revision and updated_at so delta sync propagates the annotation to clients
-  await db.prepare(`
-    UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?
-  `).bind(newRev, now, entryId).run();
+  await db.prepare(`UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?`).bind(newRev, now, entryId).run();
 
   const id = res.meta.last_row_id || 0;
   return formatAnnotationResponse({
@@ -349,9 +348,7 @@ export async function updateAnnotation(db: D1Database, id: number, data: { text?
     UPDATE annotations SET text = ?, color = ?, target = ?, updated_at = ? WHERE id = ?
   `).bind(text, color, targetStr, now, id).run();
 
-  await db.prepare(`
-    UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?
-  `).bind(newRev, now, existing.entry_id).run();
+  await db.prepare(`UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?`).bind(newRev, now, existing.entry_id).run();
 
   return formatAnnotationResponse({
     ...existing,
@@ -369,9 +366,7 @@ export async function deleteAnnotation(db: D1Database, id: number): Promise<bool
   if (changed && existing?.entry_id) {
     const newRev = await bumpSyncRevision(db);
     const now = new Date().toISOString();
-    await db.prepare(`
-      UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?
-    `).bind(newRev, now, existing.entry_id).run();
+    await db.prepare(`UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?`).bind(newRev, now, existing.entry_id).run();
   }
   return changed;
 }
@@ -718,13 +713,29 @@ export async function updateEntry(
   const setClauses: string[] = ['updated_at = ?', 'revision = ?'];
   const params: any[] = [now, newRev];
 
+  let isContentChanged = false;
   if (updates.title !== undefined) {
     setClauses.push('title = ?');
     params.push(updates.title);
+    isContentChanged = true;
   }
   if (updates.content !== undefined) {
     setClauses.push('content = ?');
     params.push(updates.content);
+    isContentChanged = true;
+  }
+  if (updates.author !== undefined) {
+    setClauses.push('author = ?');
+    params.push(updates.author);
+    isContentChanged = true;
+  }
+  if (updates.url !== undefined) {
+    setClauses.push('url = ?');
+    params.push(updates.url);
+    isContentChanged = true;
+  }
+  if (isContentChanged) {
+    setClauses.push('content_revision = content_revision + 1');
   }
   if (updates.is_archived !== undefined) {
     setClauses.push('is_archived = ?');
@@ -1062,9 +1073,13 @@ export async function ensureSyncRevisionTables(db: D1Database): Promise<void> {
     `).run();
     try {
       await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run();
-    } catch {
-      // Column already exists
-    }
+    } catch {}
+    try {
+      await db.prepare('ALTER TABLE entries ADD COLUMN content_revision INTEGER DEFAULT 1').run();
+    } catch {}
+    try {
+      await db.prepare('UPDATE entries SET content_revision = 1 WHERE content_revision IS NULL').run();
+    } catch {}
     syncTablesEnsured = true;
   } catch (e) {
     console.error('Error ensuring sync tables:', e);

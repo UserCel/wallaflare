@@ -1,4 +1,4 @@
--- Wallaflare D1 SQLite Schema
+-- Wallaflare D1 SQLite Schema (Production Architecture)
 CREATE TABLE IF NOT EXISTS entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   url TEXT,
@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS entries (
   is_starred INTEGER DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  revision INTEGER DEFAULT 1
+  revision INTEGER NOT NULL DEFAULT 1,
+  content_revision INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_archived ON entries(is_archived);
@@ -22,6 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_entries_starred ON entries(is_starred);
 CREATE INDEX IF NOT EXISTS idx_entries_created ON entries(created_at);
 CREATE INDEX IF NOT EXISTS idx_entries_updated ON entries(updated_at);
 CREATE INDEX IF NOT EXISTS idx_entries_revision ON entries(revision);
+CREATE INDEX IF NOT EXISTS idx_entries_content_revision ON entries(content_revision);
 
 -- Tags System
 CREATE TABLE IF NOT EXISTS tags (
@@ -79,5 +81,20 @@ CREATE TABLE IF NOT EXISTS deleted_entries (
   revision INTEGER NOT NULL,
   deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Site Cookies Vault (Paywall & Logged-In Sites)
+CREATE TABLE IF NOT EXISTS site_cookies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain TEXT UNIQUE NOT NULL,
+  site_name TEXT,
+  cookie_value TEXT NOT NULL,
+  is_enabled INTEGER NOT NULL DEFAULT 1,
+  revision INTEGER NOT NULL DEFAULT 1,
+  user_id TEXT DEFAULT 'wallaflare',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_site_cookies_domain ON site_cookies(domain);
 
 INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 0);

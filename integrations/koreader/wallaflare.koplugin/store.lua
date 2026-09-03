@@ -8,7 +8,7 @@ local logger = require("logger")
 local lfs = require("libs/libkoreader-lfs")
 
 local Store = {
-    settings_file = DataStorage:getSettingsDir() .. "/wallaflare_settings.lua",
+    settings_file = DataStorage:getSettingsDir() .. "/wallaflare.lua",
     settings_obj = nil,
     settings = {
         server_url = "",
@@ -47,10 +47,22 @@ function Store:loadSettings()
         self.settings[k] = v
     end
 
-    self.settings_obj = LuaSettings:open(self.settings_file)
-    if self.settings_obj and self.settings_obj.data then
-        for k, v in pairs(self.settings_obj.data) do
-            self.settings[k] = v
+    local legacy_file = DataStorage:getSettingsDir() .. "/wallaflare_settings.lua"
+    if lfs.attributes(legacy_file, "mode") == "file" and not lfs.attributes(self.settings_file, "mode") then
+        local legacy_obj = LuaSettings:open(legacy_file)
+        if legacy_obj and legacy_obj.data then
+            for k, v in pairs(legacy_obj.data) do
+                self.settings[k] = v
+            end
+        end
+        pcall(os.remove, legacy_file)
+        self:saveSettings()
+    else
+        self.settings_obj = LuaSettings:open(self.settings_file)
+        if self.settings_obj and self.settings_obj.data then
+            for k, v in pairs(self.settings_obj.data) do
+                self.settings[k] = v
+            end
         end
     end
 
@@ -60,6 +72,9 @@ function Store:loadSettings()
     end
     if type(self.settings.article_revs) ~= "table" then
         self.settings.article_revs = {}
+    end
+    if type(self.settings.article_content_revs) ~= "table" then
+        self.settings.article_content_revs = {}
     end
     return self.settings
 end
@@ -122,6 +137,9 @@ end
 function Store:resetSyncState()
     self.settings.instance_id = nil
     self.settings.sync_rev = 0
+    self.settings.article_revs = {}
+    self.settings.article_content_revs = {}
+    self.settings.outbox = {}
     self:saveSettings()
 end
 

@@ -27,9 +27,7 @@ local logger = require("logger")
 
 local plugin_dir = debug.getinfo(1, "S").source:match("^@?(.*)/[^/]+$") or "."
 local Store = package.loaded["store"] or dofile(plugin_dir .. "/store.lua")
-package.loaded["store"] = Store
 local Api = package.loaded["api"] or dofile(plugin_dir .. "/api.lua")
-package.loaded["api"] = Api
 
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
@@ -499,6 +497,7 @@ function Wallaflare:promptResetSyncCache()
         cancel_text = _("Cancel"),
         ok_callback = function()
             Store:resetSyncState()
+            self.settings = Store.settings
             UIManager:show(InfoMessage:new{ text = _("Sync cache reset."), timeout = 2 })
         end,
     }
@@ -553,6 +552,10 @@ function Wallaflare:wipeLocalLibrary()
             end
         end
     end
+    self.settings.article_revs = {}
+    self.settings.article_content_revs = {}
+    self.settings.outbox = {}
+    Store:saveSettings()
 end
 
 function Wallaflare:startSync()
@@ -637,6 +640,8 @@ function Wallaflare:performSync()
             self.settings.instance_id = server_instance
             self.settings.sync_rev = 0
             self.settings.article_revs = {}
+            self.settings.article_content_revs = {}
+            self.settings.outbox = {}
             Store:saveSettings()
             self:applySyncPayload(data, server_instance, progress_info)
         else
@@ -654,6 +659,8 @@ function Wallaflare:performSync()
                     self.settings.instance_id = server_instance
                     self.settings.sync_rev = 0
                     self.settings.article_revs = {}
+                    self.settings.article_content_revs = {}
+                    self.settings.outbox = {}
                     Store:saveSettings()
                     self:applySyncPayload(data, server_instance, progress_info)
                 end,
@@ -674,7 +681,9 @@ end
 function Wallaflare:pruneOrphanArticleRevs(download_dir)
     if type(self.settings.article_revs) ~= "table" then
         self.settings.article_revs = {}
-        return
+    end
+    if type(self.settings.article_content_revs) ~= "table" then
+        self.settings.article_content_revs = {}
     end
     if not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
         return
@@ -765,25 +774,41 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info)
     self:pruneOrphanArticleRevs(download_dir)
 
     -- 2. Handle new or modified entries with live progress display
+    local skipped_count = 0
     local download_errors = {}
     if type(data.entries) == "table" and #data.entries > 0 then
         local total_entries = #data.entries
         logger.info("Wallaflare: Processing " .. total_entries .. " entries from server...")
         for idx, entry in ipairs(data.entries) do
+            local num_id = tonumber(entry.id) or entry.id
+            local str_id = tostring(entry.id)
             local clean_title = sanitizeFilename(entry.title)
-            local filename = entry.id .. "_" .. clean_title .. ".epub"
+            local filename = str_id .. "_" .. clean_title .. ".epub"
             local full_path = download_dir .. "/" .. filename
 
-            local target_rev = type(entry.revision) == "number" and entry.revision or (tonumber(entry.revision) or 1)
-            local recorded_raw = (type(self.settings.article_revs) == "table") and (self.settings.article_revs[entry.id] or self.settings.article_revs[tostring(entry.id)]) or nil
-            local recorded_rev = type(recorded_raw) == "number" and recorded_raw or tonumber(recorded_raw)
+            local target_content_rev = type(entry.content_revision) == "number" and entry.content_revision or (tonumber(entry.content_revision) or 1)
+            local target_sync_rev = type(entry.revision) == "number" and entry.revision or (tonumber(entry.revision) or 1)
+
+            if type(self.settings.article_content_revs) ~= "table" then
+                self.settings.article_content_revs = {}
+            end
+            if type(self.settings.article_revs) ~= "table" then
+                self.settings.article_revs = {}
+            end
+
+            local recorded_content_raw = self.settings.article_content_revs[num_id] or self.settings.article_content_revs[str_id]
+            local recorded_content_rev = type(recorded_content_raw) == "number" and recorded_content_raw or tonumber(recorded_content_raw)
+
             local attr_size = lfs.attributes(full_path, "size")
             local size = type(attr_size) == "table" and attr_size.size or (tonumber(attr_size) or 0)
             local file_exists = size > 0
 
-            if file_exists and recorded_rev ~= nil and recorded_rev >= target_rev then
-                logger.dbg("Wallaflare: Skipping #" .. tostring(entry.id) .. " (already on disk at rev " .. tostring(recorded_rev) .. ")")
-                downloaded_count = downloaded_count + 1
+            -- Skip EPUB file download if already on disk and content_revision has not incremented
+            if file_exists and (recorded_content_rev == nil or recorded_content_rev >= target_content_rev) then
+                logger.dbg("Wallaflare: Skipping EPUB download for #" .. str_id .. " (content_rev " .. tostring(recorded_content_rev or 1) .. ")")
+                skipped_count = skipped_count + 1
+                self.settings.article_content_revs[num_id] = target_content_rev
+                self.settings.article_revs[num_id] = target_sync_rev
             else
                 if progress_info then UIManager:close(progress_info) end
                 local short_title = entry.title and (entry.title:sub(1, 35) .. (entry.title:len() > 35 and "…" or "")) or "Article"
@@ -793,17 +818,15 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info)
                 UIManager:show(progress_info)
                 if UIManager.forceRePaint then UIManager:forceRePaint() end
 
-                logger.info("Wallaflare: Downloading #" .. tostring(entry.id) .. " (rev " .. tostring(target_rev) .. ") -> " .. filename)
+                logger.info("Wallaflare: Downloading #" .. str_id .. " (content_rev " .. tostring(target_content_rev) .. ") -> " .. filename)
                 local ok_dl, dl_err = Api.downloadEpub(self.settings.server_url, self.settings.auth_token, entry.id, full_path)
                 if ok_dl then
                     downloaded_count = downloaded_count + 1
-                    if type(self.settings.article_revs) ~= "table" then
-                        self.settings.article_revs = {}
-                    end
-                    self.settings.article_revs[entry.id] = target_rev
+                    self.settings.article_content_revs[num_id] = target_content_rev
+                    self.settings.article_revs[num_id] = target_sync_rev
                 else
-                    logger.err("Wallaflare: Download failed for #" .. tostring(entry.id) .. ": " .. tostring(dl_err))
-                    table.insert(download_errors, "#" .. tostring(entry.id) .. ": " .. tostring(dl_err))
+                    logger.err("Wallaflare: Download failed for #" .. str_id .. ": " .. tostring(dl_err))
+                    table.insert(download_errors, "#" .. str_id .. ": " .. tostring(dl_err))
                 end
             end
         end
@@ -825,7 +848,16 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info)
     -- Refresh file manager if currently open or in download dir
     self:refreshFileManager()
 
-    local msg = string.format(_("Wallaflare: Sync complete.\n%d downloaded, %d deleted."), downloaded_count, deleted_count)
+    local msg = ""
+    if downloaded_count > 0 and deleted_count > 0 then
+        msg = string.format(_("Wallaflare: Sync complete.\n%d downloaded, %d deleted."), downloaded_count, deleted_count)
+    elseif downloaded_count > 0 then
+        msg = string.format(_("Wallaflare: Sync complete.\n%d downloaded."), downloaded_count)
+    elseif deleted_count > 0 then
+        msg = string.format(_("Wallaflare: Sync complete.\n%d deleted (Library is up to date)."), deleted_count)
+    else
+        msg = _("Wallaflare: Library is up to date.")
+    end
     if #download_errors > 0 then
         msg = msg .. "\n\n" .. _("Download errors:") .. "\n" .. table.concat(download_errors, "\n"):sub(1, 150)
     end

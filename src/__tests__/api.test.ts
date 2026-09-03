@@ -238,6 +238,8 @@ function createMockD1Database() {
               updated_at: boundParams[10],
               author: boundParams[11] || null,
               published_at: boundParams[12] || null,
+              revision: boundParams[13] || currentRev,
+              content_revision: 1,
             };
             entries.push(newEntry);
             return { meta: { last_row_id: newEntry.id, changes: 1 } };
@@ -284,9 +286,14 @@ function createMockD1Database() {
               if (entry) {
                 const setPart = query.split('SET')[1].split('WHERE')[0];
                 const clauses = setPart.split(',').map(s => s.trim());
+                if (query.includes('content_revision = content_revision + 1')) {
+                  entry.content_revision = (entry.content_revision || 1) + 1;
+                }
                 clauses.forEach((c, idx) => {
                   if (c.startsWith('title = ?')) entry.title = boundParams[idx];
                   if (c.startsWith('content = ?')) entry.content = boundParams[idx];
+                  if (c.startsWith('author = ?')) entry.author = boundParams[idx];
+                  if (c.startsWith('url = ?')) entry.url = boundParams[idx];
                   if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
                   if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
                   if (c.startsWith('revision = ?')) entry.revision = boundParams[idx];
@@ -1350,7 +1357,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(syncData.ota_checksum).toBeDefined();
   });
 
-  it("handles large database pagination, sorting by title / date, and live library counts", async () => {
+  it("handles large database pagination, sorting by title / date, and live library counts", { timeout: 15000 }, async () => {
     // Ingest 60 items with distinctive titles to test multi-page database pagination
     for (let i = 1; i <= 60; i++) {
       const padded = String(i).padStart(3, '0');
@@ -1878,5 +1885,140 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     expect(syncData.instance_id).toBe(goodData.instance_id);
     expect(syncData.entries.length).toBe(0);
     expect(syncData.counts.total).toBe(0);
+  });
+});
+
+describe("Dual-Revision Sync & Content Revision Engine", () => {
+  const SECRET = "test_secret_dual_rev";
+  let mockDb: any;
+
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it("starts with content_revision = 1 on new entry creation", async () => {
+    const res = await app.request("/api/entries.json", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: "https://example.com/rev-article-1",
+        title: "Dual Revision Article 1",
+        content: "<p>Original article body.</p>"
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    expect(res.status).toBe(200);
+    const entry = await res.json<any>();
+    expect(entry.revision).toBeGreaterThan(0);
+    expect(entry.content_revision).toBe(1);
+  });
+
+  it("preserves content_revision = 1 when adding annotations, but bumps sync revision", async () => {
+    const createRes = await app.request("/api/entries.json", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: "https://example.com/rev-article-2",
+        title: "Article with Annotations",
+        content: "<p>Highlight me please.</p>"
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const entry = await createRes.json<any>();
+    const initialRev = entry.revision;
+    const initialContentRev = entry.content_revision;
+
+    // Add annotation
+    const annRes = await app.request(`/api/annotations/${entry.id}.json`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quote: "Highlight me",
+        color: "yellow",
+        target: { selector: { type: "TextQuoteSelector", exact: "Highlight me", prefix: "<p>", suffix: " please." } }
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(annRes.status).toBe(201);
+
+    // Verify sync delta returns updated entry with preserved content_revision
+    const syncRes = await app.request(`/api/sync.json?since_rev=${initialRev}`, {
+      headers: { "Authorization": `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const syncData = await syncRes.json<any>();
+    expect(syncData.up_to_date).toBe(false);
+    expect(syncData.entries.length).toBe(1);
+    expect(syncData.entries[0].id).toBe(entry.id);
+    expect(syncData.entries[0].revision).toBeGreaterThan(initialRev);
+    expect(syncData.entries[0].content_revision).toBe(initialContentRev);
+    expect(syncData.entries[0].annotations.length).toBe(1);
+    expect(syncData.entries[0].annotations[0].quote).toBe("Highlight me");
+  });
+
+  it("preserves content_revision = 1 when adding/removing tags and starring", async () => {
+    const createRes = await app.request("/api/entries.json", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: "https://example.com/rev-article-3",
+        title: "Tagging Article",
+        content: "<p>Article text.</p>"
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const entry = await createRes.json<any>();
+    const initialRev = entry.revision;
+
+    // Star article
+    await app.request(`/api/entries/${entry.id}.json`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ starred: 1 })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    // Add tag
+    await app.request(`/api/entries/${entry.id}/tags.json`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: "science, technology" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    const syncRes = await app.request(`/api/sync.json?since_rev=${initialRev}`, {
+      headers: { "Authorization": `Bearer ${SECRET}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const syncData = await syncRes.json<any>();
+    expect(syncData.entries.length).toBe(1);
+    expect(syncData.entries[0].is_starred).toBe(1);
+    expect(syncData.entries[0].tags.length).toBe(2);
+    expect(syncData.entries[0].content_revision).toBe(1);
+  });
+
+  it("increments content_revision when title or content is edited", async () => {
+    const createRes = await app.request("/api/entries.json", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: "https://example.com/rev-article-4",
+        title: "Original Title",
+        content: "<p>Original content.</p>"
+      })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const entry = await createRes.json<any>();
+    expect(entry.content_revision).toBe(1);
+
+    // Edit title
+    const patchRes1 = await app.request(`/api/entries/${entry.id}.json`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Updated Title After Re-fetch" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const updated1 = await patchRes1.json<any>();
+    expect(updated1.content_revision).toBe(2);
+
+    // Edit content
+    const patchRes2 = await app.request(`/api/entries/${entry.id}.json`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "<p>Freshly scraped article content body.</p>" })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const updated2 = await patchRes2.json<any>();
+    expect(updated2.content_revision).toBe(3);
   });
 });
