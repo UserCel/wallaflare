@@ -1673,6 +1673,14 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           renderSidebarTags();
           filterArticles();
 
+          if (activeArticleId) {
+            const activeItem = allEntries.find(e => e.id === activeArticleId);
+            if (activeItem) {
+              applyAnnotationsToReader(activeItem);
+              updateHighlightsBadge(activeItem);
+            }
+          }
+
           // Background auto-download remaining pages if whole library is not yet cached locally
           if (totalArticlesPages > 1 && allEntries.length < totalArticlesCount) {
             downloadRemainingLibraryInBackground(totalArticlesPages, totalArticlesCount);
@@ -3215,11 +3223,16 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         if (node.parentElement && node.parentElement.closest("mark.reader-hl")) continue;
         const text = node.nodeValue || "";
         let idx = text.indexOf(quote);
+        const isWord = /^\w+$/.test(quote);
         while (idx !== -1) {
+          const charBefore = idx > 0 ? text[idx - 1] : "";
+          const charAfter = (idx + quote.length < text.length) ? text[idx + quote.length] : "";
+          const isSubword = isWord && (/\w/.test(charBefore) || /\w/.test(charAfter));
+
           const beforeInNode = text.slice(Math.max(0, idx - 35), idx);
           const afterInNode = text.slice(idx + quote.length, idx + quote.length + 35);
 
-          let score = 0;
+          let score = isSubword ? -100 : 0;
           if (expectedPrefix && beforeInNode.endsWith(expectedPrefix.slice(-15))) score += 50;
           else if (expectedPrefix && beforeInNode.length > 0 && expectedPrefix.includes(beforeInNode.trim())) score += 20;
 
@@ -3871,17 +3884,18 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (btn) btn.classList.add('active-color');
     }
 
-    function openAnnotationNoteModal(ann, pendingData = null) {
-      activeModalAnnotation = ann || null;
+    function openAnnotationNoteModal(ann = null, pendingData = null) {
+      const targetAnn = ann || activePopoverAnnotation || null;
+      activeModalAnnotation = targetAnn;
       pendingHighlightData = pendingData || null;
-      modalSelectedColor = (ann ? ann.color : (pendingData ? pendingData.color : 'yellow')) || 'yellow';
+      modalSelectedColor = (targetAnn ? targetAnn.color : (pendingData ? pendingData.color : 'yellow')) || 'yellow';
       closeHighlightPopover();
 
       const preview = document.getElementById('annotationNoteQuotePreview');
       const input = document.getElementById('annotationNoteInput');
-      const quote = ann ? ann.quote : (pendingData ? pendingData.quote : '');
+      const quote = targetAnn ? targetAnn.quote : (pendingData ? pendingData.quote : '');
       if (preview) preview.textContent = quote;
-      if (input) input.value = ann ? (ann.text || '') : '';
+      if (input) input.value = targetAnn ? (targetAnn.text || '') : '';
 
       openModal('annotationNoteModal');
       setTimeout(() => input?.focus(), 60);
@@ -3895,8 +3909,9 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     async function handleSaveAnnotationNoteForm(e) {
       e.preventDefault();
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
+      const targetArticleId = activeArticleId || activeModalHighlightsArticleId || (activeModalAnnotation && activeModalAnnotation.entry_id);
+      if (!targetArticleId) return;
+      const item = allEntries.find(e => e.id === targetArticleId);
       if (!item) return;
 
       const input = document.getElementById('annotationNoteInput');
@@ -3925,18 +3940,21 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       if (activeModalAnnotation) {
+        const targetAnnId = activeModalAnnotation.id;
         activeModalAnnotation.text = text;
         activeModalAnnotation.color = color;
         applyAnnotationsToReader(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         closeAnnotationNoteModal();
         try {
-          await authFetch('/api/annotations/' + activeModalAnnotation.id + '.json', {
+          await authFetch('/api/annotations/' + targetAnnId + '.json', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, color })
           });
-        } catch (e) {}
+        } catch (e) {
+          console.error("[Annotations] Failed to patch annotation note:", e);
+        }
       }
     }
 

@@ -8,7 +8,7 @@ local ltn12 = require("ltn12")
 local logger = require("logger")
 local socket = require("socket")
 
--- Fallback JSON decoder
+-- Fallback JSON decoder / encoder
 local JSON = nil
 local ok_json, mod_json = pcall(require, "json")
 if ok_json then
@@ -30,6 +30,34 @@ function Api.normalizeUrl(url)
         url = "https://" .. url
     end
     return url
+end
+
+function Api.jsonEncode(tbl)
+    if JSON and JSON.encode then
+        local ok, res = pcall(JSON.encode, tbl)
+        if ok and res then return res end
+    end
+    -- Minimal fallback JSON serializer for simple tables
+    if type(tbl) ~= "table" then
+        if type(tbl) == "string" then
+            return string.format("%q", tbl):gsub("\\\n", "\\n")
+        else
+            return tostring(tbl)
+        end
+    end
+    local parts = {}
+    local is_array = (#tbl > 0)
+    if is_array then
+        for _, v in ipairs(tbl) do
+            table.insert(parts, Api.jsonEncode(v))
+        end
+        return "[" .. table.concat(parts, ",") .. "]"
+    else
+        for k, v in pairs(tbl) do
+            table.insert(parts, string.format("%q", tostring(k)) .. ":" .. Api.jsonEncode(v))
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    end
 end
 
 function Api.request(opts)
@@ -236,13 +264,72 @@ end
 function Api.sendPatch(server_url, auth_token, entry_id, patch_table)
     server_url = Api.normalizeUrl(server_url)
     local url = server_url .. "/api/entries/" .. entry_id .. ".json"
-    local body_str = JSON and JSON.encode(patch_table) or "{}"
+    local body_str = Api.jsonEncode(patch_table)
 
     return Api.request{
         url = url,
         method = "PATCH",
         token = auth_token,
         body = body_str,
+        timeout = 15,
+    }
+end
+
+-- Create Annotation on server (POST /api/annotations/:entryId)
+function Api.createAnnotation(server_url, auth_token, entry_id, ann_data)
+    server_url = Api.normalizeUrl(server_url)
+    local url = server_url .. "/api/annotations/" .. entry_id
+    local body_payload = {
+        quote = ann_data.quote or "",
+        text = ann_data.text or "",
+        color = ann_data.color or "yellow",
+        ranges = {},
+    }
+    if ann_data.pos0 or ann_data.pos1 or ann_data.page then
+        body_payload.target = {
+            koreader = {
+                pos0 = ann_data.pos0,
+                pos1 = ann_data.pos1,
+                page = ann_data.page,
+                chapter = ann_data.chapter,
+            }
+        }
+    end
+    local body_str = Api.jsonEncode(body_payload)
+
+    return Api.request{
+        url = url,
+        method = "POST",
+        token = auth_token,
+        body = body_str,
+        timeout = 15,
+    }
+end
+
+-- Update Annotation note / color / target (PATCH /api/annotations/:id.json)
+function Api.updateAnnotation(server_url, auth_token, annotation_id, update_data)
+    server_url = Api.normalizeUrl(server_url)
+    local url = server_url .. "/api/annotations/" .. annotation_id .. ".json"
+    local body_str = Api.jsonEncode(update_data)
+
+    return Api.request{
+        url = url,
+        method = "PATCH",
+        token = auth_token,
+        body = body_str,
+        timeout = 15,
+    }
+end
+
+-- Delete Annotation from server (DELETE /api/annotations/:id.json)
+function Api.deleteAnnotation(server_url, auth_token, annotation_id)
+    server_url = Api.normalizeUrl(server_url)
+    local url = server_url .. "/api/annotations/" .. annotation_id .. ".json"
+
+    return Api.request{
+        url = url,
+        method = "DELETE",
+        token = auth_token,
         timeout = 15,
     }
 end

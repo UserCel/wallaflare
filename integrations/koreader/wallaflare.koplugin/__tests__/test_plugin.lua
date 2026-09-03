@@ -144,6 +144,24 @@ package.preload["datastorage"] = function()
 end
 
 -- Mock LuaSettings
+local function serializeLuaVal(val, indent)
+    indent = indent or "  "
+    if type(val) == "string" then
+        return string.format("%q", val)
+    elseif type(val) == "number" or type(val) == "boolean" then
+        return tostring(val)
+    elseif type(val) == "table" then
+        local lines = {"{\n"}
+        for k, v in pairs(val) do
+            local key_str = type(k) == "number" and ("[" .. k .. "]") or string.format("[%q]", tostring(k))
+            table.insert(lines, indent .. "  " .. key_str .. " = " .. serializeLuaVal(v, indent .. "  ") .. ",\n")
+        end
+        table.insert(lines, indent .. "}")
+        return table.concat(lines)
+    end
+    return "nil"
+end
+
 package.preload["luasettings"] = function()
     local LuaSettings = {}
     function LuaSettings:open(path)
@@ -158,26 +176,31 @@ package.preload["luasettings"] = function()
                 if ok and type(res) == "table" then obj.data = res end
             end
         end
-                function obj:flush()
+        function obj:readSetting(k)
+            return self.data[k]
+        end
+        function obj:saveSetting(k, v)
+            self.data[k] = v
+        end
+        function obj:delSetting(k)
+            self.data[k] = nil
+        end
+        function obj:makeTrue(k)
+            self.data[k] = true
+        end
+        function obj:isTrue(k)
+            return self.data[k] == true
+        end
+        function obj:hasNot(k)
+            return self.data[k] == nil
+        end
+        function obj:has(k)
+            return self.data[k] ~= nil
+        end
+        function obj:flush()
             local f_out = io.open(self.path, "w")
             if f_out then
-                f_out:write("return {\n")
-                for k, v in pairs(self.data) do
-                    if type(v) == "string" then
-                        f_out:write(string.format("  [%q] = %q,\n", k, v))
-                    elseif type(v) == "number" or type(v) == "boolean" then
-                        f_out:write(string.format("  [%q] = %s,\n", k, tostring(v)))
-                    elseif type(v) == "table" then
-                        f_out:write(string.format("  [%q] = {\n", k))
-                        for sub_k, sub_v in pairs(v) do
-                            local sk = type(sub_k) == "number" and ("[" .. sub_k .. "]") or string.format("[%q]", tostring(sub_k))
-                            local sv = type(sub_v) == "string" and string.format("%q", sub_v) or tostring(sub_v)
-                            f_out:write(string.format("    %s = %s,\n", sk, sv))
-                        end
-                        f_out:write("  },\n")
-                    end
-                end
-                f_out:write("}\n")
+                f_out:write("return " .. serializeLuaVal(self.data, "") .. "\n")
                 f_out:close()
             end
         end
@@ -185,6 +208,7 @@ package.preload["luasettings"] = function()
     end
     return LuaSettings
 end
+LuaSettings = package.preload["luasettings"]()
 
 -- Mock lfs (LuaFileSystem)
 package.preload["libs/libkoreader-lfs"] = function()
@@ -372,6 +396,8 @@ local Store = dofile(plugin_root .. "/store.lua")
 package.loaded["store"] = Store
 local Api = dofile(plugin_root .. "/api.lua")
 package.loaded["api"] = Api
+local Annotations = dofile(plugin_root .. "/annotations.lua")
+package.loaded["annotations"] = Annotations
 local Wallaflare = dofile(plugin_root .. "/main.lua")
 
 -- =========================================================================
@@ -736,6 +762,298 @@ describe("6. OTA Update Engine & Atomic Staging", function()
         assert_eq(files["main.lua"], "-- main v1.0.1")
         assert_eq(files["api.lua"], "-- api v1.0.1")
         assert_eq(files["store.lua"], "-- store v1.0.1")
+    end)
+end)
+
+
+describe("7. Annotation & Highlight Synchronization Engine (.sdr)", function()
+    local ddir = Store:getDownloadDir()
+    local book_path = ddir .. "/500_Annotation_Test.epub"
+
+    -- Create dummy epub
+    local f = io.open(book_path, "w")
+    if f then f:write("dummy"); f:close() end
+
+    it("syncs inbound annotations into .sdr/metadata.epub.lua and sets externally modified flag", function()
+        local remote_annots = {
+            {
+                id = 101,
+                quote = "A famous memorable quote.",
+                text = "My first comment",
+                color = "green",
+                created_at = "2026-09-03 14:00:00",
+                target = {
+                    koreader = {
+                        pos0 = "/body/section/p[2]/text().10",
+                        pos1 = "/body/section/p[2]/text().35",
+                        page = "/body/section/p[2]/text().10"
+                    }
+                }
+            },
+            {
+                id = 102,
+                quote = "Another highlight without xpointers.",
+                text = "",
+                color = "yellow",
+                created_at = "2026-09-03 14:05:00"
+            }
+        }
+
+        local ok = Annotations:syncInbound(book_path, remote_annots)
+        assert_true(ok, "Inbound sync should succeed")
+
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        local doc_settings = LuaSettings:open(sidecar_file)
+        local anns = doc_settings:readSetting("annotations")
+
+        assert_eq(#anns, 2, "Should have 2 annotations in .sdr")
+        assert_eq(anns[1].wallaflare_id, 101, "First item ID should match")
+        assert_eq(anns[1].text, "A famous memorable quote.")
+        assert_eq(anns[1].note, "My first comment")
+        assert_eq(anns[1].color, "green")
+        assert_eq(anns[1].pos0, "/body/section/p[2]/text().10")
+        assert_true(doc_settings:isTrue("annotations_externally_modified"), "Should set externally modified flag")
+    end)
+
+    it("updates existing annotation in-place without creating duplicates", function()
+        local updated_remote = {
+            {
+                id = 101,
+                quote = "A famous memorable quote.",
+                text = "Updated comment from web",
+                color = "purple",
+                created_at = "2026-09-03 14:00:00"
+            },
+            {
+                id = 102,
+                quote = "Another highlight without xpointers.",
+                text = "Added a note",
+                color = "blue",
+                created_at = "2026-09-03 14:05:00"
+            }
+        }
+
+        Annotations:syncInbound(book_path, updated_remote)
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        local doc_settings = LuaSettings:open(sidecar_file)
+        local anns = doc_settings:readSetting("annotations")
+
+        assert_eq(#anns, 2, "Should still have exactly 2 annotations (no duplicates)")
+        assert_eq(anns[1].note, "Updated comment from web", "Note should update in-place")
+        assert_eq(anns[1].color, "purple", "Color should update in-place")
+        assert_eq(anns[1].pos0, "/body/section/p[2]/text().10", "Should preserve existing pos0 xPointer")
+        assert_eq(anns[2].note, "Added a note")
+    end)
+
+    it("removes server-deleted annotations while preserving unsynced local highlights", function()
+        -- Add a local unsynced highlight
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        local doc_settings = LuaSettings:open(sidecar_file)
+        local anns = doc_settings:readSetting("annotations")
+        table.insert(anns, {
+            text = "Local highlight created offline",
+            note = "Offline note",
+            color = "yellow",
+            pos0 = "/body/section/p[5]/text().0",
+            pos1 = "/body/section/p[5]/text().15"
+        })
+        doc_settings:saveSetting("annotations", anns)
+        doc_settings:flush()
+
+        -- Remote deletes ID 102 (only sends ID 101)
+        local new_remote = {
+            {
+                id = 101,
+                quote = "A famous memorable quote.",
+                text = "Updated comment from web",
+                color = "purple",
+                created_at = "2026-09-03 14:00:00"
+            }
+        }
+
+        Annotations:syncInbound(book_path, new_remote)
+        local doc_settings2 = LuaSettings:open(sidecar_file)
+        local anns2 = doc_settings2:readSetting("annotations")
+
+        assert_eq(#anns2, 2, "Should have ID 101 + local unsynced item")
+        assert_eq(anns2[1].wallaflare_id, 101)
+        assert_eq(anns2[2].text, "Local highlight created offline")
+        assert_true(anns2[2].wallaflare_id == nil, "Local item should still have nil wallaflare_id")
+    end)
+
+    it("detects unsynced local annotations and stamps remote ID on upload", function()
+        local unsynced = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#unsynced, 1, "Should find 1 unsynced item")
+        assert_eq(unsynced[1].quote, "Local highlight created offline")
+
+        -- Simulate successful upload and stamping
+        local ok = Annotations:stampRemoteId(book_path, unsynced[1].index, 103)
+        assert_true(ok, "Stamp remote ID should succeed")
+
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        local doc_settings = LuaSettings:open(sidecar_file)
+        local anns = doc_settings:readSetting("annotations")
+        assert_eq(anns[unsynced[1].index].wallaflare_id, 103, "Should be stamped with ID 103")
+    end)
+
+    it("auto-resolves xPointers on book open via document:findText", function()
+        local mock_doc = {
+            findAllText = function(self, pattern, case_insensitive, nb_context_words, max_hits, regex, search_flags)
+                if pattern == "Another highlight without xpointers." then
+                    return {
+                        {
+                            start = "/body/section/p[3]/text().0",
+                            ["end"] = "/body/section/p[3]/text().36"
+                        }
+                    }
+                end
+                return nil
+            end
+        }
+
+        local test_anns = {
+            {
+                text = "Another highlight without xpointers.",
+                pos0 = nil
+            }
+        }
+
+        local resolved = Annotations:resolveXPointers(mock_doc, test_anns)
+        assert_true(resolved, "Should resolve missing xPointer")
+        assert_eq(test_anns[1].pos0, "/body/section/p[3]/text().0")
+        assert_eq(test_anns[1].page, "/body/section/p[3]/text().0")
+    end)
+end)
+
+
+describe("8. Comprehensive Edge-Case & Multi-Candidate Annotation Resolver", function()
+    it("disambiguates common short words like 'it' among 5 candidates using prefix and suffix", function()
+        local mock_doc = {
+            findAllText = function(self, pattern, case_insensitive, nb_context_words, max_hits, regex, search_flags)
+                if pattern == "it" then
+                    return {
+                        { start = "/body/p[1]/text().5", ["end"] = "/body/p[1]/text().7", prev_text = "Was ", next_text = " a buff or debuff" },
+                        { start = "/body/p[2]/text().10", ["end"] = "/body/p[2]/text().12", prev_text = "Will thought ", next_text = " was impossible" },
+                        { start = "/body/p[6]/text().251", ["end"] = "/body/p[6]/text().253", prev_text = "why didn’t ", next_text = " have that final bit" },
+                        { start = "/body/p[8]/text().40", ["end"] = "/body/p[8]/text().42", prev_text = "make ", next_text = " himself" },
+                        { start = "/body/p[10]/text().100", ["end"] = "/body/p[10]/text().102", prev_text = "take ", next_text = " to the limit" },
+                    }
+                end
+                return nil
+            end
+        }
+
+        local test_anns = {
+            {
+                text = "it",
+                prefix = "ormal set of Abilities, why didn’t ",
+                suffix = " have that final bit of polish?\nBec",
+                pos0 = "/1/4/2/1:0",
+                pos1 = "/1/4/2/1:0",
+                page = "/1/4/2/1:0",
+            }
+        }
+
+        local resolved = Annotations:resolveXPointers(mock_doc, test_anns)
+        assert_true(resolved, "Should successfully resolve multi-candidate word")
+        assert_eq(test_anns[1].pos0, "/body/p[6]/text().251", "Must pick exact candidate 3 based on context")
+        assert_eq(test_anns[1].pos1, "/body/p[6]/text().253")
+        assert_eq(test_anns[1].page, "/body/p[6]/text().251")
+    end)
+
+    it("resolves multi-word phrases and unicode curly quotes correctly", function()
+        local mock_doc = {
+            findAllText = function(self, pattern, case_insensitive, nb_context_words, max_hits, regex, search_flags)
+                if pattern == "It’s an original Ability." then
+                    return {
+                        {
+                            start = "/body/p[4]/text().0",
+                            ["end"] = "/body/p[4]/text().25",
+                            prev_text = "tag to realize: ",
+                            next_text = " Will had seen"
+                        }
+                    }
+                elseif pattern == "high-stakes game of tag" then
+                    return {
+                        {
+                            start = "/body/p[3]/text().32",
+                            ["end"] = "/body/p[3]/text().55",
+                            prev_text = "several furious exchanges of their ",
+                            next_text = " to realize"
+                        }
+                    }
+                end
+                return nil
+            end
+        }
+
+        local test_anns = {
+            {
+                text = "It’s an original Ability.",
+                prefix = "tag to realize:\n",
+                suffix = "\nWill had seen so many",
+                pos0 = "/1/4/2/1:0",
+            },
+            {
+                text = "high-stakes game of tag",
+                prefix = "several furious exchanges of their ",
+                suffix = " to realize:",
+                pos0 = "/1/4/2/1:0",
+            }
+        }
+
+        local resolved = Annotations:resolveXPointers(mock_doc, test_anns)
+        assert_true(resolved, "Should resolve phrases with unicode quotes and hyphens")
+        assert_eq(test_anns[1].pos0, "/body/p[4]/text().0")
+        assert_eq(test_anns[1].pos1, "/body/p[4]/text().25")
+        assert_eq(test_anns[2].pos0, "/body/p[3]/text().32")
+        assert_eq(test_anns[2].pos1, "/body/p[3]/text().55")
+    end)
+
+    it("handles random batch of 10 mixed annotations with colors, notes, and out-of-order positions", function()
+        local random_mock_doc = {
+            findAllText = function(self, pattern, case_insensitive, nb_context_words, max_hits, regex, search_flags)
+                return {
+                    {
+                        start = "/body/div/p[" .. tostring((#pattern % 10) + 1) .. "]/text()." .. tostring(#pattern * 2),
+                        ["end"] = "/body/div/p[" .. tostring((#pattern % 10) + 1) .. "]/text()." .. tostring(#pattern * 2 + #pattern),
+                        prev_text = "context before ",
+                        next_text = " context after"
+                    }
+                }
+            end
+        }
+
+        local sample_words = {
+            "archetype", "shoulders", "miasmatic", "sigils", "spine",
+            "polish", "crude", "alteration", "distance", "extradimensional"
+        }
+        local colors = { "yellow", "blue", "purple", "green" }
+        local batch = {}
+
+        for i, word in ipairs(sample_words) do
+            table.insert(batch, {
+                wallaflare_id = 200 + i,
+                text = word,
+                note = (i % 2 == 0) and ("Note for " .. word) or nil,
+                color = colors[(i % #colors) + 1],
+                prefix = "before " .. word,
+                suffix = word .. " after",
+                pos0 = "/1/4/2/1:0",
+                pos1 = "/1/4/2/1:0",
+                page = "/1/4/2/1:0",
+            })
+        end
+
+        local resolved = Annotations:resolveXPointers(random_mock_doc, batch)
+        assert_true(resolved, "Should resolve full batch of 10 diverse annotations")
+
+        for i, ann in ipairs(batch) do
+            assert_true(ann.pos0 ~= "/1/4/2/1:0", "pos0 must be resolved for #" .. i)
+            assert_true(ann.pos1 ~= "/1/4/2/1:0", "pos1 must be resolved for #" .. i)
+            assert_eq(ann.page, ann.pos0, "page must match pos0 for #" .. i)
+            assert_true(ann.color ~= nil, "Color must be preserved")
+        end
     end)
 end)
 

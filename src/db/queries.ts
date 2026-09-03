@@ -147,6 +147,7 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
         text: String(a.text || ''),
         color: String(a.color || 'yellow'),
         ranges: typeof a.ranges === 'string' ? JSON.parse(a.ranges || '[]') : (a.ranges || []),
+        target: a.target ? (typeof a.target === 'string' ? JSON.parse(a.target) : a.target) : undefined,
         created_at: formatRfc3339(a.created_at),
         updated_at: formatRfc3339(a.updated_at),
         user: 'wallaflare'
@@ -334,15 +335,35 @@ export async function createAnnotation(
   });
 }
 
-export async function updateAnnotation(db: D1Database, id: number, data: { text?: string; color?: string; target?: any }): Promise<AnnotationItem | null> {
+export async function updateAnnotation(db: D1Database, id: number, data: { text?: string; color?: string; target?: any; updated_at?: string }): Promise<AnnotationItem | null> {
   const existing = await db.prepare('SELECT * FROM annotations WHERE id = ? LIMIT 1').bind(id).first<any>();
   if (!existing) return null;
+
+  // Last-Write-Wins Conflict Resolution
+  if (data.updated_at && existing.updated_at) {
+    const clientMs = new Date(data.updated_at).getTime();
+    const serverMs = new Date(existing.updated_at).getTime();
+    if (!isNaN(clientMs) && !isNaN(serverMs) && clientMs < (serverMs - 2000)) {
+      // Server version is newer: preserve existing record and return it to client
+      return formatAnnotationResponse(existing);
+    }
+  }
 
   const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
   const text = data.text !== undefined ? data.text : existing.text;
   const color = data.color !== undefined ? data.color : existing.color;
-  const targetStr = data.target !== undefined ? (data.target ? JSON.stringify(data.target) : null) : existing.target;
+  let targetStr = existing.target;
+  if (data.target !== undefined) {
+    if (data.target && typeof data.target === "object") {
+      let existingObj: any = {};
+      try { existingObj = JSON.parse(existing.target || "{}"); } catch (e) {}
+      const merged = { ...existingObj, ...data.target };
+      targetStr = JSON.stringify(merged);
+    } else {
+      targetStr = data.target ? JSON.stringify(data.target) : null;
+    }
+  }
 
   await db.prepare(`
     UPDATE annotations SET text = ?, color = ?, target = ?, updated_at = ? WHERE id = ?

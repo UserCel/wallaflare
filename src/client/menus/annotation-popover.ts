@@ -33,7 +33,7 @@ export function generateHighlightPopoverHtml(): string {
     '<div id="popoverQuoteText" style="font-size: 0.78rem; font-style: italic; color: var(--text-secondary); max-height: 55px; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.4rem;"></div>' +
     '<div id="popoverNoteText" style="font-size: 0.8rem; color: var(--text-primary); margin-bottom: 0.4rem; padding: 0.3rem 0.45rem; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent); display: none;"></div>' +
     '<div style="display: flex; gap: 0.35rem; border-top: 1px solid var(--border-color); padding-top: 0.4rem;">' +
-      '<button type="button" class="btn btn-outline" style="flex: 1; padding: 2px 6px; font-size: 0.75rem;" onclick="openAnnotationNoteModal(activePopoverAnnotation)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg><span id="popoverNoteActionLabel">Add Note</span></button>' +
+      '<button type="button" class="btn btn-outline" style="flex: 1; padding: 2px 6px; font-size: 0.75rem;" onclick="openAnnotationNoteModal()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg><span id="popoverNoteActionLabel">Add Note</span></button>' +
     '</div>'
   );
 }
