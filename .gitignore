@@ -26,6 +26,7 @@ src/views/ota-bundle.ts
 src/views/epub-client-bundle.ts
 src/views/dashboard-bundle.ts
 src/views/dashboard-html.ts
+src/views/koplugin-bundle.ts
 coverage/
 *.log
 *.epub

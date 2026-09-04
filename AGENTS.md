@@ -51,6 +51,8 @@
 
 ```
 .
+├── integrations/             # Native e-reader & client integrations
+│   └── koreader/              # Official KOReader Lua plugin (delta sync, auto-prune)
 ├── android/                   # Native Android Studio Capacitor project
 │   └── app/src/main/java/com/idodos/wallaflare/
 │       ├── MainActivity.java           # Android activity & native plugin registration

@@ -37,6 +37,7 @@ export interface EntryRow {
   updated_at: string;
   published_at?: string;
   revision?: number;
+  content_revision?: number;
 }
 
 export interface WallabagEntry {
@@ -69,4 +70,5 @@ export interface WallabagEntry {
   text?: string;
   annotations?: any[];
   origin_url?: string | null;
+  revision?: number;
 }

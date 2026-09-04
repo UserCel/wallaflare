@@ -1673,6 +1673,14 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
           renderSidebarTags();
           filterArticles();
 
+          if (activeArticleId) {
+            const activeItem = allEntries.find(e => e.id === activeArticleId);
+            if (activeItem) {
+              applyAnnotationsToReader(activeItem);
+              updateHighlightsBadge(activeItem);
+            }
+          }
+
           // Background auto-download remaining pages if whole library is not yet cached locally
           if (totalArticlesPages > 1 && allEntries.length < totalArticlesCount) {
             downloadRemainingLibraryInBackground(totalArticlesPages, totalArticlesCount);
@@ -3164,42 +3172,107 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       return md.replace(new RegExp(nl + '{3,}', 'g'), nl2).trim();
     }
 
+        function getSelectionContext(range, container) {
+      if (!range || !container) return { prefix: "", suffix: "", position: 0 };
+      let prefix = "";
+      try {
+        const preRange = document.createRange();
+        preRange.selectNodeContents(container);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const preText = preRange.toString();
+        prefix = preText.slice(Math.max(0, preText.length - 35));
+      } catch (e) {}
+
+      let suffix = "";
+      try {
+        const postRange = document.createRange();
+        postRange.selectNodeContents(container);
+        postRange.setStart(range.endContainer, range.endOffset);
+        const postText = postRange.toString();
+        suffix = postText.slice(0, 35);
+      } catch (e) {}
+
+      let position = 0;
+      try {
+        const fullPreRange = document.createRange();
+        fullPreRange.selectNodeContents(container);
+        fullPreRange.setEnd(range.startContainer, range.startOffset);
+        position = fullPreRange.toString().length;
+      } catch (e) {}
+
+      return { prefix, suffix, position };
+    }
+
     function highlightTextInNode(container, ann) {
-      const quote = (ann.quote || '').trim();
+      const quote = (ann.quote || "").trim();
       if (!quote) return;
+
+      const targetSelector = (ann.target && ann.target.selector) ? ann.target.selector : (ann.target || {});
+      const expectedPrefix = (targetSelector.prefix || ann.prefix || "").trim();
+      const expectedSuffix = (targetSelector.suffix || ann.suffix || "").trim();
+      const expectedPos = (ann.target && ann.target.position && typeof ann.target.position.start === "number")
+        ? ann.target.position.start
+        : (typeof ann.position === "number" ? ann.position : null);
 
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
       let node;
       let candidates = [];
+      let charCounter = 0;
 
       while ((node = walker.nextNode())) {
-        if (node.parentElement && node.parentElement.closest('mark.reader-hl')) continue;
-        const text = node.nodeValue || '';
+        if (node.parentElement && node.parentElement.closest("mark.reader-hl")) continue;
+        const text = node.nodeValue || "";
         let idx = text.indexOf(quote);
+        const isWord = /^\w+$/.test(quote);
         while (idx !== -1) {
-          candidates.push({ node, idx, text });
+          const charBefore = idx > 0 ? text[idx - 1] : "";
+          const charAfter = (idx + quote.length < text.length) ? text[idx + quote.length] : "";
+          const isSubword = isWord && (/\w/.test(charBefore) || /\w/.test(charAfter));
+
+          const beforeInNode = text.slice(Math.max(0, idx - 35), idx);
+          const afterInNode = text.slice(idx + quote.length, idx + quote.length + 35);
+
+          let score = isSubword ? -100 : 0;
+          if (expectedPrefix && beforeInNode.endsWith(expectedPrefix.slice(-15))) score += 50;
+          else if (expectedPrefix && beforeInNode.length > 0 && expectedPrefix.includes(beforeInNode.trim())) score += 20;
+
+          if (expectedSuffix && afterInNode.startsWith(expectedSuffix.slice(0, 15))) score += 50;
+          else if (expectedSuffix && afterInNode.length > 0 && expectedSuffix.includes(afterInNode.trim())) score += 20;
+
+          const candidatePos = charCounter + idx;
+          if (expectedPos !== null) {
+            const dist = Math.abs(candidatePos - expectedPos);
+            score += Math.max(0, 30 - Math.floor(dist / 20));
+          }
+
+          candidates.push({ node, idx, text, score, candidatePos });
           idx = text.indexOf(quote, idx + Math.max(1, quote.length));
         }
+        charCounter += text.length;
       }
 
       if (candidates.length === 0) return;
 
+      candidates.sort((a, b) => b.score - a.score);
       let best = candidates[0];
       const targetNode = best.node;
       const idx = best.idx;
-      const text = targetNode.nodeValue || '';
+      const text = targetNode.nodeValue || "";
       const beforeText = text.slice(0, idx);
       const matchText = text.slice(idx, idx + quote.length);
       const afterText = text.slice(idx + quote.length);
 
-      const mark = document.createElement('mark');
-      mark.className = 'reader-hl reader-hl-' + (ann.color || 'yellow') + (ann.text ? ' has-note' : '');
+      const mark = document.createElement("mark");
+      mark.className = "reader-hl reader-hl-" + (ann.color || "yellow") + (ann.text ? " has-note" : "");
       mark.dataset.annotationId = String(ann.id);
-      mark.title = ann.text ? (ann.color + ' highlight: ' + ann.text) : (ann.color + ' highlight');
+      mark.title = ann.text ? (ann.color + " highlight: " + ann.text) : (ann.color + " highlight");
       mark.textContent = matchText;
       mark.onclick = (e) => {
         e.stopPropagation();
-        openHighlightPopover(ann, mark);
+        const currentId = mark.dataset.annotationId;
+        const item = allEntries.find(e => e.id === activeArticleId);
+        const currentAnn = (item && item.annotations) ? (item.annotations.find(a => String(a.id) === String(currentId)) || ann) : ann;
+        openHighlightPopover(currentAnn, mark);
       };
 
       const parent = targetNode.parentNode;
@@ -3584,25 +3657,37 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
     }
 
-    async function deleteModalAnnotation(annId, articleId) {
+            async function deleteModalAnnotation(annId, articleId) {
       const targetArticleId = articleId || activeModalHighlightsArticleId;
       const item = allEntries.find(e => e.id === targetArticleId);
       if (!item || !item.annotations) return;
 
-      const idx = item.annotations.findIndex(a => a.id === annId);
+      const idx = item.annotations.findIndex(a => String(a.id) === String(annId));
       if (idx === -1) return;
 
+      const annToDelete = item.annotations[idx];
       item.annotations.splice(idx, 1);
       if (activeArticleId === targetArticleId) {
         applyAnnotationsToReader(item);
       }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
       renderModalHighlightsList();
-      showToast('Highlight deleted');
+      filterArticles(false);
+      showToast("Highlight deleted");
 
-      try {
-        await authFetch('/api/annotations/' + annId + '.json', { method: 'DELETE' });
-      } catch (e) {}
+      let realId = annId;
+      if (annToDelete && annToDelete._createPromise) {
+        try {
+          const saved = await annToDelete._createPromise;
+          if (saved && saved.id) realId = saved.id;
+        } catch (e) {}
+      }
+
+      if (realId && !String(realId).startsWith("tmp_") && Number(realId) < 1000000000000) {
+        try {
+          await authFetch("/api/annotations/" + realId + ".json", { method: "DELETE" });
+        } catch (e) {}
+      }
     }
 
     function editModalAnnotation(annId, articleId) {
@@ -3661,37 +3746,70 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       } catch (e) {}
     }
 
-    async function deletePopoverHighlight() {
+            async function deletePopoverHighlight() {
       if (!activePopoverAnnotation || !activeArticleId) return;
-      const annId = activePopoverAnnotation.id;
+      const targetAnn = activePopoverAnnotation;
+      const annId = targetAnn.id;
       const item = allEntries.find(e => e.id === activeArticleId);
+
       if (item && item.annotations) {
-        item.annotations = item.annotations.filter(a => a.id !== annId);
+        item.annotations = item.annotations.filter(a => a !== targetAnn && String(a.id) !== String(annId));
         applyAnnotationsToReader(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+        filterArticles(false);
       }
       closeHighlightPopover();
-      try {
-        await authFetch('/api/annotations/' + annId + '.json', { method: 'DELETE' });
-        showToast('Highlight deleted');
-      } catch (e) {}
+      showToast("Highlight deleted");
+
+      let realId = annId;
+      if (targetAnn._createPromise) {
+        try {
+          const saved = await targetAnn._createPromise;
+          if (saved && saved.id) realId = saved.id;
+        } catch (e) {}
+      }
+
+      if (realId && !String(realId).startsWith("tmp_") && Number(realId) < 1000000000000) {
+        try {
+          await authFetch("/api/annotations/" + realId + ".json", { method: "DELETE" });
+        } catch (e) {}
+      }
     }
 
-    function handleCreateHighlight(color = 'yellow') {
+        function handleCreateHighlight(color = "yellow") {
       const sel = window.getSelection();
-      const selQuote = sel ? sel.toString().trim() : '';
-      const quote = (selQuote || activeSelectedQuote || (activeSelectionRange ? activeSelectionRange.toString().trim() : '')).trim();
+      const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : activeSelectionRange;
+      const selQuote = sel ? sel.toString().trim() : "";
+      const quote = (selQuote || activeSelectedQuote || (range ? range.toString().trim() : "")).trim();
       if (!quote || !activeArticleId) return;
 
       const item = allEntries.find(e => e.id === activeArticleId);
       if (!item) return;
 
+      const readerBody = document.getElementById("readerBody");
+      const ctx = getSelectionContext(range, readerBody);
+
+      const target = {
+        selector: {
+          type: "TextQuoteSelector",
+          exact: quote,
+          prefix: ctx.prefix,
+          suffix: ctx.suffix
+        },
+        position: {
+          start: ctx.position,
+          end: ctx.position + quote.length
+        }
+      };
+
+      const tempId = "tmp_" + Date.now();
       const newAnn = {
-        id: Date.now(),
+        id: tempId,
         entry_id: item.id,
         quote: quote,
         color: color,
-        text: '',
+        text: "",
+        target: target,
         created_at: new Date().toISOString()
       };
       if (!item.annotations) item.annotations = [];
@@ -3700,25 +3818,51 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       clearActiveTextSelection();
       applyAnnotationsToReader(item);
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      filterArticles(false);
 
-      authFetch('/api/annotations/' + item.id + '.json', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quote, color, text: '' })
+      const createPromise = authFetch("/api/annotations/" + item.id + ".json", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote, color, text: "", target })
       }).then(res => res.json()).then(saved => {
-        const idx = item.annotations.findIndex(a => a.id === newAnn.id);
-        if (idx >= 0) item.annotations[idx] = saved;
+        Object.assign(newAnn, saved);
+        const idx = item.annotations.findIndex(a => a.id === tempId || a.id === saved.id);
+        if (idx >= 0) item.annotations[idx] = newAnn;
+        const marks = document.querySelectorAll(`mark[data-annotation-id="${tempId}"]`);
+        marks.forEach(m => (m as HTMLElement).dataset.annotationId = String(saved.id));
+        if (activePopoverAnnotation && activePopoverAnnotation.id === tempId) {
+          activePopoverAnnotation.id = saved.id;
+        }
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-      }).catch(() => {});
+        filterArticles(false);
+        return saved;
+      }).catch(() => null);
+
+      newAnn._createPromise = createPromise;
     }
 
     function handleCreateHighlightWithNote() {
       const sel = window.getSelection();
+      const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : activeSelectionRange;
       const selQuote = sel ? sel.toString().trim() : '';
-      const quote = (selQuote || activeSelectedQuote || (activeSelectionRange ? activeSelectionRange.toString().trim() : '')).trim();
+      const quote = (selQuote || activeSelectedQuote || (range ? range.toString().trim() : '')).trim();
       if (!quote || !activeArticleId) return;
+      const readerBody = document.getElementById("readerBody");
+      const ctx = getSelectionContext(range, readerBody);
+      const target = {
+        selector: {
+          type: "TextQuoteSelector",
+          exact: quote,
+          prefix: ctx.prefix,
+          suffix: ctx.suffix
+        },
+        position: {
+          start: ctx.position,
+          end: ctx.position + quote.length
+        }
+      };
       clearActiveTextSelection();
-      openAnnotationNoteModal(null, { quote, color: 'yellow' });
+      openAnnotationNoteModal(null, { quote, color: 'yellow', target });
     }
 
     function handleCopySelection() {
@@ -3740,17 +3884,18 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       if (btn) btn.classList.add('active-color');
     }
 
-    function openAnnotationNoteModal(ann, pendingData = null) {
-      activeModalAnnotation = ann || null;
+    function openAnnotationNoteModal(ann = null, pendingData = null) {
+      const targetAnn = ann || activePopoverAnnotation || null;
+      activeModalAnnotation = targetAnn;
       pendingHighlightData = pendingData || null;
-      modalSelectedColor = (ann ? ann.color : (pendingData ? pendingData.color : 'yellow')) || 'yellow';
+      modalSelectedColor = (targetAnn ? targetAnn.color : (pendingData ? pendingData.color : 'yellow')) || 'yellow';
       closeHighlightPopover();
 
       const preview = document.getElementById('annotationNoteQuotePreview');
       const input = document.getElementById('annotationNoteInput');
-      const quote = ann ? ann.quote : (pendingData ? pendingData.quote : '');
+      const quote = targetAnn ? targetAnn.quote : (pendingData ? pendingData.quote : '');
       if (preview) preview.textContent = quote;
-      if (input) input.value = ann ? (ann.text || '') : '';
+      if (input) input.value = targetAnn ? (targetAnn.text || '') : '';
 
       openModal('annotationNoteModal');
       setTimeout(() => input?.focus(), 60);
@@ -3764,8 +3909,9 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     async function handleSaveAnnotationNoteForm(e) {
       e.preventDefault();
-      if (!activeArticleId) return;
-      const item = allEntries.find(e => e.id === activeArticleId);
+      const targetArticleId = activeArticleId || activeModalHighlightsArticleId || (activeModalAnnotation && activeModalAnnotation.entry_id);
+      if (!targetArticleId) return;
+      const item = allEntries.find(e => e.id === targetArticleId);
       if (!item) return;
 
       const input = document.getElementById('annotationNoteInput');
@@ -3774,8 +3920,9 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
       if (pendingHighlightData) {
         const quote = pendingHighlightData.quote;
+        const target = pendingHighlightData.target || null;
         closeAnnotationNoteModal();
-        const newAnn = { id: Date.now(), entry_id: item.id, quote, color, text, created_at: new Date().toISOString() };
+        const newAnn = { id: Date.now(), entry_id: item.id, quote, color, text, target, created_at: new Date().toISOString() };
         if (!item.annotations) item.annotations = [];
         item.annotations.push(newAnn);
         applyAnnotationsToReader(item);
@@ -3783,7 +3930,7 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         authFetch('/api/annotations/' + item.id + '.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quote, color, text })
+          body: JSON.stringify({ quote, color, text, target })
         }).then(res => res.json()).then(saved => {
           const idx = item.annotations.findIndex(a => a.id === newAnn.id);
           if (idx >= 0) item.annotations[idx] = saved;
@@ -3793,18 +3940,21 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       if (activeModalAnnotation) {
+        const targetAnnId = activeModalAnnotation.id;
         activeModalAnnotation.text = text;
         activeModalAnnotation.color = color;
         applyAnnotationsToReader(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         closeAnnotationNoteModal();
         try {
-          await authFetch('/api/annotations/' + activeModalAnnotation.id + '.json', {
+          await authFetch('/api/annotations/' + targetAnnId + '.json', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, color })
           });
-        } catch (e) {}
+        } catch (e) {
+          console.error("[Annotations] Failed to patch annotation note:", e);
+        }
       }
     }
 

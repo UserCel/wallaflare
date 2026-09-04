@@ -19,6 +19,11 @@ if (!fs.existsSync(dashboardBundlePath)) {
   fs.writeFileSync(dashboardBundlePath, 'export const clientDashboardCss = ""; export const clientDashboardJs = "";\n', 'utf8');
 }
 
+const kopluginBundlePath = path.resolve(__dirname, "../src/views/koplugin-bundle.ts");
+if (!fs.existsSync(kopluginBundlePath)) {
+  fs.writeFileSync(kopluginBundlePath, 'export const KOPLUGIN_ZIP_B64 = "";\n', "utf8");
+}
+
 const otaBundlePath = path.resolve(__dirname, '../src/views/ota-bundle.ts');
 if (!fs.existsSync(otaBundlePath)) {
   fs.writeFileSync(otaBundlePath, 'export const OTA_VERSION = "1.0.0"; export const OTA_MIN_NATIVE_VERSION = "1.0.0"; export const OTA_BUNDLE_B64 = ""; export const OTA_CHECKSUM = "";\n', 'utf8');
@@ -79,6 +84,48 @@ export const OTA_BUNDLE_B64 = ${JSON.stringify(otaBundleBase64)};
 export const OTA_CHECKSUM = ${JSON.stringify(contentHash)};
 `;
   fs.writeFileSync(path.resolve(__dirname, '../src/views/ota-bundle.ts'), otaTs, 'utf8');
+
+  
+  // Package KOReader plugin bundle and OTA distribution
+  const pluginDir = path.resolve(__dirname, "../integrations/koreader/wallaflare.koplugin");
+  if (fs.existsSync(pluginDir)) {
+    const pluginZipObj: Record<string, Uint8Array> = {};
+    const pluginFilesText: Record<string, string> = {};
+    const files = fs.readdirSync(pluginDir).sort();
+    let combinedContent = "";
+
+    for (const file of files) {
+      const fullPath = path.join(pluginDir, file);
+      if (fs.statSync(fullPath).isFile()) {
+        const content = fs.readFileSync(fullPath);
+        const textContent = content.toString("utf8");
+        pluginZipObj[`wallaflare.koplugin/${file}`] = content;
+        pluginFilesText[file] = textContent;
+        combinedContent += file + ":" + textContent + "\n";
+      }
+    }
+
+    // Extract canonical SemVer version from _meta.lua
+    const metaFile = pluginFilesText["_meta.lua"] || "";
+    const versionMatch = metaFile.match(/version\s*=\s*["']([^"']+)["']/);
+    const kopluginVersion = versionMatch ? versionMatch[1] : "1.0.0";
+
+    const pluginZipped = fflate.zipSync(pluginZipObj);
+    const downloadDir = path.join(wwwDir, "download");
+    if (!fs.existsSync(downloadDir)) {
+      fs.mkdirSync(downloadDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(downloadDir, "wallaflare.koplugin.zip"), Buffer.from(pluginZipped));
+
+    const pluginBase64 = Buffer.from(pluginZipped).toString("base64");
+    const pluginTs = `// Auto-generated KOReader plugin bundle & OTA files for Wallaflare
+export const KOPLUGIN_VERSION = ${JSON.stringify(kopluginVersion)};
+export const KOPLUGIN_ZIP_B64 = ${JSON.stringify(pluginBase64)};
+export const KOPLUGIN_FILES: Record<string, string> = ${JSON.stringify(pluginFilesText, null, 2)};
+`;
+    fs.writeFileSync(path.resolve(__dirname, "../src/views/koplugin-bundle.ts"), pluginTs, "utf8");
+    console.log(`✓ Successfully generated KOReader plugin OTA bundle ${kopluginVersion} (${pluginZipped.length} bytes zipped)`);
+  }
 
   console.log(`✓ Successfully generated www/index.html & OTA bundle ${otaVersion} (${zipped.length} bytes zipped)`);
 }

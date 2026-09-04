@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { Env } from '../types';
 import { renderDashboardHtml } from '../views/dashboard';
 import { ICON_192_B64, ICON_512_B64 } from './icons-b64';
+import { KOPLUGIN_ZIP_B64 } from '../views/koplugin-bundle';
 import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
 import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare } from '../db/queries';
 import { getClientIp } from './api';
@@ -53,6 +54,15 @@ webRouter.get('/img/icon-maskable-512.png', (c) => {
   c.header('Content-Type', 'image/png');
   c.header('Cache-Control', 'public, max-age=31536000');
   const bin = Uint8Array.from(atob(ICON_512_B64), ch => ch.charCodeAt(0));
+  return c.body(bin);
+});
+
+
+webRouter.get('/download/wallaflare.koplugin.zip', (c) => {
+  c.header('Content-Type', 'application/zip');
+  c.header('Content-Disposition', 'attachment; filename="wallaflare.koplugin.zip"');
+  c.header('Cache-Control', 'public, max-age=3600');
+  const bin = Uint8Array.from(atob(KOPLUGIN_ZIP_B64), ch => ch.charCodeAt(0));
   return c.body(bin);
 });
 

@@ -108,6 +108,32 @@ Your instance is now live worldwide! 🎉
 
 ## 📱 Client Setup Guide
 
+### 📖 Native KOReader Plugin (Kindle, Kobo, Android, Linux)
+Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaflare.koplugin/README.md)** (`wallaflare.koplugin`) engineered specifically for e-ink e-readers with battery-saving delta sync, bi-directional annotations, and seamless reading workflow automation:
+
+- ⚡ **Revision-Based Delta Sync**: Queries `/api/sync.json` with `since_rev` for sub-second, battery-friendly sync checks.
+- 🖍️ **Bi-Directional Highlight & Note Sync**: Highlights, notes, and colors created on either KOReader or the web dashboard sync with 100% fidelity, using native KOReader DOM anchor resolution and true **Last-Write-Wins** conflict handling.
+- 🏷️ **Remote Archive Automation**: Automatically archives (or deletes) articles on Wallaflare when marked finished in KOReader, when reaching 100% reading progress, or when set on hold.
+- 🗑️ **Smart Sync-Filter Auto-Deletion**: Prunes archived or unstarred articles according to your active Sync Filter (*Unread only*, *Starred only*, or *All articles*), with automatic full reconciliation when switching filters.
+- 🔄 **In-App Over-The-Air (OTA) Updates**: One-tap self-updating directly from KOReader settings with zero manual file transfers.
+
+1. **Download the Plugin**:
+   - Download `wallaflare.koplugin.zip` from your Wallaflare dashboard (**Settings > Integrations**) or from `https://<your-subdomain>.workers.dev/download/wallaflare.koplugin.zip`.
+2. **Install**:
+   - Copy the `wallaflare.koplugin` folder into your device's KOReader `plugins/` directory:
+     - **Kindle / Kobo / Linux**: `/mnt/onboard/.koreader/plugins/wallaflare.koplugin`
+     - **Android**: `/sdcard/koreader/plugins/wallaflare.koplugin`
+3. **Configure**:
+   - In KOReader, open **Tools > Wallaflare > Settings**:
+     - **Server URL**: `https://<your-subdomain>.workers.dev`
+     - **API Token**: Your `READ_TOKEN` (or master `AUTH_TOKEN`)
+     - **Download Folder**: Choose where EPUBs are stored (e.g. `/Books/Wallaflare`)
+     - **Sync Filter & Remote Archive**: Set your reading queue and auto-archive preferences.
+4. **Sync**:
+   - Tap **Sync now** — new articles download instantly as formatted EPUBs, highlights sync bi-directionally, and finished books are archived and pruned automatically!
+
+---
+
 ### 📖 OPDS 1.2 Book Catalog (KOReader, Crosspoint, Moon+ Reader)
 Wallaflare serves a native **OPDS 1.2 Book Catalog** for instant browsing and downloading articles directly as formatted EPUBs:
 
