@@ -48,3 +48,7 @@ Thumbs.db
 # Keystores
 *.keystore
 *.jks
+
+# KOReader update staging directories
+*.koplugin.update/
+*.update/
