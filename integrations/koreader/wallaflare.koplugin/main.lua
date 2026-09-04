@@ -33,7 +33,7 @@ local Annotations = package.loaded["annotations"] or dofile(plugin_dir .. "/anno
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
     is_doc_only = false,
-    version = "1.0.0",
+    version = "1.0.1",
 }
 
 local function getPluginDir()
@@ -128,6 +128,7 @@ function Wallaflare:addToMainMenu(menu_items)
                     {
                         text = _("Server settings"),
                         help_text = _("Configure Server URL and API Token"),
+                        keep_menu_open = true,
                         callback = function()
                             self:editServerSettings()
                         end,
@@ -142,34 +143,71 @@ function Wallaflare:addToMainMenu(menu_items)
                             return string.format(_("Download folder: %s"), folder_name)
                         end,
                         help_text = _("Choose where downloaded articles are saved"),
+                        keep_menu_open = true,
                         callback = function(touchmenu_instance)
                             self:chooseDownloadDir(touchmenu_instance)
                         end,
                     },
                     {
                         text = _("Sync Filter"),
+                        help_text = _("Filter articles to sync. Changing this triggers a full library reconciliation on next sync."),
                         sub_item_table = {
                             {
                                 text = _("Unread only"),
                                 checked_func = function() return self.settings.sync_filter == "unread" end,
-                                callback = function()
-                                    self.settings.sync_filter = "unread"
-                                    Store:saveSettings()
+                                callback = function(touchmenu_instance)
+                                    self:promptChangeSyncFilter("unread", _("Unread only"), touchmenu_instance)
                                 end,
                             },
                             {
                                 text = _("All articles"),
                                 checked_func = function() return self.settings.sync_filter == "all" end,
-                                callback = function()
-                                    self.settings.sync_filter = "all"
-                                    Store:saveSettings()
+                                callback = function(touchmenu_instance)
+                                    self:promptChangeSyncFilter("all", _("All articles"), touchmenu_instance)
                                 end,
                             },
                             {
                                 text = _("Starred only"),
                                 checked_func = function() return self.settings.sync_filter == "starred" end,
+                                callback = function(touchmenu_instance)
+                                    self:promptChangeSyncFilter("starred", _("Starred only"), touchmenu_instance)
+                                end,
+                            },
+                        },
+                    },
+                    {
+                        text = _("Remote archive"),
+                        sub_item_table = {
+                            {
+                                text = _("Mark finished articles as archived"),
+                                checked_func = function() return self.settings.archive_finished end,
                                 callback = function()
-                                    self.settings.sync_filter = "starred"
+                                    self.settings.archive_finished = not self.settings.archive_finished
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Mark 100% articles as archived"),
+                                checked_func = function() return self.settings.archive_read end,
+                                callback = function()
+                                    self.settings.archive_read = not self.settings.archive_read
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Mark articles on hold as archived"),
+                                checked_func = function() return self.settings.archive_abandoned end,
+                                callback = function()
+                                    self.settings.archive_abandoned = not self.settings.archive_abandoned
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Delete instead of archive"),
+                                help_text = _("Permanently delete from server instead of archiving"),
+                                checked_func = function() return self.settings.delete_instead_of_archive end,
+                                callback = function()
+                                    self.settings.delete_instead_of_archive = not self.settings.delete_instead_of_archive
                                     Store:saveSettings()
                                 end,
                             },
@@ -222,14 +260,14 @@ function Wallaflare:addToMainMenu(menu_items)
                     },
                     {
                         text = _("Check for plugin updates"),
-                        keep_menu_open = false,
+                        keep_menu_open = true,
                         callback = function()
                             self:checkForPluginUpdate(true)
                         end,
                     },
                     {
                         text = _("Reset local sync state"),
-                        keep_menu_open = false,
+                        keep_menu_open = true,
                         callback = function()
                             self:promptResetSyncCache()
                         end,
@@ -238,7 +276,7 @@ function Wallaflare:addToMainMenu(menu_items)
             },
             {
                 text = _("Status & Info"),
-                keep_menu_open = false,
+                keep_menu_open = true,
                 callback = function()
                     self:showStatusDialog()
                 end,
@@ -491,6 +529,35 @@ function Wallaflare:installPluginUpdate(target_version)
     UIManager:show(confirm)
 end
 
+
+function Wallaflare:promptChangeSyncFilter(target_filter, filter_label, touchmenu_instance)
+    if self.settings.sync_filter == target_filter then
+        return
+    end
+
+    local confirm = ConfirmBox:new{
+        text = string.format(
+            _("Change sync filter to %s?\n\nThis will trigger a full library reconciliation on the next sync to align your local files with the selected filter."),
+            filter_label
+        ),
+        ok_text = _("Change Filter"),
+        cancel_text = _("Cancel"),
+        ok_callback = function()
+            self.settings.sync_filter = target_filter
+            self.settings.sync_rev = 0
+            Store:saveSettings()
+            if touchmenu_instance and touchmenu_instance.updateItems then
+                touchmenu_instance:updateItems()
+            end
+            UIManager:show(InfoMessage:new{
+                text = string.format(_("Sync filter changed to %s.\nNext sync will reconcile your library."), filter_label),
+                timeout = 3,
+            })
+        end,
+    }
+    UIManager:show(confirm)
+end
+
 function Wallaflare:promptResetSyncCache()
     local confirm = ConfirmBox:new{
         text = _("Reset local sync state?\n\nThis resets your last sync revision so the next sync will check the entire library again. Existing files will NOT be deleted."),
@@ -581,17 +648,84 @@ function Wallaflare:startSync()
     end)
 end
 
+
+function Wallaflare:queueLocalReadingStatuses()
+    local download_dir = Store:getDownloadDir()
+    if not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
+        return
+    end
+
+    local existing_outbox = Store:getOutbox()
+    local queued_ids = {}
+    for _, item in ipairs(existing_outbox) do
+        if item.id then queued_ids[item.id] = true end
+    end
+
+    for file in lfs.dir(download_dir) do
+        if file:match("%.epub$") then
+            local art_id = file:match("^(%d+)[%._]")
+            local num_id = tonumber(art_id)
+            if num_id and not queued_ids[num_id] then
+                local full_path = download_dir .. "/" .. file
+                local sidecar = full_path:gsub("%.epub$", ".sdr")
+                local status = nil
+                local is_100_percent = false
+
+                if lfs.attributes(sidecar, "mode") == "directory" then
+                    local pcall_ok, doc_settings = pcall(DocSettings.open, DocSettings, full_path)
+                    if pcall_ok and doc_settings and doc_settings.readSetting then
+                        local summary = doc_settings:readSetting("summary")
+                        status = summary and summary.status
+                        local percent = doc_settings:readSetting("percent_finished")
+                        if percent and tonumber(percent) and tonumber(percent) >= 1 then
+                            is_100_percent = true
+                        end
+                    end
+                end
+
+                local should_archive = false
+                if status == "complete" and self.settings.archive_finished then
+                    should_archive = true
+                elseif status == "abandoned" and self.settings.archive_abandoned then
+                    should_archive = true
+                elseif is_100_percent and self.settings.archive_read then
+                    should_archive = true
+                end
+
+                if should_archive then
+                    local action_name = self.settings.delete_instead_of_archive and "delete" or "archive"
+                    Store:queueAction(action_name, num_id)
+                    queued_ids[num_id] = true
+                end
+            end
+        end
+    end
+end
+
 function Wallaflare:performSync()
     local progress_info = InfoMessage:new{ text = _("Wallaflare: Checking for updates…") }
     UIManager:show(progress_info)
     if UIManager.forceRePaint then UIManager:forceRePaint() end
 
+    -- 0. Scan local files for reading status (finished, abandoned, 100%)
+    self:queueLocalReadingStatuses()
+
     -- 1. Flush Outbox actions (e.g. offline archives, stars, deletions)
     local outbox = Store:getOutbox()
+    local remote_archived_count = 0
+    local remote_deleted_count = 0
     if #outbox > 0 then
         for _, item in ipairs(outbox) do
             if item.action == "archive" then
-                Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { archive = 1 })
+                local res = Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { archive = 1 })
+                if res and type(res) == "table" then
+                    remote_archived_count = remote_archived_count + 1
+                end
+            elseif item.action == "delete" then
+                local res = Api.deleteEntry(self.settings.server_url, self.settings.auth_token, item.id)
+                if res and type(res) == "table" then
+                    remote_deleted_count = remote_deleted_count + 1
+                end
             elseif item.action == "star" then
                 Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 1 })
             elseif item.action == "unstar" then
@@ -682,7 +816,7 @@ function Wallaflare:performSync()
     if is_epoch_reset then
         if self.settings.db_reset_action == "wipe" then
             self:wipeLocalLibrary()
-            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count)
+            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
         elseif self.settings.db_reset_action == "keep" then
             self:archiveLocalLibrary(local_instance or "previous")
             self.settings.instance_id = server_instance
@@ -691,7 +825,7 @@ function Wallaflare:performSync()
             self.settings.article_content_revs = {}
             self.settings.outbox = {}
             Store:saveSettings()
-            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count)
+            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
         else
             -- Default: Interactive prompt
             local confirm = MultiConfirmBox:new{
@@ -699,7 +833,7 @@ function Wallaflare:performSync()
                 choice1_text = _("Wipe & Resync"),
                 choice1_callback = function()
                     self:wipeLocalLibrary()
-                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count)
+                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
                 end,
                 choice2_text = _("Archive & Keep Old Files"),
                 choice2_callback = function()
@@ -710,7 +844,7 @@ function Wallaflare:performSync()
                     self.settings.article_content_revs = {}
                     self.settings.outbox = {}
                     Store:saveSettings()
-                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count)
+                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
                 end,
                 cancel_text = _("Cancel"),
                 cancel_callback = function()
@@ -722,8 +856,48 @@ function Wallaflare:performSync()
             return
         end
     else
-        self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count)
+        self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
     end
+end
+
+
+function Wallaflare:deleteLocalArticle(download_dir, article_id)
+    local num_id = tonumber(article_id)
+    if not num_id or not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
+        return false
+    end
+
+    if type(self.settings.article_revs) == "table" then
+        self.settings.article_revs[num_id] = nil
+        self.settings.article_revs[tostring(num_id)] = nil
+    end
+    if type(self.settings.article_content_revs) == "table" then
+        self.settings.article_content_revs[num_id] = nil
+        self.settings.article_content_revs[tostring(num_id)] = nil
+    end
+
+    local deleted = false
+    for file in lfs.dir(download_dir) do
+        if file:match("%.epub$") then
+            local id_str = file:match("^(%d+)[%._]")
+            if id_str and tonumber(id_str) == num_id then
+                local full_path = download_dir .. "/" .. file
+                local sdr_dir = full_path:gsub("%.epub$", ".sdr")
+                if ReadHistory and ReadHistory.deleteItem then
+                    pcall(ReadHistory.deleteItem, ReadHistory, full_path)
+                end
+                if ReadCollection and ReadCollection.deleteItem then
+                    pcall(ReadCollection.deleteItem, ReadCollection, full_path)
+                end
+                os.remove(full_path)
+                if lfs.attributes(sdr_dir, "mode") == "directory" then
+                    removeDirRecursive(sdr_dir)
+                end
+                deleted = true
+            end
+        end
+    end
+    return deleted
 end
 
 function Wallaflare:pruneOrphanArticleRevs(download_dir)
@@ -768,7 +942,9 @@ function Wallaflare:pruneOrphanArticleRevs(download_dir)
     end
 end
 
-function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count)
+function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
+    remote_archived_count = remote_archived_count or 0
+    remote_deleted_count = remote_deleted_count or 0
     uploaded_ann_count = uploaded_ann_count or 0
     local synced_ann_count = 0
     local download_dir = Store:getDownloadDir()
@@ -788,9 +964,19 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
         self:pruneOrphanArticleRevs(download_dir)
         Store:saveSettings()
 
-        local msg = ""
+        local parts = {}
+        if remote_archived_count > 0 then
+            table.insert(parts, string.format(_("%d archived on Wallaflare"), remote_archived_count))
+        end
+        if remote_deleted_count > 0 then
+            table.insert(parts, string.format(_("%d deleted from Wallaflare"), remote_deleted_count))
+        end
         if uploaded_ann_count > 0 then
-            msg = string.format(_("Wallaflare: Sync complete.\n%d highlight(s) uploaded to server."), uploaded_ann_count)
+            table.insert(parts, string.format(_("%d highlight(s) uploaded"), uploaded_ann_count))
+        end
+        local msg = ""
+        if #parts > 0 then
+            msg = string.format(_("Wallaflare: Sync complete.\n%s"), table.concat(parts, "\n"))
         else
             msg = _("Wallaflare: Library is up to date.")
         end
@@ -799,41 +985,49 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
         return
     end
 
-    -- 1. Handle deleted articles (tombstones) and cleanup article_revs
+    -- 1. Handle deleted articles (tombstones)
     if type(data.deleted_ids) == "table" and #data.deleted_ids > 0 then
-        local del_set = {}
         for _, id in ipairs(data.deleted_ids) do
             local num_id = tonumber(id)
             if num_id then
-                del_set[num_id] = true
-                if type(self.settings.article_revs) == "table" then
-                    self.settings.article_revs[num_id] = nil
-                    self.settings.article_revs[tostring(num_id)] = nil
-                end
-                if type(self.settings.article_content_revs) == "table" then
-                    self.settings.article_content_revs[num_id] = nil
-                    self.settings.article_content_revs[tostring(num_id)] = nil
+                if self.settings.auto_delete then
+                    if self:deleteLocalArticle(download_dir, num_id) then
+                        deleted_count = deleted_count + 1
+                    end
+                else
+                    if type(self.settings.article_revs) == "table" then
+                        self.settings.article_revs[num_id] = nil
+                        self.settings.article_revs[tostring(num_id)] = nil
+                    end
+                    if type(self.settings.article_content_revs) == "table" then
+                        self.settings.article_content_revs[num_id] = nil
+                        self.settings.article_content_revs[tostring(num_id)] = nil
+                    end
                 end
             end
         end
+    end
 
-        if self.settings.auto_delete and lfs.attributes(download_dir, "mode") == "directory" then
-            for file in lfs.dir(download_dir) do
-                if file:match("%.epub$") then
-                    local id_str = file:match("^(%d+)[%._]")
-                    if id_str and del_set[tonumber(id_str)] then
-                        local full_path = download_dir .. "/" .. file
-                        local sdr_dir = full_path:gsub("%.epub$", ".sdr")
-                        if ReadHistory and ReadHistory.deleteItem then
-                            pcall(ReadHistory.deleteItem, ReadHistory, full_path)
-                        end
-                        if ReadCollection and ReadCollection.deleteItem then
-                            pcall(ReadCollection.deleteItem, ReadCollection, full_path)
-                        end
-                        os.remove(full_path)
-                        if lfs.attributes(sdr_dir, "mode") == "directory" then
-                            removeDirRecursive(sdr_dir)
-                        end
+    -- 1b. Full sync pruning: If starting from revision 0 (or full sync) with a filter (unread or starred),
+    -- prune any local files on device that are no longer part of the server filtered set.
+    local is_full_sync = (self.settings.sync_rev == nil or self.settings.sync_rev == 0)
+    local active_server_ids = {}
+    if type(data.entries) == "table" then
+        for _, entry in ipairs(data.entries) do
+            local num_id = tonumber(entry.id)
+            if num_id then
+                active_server_ids[num_id] = true
+            end
+        end
+    end
+
+    if is_full_sync and self.settings.auto_delete and self.settings.sync_filter ~= "all" and lfs.attributes(download_dir, "mode") == "directory" then
+        for file in lfs.dir(download_dir) do
+            if file:match("%.epub$") then
+                local id_str = file:match("^(%d+)[%._]")
+                local num_id = id_str and tonumber(id_str)
+                if num_id and not active_server_ids[num_id] then
+                    if self:deleteLocalArticle(download_dir, num_id) then
                         deleted_count = deleted_count + 1
                     end
                 end
@@ -852,68 +1046,87 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
         for idx, entry in ipairs(data.entries) do
             local num_id = tonumber(entry.id) or entry.id
             local str_id = tostring(entry.id)
-            local clean_title = sanitizeFilename(entry.title)
-            local filename = str_id .. "_" .. clean_title .. ".epub"
-            local full_path = download_dir .. "/" .. filename
 
-            local target_content_rev = type(entry.content_revision) == "number" and entry.content_revision or (tonumber(entry.content_revision) or 1)
-            local target_sync_rev = type(entry.revision) == "number" and entry.revision or (tonumber(entry.revision) or 1)
+            local is_archived = (entry.is_archived == 1 or entry.is_archived == true or entry.archive == 1)
+            local is_starred = (entry.is_starred == 1 or entry.is_starred == true or entry.starred == 1)
+            local should_prune = false
 
-            if type(self.settings.article_content_revs) ~= "table" then
-                self.settings.article_content_revs = {}
-            end
-            if type(self.settings.article_revs) ~= "table" then
-                self.settings.article_revs = {}
+            if self.settings.sync_filter == "unread" and is_archived then
+                should_prune = true
+            elseif self.settings.sync_filter == "starred" and not is_starred then
+                should_prune = true
             end
 
-            local recorded_content_raw = self.settings.article_content_revs[num_id] or self.settings.article_content_revs[str_id]
-            local recorded_content_rev = type(recorded_content_raw) == "number" and recorded_content_raw or tonumber(recorded_content_raw)
-
-            local attr_size = lfs.attributes(full_path, "size")
-            local size = type(attr_size) == "table" and attr_size.size or (tonumber(attr_size) or 0)
-            local file_exists = size > 0
-            local ok_dl = false
-
-            -- Skip EPUB file download if already on disk and content_revision has not incremented
-            if file_exists and (recorded_content_rev == nil or recorded_content_rev >= target_content_rev) then
-                logger.dbg("Wallaflare: Skipping EPUB download for #" .. str_id .. " (content_rev " .. tostring(recorded_content_rev or 1) .. ")")
-                skipped_count = skipped_count + 1
-                self.settings.article_content_revs[num_id] = target_content_rev
-                self.settings.article_revs[num_id] = target_sync_rev
+            if should_prune then
+                if self.settings.auto_delete then
+                    if self:deleteLocalArticle(download_dir, num_id) then
+                        deleted_count = deleted_count + 1
+                    end
+                end
             else
-                if progress_info then UIManager:close(progress_info) end
-                local short_title = entry.title and (entry.title:sub(1, 35) .. (entry.title:len() > 35 and "…" or "")) or "Article"
-                progress_info = InfoMessage:new{
-                    text = string.format(_("Wallaflare: Downloading %d of %d…\n%s"), idx, total_entries, short_title),
-                }
-                UIManager:show(progress_info)
-                if UIManager.forceRePaint then UIManager:forceRePaint() end
+                local clean_title = sanitizeFilename(entry.title)
+                local filename = str_id .. "_" .. clean_title .. ".epub"
+                local full_path = download_dir .. "/" .. filename
 
-                logger.info("Wallaflare: Downloading #" .. str_id .. " (content_rev " .. tostring(target_content_rev) .. ") -> " .. filename)
-                local dl_err
-                ok_dl, dl_err = Api.downloadEpub(self.settings.server_url, self.settings.auth_token, entry.id, full_path)
-                if ok_dl then
-                    downloaded_count = downloaded_count + 1
+                local target_content_rev = type(entry.content_revision) == "number" and entry.content_revision or (tonumber(entry.content_revision) or 1)
+                local target_sync_rev = type(entry.revision) == "number" and entry.revision or (tonumber(entry.revision) or 1)
+
+                if type(self.settings.article_content_revs) ~= "table" then
+                    self.settings.article_content_revs = {}
+                end
+                if type(self.settings.article_revs) ~= "table" then
+                    self.settings.article_revs = {}
+                end
+
+                local recorded_content_raw = self.settings.article_content_revs[num_id] or self.settings.article_content_revs[str_id]
+                local recorded_content_rev = type(recorded_content_raw) == "number" and recorded_content_raw or tonumber(recorded_content_raw)
+
+                local attr_size = lfs.attributes(full_path, "size")
+                local size = type(attr_size) == "table" and attr_size.size or (tonumber(attr_size) or 0)
+                local file_exists = size > 0
+                local ok_dl = false
+
+                -- Skip EPUB file download if already on disk and content_revision has not incremented
+                if file_exists and (recorded_content_rev == nil or recorded_content_rev >= target_content_rev) then
+                    logger.dbg("Wallaflare: Skipping EPUB download for #" .. str_id .. " (content_rev " .. tostring(recorded_content_rev or 1) .. ")")
+                    skipped_count = skipped_count + 1
                     self.settings.article_content_revs[num_id] = target_content_rev
                     self.settings.article_revs[num_id] = target_sync_rev
                 else
-                    logger.err("Wallaflare: Download failed for #" .. str_id .. ": " .. tostring(dl_err))
-                    table.insert(download_errors, "#" .. str_id .. ": " .. tostring(dl_err))
-                end
-            end
+                    if progress_info then UIManager:close(progress_info) end
+                    local short_title = entry.title and (entry.title:sub(1, 35) .. (entry.title:len() > 35 and "…" or "")) or "Article"
+                    progress_info = InfoMessage:new{
+                        text = string.format(_("Wallaflare: Downloading %d of %d…\n%s"), idx, total_entries, short_title),
+                    }
+                    UIManager:show(progress_info)
+                    if UIManager.forceRePaint then UIManager:forceRePaint() end
 
-            -- Sync inbound annotations into .sdr/metadata.epub.lua
-            if type(entry.annotations) == "table" and (file_exists or ok_dl) then
-                local ok_ann, ann_res, ann_changed, ann_count = pcall(function()
-                    return Annotations:syncInbound(full_path, entry.annotations)
-                end)
-                if not ok_ann then
-                    logger.err("Wallaflare: Failed to sync inbound annotations for #" .. str_id .. ": " .. tostring(ann_res))
-                else
-                    if ann_changed and (ann_count or 0) > 0 then
-                        synced_ann_count = synced_ann_count + (ann_count or 0)
+                    logger.info("Wallaflare: Downloading #" .. str_id .. " (content_rev " .. tostring(target_content_rev) .. ") -> " .. filename)
+                    local dl_err
+                    ok_dl, dl_err = Api.downloadEpub(self.settings.server_url, self.settings.auth_token, entry.id, full_path)
+                    if ok_dl then
+                        downloaded_count = downloaded_count + 1
+                        self.settings.article_content_revs[num_id] = target_content_rev
+                        self.settings.article_revs[num_id] = target_sync_rev
+                    else
+                        logger.err("Wallaflare: Download failed for #" .. str_id .. ": " .. tostring(dl_err))
+                        table.insert(download_errors, "#" .. str_id .. ": " .. tostring(dl_err))
                     end
-                    logger.info("Wallaflare: Synced " .. tostring(#entry.annotations) .. " annotations into .sdr for #" .. str_id)
+                end
+
+                -- Sync inbound annotations into .sdr/metadata.epub.lua
+                if type(entry.annotations) == "table" and (file_exists or ok_dl) then
+                    local ok_ann, ann_res, ann_changed, ann_count = pcall(function()
+                        return Annotations:syncInbound(full_path, entry.annotations)
+                    end)
+                    if not ok_ann then
+                        logger.err("Wallaflare: Failed to sync inbound annotations for #" .. str_id .. ": " .. tostring(ann_res))
+                    else
+                        if ann_changed and (ann_count or 0) > 0 then
+                            synced_ann_count = synced_ann_count + (ann_count or 0)
+                        end
+                        logger.info("Wallaflare: Synced " .. tostring(#entry.annotations) .. " annotations into .sdr for #" .. str_id)
+                    end
                 end
             end
         end
@@ -939,8 +1152,14 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
     if downloaded_count > 0 then
         table.insert(parts, string.format(_("%d downloaded"), downloaded_count))
     end
+    if remote_archived_count > 0 then
+        table.insert(parts, string.format(_("%d archived on Wallaflare"), remote_archived_count))
+    end
+    if remote_deleted_count > 0 then
+        table.insert(parts, string.format(_("%d deleted from Wallaflare"), remote_deleted_count))
+    end
     if deleted_count > 0 then
-        table.insert(parts, string.format(_("%d deleted"), deleted_count))
+        table.insert(parts, string.format(_("%d deleted locally"), deleted_count))
     end
     if uploaded_ann_count > 0 then
         table.insert(parts, string.format(_("%d highlight(s) uploaded"), uploaded_ann_count))
@@ -1024,10 +1243,9 @@ function Wallaflare:onCloseDocument()
 
     if not self.ui or not self.ui.document then return end
     local file_path = self.ui.document.file
-    local download_dir = Store:getDownloadDir()
-    if not file_path or string.find(file_path, download_dir, 1, true) ~= 1 then return end
+    if not file_path or not file_path:match("%.epub$") then return end
 
-    local article_id = file_path:match("/(%d+)[%._][^/]*%.epub$")
+    local article_id = file_path:match("/(%d+)[%._][^/]*%.epub$") or file_path:match("^(%d+)[%._]")
     if not article_id then return end
 
     local page = self.view and self.view.state and self.view.state.page
@@ -1035,7 +1253,11 @@ function Wallaflare:onCloseDocument()
     local is_100_percent = (page and total_pages and page >= total_pages)
 
     local status = nil
-    if DocSettings and DocSettings.open then
+    if self.ui and self.ui.doc_settings and self.ui.doc_settings.readSetting then
+        local summary = self.ui.doc_settings:readSetting("summary")
+        status = summary and summary.status
+    end
+    if not status and DocSettings and DocSettings.open then
         local pcall_ok, doc_settings = pcall(DocSettings.open, DocSettings, file_path)
         if pcall_ok and doc_settings and doc_settings.readSetting then
             local summary = doc_settings:readSetting("summary")
@@ -1053,7 +1275,8 @@ function Wallaflare:onCloseDocument()
     end
 
     if should_archive then
-        Store:queueAction("archive", tonumber(article_id))
+        local action_name = self.settings.delete_instead_of_archive and "delete" or "archive"
+        Store:queueAction(action_name, tonumber(article_id))
     end
 end
 

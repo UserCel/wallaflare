@@ -408,7 +408,7 @@ describe("1. Plugin Metadata & Manifest", function()
     it("declares valid plugin name and version", function()
         assert_eq(Meta.name, "wallaflare", "Plugin name must be wallaflare")
         assert_true(Meta.fullname ~= nil and Meta.fullname ~= "", "Fullname should be defined")
-        assert_eq(Meta.version, "1.0.0", "Version should be 1.0.0")
+        assert_true(Meta.version ~= nil and Meta.version:match('^%d+%.%d+%.%d+') ~= nil, 'Valid SemVer version')
     end)
 end)
 
@@ -451,6 +451,28 @@ describe("2. State Storage & Settings Persistence", function()
         assert_eq(reloaded.server_url, "https://test.example.com")
         assert_eq(reloaded.auth_token, "secret123")
         assert_eq(reloaded.sync_rev, 42)
+    end)
+
+    it("prompts confirmation and resets sync_rev to 0 on sync_filter change", function()
+        mock_dialogs = {}
+        local app = Wallaflare:extend{}
+        app:init()
+        app.settings.sync_filter = "unread"
+        app.settings.sync_rev = 450
+
+        -- Call promptChangeSyncFilter
+        app:promptChangeSyncFilter("starred", "Starred only")
+
+        assert_true(#mock_dialogs >= 1, "Must display ConfirmBox dialog")
+        local confirm = mock_dialogs[#mock_dialogs]
+        assert_true(confirm.text:find("Starred only") ~= nil, "Confirm text must mention new filter")
+        assert_true(confirm.text:find("reconciliation") ~= nil, "Confirm text must explain reconciliation")
+
+        -- User confirms
+        confirm.ok_callback()
+
+        assert_eq(app.settings.sync_filter, "starred", "sync_filter should be updated")
+        assert_eq(app.settings.sync_rev, 0, "sync_rev must be reset to 0 to trigger reconciliation")
     end)
 
     it("manages FIFO outbox mutations queue", function()
@@ -525,6 +547,8 @@ describe("4. Wallaflare Sync Engine & Auto-Pruning", function()
         ui = { menu = { registerToMainMenu = function() end } }
     }
     app:init()
+    app.settings.sync_filter = "unread"
+    Store.settings.sync_filter = "unread"
     app.settings.auto_delete = true
     Store.settings.download_dir = test_sandbox_dir .. "/books/Wallaflare"
     app.settings.download_dir = Store.settings.download_dir
@@ -670,6 +694,121 @@ describe("4. Wallaflare Sync Engine & Auto-Pruning", function()
         assert_true(top_file == nil, "Old article should not remain in root download directory")
     end)
 
+    it("auto-prunes archived articles when sync_filter is unread", function()
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/601_Unread_To_Archive.epub"
+        local sdr_path = ddir .. "/601_Unread_To_Archive.sdr"
+        local f = io.open(file_path, "w")
+        if f then f:write("EPUB_CONTENT"); f:close() end
+        os.execute("mkdir -p  .. sdr_path .. ")
+
+        app.settings.sync_filter = "unread"
+        app.settings.auto_delete = true
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 20,
+            instance_id = 1,
+            entries = {
+                { id = 601, title = "Unread To Archive", is_archived = 1, revision = 20 }
+            }
+        }, 1)
+
+        local check_f = io.open(file_path, "r")
+        assert_true(check_f == nil, "Archived article must be deleted when sync_filter is unread")
+    end)
+
+    it("retains archived articles when sync_filter is all", function()
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/602_Keep_In_All.epub"
+        local f = io.open(file_path, "w")
+        if f then f:write("EPUB_CONTENT"); f:close() end
+
+        app.settings.sync_filter = "all"
+        app.settings.auto_delete = true
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 21,
+            instance_id = 1,
+            entries = {
+                { id = 602, title = "Keep In All", is_archived = 1, revision = 21, content_revision = 1 }
+            }
+        }, 1)
+
+        local check_f = io.open(file_path, "r")
+        assert_true(check_f ~= nil, "Archived article must NOT be deleted when sync_filter is all")
+        if check_f then check_f:close() end
+    end)
+
+    it("auto-prunes unstarred articles when sync_filter is starred", function()
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/603_Unstarred_Article.epub"
+        local f = io.open(file_path, "w")
+        if f then f:write("EPUB_CONTENT"); f:close() end
+
+        app.settings.sync_filter = "starred"
+        app.settings.auto_delete = true
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 22,
+            instance_id = 1,
+            entries = {
+                { id = 603, title = "Unstarred Article", is_starred = 0, is_archived = 1, revision = 22 }
+            }
+        }, 1)
+
+        local check_f = io.open(file_path, "r")
+        assert_true(check_f == nil, "Unstarred article must be deleted when sync_filter is starred")
+    end)
+
+    it("retains starred articles in starred mode even if archived", function()
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/604_Starred_Archived.epub"
+        local f = io.open(file_path, "w")
+        if f then f:write("EPUB_CONTENT"); f:close() end
+
+        app.settings.sync_filter = "starred"
+        app.settings.auto_delete = true
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 23,
+            instance_id = 1,
+            entries = {
+                { id = 604, title = "Starred Archived", is_starred = 1, is_archived = 1, revision = 23, content_revision = 1 }
+            }
+        }, 1)
+
+        local check_f = io.open(file_path, "r")
+        assert_true(check_f ~= nil, "Starred archived article must NOT be deleted in starred mode")
+        if check_f then check_f:close() end
+    end)
+
+    it("never auto-deletes articles when auto_delete is false", function()
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/605_Safe_Article.epub"
+        local f = io.open(file_path, "w")
+        if f then f:write("EPUB_CONTENT"); f:close() end
+
+        app.settings.sync_filter = "unread"
+        app.settings.auto_delete = false
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 24,
+            instance_id = 1,
+            entries = {
+                { id = 605, title = "Safe Article", is_archived = 1, revision = 24 }
+            }
+        }, 1)
+
+        local check_f = io.open(file_path, "r")
+        assert_true(check_f ~= nil, "Article must be preserved when auto_delete is false")
+        if check_f then check_f:close() end
+    end)
+
     it("handles database wipe / epoch reset with MultiConfirmBox", function()
         
         mock_dialogs = {}
@@ -720,6 +859,56 @@ describe("5. Document Close & Reading Progress Archiving", function()
         assert_eq(#outbox, 1, "Should queue 1 outbox action")
         assert_eq(outbox[1].action, "archive")
         assert_eq(outbox[1].id, 777)
+    end)
+
+    it("queues delete mutation when delete_instead_of_archive is enabled", function()
+        Store:clearOutbox()
+        local ddir = Store:getDownloadDir()
+        local article_path = ddir .. "/778_Delete_Me.epub"
+        app.settings.archive_read = true
+        app.settings.delete_instead_of_archive = true
+
+        app.ui = {
+            document = {
+                file = article_path,
+                info = { number_of_pages = 10 }
+            }
+        }
+        app.view = { state = { page = 10 } }
+
+        app:onCloseDocument()
+
+        local outbox = Store:getOutbox()
+        assert_eq(#outbox, 1, "Should queue 1 outbox action")
+        assert_eq(outbox[1].action, "delete", "Should be delete instead of archive")
+        assert_eq(outbox[1].id, 778)
+
+        app.settings.delete_instead_of_archive = false
+    end)
+
+    it("flushes delete action via Api.deleteEntry during sync", function()
+        Store:clearOutbox()
+        Store:queueAction("delete", 779)
+
+        local delete_called_id = nil
+        local old_del = Api.deleteEntry
+        Api.deleteEntry = function(server_url, auth_token, entry_id)
+            delete_called_id = entry_id
+            return { success = true }
+        end
+
+        mock_http_response = {
+            status_code = 200,
+            headers = {},
+            body = '{"up_to_date":true,"sync_rev":100}'
+        }
+
+        app:performSync()
+
+        assert_eq(delete_called_id, 779, "Should call Api.deleteEntry with entry ID 779")
+        assert_eq(#(Store:getOutbox()), 0, "Outbox should be flushed")
+
+        Api.deleteEntry = old_del
     end)
 
     it("respects remote mark-as-read toggle when disabled", function()

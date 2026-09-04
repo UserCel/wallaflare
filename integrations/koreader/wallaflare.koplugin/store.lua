@@ -35,6 +35,7 @@ local DEFAULT_SETTINGS = {
     archive_finished = true,   -- Mark finished articles as read
     archive_read = false,      -- Mark 100% read articles as read (default: false)
     archive_abandoned = false, -- Mark articles on hold as read
+    delete_instead_of_archive = false, -- Permanently delete on server instead of archiving
     instance_id = nil,
     sync_rev = 0,
     outbox = {},

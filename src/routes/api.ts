@@ -667,6 +667,7 @@ const syncHandler = async (c: any) => {
     });
   }
 
+  const isDeltaSync = (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev > 0);
   const entriesFilter: any = {
     page,
     perPage,
@@ -674,9 +675,9 @@ const syncHandler = async (c: any) => {
     sort,
     search,
     tags,
-    is_archived,
-    is_starred,
-    since_rev: (sinceRev !== undefined && !isNaN(sinceRev) && sinceRev > 0) ? sinceRev : undefined
+    is_archived: isDeltaSync ? undefined : is_archived,
+    is_starred: isDeltaSync ? undefined : is_starred,
+    since_rev: isDeltaSync ? sinceRev : undefined
   };
 
   const [entriesResult, allTags, counts, deletedIds, siteCookies] = await Promise.all([

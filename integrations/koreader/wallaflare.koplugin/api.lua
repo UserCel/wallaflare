@@ -322,6 +322,20 @@ function Api.updateAnnotation(server_url, auth_token, annotation_id, update_data
 end
 
 -- Delete Annotation from server (DELETE /api/annotations/:id.json)
+
+-- Delete Entry from server (DELETE /api/entries/:id.json)
+function Api.deleteEntry(server_url, auth_token, entry_id)
+    server_url = Api.normalizeUrl(server_url)
+    local url = server_url .. "/api/entries/" .. tostring(entry_id) .. ".json"
+
+    return Api.request{
+        url = url,
+        method = "DELETE",
+        token = auth_token,
+        timeout = 15,
+    }
+end
+
 function Api.deleteAnnotation(server_url, auth_token, annotation_id)
     server_url = Api.normalizeUrl(server_url)
     local url = server_url .. "/api/annotations/" .. annotation_id .. ".json"
