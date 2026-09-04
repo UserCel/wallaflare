@@ -33,7 +33,7 @@ local Annotations = package.loaded["annotations"] or dofile(plugin_dir .. "/anno
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
     is_doc_only = false,
-    version = "1.0.2",
+    version = "1.0.3",
 }
 
 local function getPluginDir()
@@ -1002,6 +1002,7 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
         if data.sync_rev then self.settings.sync_rev = data.sync_rev end
         self:pruneOrphanArticleRevs(download_dir)
         Store:saveSettings()
+        self:refreshFileManager()
 
         local parts = {}
         if remote_archived_count > 0 then
@@ -1221,13 +1222,24 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
 end
 
 function Wallaflare:refreshFileManager()
-    if FileManager.instance then
-        if FileManager.instance.onRefresh then
-            FileManager.instance:onRefresh()
-        elseif FileManager.instance.reinit then
-            FileManager.instance:reinit()
+    pcall(function()
+        if self.ui and self.ui.file_chooser and self.ui.file_chooser.refreshPath then
+            self.ui.file_chooser:refreshPath()
         end
-    end
+        if FileManager and FileManager.instance and FileManager.instance.file_chooser and FileManager.instance.file_chooser.refreshPath then
+            FileManager.instance.file_chooser:refreshPath()
+        end
+        if UIManager and UIManager.nextTick then
+            UIManager:nextTick(function()
+                if self.ui and self.ui.file_chooser and self.ui.file_chooser.refreshPath then
+                    pcall(function() self.ui.file_chooser:refreshPath() end)
+                end
+                if UIManager.forceRePaint then
+                    UIManager:forceRePaint()
+                end
+            end)
+        end
+    end)
 end
 
 function Wallaflare:onReaderReady()

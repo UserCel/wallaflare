@@ -1,3 +1,4 @@
+import { applySiteSpecificRules } from './site-rules';
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 
@@ -27,6 +28,62 @@ export function extractDomain(url: string): string {
   } catch {
     return 'direct-input';
   }
+}
+
+
+export function removeCssHiddenElements(document: any): void {
+  if (!document) return;
+  try {
+    // 1. Process internal <style> tags for hidden selectors
+    const styleTags = document.querySelectorAll('style');
+    const hiddenSelectors: string[] = [];
+
+    styleTags.forEach((styleEl: any) => {
+      const cssText = styleEl.textContent || '';
+      if (!cssText) return;
+
+      const ruleRegex = /([^{}]+)\{([^}]+)\}/g;
+      let match;
+      while ((match = ruleRegex.exec(cssText)) !== null) {
+        const rawSelector = match[1].trim();
+        const body = match[2].toLowerCase();
+
+        const isHidden = 
+          /display\s*:\s*none/.test(body) || 
+          /visibility\s*:\s*hidden/.test(body) || 
+          /font-size\s*:\s*0(?:px|em|rem|pt|%)?/.test(body) ||
+          /opacity\s*:\s*0(?:\.0+)?(?:\s|;|$)/.test(body) ||
+          /max-height\s*:\s*0(?:px)?/.test(body) ||
+          /height\s*:\s*0(?:px)?(?:\s|;|$)/.test(body);
+
+        if (isHidden && rawSelector) {
+          rawSelector.split(',').forEach(sel => {
+            const trimmed = sel.trim();
+            if (trimmed && !trimmed.startsWith('@') && !trimmed.includes(':') && !trimmed.includes('>') && /^[.#a-zA-Z0-9_-]+$/.test(trimmed)) {
+              hiddenSelectors.push(trimmed);
+            }
+          });
+        }
+      }
+    });
+
+    for (const selector of hiddenSelectors) {
+      try {
+        document.querySelectorAll(selector).forEach((el: any) => el.remove());
+      } catch {}
+    }
+
+    // 2. Remove elements with inline hidden styles
+    document.querySelectorAll('[style]').forEach((el: any) => {
+      const inlineStyle = (el.getAttribute('style') || '').toLowerCase();
+      if (/display\s*:\s*none/.test(inlineStyle) || /visibility\s*:\s*hidden/.test(inlineStyle) || /font-size\s*:\s*0(?:px|em|rem|pt)?/.test(inlineStyle)) {
+        el.remove();
+      }
+    });
+
+    // 3. Remove elements with HTML hidden attribute
+    document.querySelectorAll('[hidden]').forEach((el: any) => el.remove());
+  } catch {}
 }
 
 export function sanitizeArticleDom(doc: any): void {
@@ -172,10 +229,13 @@ export function parseHtmlIsomorphic(html: string): { document: any } {
 }
 
 export function extractArticleFromDom(document: any, originalUrl?: string, rawHtmlFallback?: string): ExtractedArticle {
+  const domainName = originalUrl ? extractDomain(originalUrl) : 'direct-input';
   if (originalUrl) {
     resolveRelativeUrls(document, originalUrl);
   }
   preserveSemanticInlineFormatting(document);
+  removeCssHiddenElements(document);
+  applySiteSpecificRules(document, domainName);
 
   // Extract meta tags for fallback/preview
   const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
@@ -286,8 +346,6 @@ export function extractArticleFromDom(document: any, originalUrl?: string, rawHt
   } catch (err) {
     parsed = null;
   }
-
-  const domainName = originalUrl ? extractDomain(originalUrl) : 'direct-input';
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
   const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
   let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || rawHtmlFallback || ''}</p>`;
@@ -298,6 +356,7 @@ export function extractArticleFromDom(document: any, originalUrl?: string, rawHt
       if (originalUrl) {
         resolveRelativeUrls(contentDoc, originalUrl);
       }
+      applySiteSpecificRules(contentDoc, domainName);
       sanitizeArticleDom(contentDoc);
       content = contentDoc.body ? contentDoc.body.innerHTML : content;
 
