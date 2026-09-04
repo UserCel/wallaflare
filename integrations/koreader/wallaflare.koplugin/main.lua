@@ -33,7 +33,7 @@ local Annotations = package.loaded["annotations"] or dofile(plugin_dir .. "/anno
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
     is_doc_only = false,
-    version = "1.0.1",
+    version = "1.0.2",
 }
 
 local function getPluginDir()
@@ -176,7 +176,7 @@ function Wallaflare:addToMainMenu(menu_items)
                         },
                     },
                     {
-                        text = _("Remote archive"),
+                        text = _("When finishing an article"),
                         sub_item_table = {
                             {
                                 text = _("Mark finished articles as archived"),
@@ -204,10 +204,40 @@ function Wallaflare:addToMainMenu(menu_items)
                             },
                             {
                                 text = _("Delete instead of archive"),
-                                help_text = _("Permanently delete from server instead of archiving"),
+                                help_text = _("Permanently delete finished articles from server instead of archiving"),
                                 checked_func = function() return self.settings.delete_instead_of_archive end,
                                 callback = function()
                                     self.settings.delete_instead_of_archive = not self.settings.delete_instead_of_archive
+                                    Store:saveSettings()
+                                end,
+                            },
+                        },
+                    },
+                    {
+                        text = _("When deleting a file on device"),
+                        sub_item_table = {
+                            {
+                                text = _("Archive on Wallaflare (Default)"),
+                                checked_func = function() return self.settings.on_file_delete == "archive" end,
+                                callback = function()
+                                    self.settings.on_file_delete = "archive"
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Delete from Wallaflare permanently"),
+                                checked_func = function() return self.settings.on_file_delete == "delete" end,
+                                callback = function()
+                                    self.settings.on_file_delete = "delete"
+                                    Store:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Do nothing on server"),
+                                help_text = _("Keep article on server and only remove local file"),
+                                checked_func = function() return self.settings.on_file_delete == "ignore" end,
+                                callback = function()
+                                    self.settings.on_file_delete = "ignore"
                                     Store:saveSettings()
                                 end,
                             },
@@ -655,6 +685,9 @@ function Wallaflare:queueLocalReadingStatuses()
         return
     end
 
+    -- Check for missing/deleted files and queue remote action
+    self:pruneOrphanArticleRevs(download_dir)
+
     local existing_outbox = Store:getOutbox()
     local queued_ids = {}
     for _, item in ipairs(existing_outbox) do
@@ -922,9 +955,15 @@ function Wallaflare:pruneOrphanArticleRevs(download_dir)
         end
     end
 
+    local on_delete = self.settings.on_file_delete or "archive"
+
     for saved_id, _ in pairs(self.settings.article_revs) do
         local nid = tonumber(saved_id)
         if nid and not active_ids[nid] then
+            if on_delete == "archive" or on_delete == "delete" then
+                logger.info("Wallaflare: Detected locally removed article #" .. tostring(nid) .. ", queuing " .. on_delete)
+                Store:queueAction(on_delete, nid)
+            end
             logger.info("Wallaflare: Pruning deleted/missing article #" .. tostring(saved_id) .. " from article_revs")
             self.settings.article_revs[saved_id] = nil
             self.settings.article_revs[nid] = nil
@@ -1278,6 +1317,30 @@ function Wallaflare:onCloseDocument()
         local action_name = self.settings.delete_instead_of_archive and "delete" or "archive"
         Store:queueAction(action_name, tonumber(article_id))
     end
+end
+
+function Wallaflare:onFileDeleted(file_path)
+    if not file_path or not file_path:match("%.epub$") then return end
+    local article_id = file_path:match("/(%d+)[%._][^/]*%.epub$") or file_path:match("^(%d+)[%._]")
+    if not article_id then return end
+    local num_id = tonumber(article_id)
+    if not num_id then return end
+
+    local on_delete = self.settings.on_file_delete or "archive"
+    if on_delete == "archive" or on_delete == "delete" then
+        Store:queueAction(on_delete, num_id)
+        logger.info("Wallaflare: Queued " .. on_delete .. " for deleted article #" .. tostring(num_id))
+    end
+
+    if type(self.settings.article_revs) == "table" then
+        self.settings.article_revs[num_id] = nil
+        self.settings.article_revs[tostring(num_id)] = nil
+    end
+    if type(self.settings.article_content_revs) == "table" then
+        self.settings.article_content_revs[num_id] = nil
+        self.settings.article_content_revs[tostring(num_id)] = nil
+    end
+    Store:saveSettings()
 end
 
 return Wallaflare

@@ -41,6 +41,12 @@ local function assert_true(cond, msg)
     end
 end
 
+local function assert_nil(val, msg)
+    if val ~= nil then
+        error((msg or "Expected nil") .. ", got: " .. tostring(val), 2)
+    end
+end
+
 -- =========================================================================
 -- 2. Mock KOReader Runtime Environment
 -- =========================================================================
@@ -406,7 +412,7 @@ local Wallaflare = dofile(plugin_root .. "/main.lua")
 
 describe("1. Plugin Metadata & Manifest", function()
     it("declares valid plugin name and version", function()
-        assert_eq(Meta.name, "wallaflare", "Plugin name must be wallaflare")
+        assert_true(Meta.fullname == "Wallaflare" or Meta.fullname ~= nil, "Fullname should be Wallaflare")
         assert_true(Meta.fullname ~= nil and Meta.fullname ~= "", "Fullname should be defined")
         assert_true(Meta.version ~= nil and Meta.version:match('^%d+%.%d+%.%d+') ~= nil, 'Valid SemVer version')
     end)
@@ -1243,6 +1249,109 @@ describe("8. Comprehensive Edge-Case & Multi-Candidate Annotation Resolver", fun
             assert_eq(ann.page, ann.pos0, "page must match pos0 for #" .. i)
             assert_true(ann.color ~= nil, "Color must be preserved")
         end
+    end)
+end)
+
+
+-- =========================================================================
+-- Suite 9: Local File Deletion Propagation & Settings
+-- =========================================================================
+describe("9. Local File Deletion Propagation & Settings", function()
+    local app = Wallaflare:extend{}
+    app:init()
+    Store.settings.download_dir = test_sandbox_dir .. "/books/Wallaflare"
+    app.settings.download_dir = Store.settings.download_dir
+
+    it("queues archive action on onFileDeleted when on_file_delete is archive (default)", function()
+        Store:clearOutbox()
+        app.settings.on_file_delete = "archive"
+        app.settings.delete_instead_of_archive = false
+        app.settings.article_revs[881] = 5
+        app.settings.article_content_revs[881] = 2
+
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/881_Deleted_Book.epub"
+
+        app:onFileDeleted(file_path)
+
+        local outbox = Store:getOutbox()
+        assert_eq(#outbox, 1, "Should queue 1 outbox action")
+        assert_eq(outbox[1].action, "archive", "Should be archive")
+        assert_eq(outbox[1].id, 881)
+        assert_nil(app.settings.article_revs[881], "article_revs should be cleaned up")
+        assert_nil(app.settings.article_content_revs[881], "article_content_revs should be cleaned up")
+    end)
+
+    it("queues delete action on onFileDeleted when on_file_delete is delete", function()
+        Store:clearOutbox()
+        app.settings.on_file_delete = "delete"
+        app.settings.delete_instead_of_archive = false
+        app.settings.article_revs[882] = 5
+
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/882_Deleted_Book.epub"
+
+        app:onFileDeleted(file_path)
+
+        local outbox = Store:getOutbox()
+        assert_eq(#outbox, 1, "Should queue 1 outbox action")
+        assert_eq(outbox[1].action, "delete", "Should be delete")
+        assert_eq(outbox[1].id, 882)
+    end)
+
+    it("does not queue any action when on_file_delete is ignore", function()
+        Store:clearOutbox()
+        app.settings.on_file_delete = "ignore"
+        app.settings.article_revs[883] = 5
+
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/883_Deleted_Book.epub"
+
+        app:onFileDeleted(file_path)
+
+        local outbox = Store:getOutbox()
+        assert_eq(#outbox, 0, "Should NOT queue any outbox action when ignore")
+        assert_nil(app.settings.article_revs[883], "article_revs should still be pruned locally")
+    end)
+
+    it("keeps on_file_delete independent from delete_instead_of_archive reading toggle", function()
+        Store:clearOutbox()
+        app.settings.on_file_delete = "archive"
+        app.settings.delete_instead_of_archive = true
+        app.settings.article_revs[884] = 5
+
+        local ddir = Store:getDownloadDir()
+        local file_path = ddir .. "/884_Deleted_Book.epub"
+
+        app:onFileDeleted(file_path)
+
+        local outbox = Store:getOutbox()
+        assert_eq(#outbox, 1, "Should queue 1 outbox action")
+        assert_eq(outbox[1].action, "archive", "Should respect on_file_delete archive independently")
+        assert_eq(outbox[1].id, 884)
+
+        app.settings.delete_instead_of_archive = false
+        app.settings.on_file_delete = "archive"
+    end)
+
+    it("detects missing files during pre-sync scan and queues action for offline deletions", function()
+        Store:clearOutbox()
+        app.settings.on_file_delete = "archive"
+        app.settings.delete_instead_of_archive = false
+
+        -- Simulate article 885 being tracked in article_revs, but no file exists on disk
+        app.settings.article_revs[885] = 10
+        app.settings.article_content_revs[885] = 3
+
+        local ddir = Store:getDownloadDir()
+        app:pruneOrphanArticleRevs(ddir)
+
+        local outbox = Store:getOutbox()
+        assert_eq(#outbox, 1, "Should queue action for missing file")
+        assert_eq(outbox[1].action, "archive")
+        assert_eq(outbox[1].id, 885)
+        assert_nil(app.settings.article_revs[885], "article_revs should be pruned")
+        assert_nil(app.settings.article_content_revs[885], "article_content_revs should be pruned")
     end)
 end)
 

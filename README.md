@@ -131,7 +131,7 @@ Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaf
 
 - ⚡ **Revision-Based Delta Sync**: Queries `/api/sync.json` with `since_rev` for sub-second, battery-friendly sync checks.
 - 🖍️ **Bi-Directional Highlight & Note Sync**: Highlights, notes, and colors created on either KOReader or the web dashboard sync with 100% fidelity, using native KOReader DOM anchor resolution and true **Last-Write-Wins** conflict handling.
-- 🏷️ **Remote Archive Automation**: Automatically archives (or deletes) articles on Wallaflare when marked finished in KOReader, when reaching 100% reading progress, or when set on hold.
+- 🏷️ **Remote Archive & Deletion Automation**: Automatically archives (or deletes) articles on Wallaflare when marked finished in KOReader, when reaching 100% reading progress, when set on hold, or when deleting the local file in KOReader.
 - 🗑️ **Smart Sync-Filter Auto-Deletion**: Prunes archived or unstarred articles according to your active Sync Filter (*Unread only*, *Starred only*, or *All articles*), with automatic full reconciliation when switching filters.
 - 🔄 **In-App Over-The-Air (OTA) Updates**: One-tap self-updating directly from KOReader settings with zero manual file transfers.
 

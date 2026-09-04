@@ -35,6 +35,7 @@ local DEFAULT_SETTINGS = {
     archive_finished = true,   -- Mark finished articles as read
     archive_read = false,      -- Mark 100% read articles as read (default: false)
     archive_abandoned = false, -- Mark articles on hold as read
+    on_file_delete = "archive", -- "archive", "delete", "ignore"
     delete_instead_of_archive = false, -- Permanently delete on server instead of archiving
     instance_id = nil,
     sync_rev = 0,
@@ -76,6 +77,9 @@ function Store:loadSettings()
     end
     if type(self.settings.article_content_revs) ~= "table" then
         self.settings.article_content_revs = {}
+    end
+    if self.settings.on_file_delete ~= "archive" and self.settings.on_file_delete ~= "delete" and self.settings.on_file_delete ~= "ignore" then
+        self.settings.on_file_delete = "archive"
     end
     return self.settings
 end

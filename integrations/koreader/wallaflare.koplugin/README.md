@@ -9,9 +9,10 @@ Official KOReader integration for **Wallaflare** — bringing ultra-fast revisio
 - ⚡ **Revision-Based Delta Sync**: Queries `/api/sync.json` with `since_rev` for sub-second, battery-friendly sync checks.
 - 🖍️ **Bi-Directional Highlight & Note Sync**: Highlights, notes, and colors created on either KOReader or the web dashboard sync with 100% fidelity, using native KOReader DOM anchor resolution and true **Last-Write-Wins** conflict handling.
 - 📦 **Book-Grade EPUBs**: Downloads clean, styled EPUB 3 articles with cover images from `/api/entries/:id/export.epub`.
-- 🏷️ **Remote Archive Automation**:
+- 🏷️ **Remote Archive & Deletion Automation**:
   - Automatically archives articles on Wallaflare when marked finished in KOReader.
   - Optional auto-archive on reaching 100% reading progress or setting status to on hold.
+  - **Local File Deletion Sync**: Deleting a book in KOReader automatically propagates to Wallaflare (configurable: *Archive on server*, *Delete from server*, or *Do nothing*).
   - Optional *Delete instead of archive* mode for disposable reading queues.
 - 🗑️ **Smart Sync-Filter Auto-Deletion**:
   - **Unread only**: Automatically prunes local `.epub` files and `.sdr` sidecars when articles are archived on Wallaflare.
