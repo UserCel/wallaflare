@@ -340,8 +340,8 @@ function Wallaflare:editServerSettings()
             },
             {
                 text = self.settings.auth_token or "",
-                description = _("API Token (AUTH_TOKEN, or READ_TOKEN for read-only):"),
-                hint = "AUTH_TOKEN or READ_TOKEN",
+                description = _("API Token (AUTH_TOKEN):"),
+                hint = "AUTH_TOKEN",
                 text_type = "password",
             },
         },

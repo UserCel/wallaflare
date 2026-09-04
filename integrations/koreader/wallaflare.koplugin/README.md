@@ -42,7 +42,7 @@ Official KOReader integration for **Wallaflare** — bringing ultra-fast revisio
    https://<your-subdomain>.workers.dev
    ```
 3. Set your **API Token**:
-   - Enter your dedicated `READ_TOKEN` or master `AUTH_TOKEN`.
+   - Enter your master `AUTH_TOKEN` (required for REST API and 2-way sync).
 4. Choose your **Download folder**:
    - Select where your downloaded EPUBs will be stored (e.g. `/Books/Wallaflare`).
 5. Configure your **Sync Filter & Remote Archive** preferences:

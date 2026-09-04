@@ -108,6 +108,24 @@ Your instance is now live worldwide! 🎉
 
 ## 📱 Client Setup Guide
 
+### 📱 Native Android App (Capacitor & OTA Updates)
+Wallaflare includes a native Android app wrapper with system share sheet integration, native file sharing, and automatic Over-The-Air (OTA) web bundle updates:
+
+- **Build Debug APK**:
+  ```bash
+  npm run build:apk
+  ```
+- **Build Release APK**:
+  ```bash
+  npm run build:apk:release
+  ```
+- **Deploy Web & Push OTA Update**:
+  ```bash
+  npm run deploy
+  ```
+
+---
+
 ### 📖 Native KOReader Plugin (Kindle, Kobo, Android, Linux)
 Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaflare.koplugin/README.md)** (`wallaflare.koplugin`) engineered specifically for e-ink e-readers with battery-saving delta sync, bi-directional annotations, and seamless reading workflow automation:
 
@@ -126,7 +144,7 @@ Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaf
 3. **Configure**:
    - In KOReader, open **Tools > Wallaflare > Settings**:
      - **Server URL**: `https://<your-subdomain>.workers.dev`
-     - **API Token**: Your `READ_TOKEN` (or master `AUTH_TOKEN`)
+     - **API Token**: Your master `AUTH_TOKEN` (required for 2-way sync and REST API access)
      - **Download Folder**: Choose where EPUBs are stored (e.g. `/Books/Wallaflare`)
      - **Sync Filter & Remote Archive**: Set your reading queue and auto-archive preferences.
 4. **Sync**:
@@ -195,25 +213,6 @@ Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies:
 1. Open **Wallabagger Settings**.
 2. Enter your instance URL (`https://<your-subdomain>.workers.dev`).
 3. Click **Check URL / Connect** and sign in with your `AUTH_TOKEN`.
-
----
-
-## 📦 Native Android App (Capacitor & OTA Updates)
-
-Wallaflare includes a native Android app wrapper with system share sheet integration, native file sharing, and automatic Over-The-Air (OTA) web bundle updates:
-
-- **Build Debug APK**:
-  ```bash
-  npm run build:apk
-  ```
-- **Build Release APK**:
-  ```bash
-  npm run build:apk:release
-  ```
-- **Deploy Web & Push OTA Update**:
-  ```bash
-  npm run deploy
-  ```
 
 ---
 
