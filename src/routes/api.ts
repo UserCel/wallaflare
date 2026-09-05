@@ -6,6 +6,9 @@ import {
   getEntries,
   getEntryById,
   getEntryByUrl,
+  checkEntriesExistByHashes,
+  checkEntriesExistByUrls,
+  sha1Hex,
   createEntry,
   updateEntry,
   deleteEntry,
@@ -514,6 +517,8 @@ apiRouter.delete('/api/tags/:id.json', authMiddleware, deleteGlobalTagHandler);
 const getEntryTagsHandler = async (c: any) => {
   const id = Number(c.req.param('id').replace(/\.json$/, ''));
   if (isNaN(id)) return c.json({ error: 'Invalid Entry ID' }, 400);
+  const entry = await getEntryById(c.env.DB, id);
+  if (!entry) return c.json({ error: 'Entry not found' }, 404);
   const tags = await getEntryTags(c.env.DB, id);
   return c.json(tags);
 };
@@ -557,29 +562,71 @@ apiRouter.delete('/api/entries/:id/tags/:tag', authMiddleware, deleteEntryTagHan
 apiRouter.delete('/api/entries/:id/tags/:tag.json', authMiddleware, deleteEntryTagHandler);
 
 // -------------------------------------------------------------
-// Check If Article Exists
+// Check If Article Exists (conforms to Wallabag EntryRestController)
 // -------------------------------------------------------------
 const checkExistsHandler = async (c: any) => {
-  const query = c.req.query();
-  const url = query.url || query['urls[]'] || query.urls;
+  const urlObj = new URL(c.req.url);
+  const returnId = urlObj.searchParams.get('return_id') === '1' || urlObj.searchParams.get('return_id') === 'true';
 
-  if (!url) {
-    return c.json(false);
+  let hashedUrls: string[] = urlObj.searchParams.getAll('hashed_urls[]').concat(urlObj.searchParams.getAll('hashed_urls'));
+  const hashedUrl = urlObj.searchParams.get('hashed_url');
+  if (hashedUrl) {
+    hashedUrls.push(hashedUrl);
   }
 
-  // If array of URLs requested
-  if (Array.isArray(url)) {
-    const results: Record<string, boolean> = {};
-    for (const u of url) {
-      const existing = await getEntryByUrl(c.env.DB, u);
-      results[u] = Boolean(existing);
+  const urls: string[] = urlObj.searchParams.getAll('urls[]').concat(urlObj.searchParams.getAll('urls'));
+  const url = urlObj.searchParams.get('url');
+  if (url) {
+    urls.push(url);
+  }
+
+  const urlHashMap: Record<string, string> = {};
+  for (const u of urls) {
+    const hash = sha1Hex(u);
+    hashedUrls.push(hash);
+    urlHashMap[hash] = u;
+  }
+
+  if (hashedUrls.length === 0) {
+    return c.json({ error: 'URL is empty' }, 400);
+  }
+
+  // Fetch all existing entry URLs from D1 to match hashes & IDs
+  const allRows = await c.env.DB.prepare('SELECT id, url FROM entries').all<{ id: number; url: string }>();
+  const dbEntries = allRows.results || [];
+
+  const dbHashMap = new Map<string, number>();
+  for (const row of dbEntries) {
+    if (row.url) {
+      dbHashMap.set(sha1Hex(row.url).toLowerCase(), row.id);
     }
-    return c.json(results);
   }
 
-  // Single URL query (standard Wallabag API returns JSON boolean)
-  const existing = await getEntryByUrl(c.env.DB, String(url));
-  return c.json(Boolean(existing));
+  const results: Record<string, any> = {};
+  for (const h of hashedUrls) {
+    const entryId = dbHashMap.get(h.toLowerCase());
+    if (returnId) {
+      results[h] = entryId !== undefined ? entryId : null;
+    } else {
+      results[h] = entryId !== undefined;
+    }
+  }
+
+  // Replace hashed URL keys with original raw URL strings where appropriate
+  for (const [hash, rawUrl] of Object.entries(urlHashMap)) {
+    if (results[hash] !== undefined) {
+      results[rawUrl] = results[hash];
+      delete results[hash];
+    }
+  }
+
+  // If single url or single hashed_url was queried, return {"exists": ...}
+  if (url || hashedUrl) {
+    const firstKey = Object.keys(results)[0];
+    return c.json({ exists: results[firstKey] });
+  }
+
+  return c.json(results);
 };
 
 apiRouter.get('/api/entries/exists', authMiddleware, checkExistsHandler);
@@ -1187,14 +1234,22 @@ const deleteEntryHandler = async (c: any) => {
     return c.json({ error: 'Invalid ID' }, 400);
   }
 
+  const expectId = c.req.query('expect') === 'id';
   const existing = await getEntryById(c.env.DB, id);
   if (!existing) {
+    if (expectId) {
+      return c.json({ id });
+    }
     return c.json({ error: 'Entry not found' }, 404);
   }
 
   const success = await deleteEntry(c.env.DB, id);
   if (!success) {
     return c.json({ error: 'Failed to delete entry' }, 500);
+  }
+
+  if (expectId) {
+    return c.json({ id });
   }
 
   return c.json(entryRowToWallabag(existing));

@@ -120,6 +120,76 @@ function formatRfc3339(d?: string | null): string {
   return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
+export function sha1Hex(str: string): string {
+  const utf8 = new TextEncoder().encode(str);
+  const words: number[] = [];
+  for (let i = 0; i < utf8.length; i++) {
+    words[i >> 2] = (words[i >> 2] || 0) | (utf8[i] << (24 - (i % 4) * 8));
+  }
+
+  const bitLength = utf8.length * 8;
+  words[bitLength >> 5] = (words[bitLength >> 5] || 0) | (0x80 << (24 - (bitLength % 32)));
+  words[(((bitLength + 64) >> 9) << 4) + 15] = bitLength;
+
+  let h0 = 0x67452301;
+  let h1 = 0xefcdab89;
+  let h2 = 0x98badcfe;
+  let h3 = 0x10325476;
+  let h4 = 0xc3d2e1f0;
+
+  const w: number[] = new Array(80);
+
+  for (let i = 0; i < words.length; i += 16) {
+    for (let j = 0; j < 16; j++) {
+      w[j] = words[i + j] || 0;
+    }
+    for (let j = 16; j < 80; j++) {
+      const n = w[j - 3] ^ w[j - 8] ^ w[j - 14] ^ w[j - 16];
+      w[j] = (n << 1) | (n >>> 31);
+    }
+
+    let a = h0;
+    let b = h1;
+    let c = h2;
+    let d = h3;
+    let e = h4;
+
+    for (let j = 0; j < 80; j++) {
+      let f: number;
+      let k: number;
+      if (j < 20) {
+        f = (b & c) | (~b & d);
+        k = 0x5a827999;
+      } else if (j < 40) {
+        f = b ^ c ^ d;
+        k = 0x6ed9eba1;
+      } else if (j < 60) {
+        f = (b & c) | (b & d) | (c & d);
+        k = 0x8f1bbcdc;
+      } else {
+        f = b ^ c ^ d;
+        k = 0xca62c1d6;
+      }
+
+      const temp = (((a << 5) | (a >>> 27)) + f + e + k + (w[j] || 0)) | 0;
+      e = d;
+      d = c;
+      c = (b << 30) | (b >>> 2);
+      b = a;
+      a = temp;
+    }
+
+    h0 = (h0 + a) | 0;
+    h1 = (h1 + b) | 0;
+    h2 = (h2 + c) | 0;
+    h3 = (h3 + d) | 0;
+    h4 = (h4 + e) | 0;
+  }
+
+  const toHex = (n: number) => (n >>> 0).toString(16).padStart(8, "0");
+  return `${toHex(h0)}${toHex(h1)}${toHex(h2)}${toHex(h3)}${toHex(h4)}`;
+}
+
 export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): WallabagEntry {
   const createdAt = formatRfc3339(row?.created_at);
   const updatedAt = formatRfc3339(row?.updated_at);
@@ -162,13 +232,15 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
       }))
     : [];
 
+  const hashedUrl = row?.url ? sha1Hex(row.url) : null;
+
   return {
     id: row?.id || 0,
     title: row?.title || 'Untitled',
     url: row?.url || '',
-    hashed_url: null,
+    hashed_url: hashedUrl,
     given_url: row?.url || null,
-    hashed_given_url: null,
+    hashed_given_url: hashedUrl,
     content: row?.content || '',
     is_archived: row?.is_archived ? 1 : 0,
     archived_at: row?.is_archived ? updatedAt : null,
@@ -662,6 +734,57 @@ export async function getEntryByUrl(db: D1Database, url: string): Promise<EntryR
     (entry as any).annotations = await getEntryAnnotations(db, entry.id);
   }
   return entry;
+}
+
+export async function checkEntriesExistByHashes(
+  db: D1Database,
+  hashes: string[]
+): Promise<Record<string, boolean>> {
+  const result: Record<string, boolean> = {};
+  if (!hashes || hashes.length === 0) {
+    return result;
+  }
+  for (const h of hashes) {
+    result[h] = false;
+  }
+
+  const hashSet = new Set(hashes.map(h => h.toLowerCase()));
+  const rows = await db.prepare('SELECT url FROM entries').all<{ url: string }>();
+  if (rows.results) {
+    for (const row of rows.results) {
+      if (row.url) {
+        const h = sha1Hex(row.url).toLowerCase();
+        if (hashSet.has(h)) {
+          for (const orig of hashes) {
+            if (orig.toLowerCase() === h) {
+              result[orig] = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+export async function checkEntriesExistByUrls(
+  db: D1Database,
+  urls: string[]
+): Promise<Record<string, boolean>> {
+  const result: Record<string, boolean> = {};
+  if (!urls || urls.length === 0) {
+    return result;
+  }
+  for (const u of urls) {
+    result[u] = false;
+  }
+
+  const rows = await db.prepare('SELECT url FROM entries').all<{ url: string }>();
+  const dbUrlSet = new Set((rows.results || []).map(r => r.url));
+  for (const u of urls) {
+    result[u] = dbUrlSet.has(u);
+  }
+  return result;
 }
 
 export async function createEntry(

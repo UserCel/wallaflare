@@ -412,21 +412,44 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     // 1. Not found -> returns false
     const notFoundRes = await app.request('/api/entries/exists.json?url=https://example.com/notfound', {}, { DB: mockDb });
     expect(notFoundRes.status).toBe(200);
-    expect(await notFoundRes.json()).toBe(false);
+    expect(await notFoundRes.json()).toEqual({ exists: false });
 
     // 2. Create article
-    await app.request('/api/entries.json', {
+    const createRes = await app.request('/api/entries.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'https://example.com/exists-check', title: 'Exists Test' })
     }, { DB: mockDb });
+    const createdItem = await createRes.json<any>();
+    expect(createdItem.hashed_url).toBeDefined();
+    expect(typeof createdItem.hashed_url).toBe('string');
+    const hash = createdItem.hashed_url;
 
-    // 3. Found -> returns true
+    // 3. Found via raw URL -> returns true
     const foundRes = await app.request('/api/entries/exists.json?url=https://example.com/exists-check', {}, { DB: mockDb });
     expect(foundRes.status).toBe(200);
-    expect(await foundRes.json()).toBe(true);
+    expect(await foundRes.json()).toEqual({ exists: true });
 
-    // 4. Duplicate prevention with title & content (Wallabagger browser mode)
+    // 4. Found via hashed_url -> returns true
+    const hashRes = await app.request(`/api/entries/exists.json?hashed_url=${hash}`, {}, { DB: mockDb });
+    expect(hashRes.status).toBe(200);
+    expect(await hashRes.json()).toEqual({ exists: true });
+
+    // 5. Multi-hash sweep check (Wallabag app "sweep deleted articles")
+    const sweepRes = await app.request(`/api/entries/exists.json?hashed_urls[]=${hash}&hashed_urls[]=deadbeef1234`, {}, { DB: mockDb });
+    expect(sweepRes.status).toBe(200);
+    const sweepData = await sweepRes.json<any>();
+    expect(sweepData[hash]).toBe(true);
+    expect(sweepData['deadbeef1234']).toBe(false);
+
+    // 6. Multi-URL check
+    const multiUrlRes = await app.request('/api/entries/exists.json?urls[]=https://example.com/exists-check&urls[]=https://example.com/missing', {}, { DB: mockDb });
+    expect(multiUrlRes.status).toBe(200);
+    const multiUrlData = await multiUrlRes.json<any>();
+    expect(multiUrlData['https://example.com/exists-check']).toBe(true);
+    expect(multiUrlData['https://example.com/missing']).toBe(false);
+
+    // 7. Duplicate prevention with title & content (Wallabagger browser mode)
     const dupRes = await app.request('/api/entries.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
