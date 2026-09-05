@@ -363,18 +363,38 @@ export async function generateEpub(article: EpubArticleInput): Promise<Uint8Arra
 </container>`;
 
   // 4. CoverPage CSS
-  const coverCss = `@page, body, div, img {
-	padding: 0pt;
-	margin: 0pt;
+  const coverCss = `@page {
+  padding: 0;
+  margin: 0;
 }
-body {
-	text-align: center;
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+.cover-wrapper {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+svg {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
 }
 img.cover-img {
-	height: 100%;
-	max-height: 100vh;
-	max-width: 100%;
-	object-fit: contain;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0 auto;
+  padding: 0;
+  display: block;
 }`;
 
   // 5. Article Content CSS
@@ -496,13 +516,16 @@ blockquote {
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
   <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
-  <title>Cover Image</title>
+  <title>Cover</title>
   <link type="text/css" rel="stylesheet" href="Styles/CoverPage.css"/>
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0"/>
 </head>
-<body>
-  <section epub:type="cover">
-    <img src="images/${coverFilename}" alt="Cover image" class="cover-img"/>
-  </section>
+<body class="cover-body">
+  <div class="cover-wrapper" epub:type="cover">
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 1000 1500" preserveAspectRatio="xMidYMid meet">
+      <image width="1000" height="1500" xlink:href="images/${coverFilename}"/>
+    </svg>
+  </div>
 </body>
 </html>` : '';
 

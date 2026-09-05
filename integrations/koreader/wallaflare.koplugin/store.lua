@@ -41,6 +41,8 @@ local DEFAULT_SETTINGS = {
     sync_rev = 0,
     outbox = {},
     article_revs = {},
+    article_content_revs = {},
+    article_annotation_ids = {},
 }
 
 function Store:loadSettings()
@@ -139,11 +141,51 @@ function Store:clearOutbox()
     self:saveSettings()
 end
 
+function Store:getArticleAnnotationIds(article_id)
+    if not article_id then return {} end
+    local str_id = tostring(article_id)
+    return (self.settings.article_annotation_ids and self.settings.article_annotation_ids[str_id]) or {}
+end
+
+function Store:setArticleAnnotationIds(article_id, ids_map)
+    if not article_id then return end
+    local str_id = tostring(article_id)
+    if type(self.settings.article_annotation_ids) ~= "table" then
+        self.settings.article_annotation_ids = {}
+    end
+    self.settings.article_annotation_ids[str_id] = ids_map or {}
+    self:saveSettings()
+end
+
+function Store:addArticleAnnotationId(article_id, annotation_id)
+    if not article_id or not annotation_id then return end
+    local str_id = tostring(article_id)
+    if type(self.settings.article_annotation_ids) ~= "table" then
+        self.settings.article_annotation_ids = {}
+    end
+    if type(self.settings.article_annotation_ids[str_id]) ~= "table" then
+        self.settings.article_annotation_ids[str_id] = {}
+    end
+    self.settings.article_annotation_ids[str_id][tostring(annotation_id)] = true
+    self:saveSettings()
+end
+
+function Store:removeArticleAnnotationId(article_id, annotation_id)
+    if not article_id or not annotation_id then return end
+    local str_id = tostring(article_id)
+    if self.settings.article_annotation_ids and self.settings.article_annotation_ids[str_id] then
+        self.settings.article_annotation_ids[str_id][tostring(annotation_id)] = nil
+        self.settings.article_annotation_ids[str_id][tonumber(annotation_id)] = nil
+        self:saveSettings()
+    end
+end
+
 function Store:resetSyncState()
     self.settings.instance_id = nil
     self.settings.sync_rev = 0
     self.settings.article_revs = {}
     self.settings.article_content_revs = {}
+    self.settings.article_annotation_ids = {}
     self.settings.outbox = {}
     self:saveSettings()
 end

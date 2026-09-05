@@ -643,7 +643,41 @@ describe("4. Wallaflare Sync Engine & Auto-Pruning", function()
     Api.downloadEpub = old_download_epub
   end)
 
-  it("skips re-downloading files that already exist at current revision", function()
+  
+    it("removes outdated filename variant and migrates sdr when article title is edited", function()
+        local lfs = require("libs/libkoreader-lfs")
+        local ddir = Store:getDownloadDir()
+        local old_file = ddir .. "/502_Old_Title.epub"
+        local old_sdr = ddir .. "/502_Old_Title.sdr"
+        local f = io.open(old_file, "w")
+        if f then f:write("Old Content"); f:close() end
+        lfs.mkdir(old_sdr)
+        local meta_f = io.open(old_sdr .. "/metadata.epub.lua", "w")
+        if meta_f then meta_f:write("return { percent_finished = 0.5 }"); meta_f:close() end
+
+        app.settings.article_content_revs[502] = 1
+
+        mock_http_response = { status_code = 200, headers = {}, body = "New EPUB with New Title" }
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 20,
+            instance_id = 1,
+            entries = {
+                { id = 502, title = "New Title", revision = 12, content_revision = 2 }
+            }
+        }, 1)
+
+        local new_file = ddir .. "/502_New_Title.epub"
+        local new_sdr = ddir .. "/502_New_Title.sdr"
+
+        assert_true(io.open(new_file, "r") ~= nil, "New file variant must exist")
+        assert_nil(io.open(old_file, "r"), "Old file variant must be deleted")
+        assert_true(lfs.attributes(new_sdr, "mode") == "directory", "New .sdr directory must exist")
+        assert_nil(lfs.attributes(old_sdr, "mode"), "Old .sdr directory must be cleaned up / migrated")
+    end)
+
+    it("skips re-downloading files that already exist at current revision", function()
         mock_http_requests = {}
         app:applySyncPayload({
             up_to_date = false,
@@ -1040,6 +1074,35 @@ describe("7. Annotation & Highlight Synchronization Engine (.sdr)", function()
         assert_eq(anns[2].note, "Added a note")
     end)
 
+    it("resets xPointers to placeholder when content_rev_changed is true for re-anchoring in new DOM", function()
+        local updated_remote = {
+            {
+                id = 101,
+                quote = "A famous memorable quote.",
+                text = "Updated comment from web",
+                color = "purple",
+                target = {
+                    selector = {
+                        prefix = "prefix text before",
+                        suffix = " suffix text after"
+                    }
+                },
+                created_at = "2026-09-03 14:00:00"
+            }
+        }
+
+        Annotations:syncInbound(book_path, updated_remote, true)
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        local doc_settings = LuaSettings:open(sidecar_file)
+        local anns = doc_settings:readSetting("annotations")
+
+        assert_eq(anns[1].pos0, "/1/4/2/1:0", "Should reset pos0 to placeholder on content_revision bump")
+        assert_eq(anns[1].prefix, "prefix text before", "Should attach prefix for re-anchoring")
+        assert_eq(anns[1].suffix, "suffix text after", "Should attach suffix for re-anchoring")
+        assert_eq(anns[1].has_server_pos, false, "Should clear has_server_pos")
+        assert_eq(anns[1].needs_pos_push, true, "Should set needs_pos_push")
+    end)
+
     it("removes server-deleted annotations while preserving unsynced local highlights", function()
         -- Add a local unsynced highlight
         local _, sidecar_file = Annotations:getSidecarPaths(book_path)
@@ -1089,6 +1152,26 @@ describe("7. Annotation & Highlight Synchronization Engine (.sdr)", function()
         local doc_settings = LuaSettings:open(sidecar_file)
         local anns = doc_settings:readSetting("annotations")
         assert_eq(anns[unsynced[1].index].wallaflare_id, 103, "Should be stamped with ID 103")
+    end)
+
+    it("detects locally deleted annotations in getLocalUnsynced and cleans synced_ids upon removal", function()
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        local doc_settings = LuaSettings:open(sidecar_file)
+        local anns = doc_settings:readSetting("annotations")
+        
+        -- User deletes highlight 103 locally in KOReader
+        table.remove(anns, #anns)
+        doc_settings:saveSetting("annotations", anns)
+        doc_settings:flush()
+
+        local unsynced, updates, deleted_ids = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#deleted_ids, 1, "Should detect 1 locally deleted annotation")
+        assert_eq(deleted_ids[1], 103, "Deleted ID should be 103")
+
+        -- Clean synced ID after delete request
+        Annotations:removeSyncedId(book_path, 103)
+        local unsynced2, updates2, deleted_ids2 = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#deleted_ids2, 0, "Should have 0 pending deleted annotations after removal")
     end)
 
     it("auto-resolves xPointers on book open via document:findText", function()
@@ -1352,6 +1435,138 @@ describe("9. Local File Deletion Propagation & Settings", function()
         assert_eq(outbox[1].id, 885)
         assert_nil(app.settings.article_revs[885], "article_revs should be pruned")
         assert_nil(app.settings.article_content_revs[885], "article_content_revs should be pruned")
+    end)
+
+    it("live-reloads in-memory annotations and refreshes highlights when syncing open document", function()
+        local app = Wallaflare:extend{}
+        app:init()
+        local book_path = test_sandbox_dir .. "/999_open_book_test.epub"
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        Annotations:ensureSidecarDir(test_sandbox_dir .. "/999_open_book_test.sdr")
+
+        -- 1. Initial sidecar with 1 annotation
+        local doc_settings = LuaSettings:open(sidecar_file)
+        doc_settings:saveSetting("annotations", {
+            { wallaflare_id = 901, text = "Old annotation", note = "Old note", color = "yellow" }
+        })
+        doc_settings:flush()
+
+        -- 2. Mock active reader UI with stale in-memory annotations
+        local highlight_refreshed = false
+        app.ui = {
+            document = { file = book_path },
+            annotation = {
+                annotations = {
+                    { wallaflare_id = 901, text = "Old annotation", note = "Old note", color = "yellow" }
+                },
+                updateAnnotations = function(self, u, s) end
+            },
+            doc_settings = doc_settings,
+            highlight = {
+                onReaderReady = function() highlight_refreshed = true end
+            }
+        }
+
+        -- 3. Inbound sync writes updated annotations to disk
+        local updated_remote = {
+            { id = 901, quote = "Old annotation", text = "Edited note from web", color = "purple" },
+            { id = 902, quote = "New incoming highlight", text = "Fresh note", color = "green" }
+        }
+        Annotations:syncInbound(book_path, updated_remote)
+
+        -- 4. Trigger live reload
+        app:refreshActiveDocumentAnnotations(book_path)
+
+        -- 5. Verify in-memory annotations in active reader were updated
+        assert_eq(#app.ui.annotation.annotations, 2, "Active reader in-memory annotations must have 2 items")
+        assert_eq(app.ui.annotation.annotations[1].note, "Edited note from web")
+        assert_eq(app.ui.annotation.annotations[1].color, "purple")
+        assert_eq(app.ui.annotation.annotations[2].text, "New incoming highlight")
+        assert_true(highlight_refreshed, "Screen highlight rendering must be triggered")
+
+        -- 6. Simulate closing the document - verifying it does not overwrite with stale data
+        app:onCloseDocument()
+        local verify_settings = LuaSettings:open(sidecar_file)
+        local final_anns = verify_settings:readSetting("annotations")
+        assert_eq(#final_anns, 2, "Final annotations on disk must retain all synced items")
+        assert_eq(final_anns[1].note, "Edited note from web")
+    end)
+
+    it("flushes active document in-memory annotations and note edits to disk before sync", function()
+        local app = Wallaflare:extend{}
+        app:init()
+        local book_path = test_sandbox_dir .. "/998_flush_test.epub"
+        local _, sidecar_file = Annotations:getSidecarPaths(book_path)
+        Annotations:ensureSidecarDir(test_sandbox_dir .. "/998_flush_test.sdr")
+
+        local doc_settings = LuaSettings:open(sidecar_file)
+        doc_settings:saveSetting("annotations", {
+            { wallaflare_id = 801, text = "Original text", note = "Old note", last_synced_note = "Old note", color = "yellow", last_synced_color = "yellow" }
+        })
+        doc_settings:flush()
+
+        -- Mock active reader with an un-flushed in-memory edit
+        local in_memory_anns = {
+            { wallaflare_id = 801, text = "Original text", note = "Brand new in-memory note edit", last_synced_note = "Old note", color = "purple", last_synced_color = "yellow" },
+            { text = "Brand new highlight created while reading", color = "green" }
+        }
+        app.ui = {
+            document = { file = book_path },
+            annotation = {
+                annotations = in_memory_anns
+            },
+            doc_settings = doc_settings,
+            saveSettings = function(self)
+                self.doc_settings:saveSetting("annotations", self.annotation.annotations)
+                self.doc_settings:flush()
+            end
+        }
+
+        -- Call flushActiveDocument
+        app:flushActiveDocument()
+
+        -- Verify disk sidecar now contains the modified annotations
+        local verify_settings = LuaSettings:open(sidecar_file)
+        local disk_anns = verify_settings:readSetting("annotations")
+        assert_eq(#disk_anns, 2, "Disk sidecar must contain both annotations")
+        assert_eq(disk_anns[1].note, "Brand new in-memory note edit")
+        assert_eq(disk_anns[1].color, "purple")
+        assert_eq(disk_anns[2].text, "Brand new highlight created while reading")
+
+        -- Verify getLocalUnsynced detects both the edit and the new highlight
+        local unsynced, resolved_updates = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#unsynced, 1, "New highlight must be queued for creation")
+        assert_eq(unsynced[1].quote, "Brand new highlight created while reading")
+        assert_eq(#resolved_updates, 1, "Edited note must be queued for update")
+        assert_eq(resolved_updates[1].id, 801)
+        assert_eq(resolved_updates[1].text, "Brand new in-memory note edit")
+        assert_eq(resolved_updates[1].color, "purple")
+    end)
+
+    it("removes server-deleted annotation when server returns 404 on update", function()
+        local book_path = test_sandbox_dir .. "/888_test_404.epub"
+        local sidecar_dir = test_sandbox_dir .. "/888_test_404.sdr"
+        local sidecar_file = sidecar_dir .. "/metadata.epub.lua"
+        os.execute("mkdir -p '" .. sidecar_dir .. "'")
+
+        local doc_settings = LuaSettings:open(sidecar_file)
+        doc_settings:saveSetting("annotations", {
+            { wallaflare_id = 90, text = "Target quote", note = "Note", pos0 = "/body/text", pos1 = "/body/text", has_server_pos = false, needs_pos_push = true },
+            { wallaflare_id = 91, text = "Keep me", note = "Keep", has_server_pos = true }
+        })
+        doc_settings:saveSetting("wallaflare_synced_ids", { ["90"] = true, ["91"] = true })
+        doc_settings:flush()
+
+        -- Simulate removeLocalAnnotation on 404
+        Annotations:removeLocalAnnotation(book_path, 90)
+
+        local verify_settings = LuaSettings:open(sidecar_file)
+        local remaining = Annotations:readRawAnnotations(verify_settings)
+        assert_eq(#remaining, 1, "Only annotation #91 should remain")
+        assert_eq(remaining[1].wallaflare_id, 91)
+        local synced_ids = verify_settings:readSetting("wallaflare_synced_ids") or {}
+        assert_eq(synced_ids["90"], nil, "ID 90 must be removed from synced_ids")
+        assert_eq(synced_ids["91"], true, "ID 91 must remain in synced_ids")
     end)
 end)
 

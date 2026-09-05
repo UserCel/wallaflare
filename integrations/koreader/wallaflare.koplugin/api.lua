@@ -114,11 +114,11 @@ function Api.request(opts)
     local num_code = tonumber(code) or 0
 
     if num_code == 401 or num_code == 403 then
-        return nil, "Authentication failed (HTTP " .. num_code .. ")"
+        return nil, "Authentication failed (HTTP " .. num_code .. ")", num_code
     elseif num_code == 429 then
-        return nil, "Rate limited by server (HTTP 429). Please wait."
+        return nil, "Rate limited by server (HTTP 429). Please wait.", num_code
     elseif num_code < 200 or num_code >= 300 then
-        return nil, "Server returned HTTP " .. num_code .. ": " .. response_str:sub(1, 200)
+        return nil, "Server returned HTTP " .. num_code .. ": " .. response_str:sub(1, 200), num_code
     end
 
     if JSON and response_str and response_str ~= "" then
@@ -285,16 +285,23 @@ function Api.createAnnotation(server_url, auth_token, entry_id, ann_data)
         color = ann_data.color or "yellow",
         ranges = {},
     }
+    local target = {
+        selector = {
+            type = "TextQuoteSelector",
+            exact = ann_data.quote or "",
+            prefix = ann_data.prefix,
+            suffix = ann_data.suffix,
+        }
+    }
     if ann_data.pos0 or ann_data.pos1 or ann_data.page then
-        body_payload.target = {
-            koreader = {
-                pos0 = ann_data.pos0,
-                pos1 = ann_data.pos1,
-                page = ann_data.page,
-                chapter = ann_data.chapter,
-            }
+        target.koreader = {
+            pos0 = ann_data.pos0,
+            pos1 = ann_data.pos1,
+            page = ann_data.page,
+            chapter = ann_data.chapter,
         }
     end
+    body_payload.target = target
     local body_str = Api.jsonEncode(body_payload)
 
     return Api.request{

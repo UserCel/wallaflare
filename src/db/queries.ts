@@ -307,11 +307,22 @@ export async function createAnnotation(
   const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
   const rangesStr = JSON.stringify(data.ranges || []);
-  const targetStr = data.target ? JSON.stringify(data.target) : null;
   const color = data.color || 'yellow';
   const text = data.text || '';
   const quote = data.quote || '';
   const userId = data.user_id || 'wallaflare';
+
+  let targetObj: any = data.target || {};
+  if (typeof targetObj === 'string') {
+    try { targetObj = JSON.parse(targetObj); } catch { targetObj = {}; }
+  }
+  if (!targetObj.selector && quote) {
+    targetObj.selector = {
+      type: "TextQuoteSelector",
+      exact: quote
+    };
+  }
+  const targetStr = Object.keys(targetObj).length > 0 ? JSON.stringify(targetObj) : null;
 
   const res = await db.prepare(`
     INSERT INTO annotations (entry_id, user_id, quote, text, color, ranges, target, created_at, updated_at)
@@ -757,6 +768,31 @@ export async function updateEntry(
   }
   if (isContentChanged) {
     setClauses.push('content_revision = content_revision + 1');
+    // Clear outdated client-specific DOM xPointers since article HTML has changed
+    try {
+      const anns = await db.prepare('SELECT id, quote, target FROM annotations WHERE entry_id = ?').bind(id).all<{ id: number; quote: string; target: string }>();
+      if (anns.results && anns.results.length > 0) {
+        for (const ann of anns.results) {
+          let targetObj: any = {};
+          if (ann.target) {
+            try { targetObj = JSON.parse(ann.target); } catch { targetObj = {}; }
+          }
+          if (targetObj.koreader) {
+            delete targetObj.koreader;
+          }
+          if (!targetObj.selector && ann.quote) {
+            targetObj.selector = {
+              type: "TextQuoteSelector",
+              exact: ann.quote
+            };
+          }
+          const updatedTarget = Object.keys(targetObj).length > 0 ? JSON.stringify(targetObj) : null;
+          await db.prepare('UPDATE annotations SET target = ? WHERE id = ?').bind(updatedTarget, ann.id).run();
+        }
+      }
+    } catch (e) {
+      console.error('[DB] Error clearing annotation koreader targets on content change:', e);
+    }
   }
   if (updates.is_archived !== undefined) {
     setClauses.push('is_archived = ?');

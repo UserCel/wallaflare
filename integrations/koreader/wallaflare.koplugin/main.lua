@@ -16,6 +16,7 @@ local PathChooser = require("ui/widget/pathchooser")
 local ReadHistory = require("readhistory")
 local ReadCollection = require("readcollection")
 local DocSettings = require("docsettings")
+local LuaSettings = require("luasettings")
 local FileManager = require("apps/filemanager/filemanager")
 local filemanagerutil = require("apps/filemanager/filemanagerutil")
 local DataStorage = require("datastorage")
@@ -33,7 +34,7 @@ local Annotations = package.loaded["annotations"] or dofile(plugin_dir .. "/anno
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
     is_doc_only = false,
-    version = "1.0.3",
+    version = "1.0.4",
 }
 
 local function getPluginDir()
@@ -86,6 +87,20 @@ function Wallaflare:onWallaflareSync()
 end
 
 function Wallaflare:init()
+    -- Guard against uninitialized document access in core ReaderToc when menu is traversed by quick settings
+    pcall(function()
+        local ok, ReaderToc = pcall(require, "apps/reader/modules/readertoc")
+        if ok and ReaderToc and ReaderToc.getTitle and not ReaderToc._orig_getTitle then
+            ReaderToc._orig_getTitle = ReaderToc.getTitle
+            ReaderToc.getTitle = function(self, ...)
+                if not self.ui or not self.ui.document then
+                    return _("Table of contents")
+                end
+                return ReaderToc._orig_getTitle(self, ...)
+            end
+        end
+    end)
+
     self.settings = Store:loadSettings()
     local ddir = Store:getDownloadDir()
     if ddir and lfs.attributes(ddir, "mode") ~= "directory" then
@@ -735,18 +750,44 @@ function Wallaflare:queueLocalReadingStatuses()
     end
 end
 
+function Wallaflare:flushActiveDocument()
+    if not self.ui or not self.ui.document or not self.ui.document.file then return end
+    pcall(function()
+        if self.ui.annotation and self.ui.annotation.annotations then
+            Annotations:populateMissingContext(self.ui.document, self.ui.annotation.annotations)
+        end
+        if self.ui.annotation and self.ui.annotation.annotations and self.ui.doc_settings and self.ui.doc_settings.saveSetting then
+            self.ui.doc_settings:saveSetting("annotations", self.ui.annotation.annotations)
+            self.ui.doc_settings:delSetting("annotations_paging")
+            self.ui.doc_settings:delSetting("annotations_rolling")
+        end
+        if self.ui.saveSettings then
+            self.ui:saveSettings()
+        elseif self.ui.onFlushSettings then
+            self.ui:onFlushSettings(false)
+        elseif self.ui.doc_settings and self.ui.doc_settings.flush then
+            self.ui.doc_settings:flush()
+        end
+        logger.info("Wallaflare: Flushed active document settings to disk before sync")
+    end)
+end
+
 function Wallaflare:performSync()
     local progress_info = InfoMessage:new{ text = _("Wallaflare: Checking for updates…") }
     UIManager:show(progress_info)
     if UIManager.forceRePaint then UIManager:forceRePaint() end
 
-    -- 0. Scan local files for reading status (finished, abandoned, 100%)
+    -- 0. Flush active document in-memory annotations & settings to disk
+    self:flushActiveDocument()
+
+    -- 0b. Scan local files for reading status (finished, abandoned, 100%)
     self:queueLocalReadingStatuses()
 
     -- 1. Flush Outbox actions (e.g. offline archives, stars, deletions)
     local outbox = Store:getOutbox()
     local remote_archived_count = 0
     local remote_deleted_count = 0
+    local remote_deleted_ann_count = 0
     if #outbox > 0 then
         for _, item in ipairs(outbox) do
             if item.action == "archive" then
@@ -764,7 +805,10 @@ function Wallaflare:performSync()
             elseif item.action == "unstar" then
                 Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 0 })
             elseif item.action == "delete_annotation" then
-                Api.deleteAnnotation(self.settings.server_url, self.settings.auth_token, item.id)
+                local res = Api.deleteAnnotation(self.settings.server_url, self.settings.auth_token, item.id)
+                if res and type(res) == "table" then
+                    remote_deleted_ann_count = remote_deleted_ann_count + 1
+                end
             end
         end
         Store:clearOutbox()
@@ -779,13 +823,44 @@ function Wallaflare:performSync()
                 local art_id = file:match("^(%d+)[%._]")
                 if art_id then
                     local full_path = download_dir .. "/" .. file
-                    local unsynced, resolved_updates = Annotations:getLocalUnsynced(full_path)
+                    local doc_for_context = (self.ui and self.ui.document and (self.ui.document.file == full_path or self.ui.document.file:match("/(%d+)[%._]") == art_id)) and self.ui.document or nil
+                    local unsynced, resolved_updates, locally_deleted_ids = Annotations:getLocalUnsynced(full_path, doc_for_context)
+
+                    -- 0. Process locally deleted annotations
+                    if type(locally_deleted_ids) == "table" and #locally_deleted_ids > 0 then
+                        for _, del_id in ipairs(locally_deleted_ids) do
+                            local res, err_del, code_del = Api.deleteAnnotation(self.settings.server_url, self.settings.auth_token, del_id)
+                            if (res and type(res) == "table") or (code_del == 404 or (err_del and err_del:find("404"))) then
+                                remote_deleted_ann_count = remote_deleted_ann_count + 1
+                                Annotations:removeSyncedId(full_path, del_id, self.ui)
+                                logger.info("Wallaflare: Deleted annotation #" .. tostring(del_id) .. " on server")
+                            else
+                                Store:queueAction("delete_annotation", del_id)
+                                Annotations:removeSyncedId(full_path, del_id, self.ui)
+                                logger.info("Wallaflare: Queued deletion for annotation #" .. tostring(del_id))
+                            end
+                        end
+                    end
+
                     -- 1. Create brand new local annotations
                     for _, u in ipairs(unsynced) do
                         local res, u_err = Api.createAnnotation(self.settings.server_url, self.settings.auth_token, tonumber(art_id), u)
                         if res and type(res) == "table" and res.id then
                             Annotations:stampRemoteId(full_path, u.index, res.id)
                             uploaded_ann_count = uploaded_ann_count + 1
+                            if self.ui and self.ui.document and self.ui.document.file then
+                                local cur_f = self.ui.document.file
+                                if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
+                                    if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[u.index] then
+                                        self.ui.annotation.annotations[u.index].wallaflare_id = tonumber(res.id)
+                                        self.ui.annotation.annotations[u.index].has_server_pos = true
+                                    end
+                                    if self.ui.doc_settings and self.ui.doc_settings.saveSetting then
+                                        self.ui.doc_settings:saveSetting("annotations", self.ui.annotation and self.ui.annotation.annotations)
+                                        self.ui.doc_settings:flush()
+                                    end
+                                end
+                            end
                         end
                     end
                     -- 2. Push local note edits, color changes, and resolved xPointers to server
@@ -796,15 +871,50 @@ function Wallaflare:performSync()
                                 color = r.color,
                                 updated_at = r.updated_at,
                             }
-                            if r.koreader then
-                                patch_data.target = { koreader = r.koreader }
+                            local target = {}
+                            if r.prefix or r.suffix then
+                                target.selector = {
+                                    type = "TextQuoteSelector",
+                                    exact = r.quote or r.text,
+                                    prefix = r.prefix,
+                                    suffix = r.suffix,
+                                }
                             end
-                            local ok_up, up_err = Api.updateAnnotation(self.settings.server_url, self.settings.auth_token, r.id, patch_data)
-                            if ok_up and type(ok_up) == "table" then
+                            if r.koreader then
+                                target.koreader = r.koreader
+                            end
+                            if next(target) ~= nil then
+                                patch_data.target = target
+                            end
+                            local ok_up, up_err, up_code = Api.updateAnnotation(self.settings.server_url, self.settings.auth_token, r.id, patch_data)
+                            if not ok_up and (up_code == 404 or (up_err and tostring(up_err):find("404"))) then
+                                Annotations:removeLocalAnnotation(full_path, r.id, self.ui)
+                                remote_deleted_ann_count = remote_deleted_ann_count + 1
+                                self:refreshActiveDocumentAnnotations(full_path)
+                                logger.info("Wallaflare: Pruned deleted annotation #" .. tostring(r.id) .. " locally (server returned 404)")
+                            elseif ok_up and type(ok_up) == "table" then
                                 local winning_text = (ok_up.text ~= nil) and ok_up.text or r.text
                                 local winning_color = (ok_up.color ~= nil) and ok_up.color or r.color
                                 Annotations:stampSyncedEdit(full_path, r.index, winning_text, winning_color)
-                                if winning_text == r.text then
+                                if self.ui and self.ui.document and self.ui.document.file then
+                                    local cur_f = self.ui.document.file
+                                    if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
+                                        if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[r.index] then
+                                            self.ui.annotation.annotations[r.index].last_synced_note = winning_text
+                                            self.ui.annotation.annotations[r.index].last_synced_color = winning_color
+                                            self.ui.annotation.annotations[r.index].has_server_pos = true
+                                            self.ui.annotation.annotations[r.index].needs_pos_push = nil
+                                            self.ui.annotation.annotations[r.index].local_modified = nil
+                                        end
+                                        if self.ui.doc_settings and self.ui.doc_settings.saveSetting then
+                                            self.ui.doc_settings:saveSetting("annotations", self.ui.annotation and self.ui.annotation.annotations)
+                                            self.ui.doc_settings:delSetting("annotations_paging")
+                                            self.ui.doc_settings:delSetting("annotations_rolling")
+                                            self.ui.doc_settings:flush()
+                                        end
+                                    end
+                                end
+                                if r.user_modified and winning_text == r.text then
                                     uploaded_ann_count = uploaded_ann_count + 1
                                 end
                             end
@@ -849,7 +959,7 @@ function Wallaflare:performSync()
     if is_epoch_reset then
         if self.settings.db_reset_action == "wipe" then
             self:wipeLocalLibrary()
-            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
+            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count, remote_deleted_ann_count)
         elseif self.settings.db_reset_action == "keep" then
             self:archiveLocalLibrary(local_instance or "previous")
             self.settings.instance_id = server_instance
@@ -858,7 +968,7 @@ function Wallaflare:performSync()
             self.settings.article_content_revs = {}
             self.settings.outbox = {}
             Store:saveSettings()
-            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
+            self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count, remote_deleted_ann_count)
         else
             -- Default: Interactive prompt
             local confirm = MultiConfirmBox:new{
@@ -866,7 +976,7 @@ function Wallaflare:performSync()
                 choice1_text = _("Wipe & Resync"),
                 choice1_callback = function()
                     self:wipeLocalLibrary()
-                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
+                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count, remote_deleted_ann_count)
                 end,
                 choice2_text = _("Archive & Keep Old Files"),
                 choice2_callback = function()
@@ -877,7 +987,7 @@ function Wallaflare:performSync()
                     self.settings.article_content_revs = {}
                     self.settings.outbox = {}
                     Store:saveSettings()
-                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
+                    self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count, remote_deleted_ann_count)
                 end,
                 cancel_text = _("Cancel"),
                 cancel_callback = function()
@@ -889,10 +999,60 @@ function Wallaflare:performSync()
             return
         end
     else
-        self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
+        self:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count, remote_deleted_ann_count)
     end
 end
 
+
+function Wallaflare:cleanOldArticleFiles(download_dir, num_id, current_filename)
+    if not num_id or not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
+        return
+    end
+
+    local new_full_path = current_filename and (download_dir .. "/" .. current_filename) or nil
+    local new_sdr_dir = new_full_path and new_full_path:gsub("%.epub$", ".sdr") or nil
+    local current_sdr = current_filename and current_filename:gsub("%.epub$", ".sdr") or nil
+
+    for file in lfs.dir(download_dir) do
+        if file:match("%.epub$") and file ~= current_filename then
+            local id_str = file:match("^(%d+)[%._]")
+            if id_str and tonumber(id_str) == num_id then
+                local old_full_path = download_dir .. "/" .. file
+                local old_sdr_dir = old_full_path:gsub("%.epub$", ".sdr")
+
+                -- Migrate old .sdr folder to new .sdr folder if new one doesn't exist yet
+                if new_sdr_dir and lfs.attributes(old_sdr_dir, "mode") == "directory" then
+                    if lfs.attributes(new_sdr_dir, "mode") ~= "directory" then
+                        pcall(os.rename, old_sdr_dir, new_sdr_dir)
+                    else
+                        removeDirRecursive(old_sdr_dir)
+                    end
+                end
+
+                if ReadHistory and ReadHistory.deleteItem then
+                    pcall(ReadHistory.deleteItem, ReadHistory, old_full_path)
+                end
+                if ReadCollection and ReadCollection.deleteItem then
+                    pcall(ReadCollection.deleteItem, ReadCollection, old_full_path)
+                end
+
+                pcall(os.remove, old_full_path)
+                logger.info("Wallaflare: Removed outdated file variant " .. file .. " for article #" .. tostring(num_id))
+            end
+        elseif file:match("%.sdr$") and current_sdr and file ~= current_sdr then
+            local id_str = file:match("^(%d+)[%._]")
+            if id_str and tonumber(id_str) == num_id then
+                local old_sdr_dir = download_dir .. "/" .. file
+                if new_sdr_dir and lfs.attributes(new_sdr_dir, "mode") ~= "directory" then
+                    pcall(os.rename, old_sdr_dir, new_sdr_dir)
+                else
+                    removeDirRecursive(old_sdr_dir)
+                end
+                logger.info("Wallaflare: Removed outdated SDR folder " .. file .. " for article #" .. tostring(num_id))
+            end
+        end
+    end
+end
 
 function Wallaflare:deleteLocalArticle(download_dir, article_id)
     local num_id = tonumber(article_id)
@@ -981,11 +1141,13 @@ function Wallaflare:pruneOrphanArticleRevs(download_dir)
     end
 end
 
-function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count)
+function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count, remote_deleted_ann_count)
     remote_archived_count = remote_archived_count or 0
     remote_deleted_count = remote_deleted_count or 0
     uploaded_ann_count = uploaded_ann_count or 0
+    local deleted_ann_count = remote_deleted_ann_count or 0
     local synced_ann_count = 0
+    local reopen_active_file = nil
     local download_dir = Store:getDownloadDir()
     if not download_dir or download_dir == "" then
         if progress_info then UIManager:close(progress_info) end
@@ -1132,6 +1294,7 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
                     skipped_count = skipped_count + 1
                     self.settings.article_content_revs[num_id] = target_content_rev
                     self.settings.article_revs[num_id] = target_sync_rev
+                    self:cleanOldArticleFiles(download_dir, num_id, filename)
                 else
                     if progress_info then UIManager:close(progress_info) end
                     local short_title = entry.title and (entry.title:sub(1, 35) .. (entry.title:len() > 35 and "…" or "")) or "Article"
@@ -1148,6 +1311,31 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
                         downloaded_count = downloaded_count + 1
                         self.settings.article_content_revs[num_id] = target_content_rev
                         self.settings.article_revs[num_id] = target_sync_rev
+                        self:cleanOldArticleFiles(download_dir, num_id, filename)
+
+                        -- Evict stale Crengine .cr3 render cache
+                        local _, sidecar_file = Annotations:getSidecarPaths(full_path)
+                        if sidecar_file and lfs.attributes(sidecar_file, "mode") == "file" then
+                            local doc_settings = LuaSettings:open(sidecar_file)
+                            if doc_settings then
+                                local cache_path = doc_settings:readSetting("cache_file_path")
+                                if cache_path and lfs.attributes(cache_path, "mode") == "file" then
+                                    pcall(os.remove, cache_path)
+                                    logger.info("Wallaflare: Evicted stale Crengine cache " .. tostring(cache_path))
+                                end
+                                doc_settings:delSetting("cache_file_path")
+                                doc_settings:flush()
+                            end
+                        end
+
+                        -- If this updated article is currently open in the active reader, mark for seamless reload
+                        if self.ui and self.ui.document and self.ui.document.file then
+                            local cur_f = self.ui.document.file
+                            local cur_id = cur_f:match("/(%d+)[%._][^/]*%.epub$") or cur_f:match("^(%d+)[%._]")
+                            if cur_id and tonumber(cur_id) == num_id then
+                                reopen_active_file = full_path
+                            end
+                        end
                     else
                         logger.err("Wallaflare: Download failed for #" .. str_id .. ": " .. tostring(dl_err))
                         table.insert(download_errors, "#" .. str_id .. ": " .. tostring(dl_err))
@@ -1156,14 +1344,20 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
 
                 -- Sync inbound annotations into .sdr/metadata.epub.lua
                 if type(entry.annotations) == "table" and (file_exists or ok_dl) then
-                    local ok_ann, ann_res, ann_changed, ann_count = pcall(function()
-                        return Annotations:syncInbound(full_path, entry.annotations)
+                    local ok_ann, ann_res, ann_changed, ann_count, ann_del_count = pcall(function()
+                        return Annotations:syncInbound(full_path, entry.annotations, (ok_dl == true))
                     end)
                     if not ok_ann then
                         logger.err("Wallaflare: Failed to sync inbound annotations for #" .. str_id .. ": " .. tostring(ann_res))
                     else
-                        if ann_changed and (ann_count or 0) > 0 then
+                        if (ann_del_count or 0) > 0 then
+                            deleted_ann_count = deleted_ann_count + ann_del_count
+                        end
+                        if ann_changed and (ann_count or 0) > 0 and (ann_del_count or 0) == 0 then
                             synced_ann_count = synced_ann_count + (ann_count or 0)
+                        end
+                        if ann_changed or (ann_del_count or 0) > 0 then
+                            self:refreshActiveDocumentAnnotations(full_path)
                         end
                         logger.info("Wallaflare: Synced " .. tostring(#entry.annotations) .. " annotations into .sdr for #" .. str_id)
                     end
@@ -1207,6 +1401,9 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
     if synced_ann_count > 0 then
         table.insert(parts, string.format(_("%d highlight(s) synced"), synced_ann_count))
     end
+    if deleted_ann_count > 0 then
+        table.insert(parts, string.format(_("%d annotation(s) deleted"), deleted_ann_count))
+    end
 
     local msg = ""
     if #parts > 0 then
@@ -1219,6 +1416,18 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
     end
     UIManager:show(InfoMessage:new{ text = msg, timeout = (#download_errors > 0 and 6 or 4) })
     if UIManager.forceRePaint then UIManager:forceRePaint() end
+
+    if reopen_active_file then
+        UIManager:nextTick(function()
+            pcall(function()
+                local reader_ui_ok, ReaderUI = pcall(require, "apps/reader/readerui")
+                if reader_ui_ok and ReaderUI and ReaderUI.showReader then
+                    logger.info("Wallaflare: Reloading updated article into active reader: " .. tostring(reopen_active_file))
+                    ReaderUI:showReader(reopen_active_file)
+                end
+            end)
+        end)
+    end
 end
 
 function Wallaflare:refreshFileManager()
@@ -1240,6 +1449,82 @@ function Wallaflare:refreshFileManager()
             end)
         end
     end)
+end
+
+function Wallaflare:refreshActiveDocumentAnnotations(doc_path)
+    if not self.ui or not self.ui.document or not self.ui.document.file then return end
+    local current_file = self.ui.document.file
+    local is_match = (current_file == doc_path)
+    if not is_match then
+        local cur_id = current_file:match("/(%d+)[%._][^/]*%.epub$") or current_file:match("^(%d+)[%._]")
+        local doc_id = doc_path:match("/(%d+)[%._][^/]*%.epub$") or doc_path:match("^(%d+)[%._]")
+        if cur_id and doc_id and cur_id == doc_id then
+            is_match = true
+        end
+    end
+    if not is_match then return end
+
+    local ok_ref, ref_err = pcall(function()
+        local _, sidecar_file = Annotations:getSidecarPaths(doc_path)
+        if not sidecar_file or lfs.attributes(sidecar_file, "mode") ~= "file" then return end
+
+        local fresh_settings = LuaSettings:open(sidecar_file)
+        if not fresh_settings then return end
+        local fresh_annotations = Annotations:readRawAnnotations(fresh_settings)
+
+        if self.ui.annotation then
+            self.ui.annotation.annotations = fresh_annotations
+            Annotations:resolveXPointers(self.ui.document, self.ui.annotation.annotations)
+            if self.ui.document and self.ui.document.getPageFromXPointer then
+                for _, ann in ipairs(self.ui.annotation.annotations) do
+                    if ann.pos0 and type(ann.pos0) == "string" then
+                        ann.page = ann.pos0
+                        local pno = self.ui.document:getPageFromXPointer(ann.pos0)
+                        if pno and type(pno) == "number" then
+                            ann.pageno = pno
+                        end
+                    end
+                end
+            end
+            if self.ui.annotation.updateAnnotations then
+                self.ui.annotation:updateAnnotations(true, true)
+            end
+        end
+
+        if self.ui.doc_settings then
+            self.ui.doc_settings:saveSetting("annotations", (self.ui.annotation and self.ui.annotation.annotations) or fresh_annotations)
+            self.ui.doc_settings:delSetting("annotations_paging")
+            self.ui.doc_settings:delSetting("annotations_rolling")
+            self.ui.doc_settings:flush()
+        end
+
+        if self.ui.highlight and self.ui.highlight.onReaderReady then
+            self.ui.highlight:onReaderReady()
+        end
+
+        if self.ui.view and self.ui.view.highlight then
+            self.ui.view.highlight.page_boxes = {}
+        end
+
+        local Event_ok, Event = pcall(require, "ui/event")
+        if Event_ok and Event and self.ui.handleEvent then
+            self.ui:handleEvent(Event:new("AnnotationsModified", { index_modified = 1 }))
+            self.ui:handleEvent(Event:new("RedrawCurrentPage"))
+            self.ui:handleEvent(Event:new("RedrawCurrentView"))
+        end
+
+        if self.ui.dialog then
+            UIManager:setDirty(self.ui.dialog, "full")
+        end
+        if UIManager and UIManager.forceRePaint then
+            UIManager:forceRePaint()
+        end
+        logger.info("Wallaflare: Live-reloaded annotations in active reader for " .. tostring(doc_path))
+    end)
+
+    if not ok_ref then
+        logger.err("Wallaflare: Error refreshing active document annotations: " .. tostring(ref_err))
+    end
 end
 
 function Wallaflare:onReaderReady()

@@ -3728,9 +3728,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
     }
 
 
-    async function changePopoverHighlightColor(color) {
+        async function changePopoverHighlightColor(color) {
       if (!activePopoverAnnotation || !activeArticleId) return;
-      activePopoverAnnotation.color = color;
+      const targetAnn = activePopoverAnnotation;
+      const targetAnnId = targetAnn.id;
+      targetAnn.color = color;
       const item = allEntries.find(e => e.id === activeArticleId);
       if (item) {
         applyAnnotationsToReader(item);
@@ -3738,12 +3740,14 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
       closeHighlightPopover();
       try {
-        await authFetch('/api/annotations/' + activePopoverAnnotation.id + '.json', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+        await authFetch("/api/annotations/" + targetAnnId + ".json", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ color })
         });
-      } catch (e) {}
+      } catch (e) {
+        console.error("[Annotations] Failed to patch annotation color:", e);
+      }
     }
 
             async function deletePopoverHighlight() {
