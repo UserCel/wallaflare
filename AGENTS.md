@@ -68,6 +68,7 @@
 │   ├── client/                # Isomorphic Web UI Source Tree
 │   │   ├── html/              # Modular HTML component templates (workspace, modals, overlays)
 │   │   ├── styles/            # Modular CSS design system
+│   │   ├── reader/            # In-reader engines (RSVP Speed Reader, ORP, BiDi, gesture scrubbing)
 │   │   └── index.ts           # Client JavaScript application entry point
 │   ├── index.ts               # Cloudflare Worker entry point (Hono application)
 │   ├── routes/
@@ -139,6 +140,10 @@ npm run deploy
      3. Ensure the web client detects older installed APK builds via `min_native_version` in `/api/app/version.json` and displays an in-app toast/banner notifying the user that a new APK build is available for the latest native features.
 7. **Rule 7: Strict Privacy & Personal Instance Scrubbing**:
    - **NEVER** hardcode, embed, or commit personal domains, personal URLs, private server instances (e.g. private domains or custom personal URLs), API keys, or private user credentials anywhere in the codebase, tests, UI placeholders, scripts, documentation, or commit history. Always use generic placeholders like `wallaflare.example.com` or `https://<your-subdomain>.workers.dev`.
+8. **Rule 8: BiDi Script & Touch Gesture Robustness**:
+   - In interactive reading components (e.g. RSVP speed reader, surrounding text strips, annotations):
+     - For RTL/BiDi scripts (Hebrew, Arabic), always isolate segments with `unicode-bidi: isolate` and wrap trailing neutral punctuation in Unicode Right-to-Left Marks (`\u200F`) to prevent punctuation from jumping inside words.
+     - For continuous drag/scrub gestures across dynamic DOM containers, always use W3C Pointer Events (`pointerdown`, `pointermove`, `pointerup`) with `setPointerCapture(e.pointerId)` so that rapid DOM element mutations or re-renders do not abort the touch gesture on mobile browsers.
 
 ---
 

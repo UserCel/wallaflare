@@ -45,6 +45,9 @@
               <button class="btn-icon" id="readerFindBtn" onclick="toggleReaderSearchBar()" title="Find in article (Ctrl+F)">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               </button>
+              <button class="btn-icon" id="readerSpeedReadBtn" onclick="openSpeedRead()" title="Speed Read / RSVP (r)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              </button>
               <button class="btn-icon" id="readerAppearanceBtn" onclick="toggleReaderAppearancePopover(event)" title="Typography &amp; Theme (Aa)">
                 <span style="font-family: serif; font-weight: bold; font-size: 1.05rem;">Aa</span>
               </button>
@@ -67,6 +70,11 @@
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
                 </button>
                 <div class="card-dropdown-menu" id="readerMoreMenuDropdown" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 6px); bottom: auto !important; right: 0; left: auto; min-width: 205px;">
+                  <button class="menu-item" onclick="closeReaderMoreMenu(); openSpeedRead();">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    <span>Speed Read (RSVP)</span>
+                  </button>
+                  <div class="menu-divider"></div>
                   <div class="menu-item-expandable" id="readerExportWrap">
                     <button class="menu-item menu-item-parent" onclick="event.stopPropagation(); toggleReaderExportSubmenu()">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>

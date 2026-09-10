@@ -1,4 +1,21 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
+import {
+  openSpeedRead,
+  closeSpeedRead,
+  toggleSpeedReadPlay,
+  playSpeedRead,
+  pauseSpeedRead,
+  stepSpeedRead,
+  restartSpeedRead,
+  adjustSpeedReadWpm,
+  setSpeedReadWpm,
+  adjustSpeedReadFontSize,
+  setSpeedReadFontSize,
+  toggleSpeedReadFontFamily,
+  handleSpeedReadScrub,
+  handleSpeedReadKeydown,
+  isSpeedReadOpen
+} from './reader/speed-read';
 // Wallaflare Modular Client Entry Point - Full Parity Architecture
 
 
@@ -752,6 +769,11 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     // Keyboard Shortcuts & Modal Dismissal Hierarchy
     window.addEventListener('keydown', (e) => {
+      // Speed Read Modal Interception (highest priority when active)
+      if (isSpeedReadOpen()) {
+        if (handleSpeedReadKeydown(e)) return;
+      }
+
       // Ctrl+K / Cmd+K: Open Add URL dialog
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK') &&
           document.activeElement?.tagName !== 'INPUT' &&
@@ -814,6 +836,13 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       if (e.key === 'Escape') {
+        // -0.1. Exit Speed Read Focus Mode
+        if (isSpeedReadOpen()) {
+          e.preventDefault();
+          closeSpeedRead();
+          return;
+        }
+
         // 0. Blur and clear library search input if focused (preserves active article)
         const searchInput = document.getElementById('searchInput');
         if (document.activeElement === searchInput) {
@@ -1142,6 +1171,15 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
         }
       }
 
+      // 'r' key for Speed Read (RSVP)
+      if ((e.key === 'r' || e.key === 'R') && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && !document.activeElement.isContentEditable) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open, .speed-read-overlay.open');
+        if (!modalOpen && activeArticleId) {
+          e.preventDefault();
+          openSpeedRead();
+        }
+      }
+
       // 'f' key for Focus Mode
       if (e.key === 'f' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && !document.activeElement.isContentEditable) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
@@ -1222,6 +1260,12 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 
     // Android Back Button Navigation
     window.handleAndroidBackButton = function() {
+      // -0.1. Exit Speed Read Focus Mode
+      if (isSpeedReadOpen()) {
+        closeSpeedRead();
+        return true;
+      }
+
       // 0. In-Reader Search Bar
       const readerSearchBar = document.getElementById('readerSearchBar');
       if (readerSearchBar && readerSearchBar.style.display !== 'none') {
@@ -2878,7 +2922,10 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
       }
 
       document.querySelectorAll('.article-card.is-reading').forEach(c => c.classList.remove('is-reading'));
-      document.getElementById('readingProgress').style.width = '0%';
+      const readingProgressEl = document.getElementById('readingProgress');
+      if (readingProgressEl) {
+        readingProgressEl.style.width = '0%';
+      }
       clearActiveTextSelection();
       closeReaderAppearancePopover();
       closeReaderMoreMenu();
@@ -6933,6 +6980,20 @@ if (typeof window !== "undefined") {
   try { (window as any).toggleReaderAppearancePopover = toggleReaderAppearancePopover; } catch (e) {}
   try { (window as any).closeReaderAppearancePopover = closeReaderAppearancePopover; } catch (e) {}
   try { (window as any).toggleReaderFocusMode = toggleReaderFocusMode; } catch (e) {}
+  try { (window as any).openSpeedRead = openSpeedRead; } catch (e) {}
+  try { (window as any).closeSpeedRead = closeSpeedRead; } catch (e) {}
+  try { (window as any).toggleSpeedReadPlay = toggleSpeedReadPlay; } catch (e) {}
+  try { (window as any).playSpeedRead = playSpeedRead; } catch (e) {}
+  try { (window as any).pauseSpeedRead = pauseSpeedRead; } catch (e) {}
+  try { (window as any).stepSpeedRead = stepSpeedRead; } catch (e) {}
+  try { (window as any).restartSpeedRead = restartSpeedRead; } catch (e) {}
+  try { (window as any).adjustSpeedReadWpm = adjustSpeedReadWpm; } catch (e) {}
+  try { (window as any).setSpeedReadWpm = setSpeedReadWpm; } catch (e) {}
+  try { (window as any).adjustSpeedReadFontSize = adjustSpeedReadFontSize; } catch (e) {}
+  try { (window as any).setSpeedReadFontSize = setSpeedReadFontSize; } catch (e) {}
+  try { (window as any).toggleSpeedReadFontFamily = toggleSpeedReadFontFamily; } catch (e) {}
+  try { (window as any).handleSpeedReadScrub = handleSpeedReadScrub; } catch (e) {}
+  try { (window as any).isSpeedReadOpen = isSpeedReadOpen; } catch (e) {}
   try { (window as any).toggleReaderMoreMenu = toggleReaderMoreMenu; } catch (e) {}
   try { (window as any).closeReaderMoreMenu = closeReaderMoreMenu; } catch (e) {}
   try { (window as any).toggleReaderExportSubmenu = toggleReaderExportSubmenu; } catch (e) {}

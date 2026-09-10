@@ -1192,7 +1192,7 @@
     .mobile-nav-divider { height: 1px; background: var(--border-color); margin: 0.35rem 0; }
 
     /* Reading Progress Bar & Toasts */
-    .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); z-index: 250; width: 0%; }
+    .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); z-index: 250; width: 0%; transition: width 0.08s ease-out; }
 
     .articles-list-footer-status {
       text-align: center;
@@ -1302,7 +1302,7 @@
     .mobile-nav-divider { height: 1px; background: var(--border-color); margin: 0.35rem 0; }
 
     /* Reading Progress Bar & Toasts */
-    .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); z-index: 250; width: 0%; }
+    .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); z-index: 250; width: 0%; transition: width 0.08s ease-out; }
 
     .articles-list-footer-status {
       text-align: center;

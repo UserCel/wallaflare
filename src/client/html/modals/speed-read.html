@@ -1,0 +1,124 @@
+<!-- Fullscreen Speed Read (RSVP) Modal (#speedReadModal) -->
+<div class="speed-read-overlay paused" id="speedReadModal" style="display: none;" role="dialog" aria-modal="true" aria-label="Speed Reader">
+  <!-- Topmost edge-to-edge reading progress line -->
+  <div class="speed-read-top-progress" id="speedReadTopProgress"></div>
+
+  <!-- Top Controls Bar (Minimalist, Font Size at Top, Article Title, Close) -->
+  <header class="speed-read-top-bar" id="speedReadTopBar">
+    <div class="speed-read-top-left">
+      <span class="speed-read-article-title" id="speedReadArticleTitle">Speed Reader</span>
+      <span class="speed-read-meta-divider">&bull;</span>
+      <span class="speed-read-progress-text" id="speedReadProgressText">0%</span>
+      <span class="speed-read-meta-divider">&bull;</span>
+      <span class="speed-read-meta-detail" id="speedReadMeta"></span>
+    </div>
+
+    <!-- Font Size & Typography at Top -->
+    <div class="speed-read-top-center">
+      <div class="speed-read-font-controls">
+        <button type="button" class="speed-read-tool-btn" onclick="adjustSpeedReadFontSize(-4)" title="Smaller text (A-)">
+          <span style="font-size: 0.8rem; font-weight: 700;">A-</span>
+        </button>
+        <span class="speed-read-font-size-label" id="speedReadFontSizeDisplay">68px</span>
+        <button type="button" class="speed-read-tool-btn" onclick="adjustSpeedReadFontSize(4)" title="Larger text (A+)">
+          <span style="font-size: 1.05rem; font-weight: 700;">A+</span>
+        </button>
+        <div class="speed-read-tool-divider"></div>
+        <button type="button" class="speed-read-tool-btn font-family-btn" id="speedReadFontFamilyBtn" onclick="toggleSpeedReadFontFamily()" title="Toggle Serif / Sans">
+          <span id="speedReadFontFamilyLabel">Serif</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="speed-read-top-right">
+      <span class="speed-read-hint-pill"><kbd>Space</kbd> Play/Pause</span>
+      <button type="button" class="speed-read-close-btn" onclick="closeSpeedRead()" title="Exit Speed Read (Esc)" aria-label="Exit Speed Read">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Giant Edge-to-Edge Center Stage -->
+  <main class="speed-read-screen" id="speedReadScreen" title="Click anywhere to Play or Pause, drag horizontally to scroll">
+    <div class="speed-read-word-stage" id="speedReadWordStage">
+      <!-- Fixed Optical Reticle Notches (Center Axis) -->
+      <div class="speed-read-guide speed-read-guide-top"></div>
+
+      <!-- Fixed Focal Reticle & Surrounding Context Strip -->
+      <div class="speed-read-strip" id="speedReadStrip">
+        <div id="speedReadWordDisplay" style="display: contents;">
+          <!-- Left side: Preceding words (on pause) + Left segment of active word -->
+          <div class="strip-side strip-left" id="speedReadStripLeft">
+            <div class="strip-words-flow" id="speedReadWordsLeft"></div>
+            <span class="orp-segment orp-left" id="speedReadWordLeft"></span>
+          </div>
+
+          <!-- Pinned ORP Focal Letter (Center Axis) -->
+          <span class="orp-segment orp-focus" id="speedReadWordFocus">R</span>
+
+          <!-- Right side: Right segment of active word + Succeeding words (on pause) -->
+          <div class="strip-side strip-right" id="speedReadStripRight">
+            <span class="orp-segment orp-right" id="speedReadWordRight">eady</span>
+            <div class="strip-words-flow" id="speedReadWordsRight"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="speed-read-guide speed-read-guide-bottom"></div>
+    </div>
+
+    <!-- Live Context Line Preview -->
+    <div class="speed-read-context-line" id="speedReadContextSentence">
+      Press Space to start reading.
+    </div>
+  </main>
+
+  <!-- Lower Controls Deck (Fades in when pausing, contains Speed Slider & Timeline) -->
+  <footer class="speed-read-lower-deck" id="speedReadLowerDeck" onclick="event.stopPropagation()">
+    <div class="speed-read-deck-inner">
+      <!-- Reading Progress Timeline & Scrubber -->
+      <div class="speed-read-timeline-wrap">
+        <div class="speed-read-timeline-info">
+          <span id="speedReadWordCount">0 / 0 words</span>
+          <span id="speedReadTimeRemaining">0 min left</span>
+        </div>
+        <input type="range" class="speed-read-timeline-slider" id="speedReadScrubber" min="0" max="100" value="0" step="0.1" oninput="handleSpeedReadScrub(this.value)" aria-label="Reading progress scrubber">
+      </div>
+
+      <!-- Main Lower Row: Playback Navigation & Speed Slider -->
+      <div class="speed-read-lower-row">
+        <!-- Playback Navigation Group -->
+        <div class="speed-read-nav-group">
+          <button type="button" class="speed-read-deck-btn" onclick="restartSpeedRead()" title="Restart from beginning" aria-label="Restart">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+          </button>
+          <button type="button" class="speed-read-deck-btn" onclick="stepSpeedRead(-10)" title="Rewind 10 words (Left Arrow)" aria-label="Rewind 10 words">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>
+            <span>-10w</span>
+          </button>
+          <button type="button" class="speed-read-main-play-btn" id="speedReadPlayBtn" onclick="toggleSpeedReadPlay()" title="Play / Pause (Space)" aria-label="Play or Pause">
+            <svg id="speedReadPlayIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <svg id="speedReadPauseIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          </button>
+          <button type="button" class="speed-read-deck-btn" onclick="stepSpeedRead(10)" title="Skip forward 10 words (Right Arrow)" aria-label="Skip ahead 10 words">
+            <span>+10w</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+          </button>
+        </div>
+
+        <!-- Speed Slider Box (Visible Lower on Pause) -->
+        <div class="speed-read-speed-container">
+          <div class="speed-read-speed-header">
+            <span class="speed-read-speed-title">Reading Speed</span>
+            <span class="speed-read-speed-val" id="speedReadWpmDisplay">350 WPM</span>
+          </div>
+          <div class="speed-read-slider-row">
+            <button type="button" class="speed-read-step-btn" onclick="adjustSpeedReadWpm(-25)" title="Slower (Down Arrow)" aria-label="Slower">-</button>
+            <input type="range" class="speed-read-speed-slider" id="speedReadWpmSlider" min="150" max="800" step="25" value="350" oninput="setSpeedReadWpm(parseInt(this.value, 10))" aria-label="Reading speed slider">
+            <button type="button" class="speed-read-step-btn" onclick="adjustSpeedReadWpm(25)" title="Faster (Up Arrow)" aria-label="Faster">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>

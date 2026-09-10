@@ -120,3 +120,17 @@ All dashboard functionality is covered by the automated Vitest suite (74 passing
 
 ### 6. Synchronous 0ms Local Storage Pre-Hydration
 - Pre-hydrates `wf_cached_articles`, `wf_cached_tags`, and `wf_cached_counts` at the first millisecond of page load for zero-delay, zero-shift rendering.
+
+### 7. RSVP Speed Reader Engine (Rapid Serial Visual Presentation)
+- **Engine Location**: `src/client/reader/speed-read.ts` & `src/client/html/modals/speed-read.html`.
+- **Optical Recognition Point (ORP)**: Fixation marker highlighted in accent color for optimal cognitive processing without eye saccades.
+- **BiDi & Right-to-Left (RTL) Support**:
+  - Automatically isolates RTL words (Hebrew, Arabic) using `unicode-bidi: isolate`.
+  - Wraps trailing neutral punctuation marks in Unicode Right-to-Left Marks (`\u200F`) to guarantee punctuation never migrates inward.
+  - Automatically aligns surrounding context flows and mirrors navigation gestures for RTL reading order.
+- **Continuous Gesture Scrubbing with Pointer Capture**:
+  - Implements W3C Pointer Events (`pointerdown`, `pointermove`, `pointerup`) with `setPointerCapture(e.pointerId)`.
+  - Enables smooth dual-axis scrubbing across the entire viewport (both vertical swipes and horizontal drags cycle words while paused).
+  - Protects gesture streams from DOM element re-renders when fingers drag directly across context word elements (`.strip-word`).
+- **Speed & Punctuation Rhythm**: Configurable from 100 to 1000 WPM with rhythmic micro-pauses at sentence endings, commas, and quotes.
+

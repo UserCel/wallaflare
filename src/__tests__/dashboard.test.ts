@@ -746,4 +746,150 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     });
   });
 
+  describe("Speed Read (RSVP) Focus Mode", () => {
+    it("renders speed-read modal and launch buttons in dashboard HTML", () => {
+      const html = renderDashboardHtml('Wallaflare');
+      expect(html).toContain('id="speedReadModal"');
+      expect(html).toContain('id="readerSpeedReadBtn"');
+      expect(html).toContain('openSpeedRead()');
+      expect(html).toContain('id="speedReadWordDisplay"');
+      expect(html).toContain('id="speedReadScrubber"');
+      expect(html).toContain('id="speedReadWpmDisplay"');
+      expect(html).toContain('id="speedReadFontSizeDisplay"');
+    });
+
+    it("correctly extracts tokens and maintains steady reading cadence", async () => {
+      const { extractSpeedReadTokens } = await import('../client/reader/speed-read');
+      const { DOMParser } = await import('linkedom');
+      const doc = new DOMParser().parseFromString(`
+        <div id="readerContent">
+          <p>Speed reading with RSVP is blazingly fast.</p>
+          <pre><code>ignored code block</code></pre>
+          <p>Second paragraph, with commas and clauses!</p>
+        </div>
+      `, 'text/html');
+
+      const container = doc.getElementById('readerContent');
+      const { tokens, sentences } = extractSpeedReadTokens(container as any);
+
+      expect(tokens.length).toBe(13);
+      expect(sentences.length).toBe(2);
+
+      // Check first word "Speed"
+      expect(tokens[0].word).toBe('Speed');
+      expect(tokens[0].delayMultiplier).toBe(1.0);
+
+      // Check "fast." (ends paragraph)
+      const fastToken = tokens.find(t => t.word === 'fast.');
+      expect(fastToken).toBeDefined();
+      expect(fastToken!.isParagraphEnd).toBe(true);
+      expect(fastToken!.delayMultiplier).toBe(1.0);
+
+      // Check "paragraph,"
+      const commaToken = tokens.find(t => t.word === 'paragraph,');
+      expect(commaToken).toBeDefined();
+      expect(commaToken!.delayMultiplier).toBe(1.0);
+    });
+
+    it("calculates Optimal Recognition Point (ORP) index at 30-40% of word", async () => {
+      const { calculateOrpIndex } = await import('../client/reader/speed-read');
+
+      // 4 letters: len 4 -> 30-40% is letter 2 (0-indexed 1)
+      expect(calculateOrpIndex('test')).toBe(1);
+      // 7 letters: len 7 -> index 2
+      expect(calculateOrpIndex('process')).toBe(2);
+      // 10-13 letters: index 3
+      expect(calculateOrpIndex('processing')).toBe(3);
+      expect(calculateOrpIndex('international')).toBe(3);
+      // >13 letters: index 4
+      expect(calculateOrpIndex('internationally')).toBe(4);
+    });
+
+    it("splits compound words on hyphens and em-dashes for optimal RSVP cadence", async () => {
+      const { splitIntoRsvpWords } = await import('../client/reader/speed-read');
+
+      expect(splitIntoRsvpWords('orange-yellow')).toEqual(['orange-', 'yellow']);
+      expect(splitIntoRsvpWords('state-of-the-art')).toEqual(['state-', 'of-', 'the-', 'art']);
+      expect(splitIntoRsvpWords('thought—and')).toEqual(['thought—', 'and']);
+      expect(splitIntoRsvpWords('-5 degrees')).toEqual(['-5', 'degrees']);
+    });
+
+    it("does not drop final words ending in curly quotes, dialogue quotes, or brackets", async () => {
+      const { extractSpeedReadTokens } = await import('../client/reader/speed-read');
+      const { DOMParser } = await import('linkedom');
+
+      const html = `<div id="testContent"><p>Elemental Chaos is our most sacred place.”</p></div>`;
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const container = doc.getElementById('testContent');
+
+      const { tokens, sentences } = extractSpeedReadTokens(container as any);
+
+      expect(sentences).toEqual(['Elemental Chaos is our most sacred place.”']);
+      expect(tokens.map(t => t.word)).toEqual([
+        'Elemental',
+        'Chaos',
+        'is',
+        'our',
+        'most',
+        'sacred',
+        'place.”'
+      ]);
+
+      const lastToken = tokens[tokens.length - 1];
+      expect(lastToken.word).toBe('place.”');
+      expect(lastToken.isParagraphEnd).toBe(true);
+      expect(lastToken.orpIndex).toBe(1); // 'p' (0), 'l' (1), 'ace.”' (2..)
+    });
+
+    it("correctly detects RTL languages, handles Hebrew words, ORP, and BiDi script formatting", async () => {
+      const { isRtlText, calculateOrpIndex, splitIntoRsvpWords, formatOrpSegments } = await import('../client/reader/speed-read');
+
+      expect(isRtlText('שלום עולם')).toBe(true);
+      expect(isRtlText('مرحبا بالعالم')).toBe(true);
+      expect(isRtlText('Hello world')).toBe(false);
+
+      // Hebrew ORP: 30-40% from the start of the word
+      expect(calculateOrpIndex('שלום')).toBe(1); // 'ש' (0), 'ל' (1)
+      expect(calculateOrpIndex('עברית')).toBe(1); // 'ע' (0), 'ב' (1)
+      expect(calculateOrpIndex('ישראליות')).toBe(2); // 'י' (0), 'ש' (1), 'ר' (2)
+
+      // Hebrew hyphenated words
+      expect(splitIntoRsvpWords('אי-אפשר')).toEqual(['אי-', 'אפשר']);
+
+      // BiDi ORP formatting: English words are NEVER backwards, Hebrew words are properly aligned
+      // 1. English word: "Google" (orp = 2 -> 'o') -> LTR: left prefix "Go", focus "o", right suffix "gle"
+      const englishOrp = calculateOrpIndex('Google');
+      const englishSegments = formatOrpSegments('Google', englishOrp);
+      expect(englishSegments.isRtl).toBe(false);
+      expect(englishSegments.left).toBe('Google'.slice(0, englishOrp));
+      expect(englishSegments.focus).toBe('Google'.charAt(englishOrp));
+      expect(englishSegments.right).toBe('Google'.slice(englishOrp + 1));
+
+      // 2. Hebrew word: "שלום" (orp = 1 -> 'ל') -> RTL: right prefix "ש", focus "ל", left suffix "ום"
+      const hebrewOrp = calculateOrpIndex('שלום');
+      const hebrewSegments = formatOrpSegments('שלום', hebrewOrp);
+      expect(hebrewSegments.isRtl).toBe(true);
+      expect(hebrewSegments.right).toBe('\u200Fש\u200F');
+      expect(hebrewSegments.focus).toBe('\u200Fל\u200F');
+      expect(hebrewSegments.left).toBe('\u200Fום\u200F');
+
+      // 3. Hebrew word with trailing comma: "מוקשים," (clean "מוקשים", orp = 2 -> 'ק')
+      // Suffix is "שים," wrapped in RLM so the comma NEVER jumps inside into "מוק,שים"
+      const commaOrp = calculateOrpIndex('מוקשים,');
+      expect(commaOrp).toBe(2); // 'מ' (0), 'ו' (1), 'ק' (2)
+      const commaSegments = formatOrpSegments('מוקשים,', commaOrp);
+      expect(commaSegments.isRtl).toBe(true);
+      expect(commaSegments.right).toBe('\u200Fמו\u200F');
+      expect(commaSegments.focus).toBe('\u200Fק\u200F');
+      expect(commaSegments.left).toBe('\u200Fשים,\u200F');
+    });
+
+    it("keeps speed read UI chrome and controls consistent across languages", () => {
+      const html = renderDashboardHtml('Wallaflare');
+      expect(html).toContain('.speed-read-overlay');
+      expect(html).toContain('.speed-read-lower-deck');
+    });
+  });
+
 });
+

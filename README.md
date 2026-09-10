@@ -35,6 +35,12 @@
 - **🍪 Authenticated Scraping & Session Cookie Vault**:
   - Native in-app WebView login and cookie sync for paywalled / login-required sites (Substack, Medium, GitHub, private repos).
   - Server-side D1 cookie vault and on-device scraping with deterministic re-injection.
+- **⚡ RSVP Speed Reader (Rapid Serial Visual Presentation)**:
+  - Optical Recognition Point (ORP) fixation highlighting (accent color) for reduced saccadic eye movement and high-WPM comprehension.
+  - Complete BiDi and RTL language support (Hebrew, Arabic) with Unicode Right-to-Left marks (`\u200F`) and strict punctuation isolation (`moqushim,`).
+  - Interactive scrubbing with continuous dual-axis gestures (vertical & horizontal swipe across the screen or directly on text with W3C pointer capture).
+  - Dynamic speed control (100–1000 WPM) with automatic punctuation pauses (periods, commas, colons, quotes).
+  - Quick launch via reader toolbar, mobile bottom bar, or `Alt+R` shortcut, with full keyboard controls (`Space` to pause, `←`/`→` to scrub, `↑`/`↓` for WPM).
 - **🖍️ Multi-Color Annotations & W3C Highlights**:
   - Resilient W3C text position/quote selectors across theme and font size changes.
   - 4-color palette (`🟡`, `🟢`, `🔵`, `🟣`), attached notes, in-memory batching, and Markdown export with highlights (`==text==`) and footnotes (`[^note]`).
