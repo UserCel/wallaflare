@@ -982,7 +982,7 @@ export async function generateDigestEpub(
     <li class="digest-toc-item">
       <a href="${p.chapterFile}">${p.escapedTitle}</a>
       <div class="digest-toc-meta">
-        ${p.escapedAuthor ? p.escapedAuthor + ' &bull; ' : ''}${p.escapedDomain} &bull; ${p.readingTime} ${p.isRtl ? 'דק׳' : 'min'}
+        ${p.escapedAuthor ? p.escapedAuthor + ' &#x2022; ' : ''}${p.escapedDomain} &#x2022; ${p.readingTime} ${p.isRtl ? 'דק׳' : 'min'}
       </div>
     </li>`).join('');
 
@@ -1001,7 +1001,7 @@ export async function generateDigestEpub(
 </head>
 <body dir="${primaryRtl ? 'rtl' : 'ltr'}" class="${primaryRtl ? 'rtl' : ''}" style="${primaryRtl ? 'direction: rtl; text-align: right;' : ''}">
   <h1 dir="${primaryRtl ? 'rtl' : 'ltr'}">${escapedDigestTitle}</h1>
-  <p class="article-meta" dir="${primaryRtl ? 'rtl' : 'ltr'}">${articles.length} ${articles.length === 1 ? 'Article' : 'Articles'} &bull; ~${totalReadingTime} ${primaryRtl ? 'דקות קריאה' : 'min read'} &bull; ${dateStr}</p>
+  <p class="article-meta" dir="${primaryRtl ? 'rtl' : 'ltr'}">${articles.length} ${articles.length === 1 ? 'Article' : 'Articles'} &#x2022; ~${totalReadingTime} ${primaryRtl ? 'דקות קריאה' : 'min read'} &#x2022; ${dateStr}</p>
   <hr class="article-divider"/>
   <h2 dir="${primaryRtl ? 'rtl' : 'ltr'}">${primaryRtl ? 'תוכן עניינים' : 'Table of Contents'}</h2>
   <ol class="digest-toc-list" dir="${primaryRtl ? 'rtl' : 'ltr'}">
@@ -1028,7 +1028,7 @@ export async function generateDigestEpub(
 <body dir="${p.isRtl ? 'rtl' : 'ltr'}" class="${p.isRtl ? 'rtl' : ''}" style="${p.isRtl ? 'direction: rtl; text-align: right;' : ''}">
   <div class="article-header" dir="${p.isRtl ? 'rtl' : 'ltr'}">
     <h1 dir="${p.isRtl ? 'rtl' : 'ltr'}">${p.escapedTitle}</h1>
-    <p class="article-meta" dir="${p.isRtl ? 'rtl' : 'ltr'}">${p.escapedAuthor ? p.escapedAuthor + ' &bull; ' : ''}${p.escapedDomain} &bull; ${p.readingTime} ${p.isRtl ? 'דק׳' : 'min'}${p.url ? ` &bull; <a href="${p.url}">${p.isRtl ? 'מקור' : 'Original'}</a>` : ''}</p>
+    <p class="article-meta" dir="${p.isRtl ? 'rtl' : 'ltr'}">${p.escapedAuthor ? p.escapedAuthor + ' &#x2022; ' : ''}${p.escapedDomain} &#x2022; ${p.readingTime} ${p.isRtl ? 'דק׳' : 'min'}${p.url ? ` &#x2022; <a href="${p.url}">${p.isRtl ? 'מקור' : 'Original'}</a>` : ''}</p>
   </div>
   <hr class="article-divider"/>
   ${p.leadImageHtml}${p.cleanBodyHtml}

@@ -144,6 +144,14 @@ describe('EPUB 3 Generator', () => {
     const opfStr = strFromU8(unzipped['OEBPS/content.opf']);
     expect(opfStr).toContain('<dc:subject>tech</dc:subject>');
     expect(opfStr).toContain('<dc:subject>ai</dc:subject>');
+
+    // Verify strict XML entity compliance (no unescaped HTML entities like &bull;)
+    expect(summaryStr).not.toContain('&bull;');
+    expect(ch1Str).not.toContain('&bull;');
+    expect(ch2Str).not.toContain('&bull;');
+    expect(summaryStr).toContain('&#x2022;');
+    expect(ch1Str).toContain('&#x2022;');
+    expect(ch2Str).toContain('&#x2022;');
   }, 15000);
 
   it('bundles opening lead image and inline images into the EPUB zip', async () => {
