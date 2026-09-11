@@ -726,6 +726,31 @@ export async function getEntryById(db: D1Database, id: number): Promise<EntryRow
   return entry;
 }
 
+export async function getEntriesByIds(db: D1Database, ids: number[]): Promise<EntryRow[]> {
+  if (!ids || ids.length === 0) return [];
+  const uniqueIds = Array.from(new Set(ids));
+  const placeholders = uniqueIds.map(() => '?').join(',');
+  const query = `SELECT * FROM entries WHERE id IN (${placeholders})`;
+  const res = await db.prepare(query).bind(...uniqueIds).all<EntryRow>();
+  const rows = res.results || [];
+  if (rows.length === 0) return [];
+
+  const entryIds = rows.map(r => r.id);
+  const [tagMap, annMap] = await Promise.all([
+    getAllEntryTagsBatch(db, entryIds),
+    getAllEntryAnnotationsBatch(db, entryIds),
+  ]);
+
+  for (const row of rows) {
+    (row as any).tags = tagMap.get(row.id) || [];
+    (row as any).annotations = annMap.get(row.id) || [];
+  }
+
+  // Preserve the caller's requested order
+  const rowMap = new Map(rows.map(r => [r.id, r]));
+  return ids.map(id => rowMap.get(id)).filter(Boolean) as EntryRow[];
+}
+
 export async function getEntryByUrl(db: D1Database, url: string): Promise<EntryRow | null> {
   const query = 'SELECT * FROM entries WHERE url = ? LIMIT 1';
   const entry = await db.prepare(query).bind(url).first<EntryRow>();

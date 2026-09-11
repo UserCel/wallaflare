@@ -133,4 +133,16 @@ All dashboard functionality is covered by the automated Vitest suite (74 passing
   - Enables smooth dual-axis scrubbing across the entire viewport (both vertical swipes and horizontal drags cycle words while paused).
   - Protects gesture streams from DOM element re-renders when fingers drag directly across context word elements (`.strip-word`).
 - **Speed & Punctuation Rhythm**: Configurable from 100 to 1000 WPM with rhythmic micro-pauses at sentence endings, commas, and quotes.
+ 
+### 8. Anthology / Daily Digest EPUB Engine
+- **Engine Location**: `src/services/epub.ts` (`generateDigestEpub`, `generateDigestEpubBlob`) & `src/routes/api.ts` (`GET /api/entries/digest.epub`).
+- **Interactive Table of Contents**: Synthesizes an anthology cover and Table of Contents page complete with per-article reading duration, publication date, domain source chips, and Dublin Core subject tags (`<dc:subject>`).
+- **Per-Chapter BiDi & RTL Isolation**: Each article chapter is encapsulated in its own XHTML document (`chapter_N.xhtml`) with independent text direction (`dir="rtl"` vs `dir="ltr"`), guaranteeing mixed-language anthologies (Hebrew, Arabic, English) render cleanly without style bleed.
+- **Client-Side Bulk Export**:
+  - Available directly in the multi-select batch action bar and right-click context menu under **Anthology EPUB (.epub)**.
+  - Automatically verifies cached article bodies; fetches full content in parallel if partial entries are selected; compiles the EPUB in-memory using `fflate` and downloads the `.epub` file offline without roundtrips.
+- **Edge API & E-Reader Catalog**:
+  - `GET /api/entries/digest.epub?ids=1,2,3` or `?filter=unread|starred&limit=30` compiles an on-the-fly multi-article EPUB stream directly from Cloudflare D1.
+  - OPDS 1.2 catalog offers one-tap acquisition (`📖 Unread Digest (EPUB Anthology)`).
+  - KOReader plugin menu features `Download Unread Digest` to download and read compiled digests with one click.
 

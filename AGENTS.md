@@ -29,11 +29,13 @@
         ├─────────────────────────────┤                               ├─────────────────────────────┤
         │ • /api/sync (Unified Sync)  │                               │ • 3-Pane Workspace Desktop  │
         │ • /api/entries (Wallabag v2)│                               │ • Infinite Scroll & Sorting │
-        │ • /opds (OPDS 1.2 Catalog)  │
-        │ • /feed (RSS 2.0 / Atom)    │\n        │ • /api/annotations (W3C+v2) │                               │ • Mobile Slide Drawer (1:1) │
-        │ • /api/tags & batch routes  │                               │ • On-Device EPUB / PDF / MD │
-        │ • Readability Extractor     │                               │ • Multi-color Annotations   │
-        │ • Rate limiting & Security  │                               │ • 4 Themes (Dark,Light,OLED)│
+        │ • /api/entries/digest.epub  │                               │ • Batch Anthology EPUB      │
+        │ • /opds (OPDS 1.2 Catalog)  │                               │ • Mobile Slide Drawer (1:1) │
+        │ • /feed (RSS 2.0 / Atom)    │                               │ • On-Device EPUB / PDF / MD │
+        │ • /api/annotations (W3C+v2) │                               │ • Multi-color Annotations   │
+        │ • /api/tags & batch routes  │                               │ • 4 Themes (Dark,Light,OLED)│
+        │ • Readability Extractor     │                               │ • RSVP Speed Reader (BiDi)  │
+        │ • Rate limiting & Security  │                               └──────────────┬──────────────┘
         └──────────────┬──────────────┘                               └──────────────┬──────────────┘
                        │                                                             │
         ┌──────────────▼──────────────┐                               ┌──────────────▼──────────────┐

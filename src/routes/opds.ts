@@ -12,7 +12,7 @@ import {
   resetAuthRateLimit,
 } from '../db/queries';
 import { getClientIp } from './api';
-import { generateEpub } from '../services/epub';
+import { generateEpub, generateDigestEpub } from '../services/epub';
 import { validateSessionToken } from '../services/auth';
 import {
   generateRootCatalogXml,
@@ -349,6 +349,7 @@ opdsRouter.get('/opds/download/:id', async (c) => {
     return c.json({ error: 'Entry not found' }, 404);
   }
 
+  const maxImages = c.env?.EPUB_MAX_IMAGES !== undefined ? Number(c.env.EPUB_MAX_IMAGES) : undefined;
   const epubBytes = await generateEpub({
     id: entry.id,
     title: entry.title || 'Untitled',
@@ -361,7 +362,7 @@ opdsRouter.get('/opds/download/:id', async (c) => {
     published_at: entry.published_at || null,
     author: entry.author || null,
     language: entry.language || 'en',
-  });
+  }, { maxImages });
 
   const rawTitle = (entry.title || 'article').replace(/[\r\n\t]/g, ' ').trim();
   const safeAsciiFilename = rawTitle.replace(/[^\w\s.-]/g, '').trim().replace(/\s+/g, '_') || `article_${entry.id}`;
@@ -377,3 +378,56 @@ opdsRouter.get('/opds/download/:id', async (c) => {
     },
   });
 });
+
+// Direct Unread Digest Acquisition Endpoint
+opdsRouter.get('/opds/digest.epub', async (c) => {
+  if (!c.env?.DB) {
+    return c.json({ error: 'Database connection missing' }, 500);
+  }
+
+  const res = await getEntries(c.env.DB, {
+    is_archived: 0,
+    perPage: 30,
+    page: 1,
+    sort: 'created',
+    order: 'desc',
+  });
+
+  const entries = res.entries || [];
+  if (entries.length === 0) {
+    return c.json({ error: 'No unread entries found for digest' }, 404);
+  }
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  const maxImages = c.env?.EPUB_MAX_IMAGES !== undefined ? Number(c.env.EPUB_MAX_IMAGES) : undefined;
+  const epubBytes = await generateDigestEpub(
+    entries.map(e => ({
+      id: e.id,
+      title: e.title || 'Untitled',
+      content: e.content || '',
+      url: e.url,
+      domain_name: e.domain_name,
+      preview_picture: e.preview_picture,
+      reading_time: e.reading_time,
+      created_at: e.created_at,
+      published_at: e.published_at || null,
+      author: e.author || null,
+      language: e.language || 'en',
+      tags: (e as any).tags || [],
+    })),
+    { title: `Wallaflare Unread Digest — ${dateStr}`, maxImages }
+  );
+
+  const safeFilename = `wallaflare_unread_digest_${dateStr}.epub`;
+
+  return new Response(epubBytes, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/epub+zip',
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
+      'Content-Length': String(epubBytes.byteLength),
+      'Cache-Control': 'private, no-cache, no-transform',
+    },
+  });
+});
+

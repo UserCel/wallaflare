@@ -5,6 +5,7 @@ import { Env, EntryRow, WallabagEntry } from '../types';
 import {
   getEntries,
   getEntryById,
+  getEntriesByIds,
   getEntryByUrl,
   checkEntriesExistByHashes,
   checkEntriesExistByUrls,
@@ -44,7 +45,7 @@ import {
   wipeDatabase
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain } from '../services/extractor';
-import { generateEpub } from '../services/epub';
+import { generateEpub, generateDigestEpub } from '../services/epub';
 import { getClientSecret } from '../services/auth';
 
 
@@ -1119,6 +1120,82 @@ apiRouter.delete('/api/entries/tags/list.json', authMiddleware, batchRemoveTagsH
 apiRouter.delete('/api/entries/tags/lists', authMiddleware, batchRemoveTagsHandler);
 apiRouter.delete('/api/entries/tags/lists.json', authMiddleware, batchRemoveTagsHandler);
 
+// -------------------------------------------------------------
+// Digest EPUB Export: GET /api/entries/digest.epub
+// -------------------------------------------------------------
+const exportDigestEpubHandler = async (c: any) => {
+  const idsParam = c.req.query('ids');
+  const filter = (c.req.query('filter') || 'unread').toLowerCase();
+  const rawLimit = Number(c.req.query('limit')) || 25;
+  const limit = Math.min(Math.max(rawLimit, 1), 50);
+
+  let entries: EntryRow[] = [];
+
+  if (idsParam) {
+    const ids = idsParam.split(',').map((s: string) => Number(s.trim())).filter((n: number) => !isNaN(n));
+    if (ids.length > 0) {
+      entries = await getEntriesByIds(c.env.DB, ids.slice(0, 50));
+    }
+  } else {
+    const options: any = {
+      perPage: limit,
+      page: 1,
+      sort: 'created',
+      order: 'desc',
+    };
+    if (filter === 'unread') {
+      options.is_archived = 0;
+    } else if (filter === 'starred') {
+      options.is_starred = 1;
+    } else if (filter === 'archive') {
+      options.is_archived = 1;
+    }
+    const res = await getEntries(c.env.DB, options);
+    entries = res.entries || [];
+  }
+
+  if (entries.length === 0) {
+    return c.json({ error: 'No entries found for digest' }, 404);
+  }
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  const title = c.req.query('title') || `Wallaflare Digest — ${dateStr}`;
+  const maxImages = c.env?.EPUB_MAX_IMAGES !== undefined ? Number(c.env.EPUB_MAX_IMAGES) : undefined;
+
+  const epubBytes = await generateDigestEpub(
+    entries.map(e => ({
+      id: e.id,
+      title: e.title || 'Untitled',
+      content: e.content || '',
+      url: e.url,
+      domain_name: e.domain_name,
+      preview_picture: e.preview_picture,
+      reading_time: e.reading_time,
+      created_at: e.created_at,
+      published_at: e.published_at || null,
+      author: e.author || null,
+      language: e.language || 'en',
+      tags: (e as any).tags || [],
+    })),
+    { title, maxImages }
+  );
+
+  const safeFilename = `wallaflare_digest_${dateStr}.epub`;
+
+  return new Response(epubBytes, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/epub+zip',
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
+      'Content-Length': String(epubBytes.byteLength),
+      'Cache-Control': 'no-cache',
+    },
+  });
+};
+
+apiRouter.get('/api/entries/digest.epub', authMiddleware, exportDigestEpubHandler);
+apiRouter.get('/api/entries/digest', authMiddleware, exportDigestEpubHandler);
+
 // Single Entry: GET /api/entries/:id(.json)
 // -------------------------------------------------------------
 const getSingleEntryHandler = async (c: any) => {
@@ -1272,6 +1349,7 @@ const exportEpubHandler = async (c: any) => {
     return c.json({ error: 'Entry not found' }, 404);
   }
 
+  const maxImages = c.env?.EPUB_MAX_IMAGES !== undefined ? Number(c.env.EPUB_MAX_IMAGES) : undefined;
   const epubBytes = await generateEpub({
     id: entry.id,
     title: entry.title || 'Untitled',
@@ -1284,7 +1362,8 @@ const exportEpubHandler = async (c: any) => {
     published_at: entry.published_at || null,
     author: entry.author || null,
     language: entry.language || 'en',
-  });
+    tags: entry.tags,
+  }, { maxImages });
 
   const rawTitle = (entry.title || 'article').replace(/[\r\n\t]/g, ' ').trim();
   const safeAsciiFilename = rawTitle.replace(/[^\w\s.-]/g, '').trim().replace(/\s+/g, '_') || `article_${entry.id}`;
@@ -1302,6 +1381,9 @@ const exportEpubHandler = async (c: any) => {
 };
 
 apiRouter.get('/api/entries/:id/export.epub', authMiddleware, exportEpubHandler);
+
+
+
 
 
 // -------------------------------------------------------------

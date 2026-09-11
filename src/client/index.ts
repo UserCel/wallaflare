@@ -350,7 +350,8 @@ import {
             '<svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
           '</button>' +
           '<div class="menu-sub-items">' +
-            '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>ZIP (EPUBs)</span></button>' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchAnthologyEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span>Anthology EPUB (.epub)</span></button>' +
+            '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchEpub();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg><span>ZIP (Individual EPUBs)</span></button>' +
             '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchMarkdown();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>ZIP (Markdown)</span></button>' +
             '<button type="button" class="menu-item menu-sub-item" onclick="' + closeFnName + '; handleExportBatchJson();"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><span>JSON (.json)</span></button>' +
           '</div>' +
@@ -3549,20 +3550,25 @@ import {
       if (!item) return;
       showToast('Exporting EPUB...');
       try {
-        if (typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
-          const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin);
-          const blob = new Blob([u8], { type: 'application/epub+zip' });
-          const filename = (item.title || 'article').replace(/[/\\:*?"<>|]/g, '').trim() + '.epub';
-          await shareOrDownloadBlob(blob, filename, 'application/epub+zip');
-          showToast('✓ EPUB exported');
-        } else {
+        let blob = null;
+        // Prefer edge server export to fetch and bundle full-resolution images without browser CORS limitations
+        try {
           const res = await authFetch('/api/entries/' + id + '/export.epub');
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const blob = await res.blob();
-          const filename = (item.title || 'article').replace(/[/\\:*?"<>|]/g, '').trim() + '.epub';
-          await shareOrDownloadBlob(blob, filename, 'application/epub+zip');
-          showToast('✓ EPUB exported');
+          if (res.ok) {
+            blob = await res.blob();
+          }
+        } catch (netErr) {}
+
+        // Fall back to client-side generator if offline or network fails
+        if (!blob && typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
+          const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin);
+          blob = new Blob([u8], { type: 'application/epub+zip' });
         }
+
+        if (!blob) throw new Error('Could not generate EPUB');
+        const filename = (item.title || 'article').replace(/[/\\:*?"<>|]/g, '').trim() + '.epub';
+        await shareOrDownloadBlob(blob, filename, 'application/epub+zip');
+        showToast('✓ EPUB exported');
       } catch (e) {
         showToast('Failed to export EPUB');
       }
@@ -4362,6 +4368,7 @@ import {
         const openOriginalBtn = document.getElementById('batchOpenOriginalBtn');
         const editTitleBtn = document.getElementById('batchEditTitleBtn');
         const exportPdfBtn = document.getElementById('batchExportPdfBtn');
+        const exportAnthologyBtn = document.getElementById('batchExportAnthologyBtn');
         const exportEpubLabel = document.getElementById('batchExportEpubLabel');
         const exportMdLabel = document.getElementById('batchExportMdLabel');
         const exportJsonLabel = document.getElementById('batchExportJsonLabel');
@@ -4371,6 +4378,7 @@ import {
           if (openOriginalBtn) { openOriginalBtn.classList.remove('is-hidden'); openOriginalBtn.style.setProperty('display', 'flex', 'important'); }
           if (editTitleBtn) { editTitleBtn.classList.remove('is-hidden'); editTitleBtn.style.setProperty('display', 'flex', 'important'); }
           if (exportPdfBtn) { exportPdfBtn.classList.remove('is-hidden'); exportPdfBtn.style.setProperty('display', 'flex', 'important'); }
+          if (exportAnthologyBtn) { exportAnthologyBtn.classList.add('is-hidden'); exportAnthologyBtn.style.setProperty('display', 'none', 'important'); }
           if (exportEpubLabel) exportEpubLabel.textContent = 'EPUB (.epub)';
           if (exportMdLabel) exportMdLabel.textContent = 'Markdown (.md)';
           if (exportJsonLabel) exportJsonLabel.textContent = 'JSON (.json)';
@@ -4379,6 +4387,7 @@ import {
           if (openOriginalBtn) { openOriginalBtn.classList.add('is-hidden'); openOriginalBtn.style.setProperty('display', 'none', 'important'); }
           if (editTitleBtn) { editTitleBtn.classList.add('is-hidden'); editTitleBtn.style.setProperty('display', 'none', 'important'); }
           if (exportPdfBtn) { exportPdfBtn.classList.add('is-hidden'); exportPdfBtn.style.setProperty('display', 'none', 'important'); }
+          if (exportAnthologyBtn) { exportAnthologyBtn.classList.remove('is-hidden'); exportAnthologyBtn.style.setProperty('display', 'flex', 'important'); }
           if (exportEpubLabel) exportEpubLabel.textContent = 'Export All as ZIP (EPUBs)';
           if (exportMdLabel) exportMdLabel.textContent = 'Export All as ZIP (Markdown)';
           if (exportJsonLabel) exportJsonLabel.textContent = 'Export All as JSON';
@@ -4461,6 +4470,72 @@ import {
       }
     }
 
+    async function handleExportBatchAnthologyEpub() {
+      const ids = Array.from(selectedArticleIds);
+      if (ids.length === 0) return;
+      closeAllCardMenus();
+      if (ids.length === 1) {
+        downloadEpub(ids[0]);
+        clearArticleSelection();
+        return;
+      }
+
+      showToast('Compiling Anthology EPUB (' + ids.length + ' articles)...');
+      try {
+        const items = [];
+        for (const id of ids) {
+          let item = allEntries.find(e => e.id === id);
+          if (item) {
+            if (!item.content) {
+              try {
+                const res = await authFetch('/api/entries/' + id + '.json');
+                if (res.ok) {
+                  const fullItem = await res.json();
+                  item = { ...item, ...fullItem };
+                }
+              } catch (err) {}
+            }
+            items.push(item);
+          }
+        }
+
+        if (items.length === 0) {
+          showToast('No articles selected');
+          return;
+        }
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        const title = 'Wallaflare Anthology — ' + dateStr;
+        let blob = null;
+
+        // Prefer edge server export to fetch and bundle images for all articles without browser CORS limitations
+        try {
+          const res = await authFetch('/api/entries/digest.epub?ids=' + ids.join(','));
+          if (res.ok) {
+            blob = await res.blob();
+          }
+        } catch (netErr) {}
+
+        // Fall back to client-side generator if offline or server export fails
+        if (!blob && typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateDigestEpub === 'function') {
+          const u8 = await window.WallaflareEpub.generateDigestEpub(items, { title });
+          blob = new Blob([u8], { type: 'application/epub+zip' });
+        }
+
+        if (blob) {
+          const filename = 'wallaflare_anthology_' + dateStr + '.epub';
+          await shareOrDownloadBlob(blob, filename, 'application/epub+zip');
+          showToast('✓ Anthology EPUB exported (' + items.length + ' articles)');
+          clearArticleSelection();
+        } else {
+          showToast('Failed to export Anthology EPUB');
+        }
+      } catch (e) {
+        console.error('Anthology EPUB error:', e);
+        showToast('Failed to export Anthology EPUB');
+      }
+    }
+
     async function handleBatchExportEpub() {
       const ids = Array.from(selectedArticleIds);
       if (ids.length === 0) return;
@@ -4477,8 +4552,21 @@ import {
         for (const id of ids) {
           const item = allEntries.find(e => e.id === id);
           if (!item) continue;
-          if (typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
-            const u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin);
+          let u8 = null;
+          // Prefer server export for complete image bundling
+          try {
+            const res = await authFetch('/api/entries/' + id + '/export.epub');
+            if (res.ok) {
+              const buf = await res.arrayBuffer();
+              u8 = new Uint8Array(buf);
+            }
+          } catch (netErr) {}
+
+          if (!u8 && typeof window.WallaflareEpub !== 'undefined' && typeof window.WallaflareEpub.generateEpub === 'function') {
+            u8 = await window.WallaflareEpub.generateEpub(item, window.location.origin);
+          }
+
+          if (u8) {
             const safeName = (item.title || ('article-' + id)).replace(/[/\\:*?"<>|]/g, '').trim() + '.epub';
             zipFiles[safeName] = u8;
           }
@@ -7139,6 +7227,8 @@ if (typeof window !== "undefined") {
   try { (window as any).batchOpenHighlights = batchOpenHighlights; } catch (e) {}
   try { (window as any).batchOpenOriginal = batchOpenOriginal; } catch (e) {}
   try { (window as any).batchEditTitle = batchEditTitle; } catch (e) {}
+  try { (window as any).handleExportBatchAnthologyEpub = handleExportBatchAnthologyEpub; } catch (e) {}
+  try { (window as any).handleBatchExportAnthologyEpub = handleExportBatchAnthologyEpub; } catch (e) {}
   try { (window as any).handleBatchExportEpub = handleBatchExportEpub; } catch (e) {}
   try { (window as any).handleBatchExportMarkdown = handleBatchExportMarkdown; } catch (e) {}
   try { (window as any).handleBatchExportPdf = handleBatchExportPdf; } catch (e) {}

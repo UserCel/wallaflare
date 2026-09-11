@@ -19,6 +19,7 @@ export interface Env {
   APP_NAME?: string;
   JWT_SECRET?: string;
   READ_TOKEN?: string;
+  EPUB_MAX_IMAGES?: string | number;
 }
 
 export interface EntryRow {

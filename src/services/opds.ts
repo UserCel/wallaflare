@@ -79,6 +79,15 @@ export function generateRootCatalogXml(options: OpdsCatalogOptions): string {
   <link rel="start" href="${xmlEscape(baseUrl)}/opds${tokenQuery}" type="application/atom+xml;profile=opds-catalog;kind=navigation" />
   <link rel="search" href="${xmlEscape(baseUrl)}/opds/opensearch.xml${tokenQuery}" type="application/opensearchdescription+xml" title="Search ${xmlEscape(appName)}" />
 
+  <!-- Unread Digest Anthology (Single Compiled Book) -->
+  <entry>
+    <title>📖 Unread Digest (EPUB Anthology)</title>
+    <id>urn:wallaflare:opds:digest:unread</id>
+    <updated>${now}</updated>
+    <content type="text">Compiled single EPUB containing your unread articles with Table of Contents</content>
+    <link rel="http://opds-spec.org/acquisition" href="${xmlEscape(baseUrl)}/opds/digest.epub${tokenQuery}" type="application/epub+zip" />
+  </entry>
+
   <!-- Unread Section -->
   <entry>
     <title>Unread Articles${unreadLabel}</title>

@@ -56,8 +56,16 @@
   - Supports HTTP Basic Auth (`wallaflare` / `AUTH_TOKEN` or `READ_TOKEN`), Bearer headers, and pre-authenticated direct URLs (`?token=...`) with recursive child link token propagation.
   - Optional read-only `READ_TOKEN` secret to isolate e-reader and RSS feed credentials from administrative controls.
 - **📦 On-Device Multi-Format Exports**:
-  - Client-side **EPUB 3** (with cover art and metadata), **GitHub-flavored Markdown** (with YAML frontmatter), and **PDF** generation without third-party services.
+  - Client-side **EPUB 3** (with cover art, inline images, and metadata), **GitHub-flavored Markdown** (with YAML frontmatter), and **PDF** generation without third-party services.
+  - **Anthology EPUB (.epub)** multi-article compilation into a single volume with interactive Table of Contents.
   - Bulk ZIP exports for multiple selected articles.
+- **📚 Daily Digest & Anthology EPUBs**:
+  - Compile multiple articles or your entire Unread queue into a single, beautifully bound multi-chapter EPUB book.
+  - Generates a rich interactive Table of Contents with reading times, domain labels, and multi-tag badges (`<dc:subject>`).
+  - Strict BiDi / RTL script isolation (with KDE Okular, KOReader, and Apple Books compatibility) so Hebrew/Arabic and English articles render cleanly side-by-side.
+  - Multi-select bulk export directly from the web workspace (Right-Click Context Menu & Floating Batch Bar).
+  - One-tap acquisition from OPDS 1.2 catalog (`📖 Unread Digest (EPUB Anthology)`).
+  - Edge endpoint: `GET /api/entries/digest.epub?filter=unread|starred&limit=30` or `?ids=1,2,3` with configurable image quotas (`EPUB_MAX_IMAGES`) and Cloudflare edge caching.
 - **🛡️ Two-Tier Security & Privacy**:
   - Server-side Linkedom DOM sanitizer strips unsafe scripts, styles, and trackers.
   - Built-in brute-force rate-limiting and crawler disallow headers.

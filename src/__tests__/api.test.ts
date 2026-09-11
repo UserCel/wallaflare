@@ -515,6 +515,14 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     const epubBlob = await epubRes.arrayBuffer();
     expect(epubBlob.byteLength).toBeGreaterThan(500);
 
+    // 5b. Export Digest EPUB
+    const digestRes = await app.request('/api/entries/digest.epub?ids=1', {}, { DB: mockDb });
+    expect(digestRes.status).toBe(200);
+    expect(digestRes.headers.get('Content-Type')).toBe('application/epub+zip');
+    expect(digestRes.headers.get('Content-Disposition')).toContain('wallaflare_digest');
+    const digestBlob = await digestRes.arrayBuffer();
+    expect(digestBlob.byteLength).toBeGreaterThan(500);
+
     // 6. Delete entry
     const delRes = await app.request('/api/entries/1.json', {
       method: 'DELETE',

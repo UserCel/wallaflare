@@ -1,7 +1,7 @@
 import { Article, Annotation } from "../types";
 import { state } from "../state";
 import { showToast } from "../components/toast";
-import { isCapacitorApp, getEffectiveServerUrl } from "../sync/api";
+import { isCapacitorApp, getEffectiveServerUrl, authFetch } from "../sync/api";
 import { getSortedAnnotations } from "./annotations";
 
 declare const WallaflareEpub: any;
@@ -200,11 +200,29 @@ export async function downloadEpub(idOrItem: any): Promise<void> {
   if (!item) item = state.allEntries.find(e => e.id === state.activeArticleId);
   if (!item) return;
 
-  if (typeof WallaflareEpub !== "undefined" && WallaflareEpub.generateEpubBlob) {
-    const blob = await WallaflareEpub.generateEpubBlob(item);
-    await shareOrDownloadBlob(blob, (item.title || "article") + ".epub", "application/epub+zip");
-  } else {
-    showToast("EPUB generator not available", true);
+  showToast("Exporting EPUB...");
+  try {
+    let blob: Blob | null = null;
+    if (item.id) {
+      try {
+        const res = await authFetch(`/api/entries/${item.id}/export.epub`);
+        if (res.ok) {
+          blob = await res.blob();
+        }
+      } catch {}
+    }
+    if (!blob && typeof WallaflareEpub !== "undefined" && WallaflareEpub.generateEpubBlob) {
+      blob = await WallaflareEpub.generateEpubBlob(item);
+    }
+    if (blob) {
+      const filename = (item.title || "article").replace(/[/\\:*?"<>|]/g, '').trim() + ".epub";
+      await shareOrDownloadBlob(blob, filename, "application/epub+zip");
+      showToast("✓ EPUB exported");
+    } else {
+      throw new Error("Generation failed");
+    }
+  } catch (e) {
+    showToast("Failed to export EPUB", true);
   }
 }
 

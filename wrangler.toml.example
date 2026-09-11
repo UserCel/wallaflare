@@ -17,3 +17,4 @@ migrations_dir = "migrations"
 
 [vars]
 APP_NAME = "Wallaflare"
+EPUB_MAX_IMAGES = "20" # Max images bundled into single EPUB / digest (prevents subrequest quota exhaustion)
