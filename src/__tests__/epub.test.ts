@@ -23,6 +23,23 @@ describe('EPUB 3 Generator', () => {
     expect(epubData[1]).toBe(0x4B); // 'K'
   }, 15000);
 
+  it('embeds article tags as <dc:subject> metadata tags in content.opf', async () => {
+    const epubData = await generateEpub({
+      id: 55,
+      title: 'Categorized Article',
+      content: '<p>Content with tags.</p>',
+      url: 'https://example.com/tagged',
+      domain_name: 'example.com',
+      language: 'en',
+      tags: ['Engineering', { id: 1, label: 'Systems', slug: 'systems' }],
+    });
+
+    const unzipped = unzipSync(epubData);
+    const opfStr = strFromU8(unzipped['OEBPS/content.opf']);
+    expect(opfStr).toContain('<dc:subject>Engineering</dc:subject>');
+    expect(opfStr).toContain('<dc:subject>Systems</dc:subject>');
+  }, 15000);
+
   it('produces 100% strictly valid XHTML/XML even with unclosed void tags and nested spans', async () => {
     const problematicHtml = `
       <p class="intro"><em>Abyss…this upgrade is too good. </em>Will mused.</p>

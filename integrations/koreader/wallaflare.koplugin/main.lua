@@ -34,7 +34,7 @@ local Annotations = package.loaded["annotations"] or dofile(plugin_dir .. "/anno
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
     is_doc_only = false,
-    version = "1.0.4",
+    version = "1.0.6",
 }
 
 local function getPluginDir()
@@ -45,13 +45,44 @@ local function getPluginDir()
     return src:match("^(.*)/[^/]+$") or "."
 end
 
+local function utf8SafeTruncate(str, max_bytes)
+    if not str or #str <= max_bytes then
+        return str
+    end
+    local len = max_bytes
+    local i = len
+    while i > 0 do
+        local b = str:byte(i)
+        if b < 128 then
+            -- ASCII byte is a complete character boundary
+            return str:sub(1, i)
+        elseif b >= 192 then
+            -- Leading byte of a multi-byte sequence
+            local char_len = 1
+            if b >= 240 then char_len = 4
+            elseif b >= 224 then char_len = 3
+            elseif b >= 192 then char_len = 2
+            end
+            if i + char_len - 1 <= max_bytes then
+                return str:sub(1, i + char_len - 1)
+            else
+                return str:sub(1, i - 1)
+            end
+        end
+        i = i - 1
+    end
+    return ""
+end
+
 local function sanitizeFilename(name)
     if not name or name == "" then return "article" end
     local clean = name:gsub("[%s%p]+", "_"):gsub("^_+", ""):gsub("_+$", "")
     if clean == "" then clean = "article" end
-    if clean:len() > 60 then
-        clean = clean:sub(1, 60)
+    if #clean > 80 then
+        clean = utf8SafeTruncate(clean, 80)
+        clean = clean:gsub("_+$", "")
     end
+    if clean == "" then clean = "article" end
     return clean
 end
 
@@ -164,6 +195,26 @@ function Wallaflare:addToMainMenu(menu_items)
                         end,
                     },
                     {
+                        text = _("Folder structure"),
+                        help_text = _("Organize downloaded articles in a flat folder or subfolders by tag"),
+                        sub_item_table = {
+                            {
+                                text = _("Flat folder (Default)"),
+                                checked_func = function() return self.settings.folder_organization == "flat" end,
+                                callback = function(touchmenu_instance)
+                                    self:promptChangeFolderOrg("flat", _("Flat folder"), touchmenu_instance)
+                                end,
+                            },
+                            {
+                                text = _("Subfolders by Tag"),
+                                checked_func = function() return self.settings.folder_organization == "tag" end,
+                                callback = function(touchmenu_instance)
+                                    self:promptChangeFolderOrg("tag", _("Subfolders by Tag"), touchmenu_instance)
+                                end,
+                            },
+                        },
+                    },
+                    {
                         text = _("Sync Filter"),
                         help_text = _("Filter articles to sync. Changing this triggers a full library reconciliation on next sync."),
                         sub_item_table = {
@@ -186,6 +237,29 @@ function Wallaflare:addToMainMenu(menu_items)
                                 checked_func = function() return self.settings.sync_filter == "starred" end,
                                 callback = function(touchmenu_instance)
                                     self:promptChangeSyncFilter("starred", _("Starred only"), touchmenu_instance)
+                                end,
+                            },
+                            {
+                                text_func = function()
+                                    local t = self.settings.sync_tag
+                                    if not t or t == "" then
+                                        return _("Tag filter: All tags")
+                                    end
+                                    local tags = {}
+                                    for item in string.gmatch(t, "[^,]+") do
+                                        local clean = item:gsub("^%s+", ""):gsub("%s+$", ""):gsub("^#+", "")
+                                        if clean ~= "" then
+                                            table.insert(tags, "#" .. clean)
+                                        end
+                                    end
+                                    if #tags > 0 then
+                                        return string.format(_("Tag filter: %s"), table.concat(tags, ", "))
+                                    end
+                                    return _("Tag filter: All tags")
+                                end,
+                                help_text = _("Filter sync by single or comma-separated tags (e.g. tech, longform)"),
+                                callback = function(touchmenu_instance)
+                                    self:promptEditSyncTag(touchmenu_instance)
                                 end,
                             },
                         },
@@ -422,23 +496,106 @@ function Wallaflare:editServerSettings()
         },
     }
     UIManager:show(dialog)
-    dialog:onShowKeyboard()
+    if dialog.onShowKeyboard then
+        dialog:onShowKeyboard()
+    end
+end
+
+function Wallaflare:findArticleFiles(download_dir)
+    local results = {}
+    if not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
+        return results
+    end
+
+    local function scanDir(dir_path)
+        for item in lfs.dir(dir_path) do
+            if item ~= "." and item ~= ".." and not item:match("^%.") and not item:match("^Archive_Instance_") then
+                local full = dir_path .. "/" .. item
+                local mode = lfs.attributes(full, "mode")
+                if mode == "file" and item:match("%.epub$") then
+                    local id_num = tonumber(item:match("^(%d+)[%._]"))
+                    if id_num then
+                        table.insert(results, {
+                            id = id_num,
+                            str_id = tostring(id_num),
+                            filename = item,
+                            full_path = full,
+                            dir = dir_path,
+                            sdr_dir = full:gsub("%.epub$", ".sdr"),
+                        })
+                    end
+                elseif mode == "directory" and not item:match("%.sdr$") and not item:match("%.update$") then
+                    scanDir(full)
+                end
+            end
+        end
+    end
+
+    scanDir(download_dir)
+    return results
+end
+
+function Wallaflare:pruneEmptySubfolders(download_dir)
+    if not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
+        return
+    end
+
+    local function scanAndClean(dir_path)
+        local is_empty = true
+        for item in lfs.dir(dir_path) do
+            if item ~= "." and item ~= ".." and not item:match("^%.") and not item:match("^Archive_Instance_") and not item:match("%.update$") then
+                local full = dir_path .. "/" .. item
+                local mode = lfs.attributes(full, "mode")
+                if mode == "directory" then
+                    if item:match("%.sdr$") then
+                        local epub_file = full:gsub("%.sdr$", ".epub")
+                        if lfs.attributes(epub_file, "mode") ~= "file" then
+                            removeDirRecursive(full)
+                        else
+                            is_empty = false
+                        end
+                    else
+                        local child_empty = scanAndClean(full)
+                        if child_empty then
+                            removeDirRecursive(full)
+                            logger.info("Wallaflare: Pruned empty subfolder " .. full)
+                        else
+                            is_empty = false
+                        end
+                    end
+                elseif mode == "file" then
+                    is_empty = false
+                end
+            end
+        end
+        return is_empty
+    end
+
+    for item in lfs.dir(download_dir) do
+        if item ~= "." and item ~= ".." and not item:match("^%.") and not item:match("^Archive_Instance_") and not item:match("%.update$") then
+            local full = download_dir .. "/" .. item
+            if lfs.attributes(full, "mode") == "directory" and not item:match("%.sdr$") then
+                local empty = scanAndClean(full)
+                if empty then
+                    removeDirRecursive(full)
+                    logger.info("Wallaflare: Pruned empty tag subfolder " .. full)
+                end
+            end
+        end
+    end
 end
 
 function Wallaflare:showStatusDialog()
     local download_dir = Store:getDownloadDir()
     local file_count = 0
     if download_dir and lfs.attributes(download_dir, "mode") == "directory" then
-        for f in lfs.dir(download_dir) do
-            if f:match("%.epub$") then
-                file_count = file_count + 1
-            end
-        end
+        local articles = self:findArticleFiles(download_dir)
+        file_count = #articles
     end
 
     local outbox_count = #(Store:getOutbox())
     local status_text = string.format(
-        _("Plugin Version: %s\nServer URL: %s\nFolder: %s\nSync Revision: %d\nInstance ID: %s\nLocal Articles: %d\nPending Outbox: %d\nAuto-Delete: %s"),
+        _("Plugin Version: %s\nServer URL: %s\nFolder: %s\nSync Revision: %d\nInstance ID: %s\nLocal Articles: %d\nPending Outbox: %d\nAuto-Delete: %s\nFolder Structure: %s\nTag Filter: %s"),
         self.version,
         self.settings.server_url ~= "" and self.settings.server_url or _("(Not set)"),
         download_dir,
@@ -446,7 +603,9 @@ function Wallaflare:showStatusDialog()
         self.settings.instance_id and self.settings.instance_id:sub(1, 12) .. "..." or _("None"),
         file_count,
         outbox_count,
-        self.settings.auto_delete and _("Enabled") or _("Disabled")
+        self.settings.auto_delete and _("Enabled") or _("Disabled"),
+        self.settings.folder_organization == "tag" and _("Subfolders by Tag") or _("Flat folder"),
+        self.settings.sync_tag ~= "" and ("#" .. self.settings.sync_tag) or _("All tags")
     )
 
     UIManager:show(InfoMessage:new{
@@ -574,6 +733,94 @@ function Wallaflare:installPluginUpdate(target_version)
     UIManager:show(confirm)
 end
 
+
+function Wallaflare:promptChangeFolderOrg(target_org, org_label, touchmenu_instance)
+    if self.settings.folder_organization == target_org then
+        return
+    end
+
+    local confirm = ConfirmBox:new{
+        text = string.format(
+            _("Change folder structure to %s?\n\nThis will trigger a full library reconciliation on the next sync to reorganize articles."),
+            org_label
+        ),
+        ok_text = _("Change Structure"),
+        cancel_text = _("Cancel"),
+        ok_callback = function()
+            self.settings.folder_organization = target_org
+            self.settings.sync_rev = 0
+            Store:saveSettings()
+            if touchmenu_instance and touchmenu_instance.updateItems then
+                touchmenu_instance:updateItems()
+            end
+            UIManager:show(InfoMessage:new{
+                text = string.format(_("Folder structure changed to %s.\nNext sync will reconcile your library."), org_label),
+                timeout = 3,
+            })
+        end,
+    }
+    UIManager:show(confirm)
+end
+
+function Wallaflare:promptEditSyncTag(touchmenu_instance)
+    local dialog
+    dialog = InputDialog:new{
+        title = _("Filter sync by Tag"),
+        description = _("Enter tag name or comma-separated tags (e.g. tech, longform):\n(Leave blank to sync all tags)"),
+        input = self.settings.sync_tag or "",
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    id = "close",
+                    callback = function()
+                        UIManager:close(dialog)
+                    end,
+                },
+                {
+                    text = _("Save"),
+                    is_enter_default = true,
+                    callback = function()
+                        local raw_tag = dialog:getInputText() or ""
+                        local clean_tags = {}
+                        for item in string.gmatch(raw_tag, "[^,]+") do
+                            local clean = item:gsub("^%s+", ""):gsub("%s+$", ""):gsub("^#+", "")
+                            if clean ~= "" then
+                                table.insert(clean_tags, clean)
+                            end
+                        end
+                        local new_tag = table.concat(clean_tags, ", ")
+                        UIManager:close(dialog)
+                        if new_tag ~= (self.settings.sync_tag or "") then
+                            self.settings.sync_tag = new_tag
+                            self.settings.sync_rev = 0
+                            Store:saveSettings()
+                            if touchmenu_instance and touchmenu_instance.updateItems then
+                                touchmenu_instance:updateItems()
+                            end
+                            local display_label = _("All tags")
+                            if #clean_tags > 0 then
+                                local tagged = {}
+                                for _, tag in ipairs(clean_tags) do
+                                    table.insert(tagged, "#" .. tag)
+                                end
+                                display_label = table.concat(tagged, ", ")
+                            end
+                            UIManager:show(InfoMessage:new{
+                                text = string.format(_("Tag filter updated to %s.\nNext sync will reconcile your library."), display_label),
+                                timeout = 3,
+                            })
+                        end
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+    if dialog.onShowKeyboard then
+        dialog:onShowKeyboard()
+    end
+end
 
 function Wallaflare:promptChangeSyncFilter(target_filter, filter_label, touchmenu_instance)
     if self.settings.sync_filter == target_filter then
@@ -709,42 +956,40 @@ function Wallaflare:queueLocalReadingStatuses()
         if item.id then queued_ids[item.id] = true end
     end
 
-    for file in lfs.dir(download_dir) do
-        if file:match("%.epub$") then
-            local art_id = file:match("^(%d+)[%._]")
-            local num_id = tonumber(art_id)
-            if num_id and not queued_ids[num_id] then
-                local full_path = download_dir .. "/" .. file
-                local sidecar = full_path:gsub("%.epub$", ".sdr")
-                local status = nil
-                local is_100_percent = false
+    local articles = self:findArticleFiles(download_dir)
+    for _, art in ipairs(articles) do
+        local num_id = art.id
+        if num_id and not queued_ids[num_id] then
+            local full_path = art.full_path
+            local sidecar = art.sdr_dir
+            local status = nil
+            local is_100_percent = false
 
-                if lfs.attributes(sidecar, "mode") == "directory" then
-                    local pcall_ok, doc_settings = pcall(DocSettings.open, DocSettings, full_path)
-                    if pcall_ok and doc_settings and doc_settings.readSetting then
-                        local summary = doc_settings:readSetting("summary")
-                        status = summary and summary.status
-                        local percent = doc_settings:readSetting("percent_finished")
-                        if percent and tonumber(percent) and tonumber(percent) >= 1 then
-                            is_100_percent = true
-                        end
+            if lfs.attributes(sidecar, "mode") == "directory" then
+                local pcall_ok, doc_settings = pcall(DocSettings.open, DocSettings, full_path)
+                if pcall_ok and doc_settings and doc_settings.readSetting then
+                    local summary = doc_settings:readSetting("summary")
+                    status = summary and summary.status
+                    local percent = doc_settings:readSetting("percent_finished")
+                    if percent and tonumber(percent) and tonumber(percent) >= 1 then
+                        is_100_percent = true
                     end
                 end
+            end
 
-                local should_archive = false
-                if status == "complete" and self.settings.archive_finished then
-                    should_archive = true
-                elseif status == "abandoned" and self.settings.archive_abandoned then
-                    should_archive = true
-                elseif is_100_percent and self.settings.archive_read then
-                    should_archive = true
-                end
+            local should_archive = false
+            if status == "complete" and self.settings.archive_finished then
+                should_archive = true
+            elseif status == "abandoned" and self.settings.archive_abandoned then
+                should_archive = true
+            elseif is_100_percent and self.settings.archive_read then
+                should_archive = true
+            end
 
-                if should_archive then
-                    local action_name = self.settings.delete_instead_of_archive and "delete" or "archive"
-                    Store:queueAction(action_name, num_id)
-                    queued_ids[num_id] = true
-                end
+            if should_archive then
+                local action_name = self.settings.delete_instead_of_archive and "delete" or "archive"
+                Store:queueAction(action_name, num_id)
+                queued_ids[num_id] = true
             end
         end
     end
@@ -818,106 +1063,103 @@ function Wallaflare:performSync()
     local uploaded_ann_count = 0
     local download_dir = Store:getDownloadDir()
     if download_dir and lfs.attributes(download_dir, "mode") == "directory" then
-        for file in lfs.dir(download_dir) do
-            if file:match("%.epub$") then
-                local art_id = file:match("^(%d+)[%._]")
-                if art_id then
-                    local full_path = download_dir .. "/" .. file
-                    local doc_for_context = (self.ui and self.ui.document and (self.ui.document.file == full_path or self.ui.document.file:match("/(%d+)[%._]") == art_id)) and self.ui.document or nil
-                    local unsynced, resolved_updates, locally_deleted_ids = Annotations:getLocalUnsynced(full_path, doc_for_context)
+        local articles = self:findArticleFiles(download_dir)
+        for _, art in ipairs(articles) do
+            local art_id = art.str_id
+            local full_path = art.full_path
+            local doc_for_context = (self.ui and self.ui.document and (self.ui.document.file == full_path or self.ui.document.file:match("/(%d+)[%._]") == art_id)) and self.ui.document or nil
+            local unsynced, resolved_updates, locally_deleted_ids = Annotations:getLocalUnsynced(full_path, doc_for_context)
 
-                    -- 0. Process locally deleted annotations
-                    if type(locally_deleted_ids) == "table" and #locally_deleted_ids > 0 then
-                        for _, del_id in ipairs(locally_deleted_ids) do
-                            local res, err_del, code_del = Api.deleteAnnotation(self.settings.server_url, self.settings.auth_token, del_id)
-                            if (res and type(res) == "table") or (code_del == 404 or (err_del and err_del:find("404"))) then
-                                remote_deleted_ann_count = remote_deleted_ann_count + 1
-                                Annotations:removeSyncedId(full_path, del_id, self.ui)
-                                logger.info("Wallaflare: Deleted annotation #" .. tostring(del_id) .. " on server")
-                            else
-                                Store:queueAction("delete_annotation", del_id)
-                                Annotations:removeSyncedId(full_path, del_id, self.ui)
-                                logger.info("Wallaflare: Queued deletion for annotation #" .. tostring(del_id))
+            -- 0. Process locally deleted annotations
+            if type(locally_deleted_ids) == "table" and #locally_deleted_ids > 0 then
+                for _, del_id in ipairs(locally_deleted_ids) do
+                    local res, err_del, code_del = Api.deleteAnnotation(self.settings.server_url, self.settings.auth_token, del_id)
+                    if (res and type(res) == "table") or (code_del == 404 or (err_del and err_del:find("404"))) then
+                        remote_deleted_ann_count = remote_deleted_ann_count + 1
+                        Annotations:removeSyncedId(full_path, del_id, self.ui)
+                        logger.info("Wallaflare: Deleted annotation #" .. tostring(del_id) .. " on server")
+                    else
+                        Store:queueAction("delete_annotation", del_id)
+                        Annotations:removeSyncedId(full_path, del_id, self.ui)
+                        logger.info("Wallaflare: Queued deletion for annotation #" .. tostring(del_id))
+                    end
+                end
+            end
+
+            -- 1. Create brand new local annotations
+            for _, u in ipairs(unsynced) do
+                local res, u_err = Api.createAnnotation(self.settings.server_url, self.settings.auth_token, tonumber(art_id), u)
+                if res and type(res) == "table" and res.id then
+                    Annotations:stampRemoteId(full_path, u.index, res.id)
+                    uploaded_ann_count = uploaded_ann_count + 1
+                    if self.ui and self.ui.document and self.ui.document.file then
+                        local cur_f = self.ui.document.file
+                        if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
+                            if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[u.index] then
+                                self.ui.annotation.annotations[u.index].wallaflare_id = tonumber(res.id)
+                                self.ui.annotation.annotations[u.index].has_server_pos = true
+                            end
+                            if self.ui.doc_settings and self.ui.doc_settings.saveSetting then
+                                self.ui.doc_settings:saveSetting("annotations", self.ui.annotation and self.ui.annotation.annotations)
+                                self.ui.doc_settings:flush()
                             end
                         end
                     end
-
-                    -- 1. Create brand new local annotations
-                    for _, u in ipairs(unsynced) do
-                        local res, u_err = Api.createAnnotation(self.settings.server_url, self.settings.auth_token, tonumber(art_id), u)
-                        if res and type(res) == "table" and res.id then
-                            Annotations:stampRemoteId(full_path, u.index, res.id)
+                end
+            end
+            -- 2. Push local note edits, color changes, and resolved xPointers to server
+            if type(resolved_updates) == "table" then
+                for _, r in ipairs(resolved_updates) do
+                    local patch_data = {
+                        text = r.text,
+                        color = r.color,
+                        updated_at = r.updated_at,
+                    }
+                    local target = {}
+                    if r.prefix or r.suffix then
+                        target.selector = {
+                            type = "TextQuoteSelector",
+                            exact = r.quote or r.text,
+                            prefix = r.prefix,
+                            suffix = r.suffix,
+                        }
+                    end
+                    if r.koreader then
+                        target.koreader = r.koreader
+                    end
+                    if next(target) ~= nil then
+                        patch_data.target = target
+                    end
+                    local ok_up, up_err, up_code = Api.updateAnnotation(self.settings.server_url, self.settings.auth_token, r.id, patch_data)
+                    if not ok_up and (up_code == 404 or (up_err and tostring(up_err):find("404"))) then
+                        Annotations:removeLocalAnnotation(full_path, r.id, self.ui)
+                        remote_deleted_ann_count = remote_deleted_ann_count + 1
+                        self:refreshActiveDocumentAnnotations(full_path)
+                        logger.info("Wallaflare: Pruned deleted annotation #" .. tostring(r.id) .. " locally (server returned 404)")
+                    elseif ok_up and type(ok_up) == "table" then
+                        local winning_text = (ok_up.text ~= nil) and ok_up.text or r.text
+                        local winning_color = (ok_up.color ~= nil) and ok_up.color or r.color
+                        Annotations:stampSyncedEdit(full_path, r.index, winning_text, winning_color)
+                        if self.ui and self.ui.document and self.ui.document.file then
+                            local cur_f = self.ui.document.file
+                            if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
+                                if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[r.index] then
+                                    self.ui.annotation.annotations[r.index].last_synced_note = winning_text
+                                    self.ui.annotation.annotations[r.index].last_synced_color = winning_color
+                                    self.ui.annotation.annotations[r.index].has_server_pos = true
+                                    self.ui.annotation.annotations[r.index].needs_pos_push = nil
+                                    self.ui.annotation.annotations[r.index].local_modified = nil
+                                end
+                                if self.ui.doc_settings and self.ui.doc_settings.saveSetting then
+                                    self.ui.doc_settings:saveSetting("annotations", self.ui.annotation and self.ui.annotation.annotations)
+                                    self.ui.doc_settings:delSetting("annotations_paging")
+                                    self.ui.doc_settings:delSetting("annotations_rolling")
+                                    self.ui.doc_settings:flush()
+                                end
+                            end
+                        end
+                        if r.user_modified and winning_text == r.text then
                             uploaded_ann_count = uploaded_ann_count + 1
-                            if self.ui and self.ui.document and self.ui.document.file then
-                                local cur_f = self.ui.document.file
-                                if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
-                                    if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[u.index] then
-                                        self.ui.annotation.annotations[u.index].wallaflare_id = tonumber(res.id)
-                                        self.ui.annotation.annotations[u.index].has_server_pos = true
-                                    end
-                                    if self.ui.doc_settings and self.ui.doc_settings.saveSetting then
-                                        self.ui.doc_settings:saveSetting("annotations", self.ui.annotation and self.ui.annotation.annotations)
-                                        self.ui.doc_settings:flush()
-                                    end
-                                end
-                            end
-                        end
-                    end
-                    -- 2. Push local note edits, color changes, and resolved xPointers to server
-                    if type(resolved_updates) == "table" then
-                        for _, r in ipairs(resolved_updates) do
-                            local patch_data = {
-                                text = r.text,
-                                color = r.color,
-                                updated_at = r.updated_at,
-                            }
-                            local target = {}
-                            if r.prefix or r.suffix then
-                                target.selector = {
-                                    type = "TextQuoteSelector",
-                                    exact = r.quote or r.text,
-                                    prefix = r.prefix,
-                                    suffix = r.suffix,
-                                }
-                            end
-                            if r.koreader then
-                                target.koreader = r.koreader
-                            end
-                            if next(target) ~= nil then
-                                patch_data.target = target
-                            end
-                            local ok_up, up_err, up_code = Api.updateAnnotation(self.settings.server_url, self.settings.auth_token, r.id, patch_data)
-                            if not ok_up and (up_code == 404 or (up_err and tostring(up_err):find("404"))) then
-                                Annotations:removeLocalAnnotation(full_path, r.id, self.ui)
-                                remote_deleted_ann_count = remote_deleted_ann_count + 1
-                                self:refreshActiveDocumentAnnotations(full_path)
-                                logger.info("Wallaflare: Pruned deleted annotation #" .. tostring(r.id) .. " locally (server returned 404)")
-                            elseif ok_up and type(ok_up) == "table" then
-                                local winning_text = (ok_up.text ~= nil) and ok_up.text or r.text
-                                local winning_color = (ok_up.color ~= nil) and ok_up.color or r.color
-                                Annotations:stampSyncedEdit(full_path, r.index, winning_text, winning_color)
-                                if self.ui and self.ui.document and self.ui.document.file then
-                                    local cur_f = self.ui.document.file
-                                    if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
-                                        if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[r.index] then
-                                            self.ui.annotation.annotations[r.index].last_synced_note = winning_text
-                                            self.ui.annotation.annotations[r.index].last_synced_color = winning_color
-                                            self.ui.annotation.annotations[r.index].has_server_pos = true
-                                            self.ui.annotation.annotations[r.index].needs_pos_push = nil
-                                            self.ui.annotation.annotations[r.index].local_modified = nil
-                                        end
-                                        if self.ui.doc_settings and self.ui.doc_settings.saveSetting then
-                                            self.ui.doc_settings:saveSetting("annotations", self.ui.annotation and self.ui.annotation.annotations)
-                                            self.ui.doc_settings:delSetting("annotations_paging")
-                                            self.ui.doc_settings:delSetting("annotations_rolling")
-                                            self.ui.doc_settings:flush()
-                                        end
-                                    end
-                                end
-                                if r.user_modified and winning_text == r.text then
-                                    uploaded_ann_count = uploaded_ann_count + 1
-                                end
-                            end
                         end
                     end
                 end
@@ -933,7 +1175,8 @@ function Wallaflare:performSync()
         since_rev,
         self.settings.sync_filter,
         1,
-        100
+        100,
+        self.settings.sync_tag
     )
 
     if not data or type(data) ~= "table" then
@@ -1004,54 +1247,70 @@ function Wallaflare:performSync()
 end
 
 
-function Wallaflare:cleanOldArticleFiles(download_dir, num_id, current_filename)
+function Wallaflare:cleanOldArticleFiles(download_dir, num_id, current_target)
     if not num_id or not download_dir or lfs.attributes(download_dir, "mode") ~= "directory" then
         return
     end
 
-    local new_full_path = current_filename and (download_dir .. "/" .. current_filename) or nil
+    local new_full_path = current_target
+    if new_full_path and not new_full_path:find("/") then
+        new_full_path = download_dir .. "/" .. new_full_path
+    end
     local new_sdr_dir = new_full_path and new_full_path:gsub("%.epub$", ".sdr") or nil
-    local current_sdr = current_filename and current_filename:gsub("%.epub$", ".sdr") or nil
 
-    for file in lfs.dir(download_dir) do
-        if file:match("%.epub$") and file ~= current_filename then
-            local id_str = file:match("^(%d+)[%._]")
-            if id_str and tonumber(id_str) == num_id then
-                local old_full_path = download_dir .. "/" .. file
-                local old_sdr_dir = old_full_path:gsub("%.epub$", ".sdr")
+    local articles = self:findArticleFiles(download_dir)
+    for _, art in ipairs(articles) do
+        if art.id == num_id and (not new_full_path or art.full_path ~= new_full_path) then
+            local old_full_path = art.full_path
+            local old_sdr_dir = art.sdr_dir
 
-                -- Migrate old .sdr folder to new .sdr folder if new one doesn't exist yet
-                if new_sdr_dir and lfs.attributes(old_sdr_dir, "mode") == "directory" then
-                    if lfs.attributes(new_sdr_dir, "mode") ~= "directory" then
-                        pcall(os.rename, old_sdr_dir, new_sdr_dir)
-                    else
-                        removeDirRecursive(old_sdr_dir)
-                    end
-                end
-
-                if ReadHistory and ReadHistory.deleteItem then
-                    pcall(ReadHistory.deleteItem, ReadHistory, old_full_path)
-                end
-                if ReadCollection and ReadCollection.deleteItem then
-                    pcall(ReadCollection.deleteItem, ReadCollection, old_full_path)
-                end
-
-                pcall(os.remove, old_full_path)
-                logger.info("Wallaflare: Removed outdated file variant " .. file .. " for article #" .. tostring(num_id))
-            end
-        elseif file:match("%.sdr$") and current_sdr and file ~= current_sdr then
-            local id_str = file:match("^(%d+)[%._]")
-            if id_str and tonumber(id_str) == num_id then
-                local old_sdr_dir = download_dir .. "/" .. file
-                if new_sdr_dir and lfs.attributes(new_sdr_dir, "mode") ~= "directory" then
+            -- Migrate old .sdr folder to new .sdr folder if new one doesn't exist yet
+            if new_sdr_dir and lfs.attributes(old_sdr_dir, "mode") == "directory" then
+                if lfs.attributes(new_sdr_dir, "mode") ~= "directory" then
                     pcall(os.rename, old_sdr_dir, new_sdr_dir)
                 else
                     removeDirRecursive(old_sdr_dir)
                 end
-                logger.info("Wallaflare: Removed outdated SDR folder " .. file .. " for article #" .. tostring(num_id))
+            end
+
+            if ReadHistory and ReadHistory.deleteItem then
+                pcall(ReadHistory.deleteItem, ReadHistory, old_full_path)
+            end
+            if ReadCollection and ReadCollection.deleteItem then
+                pcall(ReadCollection.deleteItem, ReadCollection, old_full_path)
+            end
+
+            pcall(os.remove, old_full_path)
+            logger.info("Wallaflare: Removed outdated file variant " .. art.filename .. " for article #" .. tostring(num_id))
+        end
+    end
+
+    -- Also scan for any leftover SDR directories matching num_id across download_dir and subdirectories
+    local function scanOrphanSdr(dir_path)
+        for item in lfs.dir(dir_path) do
+            if item ~= "." and item ~= ".." and not item:match("^%.") and not item:match("^Archive_Instance_") then
+                local full = dir_path .. "/" .. item
+                local mode = lfs.attributes(full, "mode")
+                if mode == "directory" then
+                    if item:match("%.sdr$") then
+                        local id_num = tonumber(item:match("^(%d+)[%._]"))
+                        if id_num == num_id and (not new_sdr_dir or full ~= new_sdr_dir) then
+                            if new_sdr_dir and lfs.attributes(new_sdr_dir, "mode") ~= "directory" then
+                                pcall(os.rename, full, new_sdr_dir)
+                            else
+                                removeDirRecursive(full)
+                            end
+                            logger.info("Wallaflare: Cleaned up SDR directory " .. full .. " for article #" .. tostring(num_id))
+                        end
+                    elseif not item:match("%.update$") then
+                        scanOrphanSdr(full)
+                    end
+                end
             end
         end
     end
+    scanOrphanSdr(download_dir)
+    self:pruneEmptySubfolders(download_dir)
 end
 
 function Wallaflare:deleteLocalArticle(download_dir, article_id)
@@ -1070,26 +1329,52 @@ function Wallaflare:deleteLocalArticle(download_dir, article_id)
     end
 
     local deleted = false
-    for file in lfs.dir(download_dir) do
-        if file:match("%.epub$") then
-            local id_str = file:match("^(%d+)[%._]")
-            if id_str and tonumber(id_str) == num_id then
-                local full_path = download_dir .. "/" .. file
-                local sdr_dir = full_path:gsub("%.epub$", ".sdr")
-                if ReadHistory and ReadHistory.deleteItem then
-                    pcall(ReadHistory.deleteItem, ReadHistory, full_path)
+    local articles = self:findArticleFiles(download_dir)
+    for _, art in ipairs(articles) do
+        if art.id == num_id then
+            local full_path = art.full_path
+            local sdr_dir = art.sdr_dir
+            if DocSettings and DocSettings.purgeSettings then
+                pcall(DocSettings.purgeSettings, full_path)
+            end
+            if ReadHistory and ReadHistory.deleteItem then
+                pcall(ReadHistory.deleteItem, ReadHistory, full_path)
+            end
+            if ReadCollection and ReadCollection.deleteItem then
+                pcall(ReadCollection.deleteItem, ReadCollection, full_path)
+            end
+            os.remove(full_path)
+            if lfs.attributes(sdr_dir, "mode") == "directory" then
+                removeDirRecursive(sdr_dir)
+            end
+            deleted = true
+        end
+    end
+
+    -- Clean up any leftover matching SDR directories
+    local function cleanMatchingSdr(dir_path)
+        for item in lfs.dir(dir_path) do
+            if item ~= "." and item ~= ".." and not item:match("^%.") and not item:match("^Archive_Instance_") then
+                local full = dir_path .. "/" .. item
+                if lfs.attributes(full, "mode") == "directory" then
+                    if item:match("%.sdr$") then
+                        local id_num = tonumber(item:match("^(%d+)[%._]"))
+                        if id_num == num_id then
+                            removeDirRecursive(full)
+                            deleted = true
+                        end
+                    elseif not item:match("%.update$") then
+                        cleanMatchingSdr(full)
+                    end
                 end
-                if ReadCollection and ReadCollection.deleteItem then
-                    pcall(ReadCollection.deleteItem, ReadCollection, full_path)
-                end
-                os.remove(full_path)
-                if lfs.attributes(sdr_dir, "mode") == "directory" then
-                    removeDirRecursive(sdr_dir)
-                end
-                deleted = true
             end
         end
     end
+    cleanMatchingSdr(download_dir)
+    if deleted then
+        self:pruneEmptySubfolders(download_dir)
+    end
+
     return deleted
 end
 
@@ -1105,14 +1390,10 @@ function Wallaflare:pruneOrphanArticleRevs(download_dir)
     end
 
     local active_ids = {}
-    for f in lfs.dir(download_dir) do
-        if f:match("%.epub$") then
-            local id_num = tonumber(f:match("^(%d+)[%._]"))
-            if id_num then
-                active_ids[id_num] = true
-                active_ids[tostring(id_num)] = true
-            end
-        end
+    local articles = self:findArticleFiles(download_dir)
+    for _, art in ipairs(articles) do
+        active_ids[art.id] = true
+        active_ids[art.str_id] = true
     end
 
     local on_delete = self.settings.on_file_delete or "archive"
@@ -1139,6 +1420,7 @@ function Wallaflare:pruneOrphanArticleRevs(download_dir)
             self.settings.article_content_revs[tostring(nid)] = nil
         end
     end
+    self:pruneEmptySubfolders(download_dir)
 end
 
 function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploaded_ann_count, remote_archived_count, remote_deleted_count, remote_deleted_ann_count)
@@ -1210,7 +1492,7 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
         end
     end
 
-    -- 1b. Full sync pruning: If starting from revision 0 (or full sync) with a filter (unread or starred),
+    -- 1b. Full sync pruning: If starting from revision 0 (or full sync) with a filter (unread or starred or tag),
     -- prune any local files on device that are no longer part of the server filtered set.
     local is_full_sync = (self.settings.sync_rev == nil or self.settings.sync_rev == 0)
     local active_server_ids = {}
@@ -1223,15 +1505,13 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
         end
     end
 
-    if is_full_sync and self.settings.auto_delete and self.settings.sync_filter ~= "all" and lfs.attributes(download_dir, "mode") == "directory" then
-        for file in lfs.dir(download_dir) do
-            if file:match("%.epub$") then
-                local id_str = file:match("^(%d+)[%._]")
-                local num_id = id_str and tonumber(id_str)
-                if num_id and not active_server_ids[num_id] then
-                    if self:deleteLocalArticle(download_dir, num_id) then
-                        deleted_count = deleted_count + 1
-                    end
+    local has_filter = (self.settings.sync_filter ~= "all" or (self.settings.sync_tag and self.settings.sync_tag ~= ""))
+    if is_full_sync and self.settings.auto_delete and has_filter and lfs.attributes(download_dir, "mode") == "directory" then
+        local local_articles = self:findArticleFiles(download_dir)
+        for _, art in ipairs(local_articles) do
+            if not active_server_ids[art.id] then
+                if self:deleteLocalArticle(download_dir, art.id) then
+                    deleted_count = deleted_count + 1
                 end
             end
         end
@@ -1266,9 +1546,34 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
                     end
                 end
             else
+                local target_dir = download_dir
+                if self.settings.folder_organization == "tag" then
+                    local primary_tag = nil
+                    if type(entry.tags) == "table" and #entry.tags > 0 then
+                        local t = entry.tags[1]
+                        if type(t) == "table" then
+                            primary_tag = t.label or t.slug or t.name
+                        elseif type(t) == "string" and t ~= "" then
+                            primary_tag = t
+                        end
+                    end
+                    if primary_tag and primary_tag ~= "" then
+                        local clean_tag_folder = sanitizeFilename(primary_tag)
+                        target_dir = download_dir .. "/" .. clean_tag_folder
+                        if lfs.attributes(target_dir, "mode") ~= "directory" then
+                            local ffiUtil_ok, ffiUtil = pcall(require, "ffi/util")
+                            if ffiUtil_ok and ffiUtil and ffiUtil.makePath then
+                                pcall(ffiUtil.makePath, target_dir)
+                            else
+                                pcall(lfs.mkdir, target_dir)
+                            end
+                        end
+                    end
+                end
+
                 local clean_title = sanitizeFilename(entry.title)
                 local filename = str_id .. "_" .. clean_title .. ".epub"
-                local full_path = download_dir .. "/" .. filename
+                local full_path = target_dir .. "/" .. filename
 
                 local target_content_rev = type(entry.content_revision) == "number" and entry.content_revision or (tonumber(entry.content_revision) or 1)
                 local target_sync_rev = type(entry.revision) == "number" and entry.revision or (tonumber(entry.revision) or 1)
@@ -1289,12 +1594,12 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
                 local ok_dl = false
 
                 -- Skip EPUB file download if already on disk and content_revision has not incremented
-                if file_exists and (recorded_content_rev == nil or recorded_content_rev >= target_content_rev) then
+                if file_exists and (recorded_content_rev ~= nil and recorded_content_rev >= target_content_rev) then
                     logger.dbg("Wallaflare: Skipping EPUB download for #" .. str_id .. " (content_rev " .. tostring(recorded_content_rev or 1) .. ")")
                     skipped_count = skipped_count + 1
                     self.settings.article_content_revs[num_id] = target_content_rev
                     self.settings.article_revs[num_id] = target_sync_rev
-                    self:cleanOldArticleFiles(download_dir, num_id, filename)
+                    self:cleanOldArticleFiles(download_dir, num_id, full_path)
                 else
                     if progress_info then UIManager:close(progress_info) end
                     local short_title = entry.title and (entry.title:sub(1, 35) .. (entry.title:len() > 35 and "…" or "")) or "Article"
@@ -1311,7 +1616,7 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
                         downloaded_count = downloaded_count + 1
                         self.settings.article_content_revs[num_id] = target_content_rev
                         self.settings.article_revs[num_id] = target_sync_rev
-                        self:cleanOldArticleFiles(download_dir, num_id, filename)
+                        self:cleanOldArticleFiles(download_dir, num_id, full_path)
 
                         -- Evict stale Crengine .cr3 render cache
                         local _, sidecar_file = Annotations:getSidecarPaths(full_path)
@@ -1378,6 +1683,9 @@ function Wallaflare:applySyncPayload(data, server_instance, progress_info, uploa
         self.settings.sync_rev = data.sync_rev
     end
     Store:saveSettings()
+
+    -- Clean up any empty subdirectories left behind by moved or deleted articles
+    self:pruneEmptySubfolders(download_dir)
 
     -- Refresh file manager if currently open or in download dir
     self:refreshFileManager()

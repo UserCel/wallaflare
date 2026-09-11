@@ -611,7 +611,7 @@ export async function getEntries(
   const rawTagFilter = filter.tags || filter.tag;
   if (rawTagFilter) {
     const tagList = (Array.isArray(rawTagFilter) ? rawTagFilter : String(rawTagFilter).split(','))
-      .map(t => t.trim().toLowerCase())
+      .map(t => t.trim().toLowerCase().replace(/^#+/, ''))
       .filter(Boolean);
 
     if (tagList.length > 0) {

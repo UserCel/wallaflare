@@ -80,7 +80,7 @@ export const authMiddleware = async (c: any, next: any) => {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7).trim();
   } else {
-    token = c.req.query('access_token') || '';
+    token = c.req.query('access_token') || c.req.query('token') || '';
   }
 
   // If no token was provided at all (e.g. unauthenticated guest / logged out visitor),

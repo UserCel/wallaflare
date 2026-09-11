@@ -28,9 +28,11 @@ local DEFAULT_SETTINGS = {
     server_url = "",
     auth_token = "",
     download_dir = nil,
-    sync_filter = "unread", -- "unread", "all", "starred"
-    auto_delete = true,    -- auto-delete files removed on server
-    db_reset_action = "ask", -- "ask", "wipe", "keep"
+    folder_organization = "flat", -- "flat", "tag"
+    sync_filter = "unread",       -- "unread", "all", "starred"
+    sync_tag = "",                -- "" (all tags), or specific tag filter
+    auto_delete = true,          -- auto-delete files removed on server
+    db_reset_action = "ask",      -- "ask", "wipe", "keep"
     sync_on_startup = false,
     archive_finished = true,   -- Mark finished articles as read
     archive_read = false,      -- Mark 100% read articles as read (default: false)
@@ -79,6 +81,12 @@ function Store:loadSettings()
     end
     if type(self.settings.article_content_revs) ~= "table" then
         self.settings.article_content_revs = {}
+    end
+    if self.settings.folder_organization ~= "flat" and self.settings.folder_organization ~= "tag" then
+        self.settings.folder_organization = "flat"
+    end
+    if type(self.settings.sync_tag) ~= "string" then
+        self.settings.sync_tag = ""
     end
     if self.settings.on_file_delete ~= "archive" and self.settings.on_file_delete ~= "delete" and self.settings.on_file_delete ~= "ignore" then
         self.settings.on_file_delete = "archive"

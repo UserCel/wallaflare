@@ -8,13 +8,20 @@ Official KOReader integration for **Wallaflare** — bringing ultra-fast revisio
 
 - ⚡ **Revision-Based Delta Sync**: Queries `/api/sync.json` with `since_rev` for sub-second, battery-friendly sync checks.
 - 🖍️ **Bi-Directional Highlight & Note Sync**: Highlights, notes, and colors created on either KOReader or the web dashboard sync with 100% fidelity, using native KOReader DOM anchor resolution and true **Last-Write-Wins** conflict handling.
-- 📦 **Book-Grade EPUBs**: Downloads clean, styled EPUB 3 articles with cover images from `/api/entries/:id/export.epub`.
-- 🏷️ **Remote Archive & Deletion Automation**:
+- 📁 **Folder Organization by Tag**:
+  - **Flat folder (Default)**: Keeps all downloaded articles in the root download folder (`/Books/Wallaflare/`).
+  - **Subfolders by Tag**: Organizes articles into tag-based subfolders (e.g. `/Books/Wallaflare/Tech/` or `/Books/Wallaflare/Longform/`). If an article has multiple tags, its primary (first) tag is used. Automatically migrates files and `.sdr` folders if an article's tag changes.
+- 🏷️ **Tag-Based Sync Filtering**:
+  - Filter sync by a single tag or multiple comma-separated tags (e.g. `tech, longform`, `#news, #science`).
+  - Leave blank to sync articles across all tags.
+  - Changing your tag filter triggers an automatic full reconciliation sync to re-align your local files.
+- 📦 **Book-Grade EPUBs with Tag Metadata**: Downloads clean, styled EPUB 3 articles with embedded `<dc:subject>` tags in `content.opf` for native KOReader metadata search, Calibre categorization, and collection filtering.
+- 🗑️ **Remote Archive & Deletion Automation**:
   - Automatically archives articles on Wallaflare when marked finished in KOReader.
   - Optional auto-archive on reaching 100% reading progress or setting status to on hold.
   - **Local File Deletion Sync**: Deleting a book in KOReader automatically propagates to Wallaflare (configurable: *Archive on server*, *Delete from server*, or *Do nothing*).
   - Optional *Delete instead of archive* mode for disposable reading queues.
-- 🗑️ **Smart Sync-Filter Auto-Deletion**:
+- 🧹 **Smart Sync-Filter Auto-Deletion**:
   - **Unread only**: Automatically prunes local `.epub` files and `.sdr` sidecars when articles are archived on Wallaflare.
   - **Starred only**: Prunes unstarred articles while retaining all starred items.
   - **All articles**: Preserves all downloaded articles regardless of archive status.

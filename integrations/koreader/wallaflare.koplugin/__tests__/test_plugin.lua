@@ -352,6 +352,9 @@ local function makeWidgetMock(typeName)
             for k, v in pairs(self) do obj[k] = v end
         end
         obj.type = typeName
+        obj.getInputText = function(s) return s.mock_input or s.input or "" end
+        obj.onShowKeyboard = function(s) end
+        obj.updateItems = function(s) end
         return obj
     end
     return M
@@ -373,6 +376,10 @@ end
 package.preload["docsettings"] = function()
     return {
         purgeSettings = function(path) table.insert(mock_docsettings_purged, path) end,
+        open = function(self, path)
+            local sidecar = path:gsub("%.epub$", ".sdr") .. "/metadata.epub.lua"
+            return LuaSettings:open(sidecar)
+        end,
     }
 end
 package.preload["apps/filemanager/filemanager"] = function()
@@ -1567,6 +1574,211 @@ describe("9. Local File Deletion Propagation & Settings", function()
         local synced_ids = verify_settings:readSetting("wallaflare_synced_ids") or {}
         assert_eq(synced_ids["90"], nil, "ID 90 must be removed from synced_ids")
         assert_eq(synced_ids["91"], true, "ID 91 must remain in synced_ids")
+    end)
+end)
+
+describe("10. Library Organization by Tag & Tag Sync Filter", function()
+    local app = Wallaflare:extend{
+        ui = { menu = { registerToMainMenu = function() end } }
+    }
+    app:init()
+    local ddir = test_sandbox_dir .. "/books/Wallaflare"
+    Store.settings.download_dir = ddir
+    app.settings.download_dir = ddir
+
+    it("downloads EPUBs into tag subfolders when folder_organization is tag", function()
+        app.settings.folder_organization = "tag"
+        mock_http_response = { status_code = 200, headers = {}, body = "EPUB_TAG_CONTENT" }
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 30,
+            instance_id = 1,
+            entries = {
+                { id = 701, title = "Tech Innovations", revision = 1, tags = { { label = "Tech" } } },
+                { id = 702, title = "General Knowledge", revision = 1, tags = {} }
+            }
+        }, 1)
+
+        local tagged_file = ddir .. "/Tech/701_Tech_Innovations.epub"
+        local untagged_file = ddir .. "/702_General_Knowledge.epub"
+
+        local f1 = io.open(tagged_file, "r")
+        assert_true(f1 ~= nil, "Tagged article must be saved in /Tech/ subfolder")
+        if f1 then f1:close() end
+
+        local f2 = io.open(untagged_file, "r")
+        assert_true(f2 ~= nil, "Untagged article must be saved in root download directory")
+        if f2 then f2:close() end
+    end)
+
+    it("migrates .epub and .sdr when article tag changes", function()
+        app.settings.folder_organization = "tag"
+        local lfs = require("libs/libkoreader-lfs")
+        local old_file = ddir .. "/Science/703_Scientific_Paper.epub"
+        local old_sdr = ddir .. "/Science/703_Scientific_Paper.sdr"
+        os.execute("mkdir -p '" .. ddir .. "/Science'")
+        local f = io.open(old_file, "w")
+        if f then f:write("Old Content"); f:close() end
+        lfs.mkdir(old_sdr)
+        local meta_f = io.open(old_sdr .. "/metadata.epub.lua", "w")
+        if meta_f then meta_f:write("return { percent_finished = 0.75 }"); meta_f:close() end
+
+        app.settings.article_content_revs[703] = 1
+
+        mock_http_response = { status_code = 200, headers = {}, body = "New Scientific Content in Tech Tag" }
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 31,
+            instance_id = 1,
+            entries = {
+                { id = 703, title = "Scientific Paper", revision = 2, content_revision = 2, tags = { { label = "Tech" } } }
+            }
+        }, 1)
+
+        local new_file = ddir .. "/Tech/703_Scientific_Paper.epub"
+        local new_sdr = ddir .. "/Tech/703_Scientific_Paper.sdr"
+
+        assert_true(io.open(new_file, "r") ~= nil, "New file must exist in /Tech/ subfolder")
+        assert_nil(io.open(old_file, "r"), "Old file in /Science/ must be deleted")
+        assert_true(lfs.attributes(new_sdr, "mode") == "directory", "New .sdr directory must exist in /Tech/")
+        assert_nil(lfs.attributes(old_sdr, "mode"), "Old .sdr directory in /Science/ must be cleaned up")
+    end)
+
+    it("deletes local articles inside tag subfolders on tombstone", function()
+        local file_to_del = ddir .. "/Tech/701_Tech_Innovations.epub"
+        assert_true(io.open(file_to_del, "r") ~= nil, "File should exist before deletion")
+
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 32,
+            instance_id = 1,
+            deleted_ids = { 701 }
+        }, 1)
+
+        assert_nil(io.open(file_to_del, "r"), "File in /Tech/ subfolder must be deleted")
+    end)
+
+    it("queues reading status for articles residing in subfolders", function()
+        local lfs = require("libs/libkoreader-lfs")
+        local art_file = ddir .. "/Longform/705_Long_Story.epub"
+        local art_sdr = ddir .. "/Longform/705_Long_Story.sdr"
+        os.execute("mkdir -p '" .. ddir .. "/Longform'")
+        local f = io.open(art_file, "w")
+        if f then f:write("Long Story Content"); f:close() end
+        lfs.mkdir(art_sdr)
+        local meta_f = io.open(art_sdr .. "/metadata.epub.lua", "w")
+        if meta_f then meta_f:write("return { summary = { status = 'complete' } }"); meta_f:close() end
+
+        Store:clearOutbox()
+        app:queueLocalReadingStatuses()
+
+        local outbox = Store:getOutbox()
+        assert_true(#outbox >= 1, "Must queue finished article inside subfolder")
+        assert_eq(outbox[1].id, 705)
+        assert_eq(outbox[1].action, "archive")
+    end)
+
+    it("includes sync_tag query parameter in Api.fetchSync", function()
+        mock_http_requests = {}
+        mock_http_response = { status_code = 200, headers = {}, body = '{"up_to_date":true}' }
+
+        Api.fetchSync("https://example.com", "my_token", 0, "unread", 1, 50, "Longform")
+        assert_eq(#mock_http_requests, 1)
+        local sent_url = mock_http_requests[1].url
+        assert_true(sent_url:find("tag=Longform") ~= nil, "URL must contain tag=Longform")
+    end)
+
+    it("prompts confirmation and resets sync_rev on folder structure change", function()
+        mock_dialogs = {}
+        app.settings.folder_organization = "flat"
+        app.settings.sync_rev = 120
+
+        app:promptChangeFolderOrg("tag", "Subfolders by Tag")
+        assert_true(#mock_dialogs >= 1, "Must show ConfirmBox for folder structure change")
+        local confirm = mock_dialogs[#mock_dialogs]
+        assert_true(confirm.text:find("Subfolders by Tag") ~= nil)
+
+        confirm.ok_callback()
+        assert_eq(app.settings.folder_organization, "tag")
+        assert_eq(app.settings.sync_rev, 0, "sync_rev must be reset to 0 for reconciliation")
+    end)
+
+    it("sanitizes comma-separated and hash-prefixed tags in promptEditSyncTag", function()
+        mock_dialogs = {}
+        app.settings.sync_tag = ""
+        app.settings.sync_rev = 50
+
+        app:promptEditSyncTag()
+        assert_true(#mock_dialogs >= 1, "Must show InputDialog for tag filter")
+        local dlg = mock_dialogs[#mock_dialogs]
+        dlg.mock_input = "  #tech,  #longform, news  "
+
+        -- Trigger Save button (button 2 in button group 1)
+        local save_btn = dlg.buttons[1][2]
+        save_btn.callback()
+
+        assert_eq(app.settings.sync_tag, "tech, longform, news", "Tags must be cleanly stripped of leading # and extra spaces")
+        assert_eq(app.settings.sync_rev, 0, "sync_rev must be reset to 0 to reconcile with new tag filter")
+    end)
+
+    it("prunes empty subfolders when articles are moved or deleted", function()
+        local lfs = require("libs/libkoreader-lfs")
+        local empty_dir = ddir .. "/EmptyTagFolder"
+        local news_dir = ddir .. "/NewsFolder"
+        os.execute("mkdir -p '" .. empty_dir .. "'")
+        os.execute("mkdir -p '" .. news_dir .. "'")
+
+        local f = io.open(news_dir .. "/801_News.epub", "w")
+        if f then f:write("News content"); f:close() end
+
+        -- empty_dir is empty, news_dir has a file
+        app:pruneEmptySubfolders(ddir)
+
+        assert_true(lfs.attributes(empty_dir, "mode") == nil, "Empty Tag folder must be pruned")
+        assert_true(lfs.attributes(news_dir, "mode") == "directory", "Non-empty News folder must be kept")
+    end)
+
+    it("generates valid UTF-8 filenames for long Hebrew titles without cutting multi-byte sequences", function()
+        local lfs = require("libs/libkoreader-lfs")
+        app.settings.folder_organization = "flat"
+        app.settings.sync_rev = 0
+
+        local hebrew_title = "גורמים בארה\"ב ובמזרח התיכון: איראן מוכנה להסכם עם טראמפ"
+        app:applySyncPayload({
+            up_to_date = false,
+            sync_rev = 100,
+            instance_id = 1,
+            entries = {
+                {
+                    id = 326,
+                    title = hebrew_title,
+                    is_archived = 0,
+                    revision = 100,
+                    content_revision = 1,
+                    tags = { { label = "חדשות", slug = "news" } },
+                }
+            }
+        }, 1)
+
+        local articles = app:findArticleFiles(ddir)
+        local found = nil
+        for _, a in ipairs(articles) do
+            if a.id == 326 then found = a break end
+        end
+
+        assert_true(found ~= nil, "Must find downloaded Hebrew article")
+        assert_true(lfs.attributes(found.full_path, "mode") == "file", "Hebrew file must exist on disk")
+
+        -- Verify that the filename has valid UTF-8 and no trailing broken byte
+        local f = io.open(found.full_path, "rb")
+        assert_true(f ~= nil, "Hebrew file with clean UTF-8 name must be readable by io.open")
+        if f then f:close() end
+
+        -- Verify no trailing underscore or broken byte
+        local last_byte = found.filename:byte(#found.filename - 5) -- right before .epub
+        assert_true(last_byte ~= 95, "Filename should not end with trailing underscore before extension")
     end)
 end)
 

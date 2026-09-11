@@ -362,6 +362,7 @@ opdsRouter.get('/opds/download/:id', async (c) => {
     published_at: entry.published_at || null,
     author: entry.author || null,
     language: entry.language || 'en',
+    tags: entry.tags,
   }, { maxImages });
 
   const rawTitle = (entry.title || 'article').replace(/[\r\n\t]/g, ' ').trim();

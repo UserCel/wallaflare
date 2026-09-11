@@ -148,7 +148,7 @@ function Api.testConnection(server_url, auth_token)
     return true, "Connection successful"
 end
 
-function Api.fetchSync(server_url, auth_token, since_rev, filter_type, page, per_page)
+function Api.fetchSync(server_url, auth_token, since_rev, filter_type, page, per_page, sync_tag)
     server_url = Api.normalizeUrl(server_url)
     since_rev = tonumber(since_rev) or 0
     page = tonumber(page) or 1
@@ -162,6 +162,12 @@ function Api.fetchSync(server_url, auth_token, since_rev, filter_type, page, per
         url = url .. "&archive=0"
     elseif filter_type == "starred" then
         url = url .. "&starred=1"
+    end
+    if sync_tag and sync_tag ~= "" then
+        local encoded_tag = sync_tag:gsub("([^%w%-%._~])", function(c)
+            return string.format("%%%02X", string.byte(c))
+        end)
+        url = url .. "&tag=" .. encoded_tag
     end
 
     return Api.request{
@@ -208,7 +214,7 @@ function Api.downloadEpub(server_url, auth_token, entry_id, target_filepath)
     server_url = Api.normalizeUrl(server_url)
     local url = server_url .. "/api/entries/" .. entry_id .. "/export.epub"
     if auth_token and auth_token ~= "" then
-        url = url .. "?token=" .. auth_token
+        url = url .. "?access_token=" .. auth_token .. "&token=" .. auth_token
     end
     local tmp_path = target_filepath .. ".tmp"
 
