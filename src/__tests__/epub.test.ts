@@ -89,6 +89,7 @@ describe('EPUB 3 Generator', () => {
         domain_name: 'tech.example.com',
         reading_time: 3,
         language: 'en',
+        preview_picture: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         tags: ['tech', 'cloud'],
       },
       {
@@ -125,9 +126,10 @@ describe('EPUB 3 Generator', () => {
     expect(summaryStr).toContain('article_1.xhtml');
     expect(summaryStr).toContain('article_2.xhtml');
 
-    // Verify chapter 1 direction is LTR and chapter 2 is RTL
+    // Verify chapter 1 direction is LTR, chapter 2 is RTL, and chapter 1 contains the lead image
     const ch1Str = strFromU8(unzipped['OEBPS/article_1.xhtml']);
     expect(ch1Str).toContain('dir="ltr"');
+    expect(ch1Str).toContain('article-lead-image');
     const ch2Str = strFromU8(unzipped['OEBPS/article_2.xhtml']);
     expect(ch2Str).toContain('dir="rtl"');
 
@@ -177,8 +179,11 @@ describe('EPUB 3 Generator', () => {
     const files = Object.keys(unzipped);
 
     // Verify cover image exists in zip
+    // Verify cover image exists and is rendered on CoverPage.xhtml
     expect(files).toContain('OEBPS/images/cover.png');
     expect(files).toContain('OEBPS/CoverPage.xhtml');
+    const coverPageStr = strFromU8(unzipped['OEBPS/CoverPage.xhtml']);
+    expect(coverPageStr).toContain('xlink:href="images/cover.png"');
 
     // Verify inline image exists in zip
     expect(files).toContain('OEBPS/images/inline_1.png');
@@ -187,9 +192,8 @@ describe('EPUB 3 Generator', () => {
     const contentStr = strFromU8(unzipped['OEBPS/content.xhtml']);
     expect(contentStr).toContain('<link type="text/css" rel="stylesheet" href="Styles/style.css"/>');
 
-    // Verify opening lead image is placed at top of content.xhtml
-    expect(contentStr).toContain('article-lead-image');
-    expect(contentStr).toContain('src="images/cover.png"');
+    // Verify opening lead image is NOT duplicated inside content.xhtml (only on CoverPage.xhtml)
+    expect(contentStr).not.toContain('article-lead-image');
 
     // Verify inline image src was rewritten to bundled local path
     expect(contentStr).toContain('src="images/inline_1.png"');

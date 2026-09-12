@@ -584,21 +584,6 @@ export async function generateEpub(
   const document = cleanAndSanitizeDoc(article.content || '', isRtl);
   await processInlineImages(document, article.url, bundledImages, urlToBundledImage, maxImages);
 
-  // Check if first image in the document already represents the lead preview picture
-  const firstDocImg = document.querySelector('img');
-  const firstDocImgSrc = firstDocImg ? (firstDocImg.getAttribute('data-target-url') || firstDocImg.getAttribute('src')) : null;
-  const isLeadAlreadyInBody = Boolean(firstDocImgSrc && previewUrl && (
-    firstDocImgSrc === previewUrl ||
-    (urlToBundledImage.has(previewUrl) && firstDocImg.getAttribute('src') === urlToBundledImage.get(previewUrl)!.href)
-  ));
-
-  let leadImageHtml = '';
-  if (previewUrl && !isLeadAlreadyInBody) {
-    const bundledCover = urlToBundledImage.get(previewUrl);
-    const leadImgSrc = bundledCover ? bundledCover.href : escapeXml(previewUrl);
-    leadImageHtml = `<div class="article-lead-image"><figure><img src="${leadImgSrc}" alt="${escapedTitle}" class="lead-image"/></figure></div>\n`;
-  }
-
   const cleanBodyHtml = bodyToXhtml(document.body);
 
   // 3. Container XML
@@ -772,7 +757,7 @@ img.cover-img {
       }
     </style>` : ''}
   </head>
-  <body dir="${isRtl ? 'rtl' : 'ltr'}" class="${isRtl ? 'rtl' : ''}" style="${isRtl ? 'direction: rtl; text-align: right;' : ''}">${leadImageHtml}${cleanBodyHtml}</body>
+  <body dir="${isRtl ? 'rtl' : 'ltr'}" class="${isRtl ? 'rtl' : ''}" style="${isRtl ? 'direction: rtl; text-align: right;' : ''}">${cleanBodyHtml}</body>
 </html>`;
 
   // 11. OPF Package file with all manifest items
