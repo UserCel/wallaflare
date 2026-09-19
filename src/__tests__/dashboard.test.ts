@@ -97,6 +97,18 @@ describe('3-Pane Desktop Workspace & Typography Popover Architecture', () => {
     expect(html).toContain('id="paneReader"');
   });
 
+  it('includes persistent buttons to add both article URLs and custom text / notes', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    expect(html).toContain('id="sidebarAddArticleBtn"');
+    expect(html).toContain('id="sidebarAddTextBtn"');
+    expect(html).toContain('id="mobileDrawerAddArticleBtn"');
+    expect(html).toContain('id="mobileDrawerAddTextBtn"');
+    expect(html).toContain('id="addArticleBtn"');
+    expect(html).toContain('id="addTextBtn"');
+    expect(html).toContain('id="addUrlModal"');
+    expect(html).toContain('id="addTextModal"');
+  });
+
   it('includes live typography popover controls, CSS variables, and OLED theme support', () => {
     const html = renderDashboardHtml('Wallaflare');
     expect(html).toContain('id="readerAppearancePopover"');

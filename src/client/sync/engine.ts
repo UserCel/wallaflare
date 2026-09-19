@@ -14,15 +14,23 @@ export let isOfflineMode = false;
 export function updateOfflineUI(offline: boolean): void {
   isOfflineMode = offline;
   const btn = document.getElementById("addArticleBtn");
+  const textBtn = document.getElementById("addTextBtn");
   const sidebarBtn = document.getElementById("sidebarAddArticleBtn");
+  const sidebarTextBtn = document.getElementById("sidebarAddTextBtn");
+  const mobileDrawerBtn = document.getElementById("mobileDrawerAddArticleBtn");
+  const mobileDrawerTextBtn = document.getElementById("mobileDrawerAddTextBtn");
+
   if (btn) {
     if (offline) {
       btn.classList.add("btn-offline-mode");
       btn.title = "Offline Mode — Reading from local cache (Tap to retry)";
     } else {
       btn.classList.remove("btn-offline-mode");
-      btn.title = "Add URL or Custom Text";
+      btn.title = "Add URL";
     }
+  }
+  if (textBtn) {
+    textBtn.title = offline ? "Add Custom Text (Offline)" : "Add Custom Text / Markdown";
   }
   if (sidebarBtn) {
     if (offline) {
@@ -30,8 +38,23 @@ export function updateOfflineUI(offline: boolean): void {
       sidebarBtn.title = "Offline Mode — Reading from local cache (Tap to retry)";
     } else {
       sidebarBtn.classList.remove("btn-offline-mode");
-      sidebarBtn.title = "Add Article";
+      sidebarBtn.title = "Add URL";
     }
+  }
+  if (sidebarTextBtn) {
+    sidebarTextBtn.title = offline ? "Add Custom Text (Offline)" : "Add Custom Text / Markdown";
+  }
+  if (mobileDrawerBtn) {
+    if (offline) {
+      mobileDrawerBtn.classList.add("btn-offline-mode");
+      mobileDrawerBtn.title = "Offline Mode — Reading from local cache (Tap to retry)";
+    } else {
+      mobileDrawerBtn.classList.remove("btn-offline-mode");
+      mobileDrawerBtn.title = "Add URL";
+    }
+  }
+  if (mobileDrawerTextBtn) {
+    mobileDrawerTextBtn.title = offline ? "Add Custom Text (Offline)" : "Add Custom Text / Markdown";
   }
 }
 

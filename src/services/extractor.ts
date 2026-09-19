@@ -392,11 +392,129 @@ export function extractArticleFromDom(document: any, originalUrl?: string, rawHt
   };
 }
 
+export function markdownToHtml(md: string): string {
+  if (!md || typeof md !== 'string') return '';
+
+  // 1. Normalize line endings
+  let text = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // 2. Protect and extract fenced code blocks (```lang ... ```)
+  const codeBlocks: string[] = [];
+  text = text.replace(/(?:^|\n)```([a-zA-Z0-9_-]*)\n([\s\S]*?)\n```(?:\n|$)/g, (_match, lang, code) => {
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const langClass = lang ? ` class="language-${lang.trim()}"` : '';
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre><code${langClass}>${escapedCode}</code></pre>`);
+    return `\n\n\x1aBLOCK_${idx}\x1a\n\n`;
+  });
+
+  // 3. Protect and extract inline code (`...`)
+  const inlineCodes: string[] = [];
+  text = text.replace(/`([^`\n]+)`/g, (_match, code) => {
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const idx = inlineCodes.length;
+    inlineCodes.push(`<code>${escapedCode}</code>`);
+    return `\x1aINLINE_${idx}\x1a`;
+  });
+
+  // 4. Headings (# H1 to ###### H6)
+  text = text.replace(/^(#{1,6})\s+(.+)$/gm, (_match, hashes, content) => {
+    const level = hashes.length;
+    return `<h${level}>${content.trim()}</h${level}>`;
+  });
+
+  // 5. Horizontal rules / Thematic breaks (e.g. * * *, ***, - - -, ---, _ _ _, ___)
+  text = text.replace(/^[ ]{0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/gm, '<hr>');
+
+  // 6. Blockquotes (> ...)
+  text = text.replace(/^(?:>[ \t]?.*(?:\n|$))+/gm, (block) => {
+    const inner = block.split('\n')
+      .map(line => line.replace(/^>[ \t]?/, ''))
+      .join('\n')
+      .trim();
+    return `<blockquote><p>${inner.replace(/\n/g, '<br>')}</p></blockquote>\n`;
+  });
+
+  // 7. Lists (ordered and unordered)
+  text = text.replace(/^(?:[ \t]*(?:[-*+]|\d+\.)[ \t]+.+(?:\n|$))+/gm, (listBlock) => {
+    const lines = listBlock.trim().split('\n');
+    const isOrdered = /^\s*\d+\./.test(lines[0]);
+    const items = lines.map(line => {
+      const cleaned = line.replace(/^\s*(?:[-*+]|\d+\.)\s+/, '').trim();
+      return `<li>${cleaned}</li>`;
+    }).join('');
+    return isOrdered ? `<ol>${items}</ol>\n` : `<ul>${items}</ul>\n`;
+  });
+
+  // 8. Images and Links
+  // Images: ![alt](url "title")
+  text = text.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_match, alt, src, title) => {
+    const titleAttr = title ? ` title="${title}"` : '';
+    return `<img src="${src}" alt="${alt}"${titleAttr}>`;
+  });
+  // Links: [text](url "title")
+  text = text.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_match, linkText, href, title) => {
+    const titleAttr = title ? ` title="${title}"` : '';
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleAttr}>${linkText}</a>`;
+  });
+
+  // 9. Inline styles
+  // Bold + Italic (***text*** or ___text___)
+  text = text.replace(/\*\*\*([^*]+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  text = text.replace(/___([^_]+?)___/g, '<strong><em>$1</em></strong>');
+
+  // Bold (**text** or __text__)
+  text = text.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/__([^_]+?)__/g, '<strong>$1</strong>');
+
+  // Italic (*text* or _text_)
+  text = text.replace(/(?<!\*)\*(?!\s)([^*]+?)(?<!\s|\*)\*(?!\*)/g, '<em>$1</em>');
+  text = text.replace(/(?<![a-zA-Z0-9_])_([^_]+?)_(?![a-zA-Z0-9_])/g, '<em>$1</em>');
+
+  // Strikethrough (~~text~~)
+  text = text.replace(/~~([^~]+?)~~/g, '<del>$1</del>');
+
+  // Highlight (==text==)
+  text = text.replace(/==([^=]+?)==/g, '<mark>$1</mark>');
+
+  // 10. Paragraphs & Line Breaks
+  const paragraphs = text.split(/\n\s*\n+/);
+  const formattedParagraphs = paragraphs.map(p => {
+    const trimmed = p.trim();
+    if (!trimmed) return '';
+    if (/^(?:<h[1-6]|<blockquote|<ul|<ol|<pre|<hr|<div|<p|<table|\x1aBLOCK_)/i.test(trimmed)) {
+      return trimmed;
+    }
+    return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+  }).filter(Boolean);
+
+  let html = formattedParagraphs.join('\n\n');
+
+  // 11. Restore inline code placeholders
+  html = html.replace(/\x1aINLINE_(\d+)\x1a/g, (_match, idx) => {
+    return inlineCodes[Number(idx)] || '';
+  });
+
+  // 12. Restore code block placeholders
+  html = html.replace(/\x1aBLOCK_(\d+)\x1a/g, (_match, idx) => {
+    return codeBlocks[Number(idx)] || '';
+  });
+
+  return html;
+}
+
 export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
-  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(html);
-  const formattedHtml = hasHtmlTags
-    ? html
-    : html.split(/\n\s*\n/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  const isFullHtmlDoc = /^\s*<!DOCTYPE|^\s*<html/i.test(html);
+  let formattedHtml = html;
+  if (!isFullHtmlDoc) {
+    formattedHtml = markdownToHtml(html);
+  }
   const fullHtml = formattedHtml.includes('<html') || formattedHtml.includes('<!DOCTYPE')
     ? formattedHtml
     : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${formattedHtml}</body></html>`;

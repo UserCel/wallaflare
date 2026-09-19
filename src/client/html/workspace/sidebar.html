@@ -13,10 +13,16 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" id="sidebarAddArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL" style="width: 100%; justify-content: center; padding: 0.55rem 0.85rem; font-weight: 600;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>Add URL</span>
-      </button>
+      <div style="display: flex; gap: 0.45rem; width: 100%;">
+        <button class="btn btn-primary" id="sidebarAddArticleBtn" onclick="handleAddArticleBtnClick()" title="Add URL" style="flex: 1; justify-content: center; padding: 0.55rem 0.6rem; font-weight: 600; white-space: nowrap; font-size: 0.88rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Add URL</span>
+        </button>
+        <button class="btn btn-secondary" id="sidebarAddTextBtn" onclick="handleAddTextBtnClick()" title="Add Custom Text / Markdown" style="flex: 1; justify-content: center; padding: 0.55rem 0.6rem; font-weight: 600; white-space: nowrap; font-size: 0.88rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span>Add Text</span>
+        </button>
+      </div>
 
       <div class="sidebar-nav-group">
         <button class="sidebar-nav-item active" id="tabUnread" onclick="setFilter('unread')">

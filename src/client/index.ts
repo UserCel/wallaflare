@@ -728,6 +728,34 @@ import {
         .replace(/'/g, '&#039;');
     }
 
+    let addTextCustomTags: string[] = [];
+    function renderAddTextTagChips() {
+      const container = document.getElementById('addTextAvailableTags') || document.getElementById('addTextTagsChips');
+      const wrapper = document.getElementById('addTextTagsContainer');
+      if (!container) return;
+      if (!addTextCustomTags || addTextCustomTags.length === 0) {
+        container.innerHTML = '';
+        if (wrapper) wrapper.style.display = 'none';
+        return;
+      }
+      if (wrapper) wrapper.style.display = 'block';
+      container.innerHTML = addTextCustomTags
+        .map(tag => '<span class="tag-chip">' + escapeHtml(tag) + '<button type="button" class="tag-chip-del" onclick="removeAddTextTag(\'' + escapeHtml(tag).replace(/'/g, "\\'") + '\')">&times;</button></span>')
+        .join('');
+    }
+    function removeAddTextTag(tag: string) {
+      addTextCustomTags = (addTextCustomTags || []).filter(t => t !== tag);
+      const input = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
+      if (input) input.value = addTextCustomTags.join(', ');
+      renderAddTextTagChips();
+    }
+    function syncAddTextTagChips() {
+      const input = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
+      const raw = (input?.value || '').trim();
+      addTextCustomTags = raw ? raw.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+      renderAddTextTagChips();
+    }
+
     function formatCardDate(dateInput) {
       if (!dateInput) return { label: "", tooltip: "" };
       const d = typeof dateInput === "object" && dateInput instanceof Date ? dateInput : new Date(dateInput);
@@ -782,6 +810,16 @@ import {
           !document.activeElement?.isContentEditable) {
         e.preventDefault();
         openModal('addUrlModal');
+        return;
+      }
+
+      // Ctrl+Shift+N / Cmd+Shift+N: Open Add Custom Text dialog
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN') &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !document.activeElement?.isContentEditable) {
+        e.preventDefault();
+        handleAddTextBtnClick();
         return;
       }
 
@@ -1476,10 +1514,13 @@ import {
     function updateOfflineUI(offline) {
       isOfflineMode = offline;
       const btn = document.getElementById('addArticleBtn');
+      const textBtn = document.getElementById('addTextBtn');
       const icon = document.getElementById('addArticleBtnIcon');
       const label = document.getElementById('addArticleBtnLabel');
       const sidebarBtn = document.getElementById('sidebarAddArticleBtn');
+      const sidebarTextBtn = document.getElementById('sidebarAddTextBtn');
       const mobileDrawerBtn = document.getElementById('mobileDrawerAddArticleBtn');
+      const mobileDrawerTextBtn = document.getElementById('mobileDrawerAddTextBtn');
 
       const offlineSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>';
       const onlineSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
@@ -1490,17 +1531,20 @@ import {
           btn.classList.add('btn-offline-mode');
           btn.title = 'Offline Mode — Reading from local cache (Tap to retry)';
         }
+        if (textBtn) {
+          textBtn.title = 'Add Custom Text (Offline)';
+        }
         if (sidebarBtn) {
           sidebarBtn.classList.remove('btn-primary');
           sidebarBtn.classList.add('btn-offline-mode');
           sidebarBtn.title = 'Offline Mode — Reading from local cache (Tap to retry)';
-          sidebarBtn.innerHTML = offlineSvg + '<span>Offline Mode</span>';
+          sidebarBtn.innerHTML = offlineSvg + '<span>Offline</span>';
         }
         if (mobileDrawerBtn) {
           mobileDrawerBtn.classList.remove('btn-primary');
           mobileDrawerBtn.classList.add('btn-offline-mode');
           mobileDrawerBtn.title = 'Offline Mode — Reading from local cache (Tap to retry)';
-          mobileDrawerBtn.innerHTML = offlineSvg + '<span>Offline Mode</span>';
+          mobileDrawerBtn.innerHTML = offlineSvg + '<span>Offline</span>';
         }
         if (icon) {
           icon.innerHTML = '<line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>';
@@ -1511,6 +1555,9 @@ import {
           btn.classList.remove('btn-offline-mode');
           btn.classList.add('btn-primary');
           btn.title = 'Add URL';
+        }
+        if (textBtn) {
+          textBtn.title = 'Add Custom Text / Markdown';
         }
         if (sidebarBtn) {
           sidebarBtn.classList.remove('btn-offline-mode');
@@ -5120,6 +5167,10 @@ import {
     }
 
     function handleAddTextBtnClick() {
+      addTextCustomTags = [];
+      const input = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
+      if (input) input.value = '';
+      renderAddTextTagChips();
       openModal('addTextModal');
     }
 
@@ -5184,16 +5235,16 @@ import {
 
     async function handleIngestText(e) {
       e.preventDefault();
-      const title = document.getElementById('textTitle')?.value.trim();
-      const content = document.getElementById('textContent')?.value.trim();
-      const author = document.getElementById('textAuthor')?.value.trim();
-      const tags = document.getElementById('textTags')?.value.trim();
-      const url = document.getElementById('textUrl')?.value.trim();
-      const previewPicture = document.getElementById('textPreviewPicture')?.value.trim();
-      const btn = document.getElementById('ingestTextBtn');
+      const title = (document.getElementById('textTitle') as HTMLInputElement)?.value.trim();
+      const content = (document.getElementById('textContent') as HTMLTextAreaElement)?.value.trim();
+      const author = (document.getElementById('textAuthor') as HTMLInputElement)?.value.trim();
+      const tags = (document.getElementById('textTags') as HTMLInputElement)?.value.trim();
+      const url = (document.getElementById('textUrl') as HTMLInputElement)?.value.trim();
+      const previewPicture = (document.getElementById('textPreviewPicture') as HTMLInputElement)?.value.trim();
+      const btn = document.getElementById('ingestTextBtn') as HTMLButtonElement;
 
       if (!title || !content) return;
-      btn.disabled = true;
+      if (btn) btn.disabled = true;
 
       try {
         const res = await authFetch('/api/entries.json', {
@@ -5204,6 +5255,20 @@ import {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const item = await res.json();
         closeModal('addTextModal');
+        const titleInput = document.getElementById('textTitle') as HTMLInputElement;
+        const contentInput = document.getElementById('textContent') as HTMLTextAreaElement;
+        const authorInput = document.getElementById('textAuthor') as HTMLInputElement;
+        const tagsInput = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
+        const urlInput = document.getElementById('textUrl') as HTMLInputElement;
+        const previewInput = document.getElementById('textPreviewPicture') as HTMLInputElement;
+        if (titleInput) titleInput.value = '';
+        if (contentInput) contentInput.value = '';
+        if (authorInput) authorInput.value = '';
+        if (tagsInput) tagsInput.value = '';
+        if (urlInput) urlInput.value = '';
+        if (previewInput) previewInput.value = '';
+        addTextCustomTags = [];
+        renderAddTextTagChips();
         allEntries.unshift(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
         checkNativePendingSavedArticles();
@@ -5215,7 +5280,7 @@ import {
       } catch (err) {
         showToast('Failed to save entry');
       } finally {
-        btn.disabled = false;
+        if (btn) btn.disabled = false;
       }
     }
 
@@ -7264,6 +7329,9 @@ if (typeof window !== "undefined") {
   try { (window as any).handleAddTextBtnClick = handleAddTextBtnClick; } catch (e) {}
   try { (window as any).handleIngestUrl = handleIngestUrl; } catch (e) {}
   try { (window as any).handleIngestText = handleIngestText; } catch (e) {}
+  try { (window as any).renderAddTextTagChips = renderAddTextTagChips; } catch (e) {}
+  try { (window as any).removeAddTextTag = removeAddTextTag; } catch (e) {}
+  try { (window as any).syncAddTextTagChips = syncAddTextTagChips; } catch (e) {}
   try { (window as any).openTagModal = openTagModal; } catch (e) {}
   try { (window as any).closeTagModal = closeTagModal; } catch (e) {}
   try { (window as any).renderTagModalUI = renderTagModalUI; } catch (e) {}
@@ -7320,54 +7388,12 @@ if (typeof window !== "undefined") {
   try { (window as any).initInfiniteScroll = initInfiniteScroll; } catch (e) {}
 }
 
-
-
-
-
 if (typeof window !== "undefined") {
   const w = window as any;
-  w.syncAddTextTagChips = syncAddTextTagChips;
   w.setKeyboardPaneFocus = setKeyboardPaneFocus;
   w.initPaneFocusListeners = initPaneFocusListeners;
   w.updateLiveRelativeTimestamps = updateLiveRelativeTimestamps;
   w.initLiveTimestamps = initLiveTimestamps;
-  w.setReaderFont = setReaderFont;
-
-  try {
-    Object.defineProperty(w, 'allEntries', {
-      get() { return allEntries; },
-      set(val) { allEntries = val; },
-      configurable: true
-    });
-    Object.defineProperty(w, 'activeArticleId', {
-      get() { return activeArticleId; },
-      set(val) { activeArticleId = val; },
-      configurable: true
-    });
-    Object.defineProperty(w, 'currentFilter', {
-      get() { return currentFilter; },
-      set(val) { currentFilter = val; },
-      configurable: true
-    });
-    Object.defineProperty(w, 'selectedArticleIds', {
-      get() { return selectedArticleIds; },
-      set(val) { selectedArticleIds = val; },
-      configurable: true
-    });
-  } catch (e) {}
-}
-
-function syncAddTextTagChips() {
-  const raw = ((document.getElementById('addTextTagsInput') as HTMLInputElement)?.value || '').trim();
-  addTextCustomTags = raw ? raw.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-  renderAddTextTagChips();
-}
-
-
-
-if (typeof window !== "undefined") {
-  const w = window as any;
-  w.syncAddTextTagChips = syncAddTextTagChips;
   w.setReaderFont = setReaderFont;
   w.setReaderFontFamily = setReaderFontFamily;
   w.setAllEntries = (entries: any[]) => {

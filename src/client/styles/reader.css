@@ -360,6 +360,14 @@
       margin-bottom: 0.5rem;
       line-height: var(--reader-line-height, 1.68);
     }
+    .reader-body hr {
+      border: none;
+      border-top: 1.5px solid var(--text-muted, #64748b);
+      margin: 2.5rem auto;
+      width: 60%;
+      opacity: 0.65;
+      display: block;
+    }
 
 #readerScrollContainer, .reader-main-scroll {
   outline: none !important;

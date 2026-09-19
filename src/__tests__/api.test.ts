@@ -972,6 +972,70 @@ describe('Custom Text Ingestion (Plain text & Markdown)', () => {
     expect(data.domain_name).toBe('direct-input');
     expect(data.content).toContain('This is a simple plain text entry');
   });
+
+  it('automatically parses markdown symbols like italics, bold, headings, and code into HTML', async () => {
+    const markdownContent = '*The conduit is not radiating heat; it is consuming it. Standard fluid mechanics cannot balance this equation. Core sampling and acoustic sounding required. Return tonight after second shift.*';
+
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Sounding Report',
+        content: markdownContent,
+        author: 'Chief Engineer',
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.title).toBe('Sounding Report');
+    // Verify italic asterisks were parsed into <em> tags
+    expect(data.content).toContain('<em>The conduit is not radiating heat; it is consuming it. Standard fluid mechanics cannot balance this equation. Core sampling and acoustic sounding required. Return tonight after second shift.</em>');
+    // Ensure raw unparsed asterisks wrapping the text do not remain
+    expect(data.content).not.toContain('*The conduit');
+  });
+
+  it('handles multi-element markdown with headings, bold, lists, and code blocks', async () => {
+    const markdownContent = '# Engineering Log\n\n**Warning**: anomaly detected in sector 4.\n\n- Inspect conduits\n- Check thermal dampeners\n\nRun command: `diagnostics --all`';
+
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Engineering Log',
+        content: markdownContent,
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.content).toMatch(/<h[12]>Engineering Log<\/h[12]>/);
+    expect(data.content).toContain('<strong>Warning</strong>: anomaly detected');
+    expect(data.content).toContain('<ul><li>Inspect conduits</li><li>Check thermal dampeners</li></ul>');
+    expect(data.content).toContain('<code>diagnostics --all</code>');
+  });
+
+  it('correctly converts * * * and --- into horizontal separator lines (<hr>)', async () => {
+    const markdownContent = 'First scene paragraph.\n\n* * *\n\nSecond scene paragraph.\n\n---\n\nThird scene.';
+
+    const res = await app.request('/api/entries.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Story with Scene Breaks',
+        content: markdownContent,
+      })
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    // Verify * * * is converted to <hr> and not treated as bullet list with * *
+    expect(data.content).toContain('<hr>');
+    expect(data.content).not.toContain('* *');
+    expect(data.content).toContain('First scene paragraph.');
+    expect(data.content).toContain('Second scene paragraph.');
+    expect(data.content).toContain('Third scene.');
+  });
 });
 
 describe('Custom Text Preview Picture Support', () => {
