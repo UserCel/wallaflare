@@ -318,6 +318,58 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     expect(html).toContain('id="readerMobileHighlightsBtn"');
     expect(html).toContain('filterHighlightsModalList');
     expect(html).toContain('scrollToAnnotation');
+    expect(html).toContain('id="modalCopyAllBtn"');
+    expect(html).toContain('id="modalFooterCopyAllBtn"');
+    expect(html).toContain('copyAllModalHighlights');
+    expect(html).toContain('copyModalAnnotation');
+    expect(html).toContain('id="copyCurrentAnnotationNoteBtn"');
+    expect(html).toContain('copyCurrentAnnotationNoteModal');
+  });
+
+  it('formats individual and all notes in a readable manner with quotes and notes', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    const context = vm.createContext({
+      document: {
+        getElementById: () => null,
+        querySelectorAll: () => []
+      },
+      navigator: { clipboard: { writeText: async () => {} } },
+      window: {}
+    });
+
+    const formatSingleMatch = html.match(/function formatAnnotationReadable\([\s\S]*?\n    \}/);
+    const formatAllMatch = html.match(/function formatAllAnnotationsReadable\([\s\S]*?\n    \}/);
+    expect(formatSingleMatch).toBeTruthy();
+    expect(formatAllMatch).toBeTruthy();
+
+    const script = new vm.Script(
+      formatSingleMatch![0] + ';\n' +
+      formatAllMatch![0] + ';\n' +
+      'var s1 = formatAnnotationReadable({ quote: "First quote", text: "First note" });\n' +
+      'var s2 = formatAnnotationReadable({ quote: "\\"Already quoted\\"", text: "" });\n' +
+      'var s3 = formatAnnotationReadable({ quote: "", text: "Unanchored note" });\n' +
+      'var allFormatted = formatAllAnnotationsReadable([\n' +
+      '  { quote: "First quote", text: "First note" },\n' +
+      '  { quote: "Second quote", text: "" },\n' +
+      '  { quote: "", text: "Article note" }\n' +
+      '], "Sample Article Title");'
+    );
+    script.runInContext(context);
+
+    const s1 = (context as any).s1;
+    const s2 = (context as any).s2;
+    const s3 = (context as any).s3;
+    const allFormatted = (context as any).allFormatted;
+
+    expect(s1).toBe('"First quote"\nNote: First note');
+    expect(s2).toBe('"Already quoted"');
+    expect(s3).toBe('Note: Unanchored note');
+
+    expect(allFormatted).toContain('Highlights & Notes: Sample Article Title');
+    expect(allFormatted).toContain('"First quote"\nNote: First note');
+    expect(allFormatted).toContain('"Second quote"');
+    expect(allFormatted).toContain('Note: Article note');
+    expect(allFormatted).toContain('---');
   });
 
   it('includes desktop floating annotation toolbar and mobile contextual topbar annotation header', () => {

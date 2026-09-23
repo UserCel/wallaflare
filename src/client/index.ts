@@ -3701,6 +3701,11 @@ import {
       const annotations = getSortedAnnotations(item, activeModalHighlightsSort);
       if (countBadge) countBadge.textContent = String(annotations.length);
 
+      const copyAllBtn = document.getElementById("modalCopyAllBtn") as HTMLButtonElement | null;
+      const footerCopyAllBtn = document.getElementById("modalFooterCopyAllBtn") as HTMLButtonElement | null;
+      if (copyAllBtn) copyAllBtn.disabled = (annotations.length === 0);
+      if (footerCopyAllBtn) footerCopyAllBtn.disabled = (annotations.length === 0);
+
       if (annotations.length === 0) {
         container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No highlights or notes in this article yet.</div>';
         return;
@@ -3721,6 +3726,7 @@ import {
           '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">' +
             '<div style="font-weight: 500; font-size: 0.88rem; flex: 1; cursor: pointer;" onclick="scrollToAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')">' + quoteDisplay + '</div>' +
             '<div style="display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0;">' +
+              '<button type="button" class="btn-icon" style="padding: 2px 5px; font-size: 0.75rem;" onclick="event.stopPropagation(); copyModalAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ', this)" title="Copy quote &amp; note"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
               '<button type="button" class="btn-icon" style="padding: 2px 5px; font-size: 0.75rem;" onclick="event.stopPropagation(); editModalAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')" title="Edit Note">✏️</button>' +
               '<button type="button" class="btn-icon" style="padding: 2px 5px; font-size: 0.75rem; color: var(--danger);" onclick="event.stopPropagation(); deleteModalAnnotation(' + ann.id + ', ' + activeModalHighlightsArticleId + ')" title="Delete Highlight">🗑️</button>' +
             '</div>' +
@@ -3802,6 +3808,100 @@ import {
       openAnnotationNoteModal(ann);
     }
 
+    function formatAnnotationReadable(ann) {
+      if (!ann) return '';
+      const parts = [];
+      const rawQuote = (ann.quote || '').trim();
+      if (rawQuote) {
+        if ((rawQuote.startsWith('"') && rawQuote.endsWith('"')) || (rawQuote.startsWith('“') && rawQuote.endsWith('”'))) {
+          parts.push(rawQuote);
+        } else {
+          parts.push('"' + rawQuote + '"');
+        }
+      }
+      const rawText = (ann.text || '').trim();
+      if (rawText) {
+        parts.push('Note: ' + rawText);
+      }
+      return parts.join('\n');
+    }
+
+    function formatAllAnnotationsReadable(annotations, articleTitle = '') {
+      if (!annotations || annotations.length === 0) return '';
+      const formattedItems = annotations
+        .map(ann => formatAnnotationReadable(ann))
+        .filter(text => text.length > 0);
+
+      if (formattedItems.length === 0) return '';
+
+      const header = articleTitle && articleTitle.trim() ? ('Highlights & Notes: ' + articleTitle.trim() + '\n\n') : '';
+      return header + formattedItems.join('\n\n---\n\n');
+    }
+
+    function copyModalAnnotation(annId, articleId = null, btn = null) {
+      const targetArticleId = articleId || activeModalHighlightsArticleId;
+      const item = allEntries.find(e => e.id === targetArticleId);
+      if (!item || !item.annotations) return;
+
+      const ann = item.annotations.find(a => String(a.id) === String(annId));
+      if (!ann) return;
+
+      const text = formatAnnotationReadable(ann);
+      if (!text) {
+        showToast('Nothing to copy');
+        return;
+      }
+
+      copyDirectText(text, btn, '✓ Copied note to clipboard');
+    }
+
+    function copyAllModalHighlights(btn = null) {
+      const targetArticleId = activeModalHighlightsArticleId || activeArticleId;
+      const item = allEntries.find(e => e.id === targetArticleId);
+      if (!item || !item.annotations || item.annotations.length === 0) {
+        showToast('No highlights or notes to copy');
+        return;
+      }
+
+      const annotations = getSortedAnnotations(item, activeModalHighlightsSort);
+      let toCopy = annotations;
+      if (activeModalHighlightsFilter === 'notes') {
+        toCopy = annotations.filter(a => a.text && a.text.trim().length > 0);
+      } else if (activeModalHighlightsFilter !== 'all') {
+        toCopy = annotations.filter(a => (a.color || 'yellow') === activeModalHighlightsFilter);
+      }
+
+      if (toCopy.length === 0) {
+        showToast('No highlights or notes match current filter');
+        return;
+      }
+
+      const text = formatAllAnnotationsReadable(toCopy, item.title);
+      if (!text) {
+        showToast('No highlights or notes to copy');
+        return;
+      }
+
+      copyDirectText(text, btn, '✓ Copied all notes to clipboard');
+    }
+
+    function copyCurrentAnnotationNoteModal(btn = null) {
+      const quoteEl = document.getElementById('annotationNoteQuotePreview');
+      const inputEl = document.getElementById('annotationNoteInput') as HTMLTextAreaElement | null;
+      const quote = quoteEl?.textContent?.trim() || (activeModalAnnotation?.quote || pendingHighlightData?.quote || '').trim();
+      const text = inputEl ? inputEl.value.trim() : (activeModalAnnotation?.text || '').trim();
+
+      if (!quote && !text) {
+        showToast('Nothing to copy');
+        return;
+      }
+
+      const formatted = formatAnnotationReadable({ quote, text });
+      if (formatted) {
+        copyDirectText(formatted, btn, '✓ Copied note to clipboard');
+      }
+    }
+
     function openHighlightPopover(ann, targetEl) {
       activePopoverAnnotation = ann;
       const popover = document.getElementById("highlightPopover");
@@ -3821,8 +3921,9 @@ import {
     }
 
     function copyPopoverQuote() {
-      if (activePopoverAnnotation && activePopoverAnnotation.quote) {
-        copyDirectText(activePopoverAnnotation.quote);
+      if (activePopoverAnnotation) {
+        const text = formatAnnotationReadable(activePopoverAnnotation);
+        if (text) copyDirectText(text, null, '✓ Copied note to clipboard');
       }
       closeHighlightPopover();
     }
@@ -4192,10 +4293,41 @@ import {
       });
     }
 
-    function copyDirectText(text, btn) {
-      navigator.clipboard.writeText(text).then(() => {
-        showToast('✓ Copied to clipboard');
-      });
+    function copyDirectText(text, btn = null, successMessage = '✓ Copied to clipboard') {
+      if (!text) return;
+      const onCopied = () => {
+        showToast(successMessage);
+        if (btn) {
+          const original = btn.innerHTML;
+          btn.innerHTML = typeof btn.innerHTML === 'string' && btn.innerHTML.includes('<svg') ? '✓' : '✓ Copied!';
+          setTimeout(() => { btn.innerHTML = original; }, 1600);
+        }
+      };
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(onCopied).catch(() => {
+          fallbackCopyText(text, onCopied);
+        });
+      } else {
+        fallbackCopyText(text, onCopied);
+      }
+    }
+
+    function fallbackCopyText(text, callback) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (callback) callback();
+      } catch (err) {
+        showToast('Failed to copy to clipboard', true);
+      }
     }
 
     function copySyncValue(elementId, btn) {
@@ -7263,6 +7395,11 @@ if (typeof window !== "undefined") {
   try { (window as any).clearActiveTextSelection = clearActiveTextSelection; } catch (e) {}
   try { (window as any).deleteModalAnnotation = deleteModalAnnotation; } catch (e) {}
   try { (window as any).editModalAnnotation = editModalAnnotation; } catch (e) {}
+  try { (window as any).copyModalAnnotation = copyModalAnnotation; } catch (e) {}
+  try { (window as any).copyAllModalHighlights = copyAllModalHighlights; } catch (e) {}
+  try { (window as any).copyCurrentAnnotationNoteModal = copyCurrentAnnotationNoteModal; } catch (e) {}
+  try { (window as any).formatAnnotationReadable = formatAnnotationReadable; } catch (e) {}
+  try { (window as any).formatAllAnnotationsReadable = formatAllAnnotationsReadable; } catch (e) {}
   try { (window as any).toggleReaderSearchBar = toggleReaderSearchBar; } catch (e) {}
   try { (window as any).openReaderSearchBar = openReaderSearchBar; } catch (e) {}
   try { (window as any).handleSearchInputKeydown = handleSearchInputKeydown; } catch (e) {}
