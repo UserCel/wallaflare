@@ -32,6 +32,7 @@ coverage/
 *.epub
 *.apk
 *.aab
+scratch/
 
 # Android Local Config
 local.properties

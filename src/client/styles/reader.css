@@ -288,6 +288,13 @@
     mark.reader-hl-blue { background-color: rgba(59, 130, 246, 0.32); border-bottom: 2px solid #3b82f6; color: inherit; }
     mark.reader-hl-purple { background-color: rgba(168, 85, 247, 0.32); border-bottom: 2px solid #a855f7; color: inherit; }
     mark.reader-hl.has-note::after { content: " 💬"; font-size: 0.75em; opacity: 0.85; vertical-align: super; }
+    mark.reader-hl.reader-hl-cont-start { border-top-right-radius: 0; border-bottom-right-radius: 0; padding-right: 0; margin-right: 0; }
+    mark.reader-hl.reader-hl-cont-mid { border-radius: 0; padding-left: 0; padding-right: 0; margin-left: 0; margin-right: 0; }
+    mark.reader-hl.reader-hl-cont-end { border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 0; margin-left: 0; }
+    mark.reader-hl.reader-hl-focused { outline: 3px solid var(--accent); }
+    mark.reader-hl.reader-hl-cont-start.reader-hl-focused { outline: none; box-shadow: -3px 0 0 0 var(--accent), 0 -3px 0 0 var(--accent), 0 3px 0 0 var(--accent); }
+    mark.reader-hl.reader-hl-cont-mid.reader-hl-focused { outline: none; box-shadow: 0 -3px 0 0 var(--accent), 0 3px 0 0 var(--accent); }
+    mark.reader-hl.reader-hl-cont-end.reader-hl-focused { outline: none; box-shadow: 3px 0 0 0 var(--accent), 0 -3px 0 0 var(--accent), 0 3px 0 0 var(--accent); }
 
     .highlight-toolbar {
       position: fixed;

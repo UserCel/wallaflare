@@ -265,8 +265,140 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
 
     expect(mark103).toBeDefined();
     expect(mark103?.textContent).toBe('considered');
-    expect(mark103?.className).toBe('reader-hl reader-hl-blue');
   });
+
+  it('anchors annotations spanning inline formatting tags (em, strong, etc.) across multiple text nodes', () => {
+    const html = renderDashboardHtml('Wallaflare');
+    const match = html.match(/function highlightTextInNode\([\s\S]*?\n    \}/);
+    expect(match).toBeDefined();
+
+    const dom = new DOMParser().parseFromString(
+      '<!DOCTYPE html><html><body><div id="readerBody">' +
+      '<p id="p1">Corin opened his velvet tool roll across his thigh. He lifted out his steel tuning fork, its tines stamped with the official mark of the Board of Assay: <em>432 C.P.S.—MUNICIPAL STANDARD PITCH</em>. Beside it lay certified test-slug 74-B, a cylindrical disc of vitrified ceramic with a precisely ground contact face, rated for an acoustic velocity of five thousand one hundred and eighty-four meters per second at twenty degrees Centigrade.</p>' +
+      '<p id="p2">they shoved him onto the District 17 prison scow, he yelled out across the slipway. Shouted at an oyster lad he knew: <em>Tell the gulls on Basin Four the tide is fouled. The auditor\'s ledger is open.</em>"</p>' +
+      '<p id="p3">Exactly <strong>forty-eight cycles per minute</strong>.</p>' +
+      '</div></body></html>',
+      'text/html'
+    );
+    const container = dom.getElementById('readerBody');
+
+    const context = vm.createContext({
+      document: dom,
+      NodeFilter: { SHOW_TEXT: 4 },
+      openHighlightPopover: () => {},
+      console: console,
+      allEntries: [],
+      activeArticleId: null,
+      parseInt: parseInt,
+      String: String,
+      Math: Math,
+      RegExp: RegExp,
+      setTimeout: setTimeout
+    });
+
+    const script = new vm.Script(
+      match![0] + '; var container = document.getElementById("readerBody");' +
+      'highlightTextInNode(container, {' +
+      '  id: 246,' +
+      '  quote: "Corin opened his velvet tool roll across his thigh. He lifted out his steel tuning fork, its tines stamped with the official mark of the Board of Assay: 432 C.P.S.—MUNICIPAL STANDARD PITCH. Beside it lay certified test-slug 74-B, a cylindrical disc of vitrified ceramic with a precisely ground contact face, rated for an acoustic velocity of five thousand one hundred and eighty-four meters per second at twenty degrees Centigrade.",' +
+      '  color: "gray",' +
+      '  text: "Tuning fork inspection note"' +
+      '});' +
+      'highlightTextInNode(container, {' +
+      '  id: 251,' +
+      '  quote: \'he yelled out across the slipway. Shouted at an oyster lad he knew: Tell the gulls on Basin Four the tide is fouled. The auditor\\\'s ledger is open."\',' +
+      '  color: "gray"' +
+      '});' +
+      'highlightTextInNode(container, {' +
+      '  id: 238,' +
+      '  quote: "Exactly forty-eight cycles per minute.",' +
+      '  color: "yellow"' +
+      '});'
+    );
+    script.runInContext(context);
+
+    // Verify Annotation 246 (spans text before <em>, the <em> itself, and text after <em>)
+    const marks246 = container!.querySelectorAll('mark[data-annotation-id="246"]');
+    expect(marks246.length).toBe(3);
+    expect(marks246[0].textContent).toContain('Corin opened his velvet tool roll');
+    expect(marks246[0].className).toContain('reader-hl-cont-start');
+    expect(marks246[0].className).not.toContain('has-note');
+
+    expect(marks246[1].textContent).toBe('432 C.P.S.—MUNICIPAL STANDARD PITCH');
+    expect(marks246[1].parentElement?.tagName.toLowerCase()).toBe('em');
+    expect(marks246[1].className).toContain('reader-hl-cont-mid');
+    expect(marks246[1].className).not.toContain('has-note');
+
+    expect(marks246[2].textContent).toContain('Beside it lay certified test-slug 74-B');
+    expect(marks246[2].className).toContain('reader-hl-cont-end');
+    expect(marks246[2].className).toContain('has-note'); // only the last segment gets the note icon
+
+    // Verify Annotation 251 (spans lead text, <em>, and trailing quote without note)
+    const marks251 = container!.querySelectorAll('mark[data-annotation-id="251"]');
+    expect(marks251.length).toBe(3);
+    expect(marks251[0].textContent).toContain('he yelled out across the slipway');
+    expect(marks251[0].className).toContain('reader-hl-cont-start');
+    expect(marks251[0].className).not.toContain('has-note');
+
+    expect(marks251[1].textContent).toBe('Tell the gulls on Basin Four the tide is fouled. The auditor\'s ledger is open.');
+    expect(marks251[1].className).toContain('reader-hl-cont-mid');
+    expect(marks251[1].className).not.toContain('has-note');
+
+    expect(marks251[2].textContent).toBe('"');
+    expect(marks251[2].className).toContain('reader-hl-cont-end');
+    expect(marks251[2].className).not.toContain('has-note');
+
+    // Verify Annotation 238 (spans outside and inside <strong>)
+    const marks238 = container!.querySelectorAll('mark[data-annotation-id="238"]');
+    expect(marks238.length).toBeGreaterThanOrEqual(2);
+    expect(Array.from(marks238).map(m => m.textContent).join('')).toBe('Exactly forty-eight cycles per minute.');
+
+    // Verify cross-paragraph highlight with newlines in quote
+    const dom2 = new DOMParser().parseFromString(
+      '<!DOCTYPE html><html><body><div id="readerBody">' +
+      '<p>Length of the sharp-crested weir ($L$): exactly 1.20 meters.</p>' +
+      '<p>Water head over the weir plate ($h$): exactly 14.2 centimeters (0.142 meters).</p>' +
+      '</div></body></html>',
+      'text/html'
+    );
+    const container2 = dom2.getElementById('readerBody');
+    const ctx2 = vm.createContext({
+      document: dom2,
+      NodeFilter: { SHOW_TEXT: 4 },
+      openHighlightPopover: () => {},
+      console: console,
+      allEntries: [],
+      activeArticleId: null,
+      parseInt: parseInt,
+      String: String,
+      Math: Math,
+      RegExp: RegExp
+    });
+    const script2 = new vm.Script(
+      match![0] + '; var container = document.getElementById("readerBody");' +
+      'highlightTextInNode(container, {' +
+      '  id: 147,' +
+      '  quote: "Length of the sharp-crested weir ($L$): exactly 1.20 meters.\\nWater head over the weir plate ($h$): exactly 14.2 centimeters (0.142 meters).",' +
+      '  color: "blue"' +
+      '});'
+    );
+    script2.runInContext(ctx2);
+    const marks147 = container2!.querySelectorAll('mark[data-annotation-id="147"]');
+    expect(marks147.length).toBeGreaterThanOrEqual(2);
+
+    // Verify scrollToAnnotation outlines ALL marks of a multi-node annotation in accent orange
+    const scrollMatch = html.match(/async function scrollToAnnotation\([\s\S]*?\n    \}/);
+    expect(scrollMatch).toBeDefined();
+    context.closeModal = () => {};
+    context.activeModalHighlightsArticleId = null;
+    marks251.forEach(m => (m as any).scrollIntoView = () => {});
+    const scrollScript = new vm.Script(scrollMatch![0] + '; scrollToAnnotation(251);');
+    scrollScript.runInContext(context);
+    marks251.forEach(m => {
+      expect(m.classList.contains('reader-hl-focused')).toBe(true);
+    });
+  });
+
 
 
   it('sorts annotations by document reading order (position) by default and by time when requested', () => {

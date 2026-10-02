@@ -105,10 +105,10 @@ export function renderModalHighlightsList(): void {
 
 export function scrollToAnnotation(annoId: string | number): void {
   closeModal("readerHighlightsModal");
-  const el = document.querySelector(`[data-annotation-id="${annoId}"]`);
-  if (el) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("highlight-pulse");
-    setTimeout(() => el.classList.remove("highlight-pulse"), 2000);
+  const marks = document.querySelectorAll(`mark[data-annotation-id="${annoId}"]`);
+  if (marks.length > 0) {
+    marks[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    marks.forEach(m => m.classList.add("reader-hl-focused"));
+    setTimeout(() => { marks.forEach(m => m.classList.remove("reader-hl-focused")); }, 2200);
   }
 }

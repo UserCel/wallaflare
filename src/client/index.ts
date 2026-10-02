@@ -3305,19 +3305,60 @@ import {
       const targetSelector = (ann.target && ann.target.selector) ? ann.target.selector : (ann.target || {});
       const expectedPrefix = (targetSelector.prefix || ann.prefix || "").trim();
       const expectedSuffix = (targetSelector.suffix || ann.suffix || "").trim();
+      const koreader = (ann.target && ann.target.koreader) ? ann.target.koreader : {};
+      let targetPIndex = null;
+      let targetCharOffset = null;
+      if (koreader.pos0) {
+        const pMatch = String(koreader.pos0).match(/p\[(\d+)\]/i);
+        if (pMatch) targetPIndex = parseInt(pMatch[1], 10);
+        const offsetMatch = String(koreader.pos0).match(/text\(\)\.(\d+)/i);
+        if (offsetMatch) targetCharOffset = parseInt(offsetMatch[1], 10);
+      }
       const expectedPos = (ann.target && ann.target.position && typeof ann.target.position.start === "number")
         ? ann.target.position.start
-        : (typeof ann.position === "number" ? ann.position : null);
+        : (typeof ann.position === "number" ? ann.position : targetCharOffset);
 
+      function createHighlightMark(matchedText, hasNote = false, contClass = "") {
+        const mark = document.createElement("mark");
+        let cls = "reader-hl reader-hl-" + (ann.color || "yellow");
+        if (hasNote) cls += " has-note";
+        if (contClass) cls += " " + contClass;
+        mark.className = cls;
+        mark.dataset.annotationId = String(ann.id);
+        mark.title = ann.text ? (ann.color + " highlight: " + ann.text) : (ann.color + " highlight");
+        mark.textContent = matchedText;
+        mark.onclick = (e) => {
+          e.stopPropagation();
+          const currentId = mark.dataset.annotationId;
+          const item = (typeof allEntries !== "undefined" && Array.isArray(allEntries))
+            ? allEntries.find(e => e.id === activeArticleId)
+            : null;
+          const currentAnn = (item && item.annotations) ? (item.annotations.find(a => String(a.id) === String(currentId)) || ann) : ann;
+          if (typeof openHighlightPopover === "function") {
+            openHighlightPopover(currentAnn, mark);
+          }
+        };
+        return mark;
+      }
+
+      // Fast path: Search single text nodes first
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
       let node;
       let candidates = [];
       let charCounter = 0;
+      let pCounter = 0;
+      let lastP = null;
 
       while ((node = walker.nextNode())) {
         if (node.parentElement && node.parentElement.closest("mark.reader-hl")) continue;
         const text = node.nodeValue || "";
         let idx = text.indexOf(quote);
+        const parentP = node.parentElement ? node.parentElement.closest("p") : null;
+        if (parentP && parentP !== lastP) {
+          pCounter++;
+          lastP = parentP;
+        }
+
         const isWord = /^\w+$/.test(quote);
         while (idx !== -1) {
           const charBefore = idx > 0 ? text[idx - 1] : "";
@@ -3334,6 +3375,12 @@ import {
           if (expectedSuffix && afterInNode.startsWith(expectedSuffix.slice(0, 15))) score += 50;
           else if (expectedSuffix && afterInNode.length > 0 && expectedSuffix.includes(afterInNode.trim())) score += 20;
 
+          if (targetPIndex !== null && parentP) {
+            if (pCounter === targetPIndex || pCounter === targetPIndex - 1 || pCounter === targetPIndex + 1) {
+              score += 50;
+            }
+          }
+
           const candidatePos = charCounter + idx;
           if (expectedPos !== null) {
             const dist = Math.abs(candidatePos - expectedPos);
@@ -3346,37 +3393,139 @@ import {
         charCounter += text.length;
       }
 
-      if (candidates.length === 0) return;
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => b.score - a.score);
+        let best = candidates[0];
+        const targetNode = best.node;
+        const idx = best.idx;
+        const text = targetNode.nodeValue || "";
+        const beforeText = text.slice(0, idx);
+        const matchText = text.slice(idx, idx + quote.length);
+        const afterText = text.slice(idx + quote.length);
 
-      candidates.sort((a, b) => b.score - a.score);
-      let best = candidates[0];
-      const targetNode = best.node;
-      const idx = best.idx;
-      const text = targetNode.nodeValue || "";
-      const beforeText = text.slice(0, idx);
-      const matchText = text.slice(idx, idx + quote.length);
-      const afterText = text.slice(idx + quote.length);
+        const mark = createHighlightMark(matchText, !!ann.text, "");
+        const parent = targetNode.parentNode;
+        if (!parent) return;
 
-      const mark = document.createElement("mark");
-      mark.className = "reader-hl reader-hl-" + (ann.color || "yellow") + (ann.text ? " has-note" : "");
-      mark.dataset.annotationId = String(ann.id);
-      mark.title = ann.text ? (ann.color + " highlight: " + ann.text) : (ann.color + " highlight");
-      mark.textContent = matchText;
-      mark.onclick = (e) => {
-        e.stopPropagation();
-        const currentId = mark.dataset.annotationId;
-        const item = allEntries.find(e => e.id === activeArticleId);
-        const currentAnn = (item && item.annotations) ? (item.annotations.find(a => String(a.id) === String(currentId)) || ann) : ann;
-        openHighlightPopover(currentAnn, mark);
-      };
+        if (beforeText) parent.insertBefore(document.createTextNode(beforeText), targetNode);
+        parent.insertBefore(mark, targetNode);
+        if (afterText) parent.insertBefore(document.createTextNode(afterText), targetNode);
+        parent.removeChild(targetNode);
+        return;
+      }
 
-      const parent = targetNode.parentNode;
-      if (!parent) return;
+      // Multi-node path: Handles highlights that span across formatting tags (em, strong, a, etc.)
+      const walker2 = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+      let textNodes = [];
+      let fullText = "";
+      let lastBlock = null;
+      while ((node = walker2.nextNode())) {
+        if (node.parentElement && node.parentElement.closest("mark.reader-hl")) continue;
+        const text = node.nodeValue || "";
+        if (!text) continue;
+        const block = node.parentElement ? node.parentElement.closest("p, div, li, blockquote, h1, h2, h3, h4, h5, h6, tr, article, section") : null;
+        if (lastBlock && block !== lastBlock && fullText.length > 0 && !fullText.endsWith("\n")) {
+          fullText += "\n";
+        }
+        lastBlock = block;
+        const start = fullText.length;
+        fullText += text;
+        const end = fullText.length;
+        textNodes.push({ node, start, end, text });
+      }
 
-      if (beforeText) parent.insertBefore(document.createTextNode(beforeText), targetNode);
-      parent.insertBefore(mark, targetNode);
-      if (afterText) parent.insertBefore(document.createTextNode(afterText), targetNode);
-      parent.removeChild(targetNode);
+      let matchStart = -1;
+      let matchEnd = -1;
+
+      // 1. Try exact search across concatenated text stream
+      let exactIdx = fullText.indexOf(quote);
+      if (exactIdx !== -1) {
+        let occurrences = [];
+        while (exactIdx !== -1) {
+          const s = exactIdx;
+          const e = exactIdx + quote.length;
+          let score = 0;
+          const beforeSnippet = fullText.slice(Math.max(0, s - 35), s);
+          const afterSnippet = fullText.slice(e, e + 35);
+          if (expectedPrefix && beforeSnippet.endsWith(expectedPrefix.slice(-15))) score += 50;
+          if (expectedSuffix && afterSnippet.startsWith(expectedSuffix.slice(0, 15))) score += 50;
+          if (expectedPos !== null) {
+            const dist = Math.abs(s - expectedPos);
+            score += Math.max(0, 30 - Math.floor(dist / 20));
+          }
+          occurrences.push({ start: s, end: e, score });
+          exactIdx = fullText.indexOf(quote, exactIdx + Math.max(1, quote.length));
+        }
+        occurrences.sort((a, b) => b.score - a.score);
+        matchStart = occurrences[0].start;
+        matchEnd = occurrences[0].end;
+      }
+
+      // 2. Fallback: Fuzzy / flexible whitespace and quotation matching
+      if (matchStart === -1) {
+        try {
+          const words = quote.split(/\s+/).filter(Boolean);
+          if (words.length > 0) {
+            const regexParts = words.map(w => {
+              let esc = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              esc = esc.replace(/["\u201C\u201D]/g, '["\u201C\u201D]');
+              esc = esc.replace(/['\u2018\u2019]/g, "['\u2018\u2019]");
+              esc = esc.replace(/[\u2013\u2014-]/g, "[\u2013\u2014-]");
+              return esc;
+            });
+            const flexRegex = new RegExp(regexParts.join("[\\s\\u00A0]+"), "i");
+            const m = flexRegex.exec(fullText);
+            if (m && typeof m.index === "number") {
+              matchStart = m.index;
+              matchEnd = m.index + m[0].length;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (matchStart === -1 || matchEnd <= matchStart) return;
+
+      const overlapping = textNodes.filter(tn => tn.end > matchStart && tn.start < matchEnd);
+      if (overlapping.length === 0) return;
+
+      const validOverlapping = overlapping.filter(tn => {
+        const s = Math.max(0, matchStart - tn.start);
+        const e = Math.min(tn.text.length, matchEnd - tn.start);
+        return s < e;
+      });
+      if (validOverlapping.length === 0) return;
+
+      validOverlapping.forEach((tn, idx) => {
+        const isFirst = (idx === 0);
+        const isLast = (idx === validOverlapping.length - 1);
+        const isOnly = (validOverlapping.length === 1);
+        const hasNote = isLast && !!ann.text;
+
+        let contClass = "";
+        if (!isOnly) {
+          if (isFirst) contClass = "reader-hl-cont-start";
+          else if (isLast) contClass = "reader-hl-cont-end";
+          else contClass = "reader-hl-cont-mid";
+        }
+
+        const targetNode = tn.node;
+        const text = tn.text;
+        const startInNode = Math.max(0, matchStart - tn.start);
+        const endInNode = Math.min(text.length, matchEnd - tn.start);
+
+        const beforeText = text.slice(0, startInNode);
+        const matchText = text.slice(startInNode, endInNode);
+        const afterText = text.slice(endInNode);
+
+        const mark = createHighlightMark(matchText, hasNote, contClass);
+        const parent = targetNode.parentNode;
+        if (!parent) return;
+
+        if (beforeText) parent.insertBefore(document.createTextNode(beforeText), targetNode);
+        parent.insertBefore(mark, targetNode);
+        if (afterText) parent.insertBefore(document.createTextNode(afterText), targetNode);
+        parent.removeChild(targetNode);
+      });
     }
 
     function getSortedAnnotations(item, sortMode = "position") {
@@ -3739,26 +3888,27 @@ import {
     async function scrollToAnnotation(annId, articleId = null) {
       closeModal("readerHighlightsModal");
       const targetArticleId = articleId || activeModalHighlightsArticleId;
+      const highlightMarks = () => {
+        const marks = document.querySelectorAll('mark[data-annotation-id="' + annId + '"]');
+        if (marks.length > 0) {
+          marks[0].scrollIntoView({ behavior: "smooth", block: "center" });
+          marks.forEach(m => { m.classList.add("reader-hl-focused"); });
+          setTimeout(() => { marks.forEach(m => { m.classList.remove("reader-hl-focused"); }); }, 2200);
+          return true;
+        }
+        return false;
+      };
+
       if (targetArticleId && activeArticleId !== targetArticleId) {
         await openReader(targetArticleId);
         setTimeout(() => {
-          const mark = document.querySelector('mark[data-annotation-id="' + annId + '"]');
-          if (mark) {
-            mark.scrollIntoView({ behavior: "smooth", block: "center" });
-            mark.style.outline = "3px solid var(--accent)";
-            setTimeout(() => { mark.style.outline = ""; }, 2200);
-          } else {
+          if (!highlightMarks()) {
             showToast('📌 Note is unanchored (no text position in reader)');
           }
         }, 250);
         return;
       }
-      const mark = document.querySelector('mark[data-annotation-id="' + annId + '"]');
-      if (mark) {
-        mark.scrollIntoView({ behavior: "smooth", block: "center" });
-        mark.style.outline = "3px solid var(--accent)";
-        setTimeout(() => { mark.style.outline = ""; }, 2200);
-      } else {
+      if (!highlightMarks()) {
         showToast('📌 Note is unanchored (no text position in reader)');
       }
     }
