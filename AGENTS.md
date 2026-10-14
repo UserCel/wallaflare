@@ -142,6 +142,9 @@ npm run koreader
 
 # Or reset test profile & cached articles:
 npm run koreader:reset
+
+# Or run automated end-to-end sync audit against dev server:
+npm run test:sync-audit
 ```
 *Note: Point KOReader's Server URL to `http://127.0.0.1:8787`. Uses `scratch/koreader/` with an isolated `KO_HOME` so your personal system KOReader config is never modified.*
 
