@@ -18,7 +18,10 @@
     "screenshot": "tsx scripts/generate-screenshots.ts",
     "prepare": "tsx scripts/build-web.ts",
     "bundle:html": "tsx scripts/bundle-html.ts",
-    "test:koplugin": "luajit integrations/koreader/wallaflare.koplugin/__tests__/test_plugin.lua"
+    "test:koplugin": "luajit integrations/koreader/wallaflare.koplugin/__tests__/test_plugin.lua",
+    "koreader": "bash scripts/koreader.sh run",
+    "koreader:setup": "bash scripts/koreader.sh setup",
+    "koreader:reset": "bash scripts/koreader.sh reset"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

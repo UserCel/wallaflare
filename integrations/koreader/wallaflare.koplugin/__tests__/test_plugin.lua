@@ -1295,6 +1295,62 @@ describe("8. Comprehensive Edge-Case & Multi-Candidate Annotation Resolver", fun
         assert_eq(test_anns[2].pos1, "/body/p[3]/text().55")
     end)
 
+    it("resolves multi-paragraph quotes containing newlines across paragraph tags", function()
+        local mock_doc = {
+            findAllText = function(self, pattern, case_insensitive, nb_context_words, max_hits, regex, search_flags)
+                -- Should not be called with literal newlines
+                if pattern:find("[\r\n]") then
+                    return nil
+                end
+                if pattern:find("hope Your Majesty") then
+                    return {
+                        {
+                            start = "/body/p[5]/text().0",
+                            ["end"] = "/body/p[5]/text().180",
+                            prev_text = "still lingered in this world. ",
+                            next_text = " A cadre of dark elves"
+                        }
+                    }
+                elseif pattern:find("stony seat on top") or pattern:find("Simon replied dryly") then
+                    return {
+                        {
+                            start = "/body/p[6]/text().0",
+                            ["end"] = "/body/p[6]/text().142",
+                            prev_text = "I have seen better,” ",
+                            next_text = " but it was a mere mockery"
+                        }
+                    }
+                end
+                return nil
+            end,
+            getPageFromXPointer = function(self, xp)
+                return 4
+            end
+        }
+
+        local multiline_anns = {
+            {
+                wallaflare_id = 99,
+                text = "hope Your Majesty’s accommodations are to his liking,” Shin-Mastemo said...\n\n“As far as cells go, I have seen better,” Simon replied dryly. They had at least the decency to provide him with a stony seat on top of the shr",
+                prefix = "still lingered in this world. “I ",
+                suffix = "ine’s altar on which to sit, but it",
+                pos0 = "/1/4/2/1:0",
+                pos1 = "/1/4/2/1:0",
+                page = "/1/4/2/1:0"
+            }
+        }
+
+        local resolved = Annotations:resolveXPointers(mock_doc, multiline_anns)
+        assert_true(resolved, "Must resolve multi-paragraph annotation")
+        assert_eq(multiline_anns[1].pos0, "/body/p[5]/text().0", "pos0 should be anchored to first paragraph")
+        assert_eq(multiline_anns[1].pos1, "/body/p[6]/text().142", "pos1 should span to the end paragraph")
+        assert_eq(multiline_anns[1].page, "/body/p[5]/text().0")
+        assert_eq(multiline_anns[1].pageno, 4, "pageno should be updated to actual page")
+        assert_nil(multiline_anns[1].prefix, "prefix should be consumed")
+        assert_nil(multiline_anns[1].suffix, "suffix should be consumed")
+        assert_true(multiline_anns[1].needs_pos_push, "needs_pos_push should be set to true")
+    end)
+
     it("handles random batch of 10 mixed annotations with colors, notes, and out-of-order positions", function()
         local random_mock_doc = {
             findAllText = function(self, pattern, case_insensitive, nb_context_words, max_hits, regex, search_flags)

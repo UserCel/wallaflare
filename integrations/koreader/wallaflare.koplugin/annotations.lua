@@ -569,57 +569,135 @@ function Annotations:resolveXPointers(ui_document, annotations_list)
     if not ui_document or type(annotations_list) ~= "table" then return false end
     local resolved_any = false
 
+    local function tryFind(query)
+        if not query or query == "" or not ui_document.findAllText then return nil end
+        local ok, hits = pcall(ui_document.findAllText, ui_document, query, true, 5, 100, false, 0x00FF)
+        if ok and type(hits) == "table" and #hits > 0 then
+            return hits
+        end
+        return nil
+    end
+
+    local function scoreHits(hits, ann, query_text)
+        if not hits or #hits == 0 then return nil end
+        if #hits == 1 then return hits[1] end
+
+        local norm_prefix = normalizeText(ann.prefix or "")
+        local norm_suffix = normalizeText(ann.suffix or "")
+        local norm_full = normalizeText(ann.text or "")
+        local best_score = -1
+        local best_hit = hits[1]
+
+        for _, hit in ipairs(hits) do
+            local score = 0
+            local hit_prev = normalizeText(hit.prev_text or "")
+            local hit_next = normalizeText(hit.next_text or "")
+
+            if norm_prefix ~= "" and hit_prev ~= "" then
+                local p_snip = norm_prefix:sub(-15)
+                if hit_prev:find(p_snip, 1, true) or norm_prefix:find(hit_prev, 1, true) then
+                    score = score + 50
+                end
+            end
+
+            if norm_suffix ~= "" and hit_next ~= "" then
+                local s_snip = norm_suffix:sub(1, 15)
+                if hit_next:find(s_snip, 1, true) or norm_suffix:find(hit_next, 1, true) then
+                    score = score + 50
+                end
+            end
+
+            -- If partial snippet was searched, boost candidates whose continuation matches the quote
+            if hit_next ~= "" and norm_full ~= "" then
+                local next_snip = hit_next:sub(1, 20)
+                if norm_full:find(next_snip, 1, true) then
+                    score = score + 40
+                end
+            end
+
+            if score > best_score then
+                best_score = score
+                best_hit = hit
+            end
+        end
+        return best_hit
+    end
+
     for _, ann in ipairs(annotations_list) do
         local is_placeholder = (not ann.pos0 or ann.pos0 == "/1/4/2/1:0" or ann.pos0 == "")
         if is_placeholder and ann.text and ann.text ~= "" and ui_document.findAllText then
             local matched_hit = nil
+            local matched_end_hit = nil
+            local is_multiline = (ann.text:find("[\r\n]") ~= nil)
 
-            -- Fetch all occurrences of the quote with 5 context words
-            local ok, hits = pcall(ui_document.findAllText, ui_document, ann.text, true, 5, 100, false, 0x00FF)
-            if ok and type(hits) == "table" and #hits > 0 then
-                if #hits == 1 then
-                    -- Exactly one match in the book
-                    matched_hit = hits[1]
-                else
-                    -- Multiple matches: score candidates against ann.prefix / ann.suffix
-                    local norm_prefix = normalizeText(ann.prefix or "")
-                    local norm_suffix = normalizeText(ann.suffix or "")
-                    local best_score = -1
-                    local best_hit = hits[1]
+            -- 1. Try exact full text if single-line
+            if not is_multiline then
+                local hits = tryFind(ann.text)
+                if hits then
+                    matched_hit = scoreHits(hits, ann, ann.text)
+                end
+            end
 
-                    for _, hit in ipairs(hits) do
-                        local score = 0
-                        local hit_prev = normalizeText(hit.prev_text or "")
-                        local hit_next = normalizeText(hit.next_text or "")
+            -- 2. If multiline or full-text failed, search for the leading segment / line
+            if not matched_hit then
+                local first_line = ann.text:match("^[^\r\n]+") or ann.text
+                first_line = first_line:gsub("^%s+", ""):gsub("%s+$", "")
 
-                        if norm_prefix ~= "" and hit_prev ~= "" then
-                            -- Check if trailing words of prefix match preceding words of hit
-                            local p_snip = norm_prefix:sub(-15)
-                            if hit_prev:find(p_snip, 1, true) or norm_prefix:find(hit_prev, 1, true) then
-                                score = score + 50
-                            end
-                        end
+                -- Try full first line
+                if first_line ~= "" and first_line ~= ann.text then
+                    local hits = tryFind(first_line)
+                    if hits then
+                        matched_hit = scoreHits(hits, ann, first_line)
+                    end
+                end
 
-                        if norm_suffix ~= "" and hit_next ~= "" then
-                            -- Check if leading words of suffix match following words of hit
-                            local s_snip = norm_suffix:sub(1, 15)
-                            if hit_next:find(s_snip, 1, true) or norm_suffix:find(hit_next, 1, true) then
-                                score = score + 50
-                            end
-                        end
-
-                        if score > best_score then
-                            best_score = score
-                            best_hit = hit
+                -- Try leading phrase up to ~60 characters (break at word boundary)
+                if not matched_hit and #first_line > 50 then
+                    local snip = first_line:sub(1, 60):match("^(.*%s)") or first_line:sub(1, 50)
+                    snip = snip:gsub("^%s+", ""):gsub("%s+$", "")
+                    if #snip >= 20 then
+                        local hits = tryFind(snip)
+                        if hits then
+                            matched_hit = scoreHits(hits, ann, snip)
                         end
                     end
-                    matched_hit = best_hit
+                end
+
+                -- Try shorter leading phrase up to ~30 characters
+                if not matched_hit and #first_line > 25 then
+                    local snip = first_line:sub(1, 35):match("^(.*%s)") or first_line:sub(1, 25)
+                    snip = snip:gsub("^%s+", ""):gsub("%s+$", "")
+                    if #snip >= 12 then
+                        local hits = tryFind(snip)
+                        if hits then
+                            matched_hit = scoreHits(hits, ann, snip)
+                        end
+                    end
+                end
+            end
+
+            -- 3. If multiline and start was matched, try to find the end xPointer from the trailing line
+            if matched_hit and is_multiline then
+                local last_line = ann.text:match("([^\r\n]+)%s*$")
+                if last_line and last_line ~= "" then
+                    last_line = last_line:gsub("^%s+", ""):gsub("%s+$", "")
+                    local end_hits = tryFind(last_line)
+                    if not end_hits and #last_line > 50 then
+                        local end_snip = last_line:sub(-60):match("(%s.*)$") or last_line:sub(-50)
+                        end_snip = end_snip:gsub("^%s+", ""):gsub("%s+$", "")
+                        if #end_snip >= 20 then
+                            end_hits = tryFind(end_snip)
+                        end
+                    end
+                    if end_hits then
+                        matched_end_hit = scoreHits(end_hits, ann, last_line)
+                    end
                 end
             end
 
             if matched_hit and matched_hit.start then
                 ann.pos0 = matched_hit.start
-                ann.pos1 = matched_hit["end"] or matched_hit.start
+                ann.pos1 = (matched_end_hit and matched_end_hit["end"]) or matched_hit["end"] or matched_hit.start
                 ann.prefix = nil
                 ann.suffix = nil
                 ann.page = ann.pos0

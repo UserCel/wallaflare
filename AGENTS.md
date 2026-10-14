@@ -131,6 +131,20 @@ npm run deploy
 ```
 > **Production Target**: `https://<your-instance>.workers.dev` (or your configured custom domain)
 
+### 4. KOReader Local Integration Testing
+Run an isolated, native KOReader desktop instance on Linux to test live sync, annotations, and UI interactions against your local dev server:
+```bash
+# 1. Start local worker (terminal 1)
+npm run dev
+
+# 2. Launch KOReader with wallaflare.koplugin pre-linked (terminal 2)
+npm run koreader
+
+# Or reset test profile & cached articles:
+npm run koreader:reset
+```
+*Note: Point KOReader's Server URL to `http://127.0.0.1:8787`. Uses `scratch/koreader/` with an isolated `KO_HOME` so your personal system KOReader config is never modified.*
+
 
 
 ---

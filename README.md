@@ -164,6 +164,20 @@ Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaf
 4. **Sync**:
    - Tap **Sync now** — new articles download instantly as formatted EPUBs, highlights sync bi-directionally, and finished books are archived and pruned automatically!
 
+#### 🧪 Local Testing & Development Environment
+You can test the KOReader integration locally on desktop Linux with an isolated test profile against your local dev server:
+```bash
+# 1. Start local worker (terminal 1)
+npm run dev
+
+# 2. Launch KOReader with wallaflare.koplugin pre-linked (terminal 2)
+npm run koreader
+
+# Or reset isolated test profile & cache:
+npm run koreader:reset
+```
+*(In KOReader Settings, set Server URL to `http://127.0.0.1:8787`. Uses `scratch/koreader/` with an isolated `KO_HOME` so your personal system config is never affected).*
+
 ---
 
 ### 📖 OPDS 1.2 Book Catalog (KOReader, Crosspoint, Moon+ Reader)
