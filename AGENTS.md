@@ -100,28 +100,16 @@
 
 ## ⚡ Key Development Workflows & Commands
 
-### 0. Environment & Sandbox Execution (Bazzite / Fedora Silverblue)
-The development host is **Bazzite / Fedora Silverblue** (immutable Linux). Node.js and npm are provided via Linuxbrew. Inside the Antigravity sandbox, Homebrew's ELF interpreter (`/home/linuxbrew/.linuxbrew/lib/ld.so`) requires the `/var/home/linuxbrew` path mapping. Custom wrappers have been installed in `/var/home/ido/.local/bin/` to handle this automatically.
-
-**Always prepend `/var/home/ido/.local/bin` to `PATH` when executing Node/npm commands:**
-```bash
-export PATH="/var/home/ido/.local/bin:$PATH"
-# or inline:
-PATH="/var/home/ido/.local/bin:$PATH" npm run build:web
-PATH="/var/home/ido/.local/bin:$PATH" npm test
-```
-*Note: Child-process spawns across toolchains (such as `tsx` invoking `node`) may require running with `BypassSandbox: true` if `/home/linuxbrew` path resolution is restricted inside the container sandbox.*
-
 ### 1. Build Web Assets
 Always run before testing or deploying to generate `ota-bundle.ts` and `epub-client-bundle.ts`:
 ```bash
-PATH="/var/home/ido/.local/bin:$PATH" npm run build:web
+npm run build:web
 ```
 
 ### 2. Run Test Suite
 Vitest runs unit and integration tests across all engines:
 ```bash
-PATH="/var/home/ido/.local/bin:$PATH" npm test
+npm test
 ```
 
 ### 3. Deploy to Production
@@ -159,7 +147,7 @@ npm run test:sync-audit
 2. **Rule 2: Project-Scoped Files & Workspace Boundary**:
    - Always write migrations, scripts, artifacts, and scratch files strictly inside the project root directory. Never write outside the workspace repository boundary (e.g. system `/tmp`, `/var`, or external user dirs) to prevent sandbox permission errors and maintain isolation.
 3. **Rule 3: Test Verification**:
-   - Before completing any task involving code changes, verify with `PATH="/var/home/ido/.local/bin:$PATH" npm run build:web && PATH="/var/home/ido/.local/bin:$PATH" npm test` to ensure zero compilation or syntax errors.
+   - Before completing any task involving code changes, verify with `npm run build:web && npm test` to ensure zero compilation or syntax errors.
 4. **Rule 4: Client-Side Template Escaping**:
    - `src/views/dashboard.ts` embeds client-side scripts inside TypeScript template literals (`` `...` ``). Always double-escape backslashes when writing literal newlines (e.g. `'\\n'`) to prevent unexpected token syntax errors in the browser.
 5. **Rule 5: Capacitor Native App Considerations**:
