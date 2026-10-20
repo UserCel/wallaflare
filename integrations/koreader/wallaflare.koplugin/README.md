@@ -7,7 +7,7 @@ Official KOReader integration for **Wallaflare** — bringing ultra-fast revisio
 ## ✨ Features
 
 - ⚡ **Revision-Based Delta Sync**: Queries `/api/sync.json` with `since_rev` for sub-second, battery-friendly sync checks.
-- 🖍️ **Bi-Directional Highlight & Note Sync**: Highlights, notes, and colors created on either KOReader or the web dashboard sync with 100% fidelity, using native KOReader DOM anchor resolution and true **Last-Write-Wins** conflict handling.
+- 🖍️ **Bi-Directional Highlight & Note Sync**: Highlights, notes, colors, and modified quote selections created on either KOReader or the web dashboard sync with 100% fidelity, using native KOReader DOM anchor resolution and true **Last-Write-Wins** conflict handling.
 - 📁 **Folder Organization by Tag**:
   - **Flat folder (Default)**: Keeps all downloaded articles in the root download folder (`/Books/Wallaflare/`).
   - **Subfolders by Tag**: Organizes articles into tag-based subfolders (e.g. `/Books/Wallaflare/Tech/` or `/Books/Wallaflare/Longform/`). If an article has multiple tags, its primary (first) tag is used. Automatically migrates files and `.sdr` folders if an article's tag changes.

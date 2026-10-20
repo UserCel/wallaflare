@@ -418,7 +418,7 @@ export async function createAnnotation(
   });
 }
 
-export async function updateAnnotation(db: D1Database, id: number, data: { text?: string; color?: string; target?: any; updated_at?: string }): Promise<AnnotationItem | null> {
+export async function updateAnnotation(db: D1Database, id: number, data: { text?: string; quote?: string; ranges?: any[]; color?: string; target?: any; updated_at?: string }): Promise<AnnotationItem | null> {
   const existing = await db.prepare('SELECT * FROM annotations WHERE id = ? LIMIT 1').bind(id).first<any>();
   if (!existing) return null;
 
@@ -435,29 +435,47 @@ export async function updateAnnotation(db: D1Database, id: number, data: { text?
   const newRev = await bumpSyncRevision(db);
   const now = new Date().toISOString();
   const text = data.text !== undefined ? data.text : existing.text;
+  const quote = data.quote !== undefined ? String(data.quote).trim() : existing.quote;
   const color = data.color !== undefined ? data.color : existing.color;
+  let rangesStr = existing.ranges;
+  if (data.ranges !== undefined) {
+    rangesStr = JSON.stringify(data.ranges || []);
+  }
   let targetStr = existing.target;
   if (data.target !== undefined) {
     if (data.target && typeof data.target === "object") {
       let existingObj: any = {};
       try { existingObj = JSON.parse(existing.target || "{}"); } catch (e) {}
       const merged = { ...existingObj, ...data.target };
+      if (data.quote !== undefined && merged.selector && merged.selector.type === "TextQuoteSelector") {
+        merged.selector.exact = quote;
+      }
       targetStr = JSON.stringify(merged);
     } else {
       targetStr = data.target ? JSON.stringify(data.target) : null;
     }
+  } else if (data.quote !== undefined && existing.target) {
+    try {
+      const existingObj = JSON.parse(existing.target);
+      if (existingObj && existingObj.selector && existingObj.selector.type === "TextQuoteSelector") {
+        existingObj.selector.exact = quote;
+        targetStr = JSON.stringify(existingObj);
+      }
+    } catch (e) {}
   }
 
   await db.prepare(`
-    UPDATE annotations SET text = ?, color = ?, target = ?, updated_at = ? WHERE id = ?
-  `).bind(text, color, targetStr, now, id).run();
+    UPDATE annotations SET quote = ?, text = ?, color = ?, ranges = ?, target = ?, updated_at = ? WHERE id = ?
+  `).bind(quote, text, color, rangesStr, targetStr, now, id).run();
 
   await db.prepare(`UPDATE entries SET revision = ?, updated_at = ? WHERE id = ?`).bind(newRev, now, existing.entry_id).run();
 
   return formatAnnotationResponse({
     ...existing,
+    quote,
     text,
     color,
+    ranges: rangesStr,
     target: targetStr,
     updated_at: now
   });

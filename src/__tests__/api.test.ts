@@ -1863,7 +1863,7 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     expect(data[0].quote).toBe("First highlight");
   });
 
-  it("updates annotation note and color on PATCH /api/annotations/:id.json", async () => {
+  it("updates annotation note, color, and selected quote on PATCH /api/annotations/:id.json", async () => {
     const postRes = await app.request(`/api/annotations/${createdEntryId}.json`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
@@ -1874,13 +1874,15 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     const patchRes = await app.request(`/api/annotations/${created.id}.json`, {
       method: "PATCH",
       headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ color: "purple", text: "Updated personal comment" })
+      body: JSON.stringify({ quote: "Updated selected quote passage", color: "purple", text: "Updated personal comment" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(patchRes.status).toBe(200);
     const updated = await patchRes.json<any>();
+    expect(updated.quote).toBe("Updated selected quote passage");
     expect(updated.color).toBe("purple");
     expect(updated.text).toBe("Updated personal comment");
+    expect(updated.target?.selector?.exact).toBe("Updated selected quote passage");
   });
 
   it("deletes an annotation on DELETE /api/annotations/:id.json", async () => {

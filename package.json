@@ -1,6 +1,6 @@
 {
   "name": "wallaflare",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A lightweight, zero-cost serverless Wallabag v2 API replacement and read-it-later service for Cloudflare Workers, D1, and E-ink readers (KOReader).",
   "main": "src/index.ts",
   "scripts": {

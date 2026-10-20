@@ -17,7 +17,7 @@
 
   <!-- Highlight Popover -->
   <div id="highlightPopover" class="highlight-popover" style="display: none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
       <div style="display: flex; gap: 0.35rem; align-items: center;" id="popoverColors">
         <button class="hl-color-btn hl-yellow" onclick="changePopoverHighlightColor('yellow')" title="Yellow"></button>
         <button class="hl-color-btn hl-green" onclick="changePopoverHighlightColor('green')" title="Green"></button>
@@ -33,9 +33,22 @@
         </button>
       </div>
     </div>
-    <div id="popoverNoteText" style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.8rem; font-style: italic; line-height: 1.35; max-height: 80px; overflow-y: auto; word-break: break-word;"></div>
-    <div style="display: flex; justify-content: flex-end; gap: 0.4rem;">
-      <button class="btn btn-outline" style="font-size: 0.75rem; padding: 2px 8px;" onclick="openAnnotationNoteModal()">Edit Note</button>
+    <div id="popoverQuoteText" style="font-size: 0.78rem; font-style: italic; color: var(--text-secondary); max-height: 55px; overflow-y: auto; text-overflow: ellipsis; margin-bottom: 0.4rem; line-height: 1.35; word-break: break-word;"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; margin-bottom: 0.45rem; padding: 2px 6px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.75rem;">
+      <div style="display: flex; align-items: center; gap: 2px;">
+        <span style="color: var(--text-muted); font-size: 0.7rem; margin-right: 2px;">Start:</span>
+        <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection('start', 'expand')" title="Expand start by one word">+W</button>
+        <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection('start', 'shrink')" title="Shrink start by one word">-W</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 2px;">
+        <span style="color: var(--text-muted); font-size: 0.7rem; margin-right: 2px;">End:</span>
+        <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection('end', 'shrink')" title="Shrink end by one word">-W</button>
+        <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection('end', 'expand')" title="Expand end by one word">+W</button>
+      </div>
+    </div>
+    <div id="popoverNoteText" style="color: var(--text-primary); margin-bottom: 0.45rem; font-size: 0.8rem; line-height: 1.35; max-height: 70px; overflow-y: auto; word-break: break-word; padding: 0.3rem 0.45rem; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent); display: none;"></div>
+    <div style="display: flex; justify-content: flex-end; gap: 0.4rem; border-top: 1px solid var(--border-color); padding-top: 0.4rem;">
+      <button class="btn btn-outline" style="font-size: 0.75rem; padding: 2px 8px;" onclick="openAnnotationNoteModal()"><span id="popoverNoteActionLabel">Add Note</span></button>
       <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 2px 8px;" onclick="closeHighlightPopover()">Close</button>
     </div>
   </div>

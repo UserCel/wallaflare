@@ -30,7 +30,19 @@ export function generateHighlightPopoverHtml(): string {
         '</button>' +
       '</div>' +
     '</div>' +
-    '<div id="popoverQuoteText" style="font-size: 0.78rem; font-style: italic; color: var(--text-secondary); max-height: 55px; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.4rem;"></div>' +
+    '<div id="popoverQuoteText" style="font-size: 0.78rem; font-style: italic; color: var(--text-secondary); max-height: 55px; overflow-y: auto; text-overflow: ellipsis; margin-bottom: 0.4rem; line-height: 1.35; word-break: break-word;"></div>' +
+    '<div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; margin-bottom: 0.45rem; padding: 2px 6px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.75rem;">' +
+      '<div style="display: flex; align-items: center; gap: 2px;">' +
+        '<span style="color: var(--text-muted); font-size: 0.7rem; margin-right: 2px;">Start:</span>' +
+        '<button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection(\'start\', \'expand\')" title="Expand start by one word">+W</button>' +
+        '<button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection(\'start\', \'shrink\')" title="Shrink start by one word">-W</button>' +
+      '</div>' +
+      '<div style="display: flex; align-items: center; gap: 2px;">' +
+        '<span style="color: var(--text-muted); font-size: 0.7rem; margin-right: 2px;">End:</span>' +
+        '<button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection(\'end\', \'shrink\')" title="Shrink end by one word">-W</button>' +
+        '<button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustPopoverSelection(\'end\', \'expand\')" title="Expand end by one word">+W</button>' +
+      '</div>' +
+    '</div>' +
     '<div id="popoverNoteText" style="font-size: 0.8rem; color: var(--text-primary); margin-bottom: 0.4rem; padding: 0.3rem 0.45rem; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent); display: none;"></div>' +
     '<div style="display: flex; gap: 0.35rem; border-top: 1px solid var(--border-color); padding-top: 0.4rem;">' +
       '<button type="button" class="btn btn-outline" style="flex: 1; padding: 2px 6px; font-size: 0.75rem;" onclick="openAnnotationNoteModal()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg><span id="popoverNoteActionLabel">Add Note</span></button>' +

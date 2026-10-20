@@ -423,7 +423,9 @@ const updateAnnotationHandler = async (c: any) => {
 
   const body = await c.req.json().catch(() => ({}));
   const annotation = await updateAnnotation(c.env.DB, id, {
-    text: body.text !== undefined ? String(body.text) : undefined,
+    text: body.text !== undefined ? String(body.text) : (body.comment !== undefined ? String(body.comment) : undefined),
+    quote: body.quote !== undefined ? String(body.quote) : undefined,
+    ranges: Array.isArray(body.ranges) ? body.ranges : undefined,
     color: body.color !== undefined ? String(body.color) : undefined,
     target: body.target !== undefined ? body.target : undefined,
     updated_at: body.updated_at !== undefined ? String(body.updated_at) : undefined

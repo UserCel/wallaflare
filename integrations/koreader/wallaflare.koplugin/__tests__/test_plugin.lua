@@ -1606,6 +1606,57 @@ describe("9. Local File Deletion Propagation & Settings", function()
         assert_eq(resolved_updates[1].color, "purple")
     end)
 
+    it("detects modified selected quote in getLocalUnsynced and queues update with new quote", function()
+        local book_path = test_sandbox_dir .. "/887_test_quote_edit.epub"
+        local sidecar_dir = test_sandbox_dir .. "/887_test_quote_edit.sdr"
+        local sidecar_file = sidecar_dir .. "/metadata.epub.lua"
+        os.execute("mkdir -p '" .. sidecar_dir .. "'")
+
+        local doc_settings = LuaSettings:open(sidecar_file)
+        doc_settings:saveSetting("annotations", {
+            {
+                wallaflare_id = 950,
+                text = "Original short quote",
+                note = "Unchanged note",
+                color = "yellow",
+                pos0 = "/body/p[1]/text().0",
+                pos1 = "/body/p[1]/text().20",
+                last_synced_quote = "Original short quote",
+                last_synced_note = "Unchanged note",
+                last_synced_color = "yellow",
+                has_server_pos = true
+            }
+        })
+        doc_settings:saveSetting("wallaflare_synced_ids", { ["950"] = true })
+        doc_settings:flush()
+
+        -- Initially, no changes
+        local unsynced1, updates1 = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#unsynced1, 0, "No new highlights")
+        assert_eq(#updates1, 0, "No updates when quote is unchanged")
+
+        -- User expands selection in KOReader (modifying text and pos1)
+        local read_settings = LuaSettings:open(sidecar_file)
+        local anns = Annotations:readRawAnnotations(read_settings)
+        anns[1].text = "Original short quote expanded with extra words"
+        anns[1].pos1 = "/body/p[1]/text().45"
+        read_settings:saveSetting("annotations", anns)
+        read_settings:flush()
+
+        -- Verify getLocalUnsynced detects the quote edit
+        local unsynced2, updates2 = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#unsynced2, 0, "No new highlights")
+        assert_eq(#updates2, 1, "Must queue update when quote is edited")
+        assert_eq(updates2[1].id, 950)
+        assert_eq(updates2[1].quote, "Original short quote expanded with extra words")
+        assert_eq(updates2[1].user_modified, true)
+
+        -- Stamp synced edit
+        Annotations:stampSyncedEdit(book_path, 1, "Unchanged note", "yellow", "Original short quote expanded with extra words")
+        local unsynced3, updates3 = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#updates3, 0, "No pending updates after stamping synced quote")
+    end)
+
     it("removes server-deleted annotation when server returns 404 on update", function()
         local book_path = test_sandbox_dir .. "/888_test_404.epub"
         local sidecar_dir = test_sandbox_dir .. "/888_test_404.sdr"

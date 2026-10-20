@@ -44,6 +44,8 @@
 - **🖍️ Multi-Color Annotations & W3C Highlights**:
   - Resilient W3C text position/quote selectors across theme and font size changes.
   - 4-color palette (`🟡`, `🟢`, `🔵`, `🟣`), attached notes, in-memory batching, and Markdown export with highlights (`==text==`) and footnotes (`[^note]`).
+  - Interactive KOReader-style word boundary adjustment (`+W` / `-W` for start and end) directly in the floating popover and note editor for typo-free quote resizing without highlight loss.
+  - Full bi-directional sync with KOReader: synchronizes highlights, notes, colors, and modified quote selections with Last-Write-Wins conflict resolution.
 - **📡 RSS 2.0 & Atom Feed Syndication**:
   - Full-text RSS feeds with sanitized `<content:encoded>` HTML for **NetNewsWire**, **Reeder**, **Feeder**, **Feedly**, **NewsFlash**, and RSS aggregators.
   - Dedicated endpoints for Unread (`/feed/unread`), Starred (`/feed/starred`), Archive (`/feed/archive`), All (`/feed/all`), and Tags (`/feed/tags/:tag`).

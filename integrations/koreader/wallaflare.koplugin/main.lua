@@ -34,7 +34,7 @@ local Annotations = package.loaded["annotations"] or dofile(plugin_dir .. "/anno
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
     is_doc_only = false,
-    version = "1.0.7",
+    version = "1.0.8",
 }
 
 local function getPluginDir()
@@ -1107,10 +1107,11 @@ function Wallaflare:performSync()
                     end
                 end
             end
-            -- 2. Push local note edits, color changes, and resolved xPointers to server
+            -- 2. Push local note edits, color changes, quote edits, and resolved xPointers to server
             if type(resolved_updates) == "table" then
                 for _, r in ipairs(resolved_updates) do
                     local patch_data = {
+                        quote = r.quote,
                         text = r.text,
                         color = r.color,
                         updated_at = r.updated_at,
@@ -1137,13 +1138,15 @@ function Wallaflare:performSync()
                         self:refreshActiveDocumentAnnotations(full_path)
                         logger.info("Wallaflare: Pruned deleted annotation #" .. tostring(r.id) .. " locally (server returned 404)")
                     elseif ok_up and type(ok_up) == "table" then
+                        local winning_quote = (ok_up.quote ~= nil) and ok_up.quote or r.quote
                         local winning_text = (ok_up.text ~= nil) and ok_up.text or r.text
                         local winning_color = (ok_up.color ~= nil) and ok_up.color or r.color
-                        Annotations:stampSyncedEdit(full_path, r.index, winning_text, winning_color)
+                        Annotations:stampSyncedEdit(full_path, r.index, winning_text, winning_color, winning_quote)
                         if self.ui and self.ui.document and self.ui.document.file then
                             local cur_f = self.ui.document.file
                             if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
                                 if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[r.index] then
+                                    self.ui.annotation.annotations[r.index].last_synced_quote = winning_quote
                                     self.ui.annotation.annotations[r.index].last_synced_note = winning_text
                                     self.ui.annotation.annotations[r.index].last_synced_color = winning_color
                                     self.ui.annotation.annotations[r.index].has_server_pos = true

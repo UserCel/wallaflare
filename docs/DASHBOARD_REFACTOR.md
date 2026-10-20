@@ -74,6 +74,11 @@ The **Dashboard Redesign & 3-Pane Workspace Refactor** transforms Wallaflare int
   - 🛠️ **Tools & Content**: Tag Manager and Add Custom Text modal.
   - ℹ️ **Session & About**: Version info and Logout.
 
+### 5. Interactive Annotation Selection & Popover Engine
+- **KOReader-Style Word Stepping**: Highlights and notes can be interactively expanded or shrunk word-by-word via `Start: [+W] [-W]` and `End: [-W] [+W]` buttons directly in the reader's highlight popover and note editor modal.
+- **Text-Stream Substring Safety**: Quotes are derived directly from the article's text stream, preventing typos or missing punctuation from breaking DOM matching and causing highlights to vanish.
+- **Two-Way Sync Fidelity**: Word boundary adjustments immediately update W3C selectors (`exact`, `prefix`, `suffix`, and `position`), syncing seamlessly with KOReader and Cloudflare D1.
+
 ---
 
 ## 🧪 Testing & Verification

@@ -196,15 +196,22 @@ async function main() {
     }
     console.log(`   ✓ Server registered local highlight (ID: ${uploadedHighlight.id}, color: ${uploadedHighlight.color})`);
 
+    const updatedYellowHighlight = serverAnns.find((a: any) => a.color === 'yellow');
+    if (!updatedYellowHighlight || updatedYellowHighlight.quote !== 'unexpected silence. “Did you see the messengers') {
+      throw new Error(`Server did not receive updated quote for edited highlight! Found: "${updatedYellowHighlight?.quote}"`);
+    }
+    console.log(`   ✓ Server verified modified selected quote ("${updatedYellowHighlight.quote}")`);
+
     // 7. Final Report
     console.log('\n========================================================');
-    console.log('🎉 AUDIT SUMMARY: ALL 5 PHASES PASSED WITH 100% FIDELITY');
+    console.log('🎉 AUDIT SUMMARY: ALL 6 PHASES PASSED WITH 100% FIDELITY');
     console.log('========================================================');
     console.log('  [PASS] 1. Live Server API Connectivity & Auth');
     console.log('  [PASS] 2. Inbound Single-Phrase DOM Anchor Resolution');
     console.log('  [PASS] 3. Inbound Multi-Paragraph Cross-Tag Resolution');
     console.log('  [PASS] 4. Inbound Note Content & Color Attributes');
     console.log('  [PASS] 5. Outbound Reverse Highlight Sync to Server');
+    console.log('  [PASS] 6. Outbound Edited Selected Text (Quote) Sync to Server');
     console.log('========================================================\n');
   } finally {
     // 8. Cleanup Database and Temp Files

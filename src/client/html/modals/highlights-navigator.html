@@ -57,9 +57,24 @@
         <button class="close-btn" onclick="closeAnnotationNoteModal()">&times;</button>
       </div>
       <form onsubmit="handleSaveAnnotationNoteForm(event)">
-        <div style="margin-bottom: 0.85rem; padding: 0.65rem 0.85rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; max-height: 100px; overflow-y: auto;">
-          <span style="font-weight: 600; color: var(--accent); margin-right: 0.25rem;">Quote:</span>
-          <span id="annotationNoteQuotePreview"></span>
+        <div style="margin-bottom: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.3rem;">
+            <label style="font-weight: 500; font-size: 0.85rem; color: var(--text-primary);">Selected Text (Quote)</label>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <div style="display: flex; align-items: center; gap: 2px;">
+                <span style="font-size: 0.72rem; color: var(--text-muted); margin-right: 2px;">Start:</span>
+                <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustModalSelection('start', 'expand')" title="Expand start by one word">+W</button>
+                <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustModalSelection('start', 'shrink')" title="Shrink start by one word">-W</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 2px; margin-left: 4px;">
+                <span style="font-size: 0.72rem; color: var(--text-muted); margin-right: 2px;">End:</span>
+                <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustModalSelection('end', 'shrink')" title="Shrink end by one word">-W</button>
+                <button type="button" class="btn btn-outline" style="padding: 1px 5px; font-size: 0.72rem; line-height: 1.2;" onclick="adjustModalSelection('end', 'expand')" title="Expand end by one word">+W</button>
+              </div>
+            </div>
+          </div>
+          <div id="annotationNoteQuotePreview" style="padding: 0.5rem 0.65rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.82rem; font-style: italic; color: var(--text-secondary); max-height: 90px; overflow-y: auto; line-height: 1.45; word-break: break-word;"></div>
+          <input type="hidden" id="annotationNoteQuoteInput" value="">
         </div>
         <div style="margin-bottom: 0.85rem;">
           <label style="font-weight: 500; font-size: 0.85rem; margin-bottom: 0.35rem; display: block;">Highlight Color</label>

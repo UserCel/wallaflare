@@ -2849,6 +2849,7 @@ import {
       // 3. Swap content
       const rawContent = item.content || '<p>No content available.</p>';
       readerBodyEl.innerHTML = rawContent;
+      (readerBodyEl as any)._rawCleanContent = rawContent;
       try {
         readerBodyEl.querySelectorAll('*[style]').forEach(el => {
           const style = (el.getAttribute('style') || '').toLowerCase();
@@ -3785,29 +3786,63 @@ import {
       const container = document.getElementById("readerBody");
       if (!container) return;
 
-      const existingMarks = container.querySelectorAll("mark.reader-hl");
-      existingMarks.forEach(m => {
-        const parent = m.parentNode;
-        if (parent) {
-          while (m.firstChild) parent.insertBefore(m.firstChild, m);
-          parent.removeChild(m);
-          parent.normalize();
-        }
-      });
+      const scrollEl = document.getElementById('readerScrollContainer');
+      const prevScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+
+      // Always restore clean HTML before reapplying annotations.
+      // This prevents fragmented text nodes or nested marks from breaking text matching live in the reader.
+      const rawContent = (container as any)._rawCleanContent || item.content;
+      if (rawContent) {
+        container.innerHTML = rawContent;
+        (container as any)._rawCleanContent = rawContent;
+        try {
+          container.querySelectorAll('*[style]').forEach(el => {
+            const style = (el.getAttribute('style') || '').toLowerCase();
+            if (/font-weight\s*:\s*(bold|[6-9]00)/.test(style) && el.tagName !== 'STRONG' && el.tagName !== 'B') {
+              (el as HTMLElement).style.fontWeight = '700';
+            }
+            if (/font-style\s*:\s*italic/.test(style) && el.tagName !== 'EM' && el.tagName !== 'I') {
+              (el as HTMLElement).style.fontStyle = 'italic';
+            }
+          });
+        } catch (e) {}
+      } else {
+        const existingMarks = container.querySelectorAll("mark.reader-hl");
+        existingMarks.forEach(m => {
+          const parent = m.parentNode;
+          if (parent) {
+            while (m.firstChild) parent.insertBefore(m.firstChild, m);
+            parent.removeChild(m);
+            parent.normalize();
+          }
+        });
+      }
 
       for (const ann of annotations) {
         if (!ann || !ann.quote) continue;
         highlightTextInNode(container, ann);
       }
 
+      if (scrollEl && prevScrollTop > 0) {
+        scrollEl.scrollTop = prevScrollTop;
+      }
+
       updateHighlightsBadge(annotations.length);
     }
 
     function updateHighlightsBadge(count) {
+      if (typeof count === 'object' && count !== null) {
+        count = count.annotations ? count.annotations.length : 0;
+      }
       const badge = document.getElementById('readerHighlightsBadgeMobile');
       if (badge) {
         badge.textContent = String(count);
         badge.style.display = count > 0 ? 'flex' : 'none';
+      }
+      const desktopBadge = document.getElementById('readerHighlightsBadge');
+      if (desktopBadge) {
+        desktopBadge.textContent = String(count);
+        desktopBadge.style.display = count > 0 ? 'inline-flex' : 'none';
       }
     }
 
@@ -4057,7 +4092,15 @@ import {
       const popover = document.getElementById("highlightPopover");
       if (!popover) return;
       const noteEl = document.getElementById("popoverNoteText");
-      if (noteEl) noteEl.textContent = ann.text || 'No note attached.';
+      if (noteEl) {
+        noteEl.textContent = ann.text || '';
+        noteEl.style.display = ann.text ? 'block' : 'none';
+      }
+      const quoteEl = document.getElementById("popoverQuoteText");
+      if (quoteEl) quoteEl.textContent = ann.quote ? ('“' + ann.quote + '”') : '';
+      const noteActionLabel = document.getElementById("popoverNoteActionLabel");
+      if (noteActionLabel) noteActionLabel.textContent = ann.text ? 'Edit Note' : 'Add Note';
+
       popover.style.display = "block";
       const rect = targetEl.getBoundingClientRect();
       popover.style.top = Math.max(10, rect.bottom + 6) + "px";
@@ -4068,6 +4111,218 @@ import {
       const popover = document.getElementById("highlightPopover");
       if (popover) popover.style.display = "none";
       activePopoverAnnotation = null;
+    }
+
+    let saveQuoteDebounceTimer: any = null;
+
+    function saveAnnotationQuoteDebounced(ann: any) {
+      if (!ann || !ann.id || String(ann.id).startsWith("tmp_")) return;
+      if (saveQuoteDebounceTimer) clearTimeout(saveQuoteDebounceTimer);
+      saveQuoteDebounceTimer = setTimeout(() => {
+        authFetch("/api/annotations/" + ann.id + ".json", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quote: ann.quote,
+            target: ann.target
+          })
+        }).catch(e => console.error("[Annotations] Failed to patch adjusted selection:", e));
+      }, 350);
+    }
+
+    function adjustAnnotationSelection(ann: any, side: 'start' | 'end', action: 'expand' | 'shrink'): boolean {
+      if (!ann || !activeArticleId) return false;
+      const item = allEntries.find(e => e.id === activeArticleId);
+      if (!item) return false;
+
+      const container = document.getElementById("readerBody");
+      if (!container) return false;
+
+      const rawContent = (container as any)._rawCleanContent || item.content;
+      const tempDiv = document.createElement("div");
+      if (rawContent) {
+        tempDiv.innerHTML = rawContent;
+      } else {
+        tempDiv.innerHTML = container.innerHTML;
+        tempDiv.querySelectorAll("mark.reader-hl").forEach(m => {
+          const p = m.parentNode;
+          if (p) {
+            while (m.firstChild) p.insertBefore(m.firstChild, m);
+            p.removeChild(m);
+            p.normalize();
+          }
+        });
+      }
+
+      const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
+      let fullText = "";
+      let lastBlock = null;
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = node.nodeValue || "";
+        if (!text) continue;
+        const block = node.parentElement ? node.parentElement.closest("p, div, li, blockquote, h1, h2, h3, h4, h5, h6, tr, article, section") : null;
+        if (lastBlock && block !== lastBlock && fullText.length > 0 && !fullText.endsWith("\n")) {
+          fullText += "\n";
+        }
+        lastBlock = block;
+        fullText += text;
+      }
+
+      const quote = (ann.quote || "").trim();
+      if (!quote || fullText.length === 0) return false;
+
+      const targetSelector = (ann.target && ann.target.selector) ? ann.target.selector : (ann.target || {});
+      const expectedPrefix = (targetSelector.prefix || ann.prefix || "").trim();
+      const expectedSuffix = (targetSelector.suffix || ann.suffix || "").trim();
+      const expectedPos = (ann.target && ann.target.position && typeof ann.target.position.start === "number")
+        ? ann.target.position.start
+        : (typeof ann.position === "number" ? ann.position : null);
+
+      let matchStart = -1;
+      let matchEnd = -1;
+
+      // 1. Exact match with scoring
+      let exactIdx = fullText.indexOf(quote);
+      if (exactIdx !== -1) {
+        let occurrences: { start: number; end: number; score: number }[] = [];
+        while (exactIdx !== -1) {
+          const s = exactIdx;
+          const e = exactIdx + quote.length;
+          let score = 0;
+          const beforeSnippet = fullText.slice(Math.max(0, s - 35), s);
+          const afterSnippet = fullText.slice(e, e + 35);
+          if (expectedPrefix && beforeSnippet.endsWith(expectedPrefix.slice(-15))) score += 50;
+          if (expectedSuffix && afterSnippet.startsWith(expectedSuffix.slice(0, 15))) score += 50;
+          if (expectedPos !== null) {
+            const dist = Math.abs(s - expectedPos);
+            score += Math.max(0, 30 - Math.floor(dist / 20));
+          }
+          occurrences.push({ start: s, end: e, score });
+          exactIdx = fullText.indexOf(quote, exactIdx + Math.max(1, quote.length));
+        }
+        occurrences.sort((a, b) => b.score - a.score);
+        matchStart = occurrences[0].start;
+        matchEnd = occurrences[0].end;
+      }
+
+      // 2. Fuzzy regex match fallback
+      if (matchStart === -1) {
+        try {
+          const words = quote.split(/\s+/).filter(Boolean);
+          if (words.length > 0) {
+            const regexParts = words.map(w => {
+              let esc = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              esc = esc.replace(/["\u201C\u201D]/g, '["\u201C\u201D]');
+              esc = esc.replace(/['\u2018\u2019]/g, "['\u2018\u2019]");
+              esc = esc.replace(/[\u2013\u2014-]/g, "[\u2013\u2014-]");
+              return esc;
+            });
+            const flexRegex = new RegExp(regexParts.join("[\\s\\u00A0]+"), "i");
+            const m = flexRegex.exec(fullText);
+            if (m && typeof m.index === "number") {
+              matchStart = m.index;
+              matchEnd = m.index + m[0].length;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (matchStart === -1 || matchEnd <= matchStart) return false;
+
+      let curStart = matchStart;
+      let curEnd = matchEnd;
+
+      if (side === 'start') {
+        if (action === 'shrink') {
+          const sub = fullText.slice(curStart, curEnd);
+          const m = sub.match(/^(\s*\S+\s*)/);
+          if (m && m[1] && m[1].length < (curEnd - curStart)) {
+            curStart += m[1].length;
+          } else {
+            return false;
+          }
+        } else if (action === 'expand') {
+          const before = fullText.slice(0, curStart);
+          const m = before.match(/(\S+\s*)$/);
+          if (m && m[1]) {
+            curStart -= m[1].length;
+          } else {
+            return false;
+          }
+        }
+      } else if (side === 'end') {
+        if (action === 'shrink') {
+          const sub = fullText.slice(curStart, curEnd);
+          const m = sub.match(/(\s*\S+\s*)$/);
+          if (m && m[1] && m[1].length < (curEnd - curStart)) {
+            curEnd -= m[1].length;
+          } else {
+            return false;
+          }
+        } else if (action === 'expand') {
+          const after = fullText.slice(curEnd);
+          const m = after.match(/^(\s*\S+)/);
+          if (m && m[1]) {
+            curEnd += m[1].length;
+          } else {
+            return false;
+          }
+        }
+      }
+
+      const newQuote = fullText.slice(curStart, curEnd).trim();
+      if (!newQuote) return false;
+
+      const newPrefix = fullText.slice(Math.max(0, curStart - 35), curStart);
+      const newSuffix = fullText.slice(curEnd, Math.min(fullText.length, curEnd + 35));
+
+      ann.quote = newQuote;
+      if (!ann.target) ann.target = {};
+      if (!ann.target.selector) ann.target.selector = { type: "TextQuoteSelector" };
+      ann.target.selector.exact = newQuote;
+      ann.target.selector.prefix = newPrefix;
+      ann.target.selector.suffix = newSuffix;
+      if (!ann.target.position) ann.target.position = {};
+      ann.target.position.start = curStart;
+      ann.target.position.end = curEnd;
+
+      if (item.annotations && item.annotations.some(a => a === ann || (a.id && a.id === ann.id))) {
+        applyAnnotationsToReader(item);
+        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+        renderModalHighlightsList();
+        saveAnnotationQuoteDebounced(ann);
+      }
+
+      return true;
+    }
+
+    function adjustPopoverSelection(side: 'start' | 'end', action: 'expand' | 'shrink') {
+      if (!activePopoverAnnotation) return;
+      const success = adjustAnnotationSelection(activePopoverAnnotation, side, action);
+      if (success) {
+        const quoteEl = document.getElementById("popoverQuoteText");
+        if (quoteEl) quoteEl.textContent = activePopoverAnnotation.quote ? ('“' + activePopoverAnnotation.quote + '”') : '';
+        const mark = document.querySelector(`mark[data-annotation-id="${activePopoverAnnotation.id}"]`);
+        const popover = document.getElementById("highlightPopover");
+        if (mark && popover) {
+          const rect = mark.getBoundingClientRect();
+          popover.style.top = Math.max(10, rect.bottom + 6) + "px";
+          popover.style.left = Math.max(10, Math.min(window.innerWidth - 290, rect.left)) + "px";
+        }
+      }
+    }
+
+    function adjustModalSelection(side: 'start' | 'end', action: 'expand' | 'shrink') {
+      const targetAnn = activeModalAnnotation || pendingHighlightData;
+      if (!targetAnn) return;
+      const success = adjustAnnotationSelection(targetAnn, side, action);
+      if (success) {
+        const preview = document.getElementById("annotationNoteQuotePreview");
+        const quoteInput = document.getElementById("annotationNoteQuoteInput") as HTMLInputElement | null;
+        if (preview) preview.textContent = targetAnn.quote || '';
+        if (quoteInput) quoteInput.value = targetAnn.quote || '';
+      }
     }
 
     function copyPopoverQuote() {
@@ -4246,14 +4501,24 @@ import {
       modalSelectedColor = (targetAnn ? targetAnn.color : (pendingData ? pendingData.color : 'yellow')) || 'yellow';
       closeHighlightPopover();
 
+      const quoteInput = document.getElementById('annotationNoteQuoteInput') as HTMLInputElement | null;
       const preview = document.getElementById('annotationNoteQuotePreview');
-      const input = document.getElementById('annotationNoteInput');
+      const input = document.getElementById('annotationNoteInput') as HTMLTextAreaElement | null;
       const quote = targetAnn ? targetAnn.quote : (pendingData ? pendingData.quote : '');
-      if (preview) preview.textContent = quote;
+      if (quoteInput) quoteInput.value = quote || '';
+      if (preview) preview.textContent = quote || '';
       if (input) input.value = targetAnn ? (targetAnn.text || '') : '';
 
+      document.querySelectorAll('#modalNoteColors .hl-color-btn').forEach(b => {
+        const c = b.getAttribute('data-color');
+        if (c === modalSelectedColor) b.classList.add('active-color');
+        else b.classList.remove('active-color');
+      });
+
       openModal('annotationNoteModal');
-      setTimeout(() => input?.focus(), 60);
+      setTimeout(() => {
+        if (input) input.focus();
+      }, 60);
     }
 
     function closeAnnotationNoteModal() {
@@ -4269,43 +4534,75 @@ import {
       const item = allEntries.find(e => e.id === targetArticleId);
       if (!item) return;
 
-      const input = document.getElementById('annotationNoteInput');
+      const quoteInput = document.getElementById('annotationNoteQuoteInput') as HTMLInputElement | null;
+      const input = document.getElementById('annotationNoteInput') as HTMLTextAreaElement | null;
       const text = input ? input.value.trim() : '';
       const color = modalSelectedColor || 'yellow';
 
       if (pendingHighlightData) {
-        const quote = pendingHighlightData.quote;
-        const target = pendingHighlightData.target || null;
+        const quote = (quoteInput ? quoteInput.value.trim() : '') || pendingHighlightData.quote || '';
+        const target = pendingHighlightData.target || {
+          selector: { type: "TextQuoteSelector", exact: quote }
+        };
+        if (target.selector && target.selector.type === "TextQuoteSelector") {
+          target.selector.exact = quote;
+        }
         closeAnnotationNoteModal();
-        const newAnn = { id: Date.now(), entry_id: item.id, quote, color, text, target, created_at: new Date().toISOString() };
+        const tempId = "tmp_" + Date.now();
+        const newAnn = { id: tempId, entry_id: item.id, quote, color, text, target, created_at: new Date().toISOString() };
         if (!item.annotations) item.annotations = [];
         item.annotations.push(newAnn);
+
         applyAnnotationsToReader(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+        filterArticles(false);
+        renderModalHighlightsList();
+
         authFetch('/api/annotations/' + item.id + '.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quote, color, text, target })
         }).then(res => res.json()).then(saved => {
-          const idx = item.annotations.findIndex(a => a.id === newAnn.id);
-          if (idx >= 0) item.annotations[idx] = saved;
+          Object.assign(newAnn, saved);
+          const idx = item.annotations.findIndex(a => a.id === tempId || a.id === saved.id);
+          if (idx >= 0) item.annotations[idx] = newAnn;
+          const marks = document.querySelectorAll(`mark[data-annotation-id="${tempId}"]`);
+          marks.forEach(m => (m as HTMLElement).dataset.annotationId = String(saved.id));
+          if (activePopoverAnnotation && activePopoverAnnotation.id === tempId) {
+            activePopoverAnnotation.id = saved.id;
+          }
           syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+          filterArticles(false);
+          renderModalHighlightsList();
         }).catch(() => {});
         return;
       }
 
       if (activeModalAnnotation) {
         const targetAnnId = activeModalAnnotation.id;
+        const editedQuote = quoteInput ? quoteInput.value.trim() : '';
+        const prevQuote = activeModalAnnotation.quote;
         activeModalAnnotation.text = text;
         activeModalAnnotation.color = color;
+        if (editedQuote && editedQuote !== prevQuote) {
+          activeModalAnnotation.quote = editedQuote;
+          if (activeModalAnnotation.target && activeModalAnnotation.target.selector) {
+            activeModalAnnotation.target.selector.exact = editedQuote;
+          }
+        }
         applyAnnotationsToReader(item);
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+        renderModalHighlightsList();
         closeAnnotationNoteModal();
         try {
+          const patchBody: any = { text, color };
+          if (editedQuote && editedQuote !== prevQuote) {
+            patchBody.quote = editedQuote;
+          }
           await authFetch('/api/annotations/' + targetAnnId + '.json', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, color })
+            body: JSON.stringify(patchBody)
           });
         } catch (e) {
           console.error("[Annotations] Failed to patch annotation note:", e);
@@ -7030,7 +7327,7 @@ import {
       const mobileLabel = document.getElementById('mobileVersionLabel');
       const settingsLabel = document.getElementById('settingsVersionLabel');
       
-      let text = 'Wallaflare v1.0.0 (Web: ' + ver + ')';
+      let text = 'Wallaflare v1.1.0 (Web: ' + ver + ')';
       if (isCapacitorApp()) {
         const nativeVer = getRunningNativeVersion();
         const isOutdated = currentMinNativeVersion && compareSemVer(nativeVer, currentMinNativeVersion) < 0;
@@ -7532,6 +7829,9 @@ if (typeof window !== "undefined") {
   try { (window as any).scrollToAnnotation = scrollToAnnotation; } catch (e) {}
   try { (window as any).openHighlightPopover = openHighlightPopover; } catch (e) {}
   try { (window as any).closeHighlightPopover = closeHighlightPopover; } catch (e) {}
+  try { (window as any).adjustPopoverSelection = adjustPopoverSelection; } catch (e) {}
+  try { (window as any).adjustModalSelection = adjustModalSelection; } catch (e) {}
+  try { (window as any).adjustAnnotationSelection = adjustAnnotationSelection; } catch (e) {}
   try { (window as any).copyPopoverQuote = copyPopoverQuote; } catch (e) {}
   try { (window as any).changePopoverHighlightColor = changePopoverHighlightColor; } catch (e) {}
   try { (window as any).deletePopoverHighlight = deletePopoverHighlight; } catch (e) {}

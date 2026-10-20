@@ -165,16 +165,23 @@ function Annotations:syncInbound(doc_path, remote_annotations, content_rev_chang
                 existing.color = remote_color
                 has_changes = true
             end
+            local quote_changed = false
+            if remote_quote and remote_quote ~= "" and (existing.text or "") ~= remote_quote then
+                existing.text = remote_quote
+                quote_changed = true
+                has_changes = true
+            end
             existing.last_synced_note = remote_text
             existing.last_synced_color = remote_color
+            existing.last_synced_quote = remote_quote
             existing.last_synced_datetime = remote.updated_at or remote.created_at
             existing.local_modified = nil
             if has_koreader_on_server then
                 existing.has_server_pos = true
             end
             local fallback_xp = "/1/4/2/1:0"
-            if content_rev_changed then
-                -- Article HTML changed: reset coordinates for re-anchoring in new DOM
+            if content_rev_changed or quote_changed then
+                -- Article HTML or quote changed: reset coordinates for re-anchoring in new DOM
                 existing.pos0 = fallback_xp
                 existing.pos1 = fallback_xp
                 existing.page = fallback_xp
@@ -225,6 +232,7 @@ function Annotations:syncInbound(doc_path, remote_annotations, content_rev_chang
                 suffix = (not use_server_pos) and remote_suffix or nil,
                 last_synced_note = remote_text,
                 last_synced_color = remote_color,
+                last_synced_quote = remote_quote,
                 has_server_pos = use_server_pos,
                 needs_pos_push = (not use_server_pos),
             }
@@ -378,10 +386,15 @@ function Annotations:getLocalUnsynced(doc_path, ui_document)
                 color_changed = ((ann.color or "yellow") ~= ann.last_synced_color)
             end
 
+            local quote_changed = false
+            if ann.last_synced_quote ~= nil then
+                quote_changed = ((ann.text or "") ~= ann.last_synced_quote)
+            end
+
             local needs_pos = (not ann.has_server_pos) and (ann.pos0 and ann.pos0 ~= "/1/4/2/1:0")
 
-            if note_changed or color_changed or needs_pos or ann.local_modified then
-                local client_time = (note_changed or color_changed) and (ann.datetime_updated or ann.datetime) or os.date("!%Y-%m-%dT%H:%M:%SZ")
+            if note_changed or color_changed or quote_changed or needs_pos or ann.local_modified then
+                local client_time = (note_changed or color_changed or quote_changed) and (ann.datetime_updated or ann.datetime) or os.date("!%Y-%m-%dT%H:%M:%SZ")
                 if client_time and not client_time:match("Z$") and not client_time:match("[%+%-]%d%d:?%d%d$") then
                     client_time = client_time:gsub(" ", "T") .. "Z"
                 end
@@ -393,7 +406,7 @@ function Annotations:getLocalUnsynced(doc_path, ui_document)
                     text = ann.note or "",
                     color = ann.color or "yellow",
                     updated_at = client_time,
-                    user_modified = (note_changed or color_changed or ann.local_modified == true),
+                    user_modified = (note_changed or color_changed or quote_changed or ann.local_modified == true),
                     prefix = ann.prefix,
                     suffix = ann.suffix,
                     koreader = (ann.pos0 and ann.pos0 ~= "/1/4/2/1:0") and {
@@ -430,7 +443,7 @@ function Annotations:getLocalUnsynced(doc_path, ui_document)
     return unsynced, resolved_updates, locally_deleted_ids
 end
 
-function Annotations:stampSyncedEdit(doc_path, item_index, note, color)
+function Annotations:stampSyncedEdit(doc_path, item_index, note, color, quote)
     if not doc_path or not item_index then return false end
     local _, sidecar_file = self:getSidecarPaths(doc_path)
     if lfs.attributes(sidecar_file, "mode") ~= "file" then return false end
@@ -442,8 +455,12 @@ function Annotations:stampSyncedEdit(doc_path, item_index, note, color)
     if local_annotations[item_index] then
         local_annotations[item_index].last_synced_note = note
         local_annotations[item_index].last_synced_color = color
+        if quote then
+            local_annotations[item_index].last_synced_quote = quote
+        end
         local_annotations[item_index].has_server_pos = true
         local_annotations[item_index].needs_pos_push = nil
+        local_annotations[item_index].local_modified = nil
         doc_settings:saveSetting("annotations", local_annotations)
         doc_settings:delSetting("annotations_paging")
         doc_settings:delSetting("annotations_rolling")
@@ -485,6 +502,7 @@ function Annotations:stampRemoteId(doc_path, item_index, remote_id)
     local local_annotations = self:readRawAnnotations(doc_settings)
     if local_annotations[item_index] then
         local_annotations[item_index].wallaflare_id = tonumber(remote_id)
+        local_annotations[item_index].last_synced_quote = local_annotations[item_index].text
         doc_settings:saveSetting("annotations", local_annotations)
         doc_settings:delSetting("annotations_paging")
         doc_settings:delSetting("annotations_rolling")

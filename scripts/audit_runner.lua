@@ -116,6 +116,37 @@ for _, un in ipairs(unsynced) do
         audit_results.outbound_pushed = audit_results.outbound_pushed + 1
         Annotations:stampRemoteId(epub_path, un.local_idx, create_res.id)
     end
+-- 8. Simulate modifying an existing annotation's selected text in KOReader and pushing update
+local yellow_idx = nil
+for idx, ann in ipairs(sdr_anns) do
+    if ann.color == "yellow" and ann.wallaflare_id then
+        yellow_idx = idx
+        break
+    end
+end
+
+if yellow_idx then
+    sdr_anns[yellow_idx].text = "unexpected silence. “Did you see the messengers"
+    sdr_anns[yellow_idx].pos1 = "/body/p[2]/text().30"
+    sdr_settings:saveSetting("annotations", sdr_anns)
+    sdr_settings:flush()
+
+    local _, resolved_updates = Annotations:getLocalUnsynced(epub_path)
+    for _, up in ipairs(resolved_updates) do
+        if up.id == sdr_anns[yellow_idx].wallaflare_id then
+            local patch_data = {
+                quote = up.quote,
+                text = up.text,
+                color = up.color,
+                updated_at = up.updated_at
+            }
+            local ok_patch = Api.updateAnnotation(server_url, auth_token, up.id, patch_data)
+            if ok_patch and type(ok_patch) == "table" then
+                audit_results.quote_edit_pushed = true
+                Annotations:stampSyncedEdit(epub_path, up.index, ok_patch.text or up.text, ok_patch.color or up.color, ok_patch.quote or up.quote)
+            end
+        end
+    end
 end
 
 -- Write result JSON

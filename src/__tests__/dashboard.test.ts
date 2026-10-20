@@ -1087,5 +1087,61 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     });
   });
 
+  describe("Interactive Annotation Selection Adjustment (KOReader-style)", () => {
+    it("renders KOReader-style word boundary adjustment controls in popover and note modal", () => {
+      const html = renderDashboardHtml('Wallaflare');
+
+      // Popover controls
+      expect(html).toContain("adjustPopoverSelection('start', 'expand')");
+      expect(html).toContain("adjustPopoverSelection('start', 'shrink')");
+      expect(html).toContain("adjustPopoverSelection('end', 'shrink')");
+      expect(html).toContain("adjustPopoverSelection('end', 'expand')");
+      expect(html).toContain('id="popoverQuoteText"');
+
+      // Modal controls
+      expect(html).toContain("adjustModalSelection('start', 'expand')");
+      expect(html).toContain("adjustModalSelection('start', 'shrink')");
+      expect(html).toContain("adjustModalSelection('end', 'shrink')");
+      expect(html).toContain("adjustModalSelection('end', 'expand')");
+      expect(html).toContain('id="annotationNoteQuotePreview"');
+      expect(html).toContain('id="annotationNoteQuoteInput"');
+    });
+
+    it("accurately steps selection start and end words across article text stream", () => {
+      const fullText = "The quick brown fox jumps over the lazy dog. A secondary sentence here.";
+      let start = fullText.indexOf("brown fox jumps");
+      let end = start + "brown fox jumps".length;
+
+      // 1. Expand start by one word: should encompass "quick " -> "quick brown fox jumps"
+      const before1 = fullText.slice(0, start);
+      const mStartExpand = before1.match(/(\S+\s*)$/);
+      expect(mStartExpand).toBeTruthy();
+      start -= mStartExpand![1].length;
+      expect(fullText.slice(start, end).trim()).toBe("quick brown fox jumps");
+
+      // 2. Shrink start by one word: should drop "quick " -> "brown fox jumps"
+      const sub1 = fullText.slice(start, end);
+      const mStartShrink = sub1.match(/^(\s*\S+\s*)/);
+      expect(mStartShrink).toBeTruthy();
+      start += mStartShrink![1].length;
+      expect(fullText.slice(start, end).trim()).toBe("brown fox jumps");
+
+      // 3. Expand end by one word: should encompass " over" -> "brown fox jumps over"
+      const after1 = fullText.slice(end);
+      const mEndExpand = after1.match(/^(\s*\S+)/);
+      expect(mEndExpand).toBeTruthy();
+      end += mEndExpand![1].length;
+      expect(fullText.slice(start, end).trim()).toBe("brown fox jumps over");
+
+      // 4. Shrink end by one word: should drop " over" -> "brown fox jumps"
+      const sub2 = fullText.slice(start, end);
+      const mEndShrink = sub2.match(/(\s*\S+\s*)$/);
+      expect(mEndShrink).toBeTruthy();
+      end -= mEndShrink![1].length;
+      expect(fullText.slice(start, end).trim()).toBe("brown fox jumps");
+    });
+  });
+
 });
+
 
