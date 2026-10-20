@@ -1,16 +1,15 @@
-# 🎨 Wallaflare Dashboard Refactor & Architecture Guide
+# 🏛️ Wallaflare Web & Edge Architecture Guide
 
-> **Document Status**: Active Refactor Documentation & Handover  
-> **Last Updated**: August 26, 2026  
-> **Primary Component**: `src/views/dashboard.ts`
+> **Document Status**: Living Architecture & Technical Reference  
+> **Primary Components**: `src/views/`, `src/client/`, `src/services/`, `src/routes/`
 
 ---
 
-## 🎯 Background & Motivation
+## 🧭 System Overview
 
-The original Wallaflare dashboard utilized a single-column layout that toggled between the article feed and the reader view. While functional, it lacked the ergonomic productivity of modern desktop reading applications (such as Readwise Reader, Instapaper, or Apple Books) and required separate navigation layers on mobile.
+Wallaflare is an ultra-lightweight, zero-cost, serverless Read-it-Later application and Wallabag v2 API replacement engineered for Cloudflare Workers, Cloudflare D1 (SQLite), e-ink readers (KOReader), and native mobile devices.
 
-The **Dashboard Redesign & 3-Pane Workspace Refactor** transforms Wallaflare into a unified, responsive 3-pane workstation that fluidly adapts between:
+The frontend is a unified, responsive 3-pane workstation that fluidly adapts between:
 1. **Desktop & Large Tablets (`>= 1024px`)**: Side-by-side 3-pane workflow (Navigation Sidebar | Articles Column | Active Reader).
 2. **Mobile & Small Tablets (`< 1024px`)**: Adaptive single-pane view with gesture-tracked slide-out navigation drawer and swipe back.
 
@@ -83,12 +82,13 @@ The **Dashboard Redesign & 3-Pane Workspace Refactor** transforms Wallaflare int
 
 ## 🧪 Testing & Verification
 
-All dashboard functionality is covered by the automated Vitest suite (74 passing tests):
-- **`src/__tests__/dashboard.test.ts`**: Verifies HTML structure, inline script syntax compilation, typography popover controls, highlights navigator, and markdown export engine.
-- **`src/__tests__/api.test.ts`**: Verifies REST endpoints, batch tagging, and mass delete/star/archive.
+All dashboard and backend functionality is covered by automated unit, integration, and E2E test suites:
+- **`src/__tests__/dashboard.test.ts`**: Verifies HTML structure, inline script syntax compilation, typography popover controls, highlights navigator, interactive word-step selection controls, and markdown export engine.
+- **`src/__tests__/api.test.ts`**: Verifies REST endpoints, batch tagging, annotation mutations, and mass delete/star/archive.
 - **`src/__tests__/epub.test.ts`**: Verifies EPUB 3 strict XHTML validation and fflate zip archive packaging.
 - **`src/__tests__/pdf.test.ts`**: Verifies PDF page rendering and metadata generation.
 - **`src/__tests__/extractor.test.ts`**: Verifies readability and article scraping.
+- **`integrations/koreader/.../test_plugin.lua`**: Automated standalone Lua test suite for the KOReader plugin.
 
 ---
 

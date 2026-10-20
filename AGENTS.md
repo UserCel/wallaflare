@@ -59,8 +59,8 @@
 │   └── app/src/main/java/com/idodos/wallaflare/
 │       ├── MainActivity.java           # Android activity & native plugin registration
 │       └── WallaflareNativePlugin.java # Native Android Share sheet & config bridge
-├── docs/                      # Technical documentation & refactor roadmaps
-│   └── DASHBOARD_REFACTOR.md  # Detailed architecture of the 3-pane dashboard refactor
+├── docs/                      # Technical documentation & architecture guides
+│   └── ARCHITECTURE.md        # Comprehensive architecture of web client, sync & reader engines
 ├── scripts/                   # Build, bundling, and test utility scripts
 │   ├── build-web.ts           # Bundles web client, inlines deps, computes OTA hash
 │   ├── bundle-html.ts         # Assembles modular HTML source tree into dashboard-html.ts
@@ -168,5 +168,5 @@ npm run test:sync-audit
 
 ## 📚 Related Documentation
 
-- [DASHBOARD_REFACTOR.md](docs/DASHBOARD_REFACTOR.md) — Comprehensive design guide for the 3-pane dashboard workspace.
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — Comprehensive technical architecture of the 3-pane dashboard, sync, and reader engines.
 - [README.md](README.md) — Public documentation, features, and setup instructions.
