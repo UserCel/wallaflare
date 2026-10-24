@@ -196,11 +196,10 @@ async function main() {
     }
     console.log(`   ✓ Server registered local highlight (ID: ${uploadedHighlight.id}, color: ${uploadedHighlight.color})`);
 
-    const updatedYellowHighlight = serverAnns.find((a: any) => a.color === 'yellow');
-    if (!updatedYellowHighlight || updatedYellowHighlight.quote !== 'unexpected silence. “Did you see the messengers') {
-      throw new Error(`Server did not receive updated quote for edited highlight! Found: "${updatedYellowHighlight?.quote}"`);
+    if (uploadedHighlight.quote !== 'banners flapped in the sudden gust of morning wind') {
+      throw new Error(`Server did not receive updated quote for edited highlight! Found: "${uploadedHighlight.quote}"`);
     }
-    console.log(`   ✓ Server verified modified selected quote ("${updatedYellowHighlight.quote}")`);
+    console.log(`   ✓ Server verified modified selected quote ("${uploadedHighlight.quote}")`);
 
     // 7. Final Report
     console.log('\n========================================================');

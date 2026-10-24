@@ -106,6 +106,9 @@ package.preload["json"] = function()
             
             local ver = str:match('"version"%s*:%s*"([^"]+)"')
             if ver then result.version = ver end
+
+            local top_id = str:match('"id"%s*:%s*(%d+)')
+            if top_id and not str:find('"entries"') then result.id = tonumber(top_id) end
             
             if str:find('"deleted_ids"') then
                 result.deleted_ids = {}
@@ -1655,6 +1658,79 @@ describe("9. Local File Deletion Propagation & Settings", function()
         Annotations:stampSyncedEdit(book_path, 1, "Unchanged note", "yellow", "Original short quote expanded with extra words")
         local unsynced3, updates3 = Annotations:getLocalUnsynced(book_path)
         assert_eq(#updates3, 0, "No pending updates after stamping synced quote")
+    end)
+
+    it("detects highlight text change when edited alone without note or color after local creation sync", function()
+        local book_path = test_sandbox_dir .. "/889_test_highlight_alone.epub"
+        local sidecar_dir = test_sandbox_dir .. "/889_test_highlight_alone.sdr"
+        local sidecar_file = sidecar_dir .. "/metadata.epub.lua"
+        os.execute("mkdir -p '" .. sidecar_dir .. "'")
+
+        local app = Wallaflare:extend{}
+        app:init()
+
+        -- 1. User creates a local highlight with NO note
+        local doc_settings = LuaSettings:open(sidecar_file)
+        local initial_anns = {
+            {
+                text = "Original highlight text without note",
+                color = "yellow",
+                pos0 = "/body/p[1]/text().0",
+                pos1 = "/body/p[1]/text().35",
+            }
+        }
+        doc_settings:saveSetting("annotations", initial_anns)
+        doc_settings:flush()
+
+        app.ui = {
+            document = { file = book_path },
+            annotation = {
+                annotations = initial_anns
+            },
+            doc_settings = doc_settings,
+        }
+
+        -- 2. First sync runs: local highlight is uploaded
+        mock_http_response = {
+            status_code = 200,
+            headers = { ["content-type"] = "application/json" },
+            body = '{"id":999,"quote":"Original highlight text without note","color":"yellow"}'
+        }
+
+        local unsynced = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#unsynced, 1, "Should find 1 local unsynced highlight")
+
+        -- In performSync:
+        local res = Api.createAnnotation("https://example.com", "token", 123, unsynced[1])
+        assert_true(res ~= nil and res.id ~= nil)
+
+        Annotations:stampRemoteId(book_path, unsynced[1].index, res.id)
+        if app.ui and app.ui.annotation and app.ui.annotation.annotations[unsynced[1].index] then
+            app.ui.annotation.annotations[unsynced[1].index].wallaflare_id = tonumber(res.id)
+            app.ui.annotation.annotations[unsynced[1].index].last_synced_quote = unsynced[1].quote
+            app.ui.annotation.annotations[unsynced[1].index].last_synced_note = unsynced[1].text
+            app.ui.annotation.annotations[unsynced[1].index].last_synced_color = unsynced[1].color
+            app.ui.annotation.annotations[unsynced[1].index].has_server_pos = true
+        end
+        app.ui.doc_settings:saveSetting("annotations", app.ui.annotation.annotations)
+        app.ui.doc_settings:flush()
+
+        -- 3. Everything is now synced. Next sync should have 0 changes:
+        local unsynced1, updates1 = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#unsynced1, 0, "No unsynced highlights")
+        assert_eq(#updates1, 0, "No pending updates")
+
+        -- 4. User edits the highlight alone in KOReader (modifying selection/quote, no note, no color change)
+        app.ui.annotation.annotations[1].text = "Original highlight text expanded to end of sentence"
+        app.ui.annotation.annotations[1].pos1 = "/body/p[1]/text().50"
+        app:onAnnotationsModified({ app.ui.annotation.annotations[1] })
+        app:flushActiveDocument()
+
+        -- 5. Sync again: MUST detect the highlight quote edit alone!
+        local unsynced2, updates2 = Annotations:getLocalUnsynced(book_path)
+        assert_eq(#updates2, 1, "Must detect highlight edit alone when syncing again")
+        assert_eq(updates2[1].id, 999)
+        assert_eq(updates2[1].quote, "Original highlight text expanded to end of sentence")
     end)
 
     it("removes server-deleted annotation when server returns 404 on update", function()

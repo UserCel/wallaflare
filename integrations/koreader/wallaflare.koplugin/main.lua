@@ -1097,7 +1097,11 @@ function Wallaflare:performSync()
                         if cur_f == full_path or cur_f:match("/(%d+)[%._]") == art_id then
                             if self.ui.annotation and self.ui.annotation.annotations and self.ui.annotation.annotations[u.index] then
                                 self.ui.annotation.annotations[u.index].wallaflare_id = tonumber(res.id)
+                                self.ui.annotation.annotations[u.index].last_synced_quote = u.quote or self.ui.annotation.annotations[u.index].text
+                                self.ui.annotation.annotations[u.index].last_synced_note = u.text or self.ui.annotation.annotations[u.index].note or ""
+                                self.ui.annotation.annotations[u.index].last_synced_color = u.color or self.ui.annotation.annotations[u.index].color or "yellow"
                                 self.ui.annotation.annotations[u.index].has_server_pos = true
+                                self.ui.annotation.annotations[u.index].local_modified = nil
                             end
                             if self.ui.doc_settings and self.ui.doc_settings.saveSetting then
                                 self.ui.doc_settings:saveSetting("annotations", self.ui.annotation and self.ui.annotation.annotations)
@@ -1866,10 +1870,10 @@ end
 function Wallaflare:onAnnotationsModified(items)
     local now_str = os.date("!%Y-%m-%dT%H:%M:%SZ")
     if type(items) == "table" then
-        if items[1] then
-            items[1].datetime_updated = now_str
-        elseif items.item then
-            items.item.datetime_updated = now_str
+        local target = items[1] or items.item
+        if target then
+            target.datetime_updated = now_str
+            target.local_modified = true
         end
     end
 end
@@ -1878,8 +1882,12 @@ function Wallaflare:onCloseDocument()
     if self.ui and self.ui.annotation and self.ui.annotation.annotations then
         local now_str = os.date("!%Y-%m-%dT%H:%M:%SZ")
         for _, ann in ipairs(self.ui.annotation.annotations) do
-            if (ann.note or "") ~= (ann.last_synced_note or "") then
+            local note_diff = (ann.note or "") ~= (ann.last_synced_note or "")
+            local quote_diff = ann.last_synced_quote ~= nil and ((ann.text or "") ~= ann.last_synced_quote)
+            local color_diff = ann.last_synced_color ~= nil and ((ann.color or "yellow") ~= ann.last_synced_color)
+            if note_diff or quote_diff or color_diff then
                 ann.datetime_updated = now_str
+                ann.local_modified = true
             end
         end
         if self.ui.doc_settings and self.ui.doc_settings.saveSetting then

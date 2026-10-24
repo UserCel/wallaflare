@@ -389,6 +389,8 @@ function Annotations:getLocalUnsynced(doc_path, ui_document)
             local quote_changed = false
             if ann.last_synced_quote ~= nil then
                 quote_changed = ((ann.text or "") ~= ann.last_synced_quote)
+            elseif (ann.datetime_updated ~= nil or ann.local_modified) and ann.wallaflare_id ~= nil then
+                quote_changed = true
             end
 
             local needs_pos = (not ann.has_server_pos) and (ann.pos0 and ann.pos0 ~= "/1/4/2/1:0")
@@ -503,6 +505,10 @@ function Annotations:stampRemoteId(doc_path, item_index, remote_id)
     if local_annotations[item_index] then
         local_annotations[item_index].wallaflare_id = tonumber(remote_id)
         local_annotations[item_index].last_synced_quote = local_annotations[item_index].text
+        local_annotations[item_index].last_synced_note = local_annotations[item_index].note or ""
+        local_annotations[item_index].last_synced_color = local_annotations[item_index].color or "yellow"
+        local_annotations[item_index].has_server_pos = true
+        local_annotations[item_index].local_modified = nil
         doc_settings:saveSetting("annotations", local_annotations)
         doc_settings:delSetting("annotations_paging")
         doc_settings:delSetting("annotations_rolling")

@@ -96,7 +96,6 @@ end
 -- 7. Ingest outbound local highlight and push to server
 local local_highlight = {
     text = "banners flapped in the sudden gust",
-    note = "Wind effect note",
     color = "magenta",
     drawer = "lighten",
     datetime = os.date("!%Y-%m-%dT%H:%M:%SZ"),
@@ -114,26 +113,33 @@ for _, un in ipairs(unsynced) do
     local create_res, create_err = Api.createAnnotation(server_url, auth_token, entry_id, un)
     if create_res and create_res.id then
         audit_results.outbound_pushed = audit_results.outbound_pushed + 1
-        Annotations:stampRemoteId(epub_path, un.local_idx, create_res.id)
+        Annotations:stampRemoteId(epub_path, un.index, create_res.id)
+        -- Simulate KOReader performSync in-memory state saved back to disk
+        sdr_anns[un.index].wallaflare_id = tonumber(create_res.id)
+        sdr_anns[un.index].has_server_pos = true
+        sdr_settings:saveSetting("annotations", sdr_anns)
+        sdr_settings:flush()
     end
--- 8. Simulate modifying an existing annotation's selected text in KOReader and pushing update
-local yellow_idx = nil
+end
+
+-- 8. Simulate modifying an existing annotation's selected text alone in KOReader (no note, no color change)
+local magenta_idx = nil
 for idx, ann in ipairs(sdr_anns) do
-    if ann.color == "yellow" and ann.wallaflare_id then
-        yellow_idx = idx
+    if ann.color == "magenta" and ann.wallaflare_id then
+        magenta_idx = idx
         break
     end
 end
 
-if yellow_idx then
-    sdr_anns[yellow_idx].text = "unexpected silence. “Did you see the messengers"
-    sdr_anns[yellow_idx].pos1 = "/body/p[2]/text().30"
+if magenta_idx then
+    sdr_anns[magenta_idx].text = "banners flapped in the sudden gust of morning wind"
+    sdr_anns[magenta_idx].pos1 = "/body/p[3]/text().116"
     sdr_settings:saveSetting("annotations", sdr_anns)
     sdr_settings:flush()
 
     local _, resolved_updates = Annotations:getLocalUnsynced(epub_path)
     for _, up in ipairs(resolved_updates) do
-        if up.id == sdr_anns[yellow_idx].wallaflare_id then
+        if up.id == sdr_anns[magenta_idx].wallaflare_id then
             local patch_data = {
                 quote = up.quote,
                 text = up.text,
