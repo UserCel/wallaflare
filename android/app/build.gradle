@@ -17,13 +17,22 @@ android {
     signingConfigs {
         release {
             def keystoreFile = file('release.keystore')
+            def debugKeystore = file("${System.getProperty('user.home')}/.android/debug.keystore")
             if (keystoreFile.exists()) {
                 storeFile keystoreFile
                 storePassword 'wallaflare'
                 keyAlias 'wallaflare'
                 keyPassword 'wallaflare'
             } else {
-                storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+                if (!debugKeystore.exists()) {
+                    debugKeystore.parentFile.mkdirs()
+                    def proc = ['keytool', '-genkeypair', '-v', '-keystore', debugKeystore.absolutePath,
+                                '-storepass', 'android', '-alias', 'androiddebugkey', '-keypass', 'android',
+                                '-keyalg', 'RSA', '-keysize', '2048', '-validity', '10000',
+                                '-dname', 'CN=Android Debug,O=Android,C=US'].execute()
+                    proc.waitFor()
+                }
+                storeFile debugKeystore
                 storePassword "android"
                 keyAlias "androiddebugkey"
                 keyPassword "android"
