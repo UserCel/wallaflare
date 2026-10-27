@@ -1,6 +1,7 @@
 # Environment secrets (do NOT commit .dev.vars to git)
 # Master password to access Wallaflare web dashboard and API (Required)
-AUTH_TOKEN=your-super-secret-password
+AUTH_TOKEN=
 
 # Optional read-only token for OPDS e-readers (KOReader) and RSS feeds
-READ_TOKEN=your-optional-readonly-token
+# Uncomment and set in .dev.vars or Cloudflare Secrets if isolating reader credentials:
+# READ_TOKEN=

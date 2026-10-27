@@ -67,10 +67,7 @@
   "cloudflare": {
     "bindings": {
       "AUTH_TOKEN": {
-        "description": "Master password to access Wallaflare web dashboard and API."
-      },
-      "READ_TOKEN": {
-        "description": "Optional read-only token for OPDS e-readers (KOReader) and RSS feeds."
+        "description": "Create a secure master password to log into your Wallaflare dashboard and API."
       }
     }
   }
