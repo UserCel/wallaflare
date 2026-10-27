@@ -86,7 +86,7 @@ Deploy your own private Wallaflare instance in just a few clicks via Cloudflare 
 1. Click the **Deploy to Cloudflare** button above.
 2. Authorize Cloudflare to clone the repository to your GitHub or GitLab account.
 3. Cloudflare automatically provisions a **D1 Database** (`wallaflare-db`) and binds it to your Worker.
-4. When prompted, enter your master access password for `AUTH_TOKEN` (and optionally `READ_TOKEN`).
+4. When prompted, enter your master access password for `AUTH_TOKEN`.
 5. After deployment completes, your instance will be live at `https://wallaflare.<your-subdomain>.workers.dev`!
 
 ---
