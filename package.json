@@ -23,7 +23,8 @@
     "koreader": "bash scripts/koreader.sh run",
     "koreader:setup": "bash scripts/koreader.sh setup",
     "koreader:reset": "bash scripts/koreader.sh reset",
-    "test:sync-audit": "tsx scripts/audit-sync.ts"
+    "test:sync-audit": "tsx scripts/audit-sync.ts",
+    "package:release": "tsx scripts/package-release.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

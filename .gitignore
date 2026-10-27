@@ -35,6 +35,7 @@ coverage/
 *.apk
 *.aab
 scratch/
+release-assets/
 
 # Android Local Config
 local.properties

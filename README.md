@@ -1,10 +1,13 @@
 <div align="center">
 
+<img src="assets/logo.png" alt="Wallaflare Logo" width="100" style="border-radius: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); margin-bottom: 8px;" />
+
 # 📖 Wallaflare
 
 **Ultra-lightweight, zero-cost, serverless Read-it-Later & Wallabag v2 API engine for Cloudflare Workers & D1.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/UserCel/wallaflare?logo=github&label=Release)](https://github.com/UserCel/wallaflare/releases/latest)
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/UserCel/wallaflare)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare)](https://workers.cloudflare.com/)
 [![Cloudflare D1](https://img.shields.io/badge/Cloudflare-D1_SQLite-F38020?logo=sqlite)](https://developers.cloudflare.com/d1/)
@@ -147,7 +150,8 @@ Your instance is now live worldwide! 🎉
 ### 📱 Native Android App (Capacitor & OTA Updates)
 Wallaflare includes a native Android app wrapper with system share sheet integration, native file sharing, and automatic Over-The-Air (OTA) web bundle updates:
 
-- **Build Debug APK**:
+- 📥 **Download Pre-built APK**: Grab the latest APK from **[GitHub Releases](https://github.com/UserCel/wallaflare/releases/latest)** (`wallaflare-android-v...apk` or `wallaflare.apk`).
+- **Build from Source (Debug APK)**:
   ```bash
   npm run build:apk
   ```
@@ -172,7 +176,7 @@ Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaf
 - 🔄 **In-App Over-The-Air (OTA) Updates**: One-tap self-updating directly from KOReader settings with zero manual file transfers.
 
 1. **Download the Plugin**:
-   - Download `wallaflare.koplugin.zip` from your Wallaflare dashboard (**Settings > Integrations**) or from `https://<your-subdomain>.workers.dev/download/wallaflare.koplugin.zip`.
+   - Download the latest plugin zip from **[GitHub Releases](https://github.com/UserCel/wallaflare/releases/latest)** (`wallaflare-koplugin-v...zip`), from your Wallaflare dashboard (**Settings > Integrations**), or from `https://<your-subdomain>.workers.dev/download/wallaflare.koplugin.zip`.
 2. **Install**:
    - Copy the `wallaflare.koplugin` folder into your device's KOReader `plugins/` directory:
      - **Kindle / Kobo / Linux**: `/mnt/onboard/.koreader/plugins/wallaflare.koplugin`

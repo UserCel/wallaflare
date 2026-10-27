@@ -142,6 +142,16 @@ npm run test:sync-audit
 ```
 *Note: Point KOReader's Server URL to `http://127.0.0.1:8787`. Uses `scratch/koreader/` with an isolated `KO_HOME` so your personal system KOReader config is never modified.*
 
+### 6. Automated GitHub Releases & Multi-Component Packaging
+Wallaflare uses an automated GitHub Actions release workflow (`.github/workflows/release.yml`) triggered on any Git tag push (`v*.*.*`) or via manual dispatch:
+- **Independent Component Versioning**: Release assets retain their specific versions while ensuring the Android APK always bakes in the latest web bundle:
+  - 🌐 **Web Dashboard & Edge Worker**: Root release tag / `package.json` (`vX.Y.Z`).
+  - 📱 **Android Native App**: `android/app/build.gradle` (`versionName`), packaged as `wallaflare-android-v<android>-web-v<web>-<sha>.apk` (~2.5 MB with R8 & `shrinkResources true`).
+  - 📖 **KOReader Plugin**: `integrations/koreader/wallaflare.koplugin/_meta.lua` (`version`), packaged as `wallaflare-koplugin-v<plugin>.zip`.
+  - Static aliases: `wallaflare.apk` and `wallaflare.koplugin.zip` for permanent latest-download URLs.
+- **Local Packaging Verification**: Run `npm run package:release` to test-package all release assets locally into `release-assets/` (gitignored) before tagging.
+- **Publishing a Release**: Create and push a SemVer tag (e.g. `git tag v1.1.0 && git push origin v1.1.0`). CI will build the web app, compile the release APK, package the KOReader zip, and publish the GitHub Release automatically.
+
 
 
 ---
