@@ -1,0 +1,15 @@
+name = "wallaflare"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "wallaflare-db"
+database_id = "default"
+migrations_dir = "migrations"
+
+[vars]
+APP_NAME = "Wallaflare"
+EPUB_MAX_IMAGES = "20"

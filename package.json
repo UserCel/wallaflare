@@ -4,12 +4,13 @@
   "description": "A lightweight, zero-cost serverless Wallabag v2 API replacement and read-it-later service for Cloudflare Workers, D1, and E-ink readers (KOReader).",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "npm run build:web && wrangler deploy",
+    "build": "tsx scripts/build-web.ts",
+    "dev": "if [ -f wrangler.personal.toml ]; then wrangler dev --config wrangler.personal.toml; else wrangler dev; fi",
+    "deploy": "npm run build:web && if [ -f wrangler.personal.toml ]; then wrangler deploy --config wrangler.personal.toml; else wrangler deploy; fi",
     "test": "npm run build:web && vitest run",
     "test:watch": "vitest",
     "db:migrate:local": "wrangler d1 execute wallaflare-db --local --file=./schema.sql --yes",
-    "db:migrate:remote": "wrangler d1 execute wallaflare-db --remote --file=./schema.sql --yes",
+    "db:migrate:remote": "if [ -f wrangler.personal.toml ]; then wrangler d1 execute wallaflare-db --config wrangler.personal.toml --remote --file=./schema.sql --yes; else wrangler d1 execute wallaflare-db --remote --file=./schema.sql --yes; fi",
     "typecheck": "tsc --noEmit",
     "test:extract": "tsx scripts/test-extractors.ts",
     "build:web": "tsx scripts/build-web.ts",
@@ -62,5 +63,15 @@
     "epub",
     "e-ink",
     "serverless"
-  ]
+  ],
+  "cloudflare": {
+    "bindings": {
+      "AUTH_TOKEN": {
+        "description": "Master password to access Wallaflare web dashboard and API."
+      },
+      "READ_TOKEN": {
+        "description": "Optional read-only token for OPDS e-readers (KOReader) and RSS feeds."
+      }
+    }
+  }
 }

@@ -119,7 +119,13 @@ npm run deploy
 ```
 > **Production Target**: `https://<your-instance>.workers.dev` (or your configured custom domain)
 
-### 4. KOReader Local Integration Testing
+### 4. Dual Wrangler Configuration & Local Secrets (.dev.vars)
+- **`wrangler.toml` (Public Template)**: Tracked in git with sanitized placeholders (`database_id = "default"`). Used by Cloudflare's 1-Click Deploy button, CI, and new contributors.
+- **`wrangler.personal.toml` (Local Instance)**: Ignored by git. Holds personal account IDs, production D1 database IDs, and custom domain routes (`routes = [...]`).
+- **Auto-Detection**: `npm run dev`, `npm run deploy`, and `npm run db:migrate:remote` automatically check for `wrangler.personal.toml` and pass `--config wrangler.personal.toml` if present.
+- **`.dev.vars` (Local Auth Secrets)**: In local development, if `AUTH_TOKEN` is not defined in `.dev.vars`, Wallaflare runs in **open development mode** (authentication middleware and session validation are bypassed, allowing friction-free local iteration). `.dev.vars` is only needed locally when actively testing password gating, token verification, or rate-limiting.
+
+### 5. KOReader Local Integration Testing
 Run an isolated, native KOReader desktop instance on Linux to test live sync, annotations, and UI interactions against your local dev server:
 ```bash
 # 1. Start local worker (terminal 1)
@@ -159,6 +165,7 @@ npm run test:sync-audit
      3. Ensure the web client detects older installed APK builds via `min_native_version` in `/api/app/version.json` and displays an in-app toast/banner notifying the user that a new APK build is available for the latest native features.
 7. **Rule 7: Strict Privacy & Personal Instance Scrubbing**:
    - **NEVER** hardcode, embed, or commit personal domains, personal URLs, private server instances (e.g. private domains or custom personal URLs), API keys, or private user credentials anywhere in the codebase, tests, UI placeholders, scripts, documentation, or commit history. Always use generic placeholders like `wallaflare.example.com` or `https://<your-subdomain>.workers.dev`.
+   - Personal deployment configurations (custom domain routes, real database IDs, account IDs) must reside strictly in `wrangler.personal.toml` (gitignored), never in the public `wrangler.toml`. Local auth passwords belong in `.dev.vars` (gitignored), never committed.
 8. **Rule 8: BiDi Script & Touch Gesture Robustness**:
    - In interactive reading components (e.g. RSVP speed reader, surrounding text strips, annotations):
      - For RTL/BiDi scripts (Hebrew, Arabic), always isolate segments with `unicode-bidi: isolate` and wrap trailing neutral punctuation in Unicode Right-to-Left Marks (`\u200F`) to prevent punctuation from jumping inside words.

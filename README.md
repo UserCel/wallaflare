@@ -5,6 +5,7 @@
 **Ultra-lightweight, zero-cost, serverless Read-it-Later & Wallabag v2 API engine for Cloudflare Workers & D1.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/UserCel/wallaflare)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare)](https://workers.cloudflare.com/)
 [![Cloudflare D1](https://img.shields.io/badge/Cloudflare-D1_SQLite-F38020?logo=sqlite)](https://developers.cloudflare.com/d1/)
 [![Wallabag v2 API](https://img.shields.io/badge/API-Wallabag_v2_Compatible-2ECC71)](https://doc.wallabag.org/en/developer/api/index.html)
@@ -76,8 +77,24 @@
 
 ## 🛠️ Quick Start & Deployment
 
+### 🚀 Option A: One-Click Deploy (Easiest)
+
+Deploy your own private Wallaflare instance in just a few clicks via Cloudflare Workers & D1:
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/UserCel/wallaflare)
+
+1. Click the **Deploy to Cloudflare** button above.
+2. Authorize Cloudflare to clone the repository to your GitHub or GitLab account.
+3. Cloudflare automatically provisions a **D1 Database** (`wallaflare-db`) and binds it to your Worker.
+4. When prompted, enter your master access password for `AUTH_TOKEN` (and optionally `READ_TOKEN`).
+5. After deployment completes, your instance will be live at `https://wallaflare.<your-subdomain>.workers.dev`!
+
+---
+
+### 💻 Option B: Manual CLI Deployment
+
 ### Prerequisites
-- Node.js 18+
+- Node.js 20+
 - A free [Cloudflare Account](https://dash.cloudflare.com/sign-up)
 
 ### 1. Clone & Install
@@ -98,6 +115,7 @@ binding = "DB"
 database_name = "wallaflare-db"
 database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ```
+> 💡 **Tip for Contributors & Custom Domains**: If you plan to contribute code or configure custom domain routes (`routes = [...]`), copy `wrangler.toml` to `wrangler.personal.toml`. `wrangler.personal.toml` is ignored by Git, and `npm run deploy` / `npm run dev` will automatically prioritize it over `wrangler.toml`.
 
 ### 3. Initialize Database Schema
 ```bash
@@ -113,6 +131,8 @@ npx wrangler secret put AUTH_TOKEN
 ```bash
 npx wrangler secret put READ_TOKEN
 ```
+
+> 💡 **Local Development & Testing**: When running locally (`npm run dev`), Wallaflare runs in **open development mode** without requiring a login if `AUTH_TOKEN` is unset. To test password protection locally, copy `.dev.vars.example` to `.dev.vars` (gitignored) and set your test `AUTH_TOKEN`.
 
 ### 5. Deploy
 ```bash

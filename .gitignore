@@ -6,7 +6,9 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Cloudflare Configuration & Local State
-wrangler.toml
+wrangler.personal.toml
+wrangler.*.personal.toml
+wrangler.local.toml
 .wrangler/
 .mf/
 .dev.vars
