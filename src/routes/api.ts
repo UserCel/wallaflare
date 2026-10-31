@@ -44,7 +44,7 @@ import {
   slugify,
   wipeDatabase
 } from '../db/queries';
-import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain } from '../services/extractor';
+import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain, sanitizeHtmlFragment, escapeHtmlText } from '../services/extractor';
 import { generateEpub, generateDigestEpub } from '../services/epub';
 import { getClientSecret } from '../services/auth';
 
@@ -104,7 +104,7 @@ export const authMiddleware = async (c: any, next: any) => {
     }, 429);
   }
 
-  const isValid = timingSafeCompare(token, configuredToken) || timingSafeCompare(token, 'wallaflare_bearer_token_secret');
+  const isValid = timingSafeCompare(token, configuredToken);
 
   if (isValid) {
     await resetAuthRateLimit(c.env.DB, ip);
@@ -263,17 +263,26 @@ const oauthTokenHandler = async (c: any) => {
       const usernameCandidate = String(username || body.username || '').trim().toLowerCase();
       const isUserValid = usernameCandidate === expectedUsername;
       const passwordCandidate = password || body.password || '';
-      const isPasswordValid = passwordCandidate && (timingSafeCompare(passwordCandidate, expectedToken) || timingSafeCompare(passwordCandidate, 'wallaflare'));
+      const isPasswordValid = passwordCandidate && timingSafeCompare(passwordCandidate, expectedToken);
+      // client_id / client_secret are public Wallabag-compat identifiers (shown on /developer);
+      // the password above is what actually authenticates.
       const isSecretValid = !clientSecret || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
       isMatch = Boolean(isUserValid && isPasswordValid && isSecretValid);
     } else if (grantType === 'client_credentials') {
-      isMatch = Boolean(clientSecret && (timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken)));
+      // Only honoured when an operator explicitly configured CLIENT_SECRET. Never fall back to the
+      // public default, otherwise anyone could mint the master token without a password.
+      const explicitClientSecret = c.env.CLIENT_SECRET;
+      isMatch = Boolean(
+        clientSecret &&
+        (timingSafeCompare(clientSecret, expectedToken) || (explicitClientSecret && timingSafeCompare(clientSecret, explicitClientSecret)))
+      );
     } else if (grantType === 'refresh_token') {
       const refreshToken = c.req.query('refresh_token') || body.refresh_token || '';
       isMatch = Boolean(refreshToken && timingSafeCompare(refreshToken, expectedToken));
     } else {
-      const candidate = password || clientSecret || clientId;
-      isMatch = Boolean(candidate && (timingSafeCompare(candidate, expectedToken) || timingSafeCompare(candidate, expectedClientSecret) || candidate === 'wallaflare'));
+      // Unknown grant types must present the real credential, never a public identifier.
+      const candidate = password || clientSecret;
+      isMatch = Boolean(candidate && timingSafeCompare(candidate, expectedToken));
     }
 
     if (!isMatch) {
@@ -341,7 +350,7 @@ apiRouter.post('/api/auth/verify', async (c: any) => {
     token = body.token || body.password || '';
   }
 
-  const isValid = timingSafeCompare(token, configuredToken) || timingSafeCompare(token, 'wallaflare_bearer_token_secret');
+  const isValid = timingSafeCompare(token, configuredToken);
 
   if (isValid) {
     await resetAuthRateLimit(c.env.DB, ip);
@@ -946,7 +955,7 @@ const postEntryHandler = async (c: any) => {
       entryData = {
         url,
         title: title || url,
-        content: `<p><a href="${url}">${url}</a></p>`,
+        content: `<p><a href="${escapeHtmlText(url)}">${escapeHtmlText(url)}</a></p>`,
         domain_name: new URL(url).hostname,
         reading_time: 1,
         language: 'en',
@@ -1241,7 +1250,7 @@ const patchEntryHandler = async (c: any) => {
   if (body.starred !== undefined) updates.is_starred = Number(body.starred);
   if (body.is_starred !== undefined) updates.is_starred = Number(body.is_starred);
   if (body.title !== undefined) updates.title = String(body.title);
-  if (body.content !== undefined) updates.content = String(body.content);
+  if (body.content !== undefined) updates.content = sanitizeHtmlFragment(String(body.content));
   if (body.tags !== undefined) updates.tags = body.tags;
 
   const updated = await updateEntry(c.env.DB, id, updates);

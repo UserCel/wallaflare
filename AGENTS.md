@@ -69,7 +69,7 @@
 ├── src/
 │   ├── client/                # Isomorphic Web UI Source Tree
 │   │   ├── html/              # Modular HTML component templates (workspace, modals, overlays)
-│   │   ├── styles/            # Modular CSS design system
+│   │   ├── styles/            # index.css — single source of truth for all client CSS (bundled by bundle-client.ts)
 │   │   ├── reader/            # In-reader engines (RSVP Speed Reader, ORP, BiDi, gesture scrubbing)
 │   │   └── index.ts           # Client JavaScript application entry point
 │   ├── index.ts               # Cloudflare Worker entry point (Hono application)

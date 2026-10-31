@@ -446,7 +446,7 @@ webRouter.post('/login_check', async (c) => {
 
   if (expectedToken) {
     const isUserValid = String(username || '').trim().toLowerCase() === expectedUsername;
-    const isPassValid = password && (timingSafeCompare(password, expectedToken) || timingSafeCompare(password, 'wallaflare'));
+    const isPassValid = password && timingSafeCompare(password, expectedToken);
     if (!isUserValid || !isPassValid) {
       if (c.env.DB) {
         await recordFailedAuthAttempt(c.env.DB, ip);

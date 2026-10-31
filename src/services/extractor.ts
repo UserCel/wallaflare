@@ -93,7 +93,7 @@ export function sanitizeArticleDom(doc: any): void {
   const dangerousTags = [
     'script', 'iframe', 'object', 'embed', 'applet', 'link', 
     'meta', 'form', 'input', 'button', 'select', 'textarea', 
-    'frame', 'frameset', 'noscript', 'style'
+    'frame', 'frameset', 'noscript', 'style', 'base'
   ];
   dangerousTags.forEach(tag => {
     doc.querySelectorAll(tag).forEach((el: any) => el.remove());
@@ -118,15 +118,39 @@ export function sanitizeArticleDom(doc: any): void {
       }
     });
 
-    const href = el.getAttribute('href');
-    if (href && /^(javascript|vbscript|data:text\/html)/i.test(href.trim())) {
-      el.removeAttribute('href');
-    }
-    const src = el.getAttribute('src');
-    if (src && /^(javascript|vbscript|data:text\/html)/i.test(src.trim())) {
-      el.removeAttribute('src');
+    // Attributes that can load/execute content outright
+    el.removeAttribute('srcdoc');
+    el.removeAttribute('formaction');
+
+    // Browsers ignore ASCII whitespace/control chars inside a URL scheme ("java\tscript:"),
+    // so normalise before testing.
+    for (const urlAttr of ['href', 'src', 'xlink:href', 'action', 'poster']) {
+      const value = el.getAttribute(urlAttr);
+      if (value && /^(javascript|vbscript|data:text\/html)/i.test(value.replace(/[\u0000-\u0020\u00a0]+/g, ''))) {
+        el.removeAttribute(urlAttr);
+      }
     }
   });
+}
+
+/**
+ * Sanitizes a raw HTML fragment (e.g. user-edited content submitted via the API)
+ * with the same rules applied to scraped articles.
+ */
+export function sanitizeHtmlFragment(html: string): string {
+  if (!html) return '';
+  const { document } = parseHtmlIsomorphic('<!DOCTYPE html><html><body>' + html + '</body></html>');
+  sanitizeArticleDom(document);
+  return document.body ? document.body.innerHTML : '';
+}
+
+export function escapeHtmlText(value: string): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export function resolveRelativeUrls(document: any, baseUrl: string): void {
@@ -522,8 +546,44 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
   return extractArticleFromDom(document, originalUrl, formattedHtml);
 }
 
+const FETCH_TIMEOUT_MS = 15000;
+const MAX_ARTICLE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+async function readTextWithLimit(response: Response, maxBytes: number): Promise<string> {
+  const declared = Number(response.headers.get('content-length') || 0);
+  if (declared > maxBytes) {
+    throw new Error(`Response too large (${declared} bytes, limit ${maxBytes})`);
+  }
+  if (!response.body) {
+    return await response.text();
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error(`Response too large (limit ${maxBytes} bytes)`);
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder('utf-8').decode(merged);
+}
+
 export async function extractArticleFromUrl(url: string, cookies?: string): Promise<ExtractedArticle> {
   const parsedUrl = new URL(url);
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    throw new Error(`Unsupported URL protocol: ${parsedUrl.protocol}`);
+  }
 
   const headers: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Wallaflare/1.0',
@@ -538,13 +598,19 @@ export async function extractArticleFromUrl(url: string, cookies?: string): Prom
   const response = await fetch(parsedUrl.toString(), {
     headers,
     redirect: 'follow',
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
     throw new Error(`Failed to fetch article from ${url}: HTTP ${response.status}`);
   }
 
-  const html = await response.text();
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (contentType && !/(text\/|application\/(xhtml\+xml|xml|json))/.test(contentType)) {
+    throw new Error(`Unsupported content type from ${url}: ${contentType}`);
+  }
+
+  const html = await readTextWithLimit(response, MAX_ARTICLE_BYTES);
   return extractArticleFromHtml(html, url);
 }
 
