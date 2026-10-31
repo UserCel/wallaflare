@@ -1,5 +1,8 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
 import { showToast, hideToast } from './components/toast';
+import { openModal, closeModal } from './modals/manager';
+import { showConfirmDialog, handleConfirmModalOk, handleConfirmModalCancel } from './modals/confirm';
+import { escapeHtml } from './utils/dom';
 import {
   getEffectiveGlobalTags,
   loadGlobalTags,
@@ -675,26 +678,6 @@ import {
       }
     }
 
-    // Modal management
-    function openModal(id) {
-      clearActiveTextSelection();
-      const modalEl = document.getElementById(id);
-      if (modalEl) {
-        modalEl.classList.add('open');
-        if (id === 'addUrlModal') {
-          setTimeout(() => document.getElementById('urlInput')?.focus(), 60);
-        } else if (id === 'addTextModal') {
-          renderAddTextTagChips();
-          setTimeout(() => document.getElementById('textTitle')?.focus(), 60);
-        } else if (id === 'syncModal') {
-          const syncUrlEl = document.getElementById('syncServerUrl');
-          if (syncUrlEl) {
-            syncUrlEl.textContent = getEffectiveServerUrl() || window.location.origin;
-          }
-        }
-      }
-    }
-
     async function handleManualRefresh(btn) {
       const svg = btn?.querySelector('svg') || btn;
       if (svg) svg.classList.add('is-refreshing-spin');
@@ -703,79 +686,6 @@ import {
       } finally {
         if (svg) svg.classList.remove('is-refreshing-spin');
       }
-    }
-
-    function closeModal(id) {
-      const modalEl = document.getElementById(id);
-      if (modalEl) {
-        modalEl.classList.remove('open');
-        modalEl.style.display = '';
-      }
-      try {
-        if (document.activeElement && typeof (document.activeElement as HTMLElement).blur === 'function') {
-          (document.activeElement as HTMLElement).blur();
-        }
-      } catch (e) {}
-    }
-
-    // Confirmation dialog
-    let confirmResolve = null;
-    function showConfirmDialog(title, message, confirmBtnText = 'Confirm', isDanger = false) {
-      return new Promise((resolve) => {
-        confirmResolve = resolve;
-        document.getElementById('confirmModalTitle').textContent = title;
-        document.getElementById('confirmModalMsg').textContent = message;
-        const btn = document.getElementById('confirmModalBtn');
-        btn.textContent = confirmBtnText;
-        btn.className = isDanger ? 'btn btn-primary' : 'btn btn-primary';
-        openModal('confirmModal');
-      });
-    }
-
-    
-
-    function handleConfirmModalOk() {
-      const modalEl = document.getElementById('confirmModal');
-      if (modalEl) {
-        modalEl.style.pointerEvents = '';
-        modalEl.removeAttribute('aria-hidden');
-      }
-      try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
-      closeModal('confirmModal');
-
-      if (confirmResolve) {
-        const resolve = confirmResolve;
-        confirmResolve = null;
-        resolve(true);
-      }
-    }
-
-    function handleConfirmModalCancel() {
-      const modalEl = document.getElementById('confirmModal');
-      if (modalEl) {
-        modalEl.style.pointerEvents = 'none';
-        modalEl.setAttribute('aria-hidden', 'true');
-      }
-      try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
-
-      closeModal('confirmModal');
-      if (modalEl) modalEl.style.pointerEvents = '';
-
-      if (confirmResolve) {
-        const resolve = confirmResolve;
-        confirmResolve = null;
-        resolve(false);
-      }
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
     }
 
     let addTextCustomTags: string[] = [];

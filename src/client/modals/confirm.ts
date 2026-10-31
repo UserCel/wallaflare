@@ -1,18 +1,26 @@
 import { openModal, closeModal } from "./manager";
 import { state } from "../state";
 
-export function showConfirmDialog(title: string, message: string, confirmBtnText: string = "Confirm", isDanger: boolean = false): Promise<boolean> {
+let localConfirmResolve: ((val: boolean) => void) | null = null;
+
+export function showConfirmDialog(
+  title: string,
+  message: string,
+  confirmBtnText: string = "Confirm",
+  isDanger: boolean = false
+): Promise<boolean> {
   return new Promise((resolve) => {
+    localConfirmResolve = resolve;
     state.confirmResolve = resolve;
     const titleEl = document.getElementById("confirmModalTitle");
     const msgEl = document.getElementById("confirmModalMsg");
-    const btn = document.getElementById("confirmModalBtn");
+    const btn = document.getElementById("confirmModalBtn") as HTMLElement | null;
 
     if (titleEl) titleEl.textContent = title;
     if (msgEl) msgEl.textContent = message;
     if (btn) {
       btn.textContent = confirmBtnText;
-      btn.className = isDanger ? "btn btn-danger" : "btn btn-primary";
+      btn.className = isDanger ? "btn btn-primary" : "btn btn-primary";
     }
     openModal("confirmModal");
   });
@@ -24,12 +32,17 @@ export function handleConfirmModalOk(): void {
     modalEl.style.pointerEvents = "";
     modalEl.removeAttribute("aria-hidden");
   }
-  try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
+  try {
+    if (typeof document !== "undefined" && document.activeElement && typeof (document.activeElement as HTMLElement).blur === "function") {
+      (document.activeElement as HTMLElement).blur();
+    }
+  } catch (e) {}
   closeModal("confirmModal");
 
-  if (state.confirmResolve) {
-    const resolve = state.confirmResolve;
-    state.confirmResolve = null;
+  const resolve = localConfirmResolve || state.confirmResolve;
+  localConfirmResolve = null;
+  state.confirmResolve = null;
+  if (resolve) {
     resolve(true);
   }
 }
@@ -40,14 +53,19 @@ export function handleConfirmModalCancel(): void {
     modalEl.style.pointerEvents = "none";
     modalEl.setAttribute("aria-hidden", "true");
   }
-  try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {}
+  try {
+    if (typeof document !== "undefined" && document.activeElement && typeof (document.activeElement as HTMLElement).blur === "function") {
+      (document.activeElement as HTMLElement).blur();
+    }
+  } catch (e) {}
 
   closeModal("confirmModal");
   if (modalEl) modalEl.style.pointerEvents = "";
 
-  if (state.confirmResolve) {
-    const resolve = state.confirmResolve;
-    state.confirmResolve = null;
+  const resolve = localConfirmResolve || state.confirmResolve;
+  localConfirmResolve = null;
+  state.confirmResolve = null;
+  if (resolve) {
     resolve(false);
   }
 }

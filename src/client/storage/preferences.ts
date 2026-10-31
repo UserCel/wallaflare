@@ -16,58 +16,125 @@ export const PREF_KEYS = {
   OUTBOX: "wf_pending_mutations"
 };
 
+function hasStorage(): boolean {
+  return typeof localStorage !== "undefined";
+}
+
 export function getStoredTheme(): ThemeType {
-  return (localStorage.getItem(PREF_KEYS.THEME) as ThemeType) || "dark";
+  try {
+    if (hasStorage()) {
+      return (localStorage.getItem(PREF_KEYS.THEME) as ThemeType) || "dark";
+    }
+  } catch (e) {}
+  return "dark";
 }
 
 export function setStoredTheme(theme: ThemeType): void {
-  localStorage.setItem(PREF_KEYS.THEME, theme);
+  try {
+    if (hasStorage()) {
+      localStorage.setItem(PREF_KEYS.THEME, theme);
+    }
+  } catch (e) {}
 }
 
 export function getStoredReaderFont(): ReaderFontType {
-  return (localStorage.getItem(PREF_KEYS.FONT) as ReaderFontType) || "serif";
+  try {
+    if (hasStorage()) {
+      return (localStorage.getItem(PREF_KEYS.FONT) as ReaderFontType) || "serif";
+    }
+  } catch (e) {}
+  return "serif";
 }
 
 export function setStoredReaderFont(font: ReaderFontType): void {
-  localStorage.setItem(PREF_KEYS.FONT, font);
+  try {
+    if (hasStorage()) {
+      localStorage.setItem(PREF_KEYS.FONT, font);
+    }
+  } catch (e) {}
 }
 
 export function getStoredReaderFontSize(): number {
-  return parseInt(localStorage.getItem(PREF_KEYS.FONT_SIZE) || "18", 10);
+  try {
+    if (hasStorage()) {
+      return parseInt(localStorage.getItem(PREF_KEYS.FONT_SIZE) || "18", 10);
+    }
+  } catch (e) {}
+  return 18;
 }
 
 export function setStoredReaderFontSize(size: number): void {
-  localStorage.setItem(PREF_KEYS.FONT_SIZE, String(size));
+  try {
+    if (hasStorage()) {
+      localStorage.setItem(PREF_KEYS.FONT_SIZE, String(size));
+    }
+  } catch (e) {}
 }
 
 export function getStoredReaderLineHeight(): string {
-  return localStorage.getItem(PREF_KEYS.LINE_HEIGHT) || "1.68";
+  try {
+    if (hasStorage()) {
+      return localStorage.getItem(PREF_KEYS.LINE_HEIGHT) || "1.68";
+    }
+  } catch (e) {}
+  return "1.68";
 }
 
 export function setStoredReaderLineHeight(lh: string): void {
-  localStorage.setItem(PREF_KEYS.LINE_HEIGHT, lh);
+  try {
+    if (hasStorage()) {
+      localStorage.setItem(PREF_KEYS.LINE_HEIGHT, lh);
+    }
+  } catch (e) {}
 }
 
 export function getStoredReaderContentWidth(): string {
-  return localStorage.getItem(PREF_KEYS.CONTENT_WIDTH) || "740px";
+  try {
+    if (hasStorage()) {
+      return localStorage.getItem(PREF_KEYS.CONTENT_WIDTH) || "740px";
+    }
+  } catch (e) {}
+  return "740px";
 }
 
 export function setStoredReaderContentWidth(width: string): void {
-  localStorage.setItem(PREF_KEYS.CONTENT_WIDTH, width);
+  try {
+    if (hasStorage()) {
+      localStorage.setItem(PREF_KEYS.CONTENT_WIDTH, width);
+    }
+  } catch (e) {}
 }
 
 export function getStoredViewMode(): "list" | "grid" | "compact" {
-  return (localStorage.getItem(PREF_KEYS.VIEW_MODE) as any) || "list";
+  try {
+    if (hasStorage()) {
+      return (localStorage.getItem(PREF_KEYS.VIEW_MODE) as any) || "list";
+    }
+  } catch (e) {}
+  return "list";
 }
 
 export function setStoredViewMode(mode: string): void {
-  localStorage.setItem(PREF_KEYS.VIEW_MODE, mode);
+  try {
+    if (hasStorage()) {
+      localStorage.setItem(PREF_KEYS.VIEW_MODE, mode);
+    }
+  } catch (e) {}
 }
 
 export function getStoredSortOrder(): string {
-  return localStorage.getItem(PREF_KEYS.SORT_ORDER) || "newest";
+  try {
+    if (hasStorage()) {
+      return localStorage.getItem(PREF_KEYS.SORT_ORDER) || "newest";
+    }
+  } catch (e) {}
+  return "newest";
 }
 
 export function setStoredSortOrder(sort: string): void {
-  localStorage.setItem(PREF_KEYS.SORT_ORDER, sort);
+  try {
+    if (hasStorage()) {
+      localStorage.setItem(PREF_KEYS.SORT_ORDER, sort);
+    }
+  } catch (e) {}
 }
