@@ -465,6 +465,33 @@ describe('Wallaflare Wallabag v2 API Endpoints', () => {
     expect(data.expires_in).toBeGreaterThan(0);
   });
 
+  it('labels tokens issued via /oauth/v2/token intelligently for KOReader Wallabag plugin and clients', async () => {
+    const koreaderUa = 'KOReader/2026.07.1 (Kobo_goldfinch; Linux; arm; https://github.com/koreader/koreader)';
+    const res = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': koreaderUa,
+      },
+      body: JSON.stringify({
+        grant_type: 'password',
+        client_id: 'test',
+        client_secret: 'test',
+        username: 'user',
+        password: 'password',
+      }),
+    }, { DB: mockDb });
+
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.access_token).toMatch(/^wfl_tok_/);
+
+    // Verify label in database
+    const tokensRes = await mockDb.prepare('SELECT * FROM api_tokens').all<any>();
+    const tokenRecord = tokensRes.results.find((t: any) => data.access_token.startsWith(t.token_prefix.replace('...', '')));
+    expect(tokenRecord?.label).toBe('KOReader Wallabag (Kobo_goldfinch)');
+  });
+
   it('serves Wallabag version and info endpoints', async () => {
     const verRes = await app.request('/api/version', {}, { DB: mockDb });
     expect(verRes.status).toBe(200);
@@ -1427,6 +1454,59 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toContain("/login");
+  });
+
+  it("serves developer page to Wallabag mobile/client apps on GET /developer and /developer/client/create for auto-configuration", async () => {
+    // 1. App client with OkHttp User-Agent accessing /developer
+    const okhttpRes = await app.request("/developer", {
+      headers: { "User-Agent": "okhttp/4.9.2" }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(okhttpRes.status).toBe(200);
+    const okhttpHtml = await okhttpRes.text();
+    expect(okhttpHtml).toContain("API clients management");
+    expect(okhttpHtml).toContain("Android app");
+    expect(okhttpHtml).toContain("wallaflare");
+
+    // 2. Client registration scraper accessing /developer/client/create
+    const createRes = await app.request("/developer/client/create", {}, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(createRes.status).toBe(200);
+    const createHtml = await createRes.text();
+    expect(createHtml).toContain("API clients management");
+    expect(createHtml).toContain("wallaflare");
+
+    // 3. Submitting POST /developer/client/create redirects to /developer
+    const postCreateRes = await app.request("/developer/client/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "client%5Bname%5D=Android+app&client%5Bredirect_uris%5D%5B0%5D=http%3A%2F%2Flocalhost&client%5B_token%5D=wallaflare_client_token_999"
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(postCreateRes.status).toBe(302);
+    expect(postCreateRes.headers.get("Location")).toContain("/developer");
+
+    // 4. Verify developer page has the client credentials and exactly one ul.collapsible
+    const devCreatedRes = await app.request("/developer", {
+      headers: { "User-Agent": "okhttp/4.9.2" }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(devCreatedRes.status).toBe(200);
+    const devCreatedHtml = await devCreatedRes.text();
+    expect(devCreatedHtml).toContain("Android app - #38185");
+    expect(devCreatedHtml).toContain("wallaflare");
+    expect(devCreatedHtml).toContain('<a href="/developer/client/delete/38185">Delete</a>');
+    expect(devCreatedHtml).not.toContain("Personal Access Tokens");
+    const collapsibleCount = (devCreatedHtml.match(/<ul[^>]*class=["'][^"']*collapsible[^"']*["']/g) || []).length;
+    expect(collapsibleCount).toBe(1);
   });
 
   it("rejects invalid password on POST /login_check", async () => {

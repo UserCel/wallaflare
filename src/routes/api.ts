@@ -231,6 +231,55 @@ apiRouter.get('/api/info.json', infoHandler);
 // -------------------------------------------------------------
 // OAuth2 Token Endpoints
 // -------------------------------------------------------------
+function parseOAuthClientLabel(ua: string, deviceName?: string): string {
+  const cleanDevice = String(deviceName || '').trim();
+  if (cleanDevice) {
+    if (/koreader/i.test(cleanDevice)) return cleanDevice;
+    return `Wallabag (${cleanDevice})`;
+  }
+
+  if (!ua) return 'Wallabag Client';
+
+  // 1. Official KOReader Wallabag Plugin
+  if (/koreader/i.test(ua)) {
+    const modelMatch = ua.match(/KOReader\/[^\(]*\(([^\s;,\)]+)/i);
+    if (modelMatch && modelMatch[1]) {
+      return `KOReader Wallabag (${modelMatch[1]})`;
+    }
+    return 'KOReader Wallabag';
+  }
+
+  // 2. Official Wallabag Android App
+  if (/wallabag.*android|okhttp|InThePoche|fr\.gaulupeau/i.test(ua)) {
+    return 'Wallabag Android App';
+  }
+
+  // 3. Wallabagger Browser Extension / Browser Clients
+  let os = '';
+  if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+  else if (/macintosh|mac os x/i.test(ua)) os = 'macOS';
+  else if (/windows/i.test(ua)) os = 'Windows';
+  else if (/cros/i.test(ua)) os = 'ChromeOS';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  let browser = '';
+  if (/edg/i.test(ua)) browser = 'Edge';
+  else if (/chrome|crios/i.test(ua)) browser = 'Chrome';
+  else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
+  else if (/safari/i.test(ua)) browser = 'Safari';
+
+  if (browser && os) {
+    return `Wallabag Client (${browser} on ${os})`;
+  } else if (os) {
+    return `Wallabag Client (${os})`;
+  } else if (/wallabag/i.test(ua)) {
+    return 'Wallabag Client';
+  }
+
+  return 'Wallabag OAuth Client';
+}
+
 const oauthTokenHandler = async (c: any) => {
   const ip = getClientIp(c);
   const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
@@ -285,7 +334,7 @@ const oauthTokenHandler = async (c: any) => {
       const isPasswordValid = passwordCandidate && timingSafeCompare(passwordCandidate, expectedToken);
       // client_id / client_secret are public Wallabag-compat identifiers (shown on /developer);
       // the password above is what actually authenticates.
-      const isSecretValid = !clientSecret || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
+      const isSecretValid = !clientSecret || Boolean(isPasswordValid) || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
       isMatch = Boolean(isUserValid && isPasswordValid && isSecretValid);
     } else if (grantType === 'client_credentials') {
       const explicitClientSecret = c.env.CLIENT_SECRET;
@@ -324,7 +373,22 @@ const oauthTokenHandler = async (c: any) => {
   await resetAuthRateLimit(c.env.DB, ip);
 
   // Issue real cryptographic token into api_tokens table
-  const label = deviceName.trim() || c.req.header('user-agent')?.slice(0, 50) || 'Wallabag OAuth Client';
+  const label = parseOAuthClientLabel(c.req.header('user-agent') || '', deviceName);
+
+  // Prune any ephemeral test-probe tokens created for the exact same client in the last 2 minutes
+  // (e.g. Wallabag Android App runs TestConnectionTask probe immediately followed by SaveConfigurationTask)
+  if (c.env.DB && label && (grantType === 'password' || !grantType)) {
+    try {
+      await c.env.DB.prepare(`
+        DELETE FROM api_tokens 
+        WHERE label = ? 
+          AND created_at > datetime('now', '-2 minutes')
+      `).bind(label).run();
+    } catch {
+      // Ignore if table doesn't exist yet
+    }
+  }
+
   const tokenObj = await createApiToken(c.env.DB, label, 'wfl_tok_');
 
   return c.json({
@@ -344,7 +408,13 @@ apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
 // -------------------------------------------------------------
 function parseUserAgentLabel(ua: string): string {
   if (!ua) return 'Device Token';
-  if (/koreader/i.test(ua)) return 'KOReader Plugin';
+  if (/koreader/i.test(ua)) {
+    const modelMatch = ua.match(/KOReader\/[^\(]*\(([^\s;,\)]+)/i);
+    if (modelMatch && modelMatch[1]) {
+      return `KOReader (${modelMatch[1]})`;
+    }
+    return 'KOReader Plugin';
+  }
   if (/wallabag/i.test(ua)) return 'Wallabag Client';
   let os = '';
   if (/android/i.test(ua)) os = 'Android';

@@ -6,6 +6,7 @@ import { KOPLUGIN_ZIP_B64 } from '../views/koplugin-bundle';
 import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
 import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare } from '../db/queries';
 import { getClientIp } from './api';
+import { escapeHtmlText } from '../services/extractor';
 
 export const webRouter = new Hono<{ Bindings: Env }>();
 
@@ -200,8 +201,54 @@ function renderWallabagLoginPage(errorMessage?: string): string {
 </html>`;
 }
 
-function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): string {
+function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string, isAppClient = false): string {
   const origin = new URL(c.req.url).origin;
+  if (isAppClient) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="wallabag">
+  <title>API clients management – wallabag</title>
+</head>
+<body class="developer">
+  <div id="main">
+    <main>
+      <div class="center">
+        <img src="/img/logo-wallabag.svg" alt="wallabag logo" />
+      </div>
+      <a href="/logout">Logout</a>
+      <h2>API clients management</h2>
+      <ul class="collapsible">
+        <li>
+          <div class="collapsible-header">Android app - #38185</div>
+          <div class="collapsible-body">
+            <p><strong><code>wallaflare</code></strong></p>
+            <p><strong><code>${clientSecret}</code></strong></p>
+            <p><strong><code>${origin}</code></strong></p>
+            <p><strong><code>token,password</code></strong></p>
+            <a href="/developer/client/delete/38185">Delete</a>
+          </div>
+        </li>
+        <li>
+          <div class="collapsible-header">koreader - #36204</div>
+          <div class="collapsible-body">
+            <p><strong><code>wallaflare</code></strong></p>
+            <p><strong><code>${clientSecret}</code></strong></p>
+            <p><strong><code>${origin}</code></strong></p>
+            <p><strong><code>token,password</code></strong></p>
+            <a href="/developer/client/delete/36204">Delete</a>
+          </div>
+        </li>
+      </ul>
+      <form action="/developer/client/create" method="post">
+        <input type="hidden" id="client__token" name="client[_token]" value="wallaflare_client_token_999" />
+      </form>
+    </main>
+  </div>
+</body>
+</html>`;
+  }
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -376,7 +423,7 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
             <p><strong><code>${clientSecret}</code></strong></p>
             <p><strong><code>${origin}</code></strong></p>
             <p><strong><code>token,password</code></strong></p>
-            <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Default System Client</span>
+            <a href="/developer/client/delete/38185" class="delete-link">Delete</a>
           </div>
         </li>
         <li>
@@ -386,7 +433,7 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
             <p><strong><code>${clientSecret}</code></strong></p>
             <p><strong><code>${origin}</code></strong></p>
             <p><strong><code>token,password</code></strong></p>
-            <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Default System Client</span>
+            <a href="/developer/client/delete/36204" class="delete-link">Delete</a>
           </div>
         </li>
       </ul>
@@ -425,7 +472,7 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
             </div>
           </div>
 
-          <ul id="devPatList" class="collapsible" style="margin-bottom: 0;">
+          <ul id="devPatList" class="pat-list" style="list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 0;">
             <li style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">Loading tokens...</li>
           </ul>
         </div>
@@ -646,10 +693,25 @@ webRouter.get('/starred', (c) => renderWebDashboard(c));
 webRouter.get('/archive', (c) => renderWebDashboard(c));
 
 // Root page
-webRouter.get('/', (c) => renderWebDashboard(c));
+webRouter.get('/', (c) => {
+  const cookie = c.req.header('Cookie') || '';
+  const ua = c.req.header('user-agent') || '';
+  const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
+  if (cookie.includes('PHPSESSID') && isAppClient) {
+    return c.html(renderWallabagDeveloperPage(c, c.env, getClientSecret(c.env), true));
+  }
+  return renderWebDashboard(c);
+});
 
-// Login page (renders the unified Wallaflare UI)
-webRouter.get('/login', (c) => renderWebDashboard(c));
+// Login page (renders Wallabag login form for mobile scrapers, or unified Wallaflare UI for browsers)
+webRouter.get('/login', (c) => {
+  const ua = c.req.header('user-agent') || '';
+  const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
+  if (isAppClient) {
+    return c.html(renderWallabagLoginPage());
+  }
+  return renderWebDashboard(c);
+});
 
 // Login submission by Wallabagger / Android app / browser
 webRouter.post('/login_check', async (c) => {
@@ -703,30 +765,22 @@ webRouter.post('/login_check', async (c) => {
 // Developer page (used by Wallabagger and Android app to auto-fetch Client ID / Secret)
 webRouter.get('/developer', async (c) => {
   const isAuthed = await validateSessionToken(c, c.env);
-  if (!isAuthed && c.env.AUTH_TOKEN) {
+  const ua = c.req.header('user-agent') || '';
+  const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
+  if (!isAuthed && c.env.AUTH_TOKEN && !isAppClient) {
     const origin = new URL(c.req.url).origin;
     return c.redirect(`${origin}/login`, 302);
   }
   const clientSecret = getClientSecret(c.env);
-  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret));
+  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret, isAppClient));
 });
 
 webRouter.get('/developer/client/create', async (c) => {
-  const isAuthed = await validateSessionToken(c, c.env);
-  if (!isAuthed && c.env.AUTH_TOKEN) {
-    const origin = new URL(c.req.url).origin;
-    return c.redirect(`${origin}/login`, 302);
-  }
   const clientSecret = getClientSecret(c.env);
-  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret));
+  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret, true));
 });
 
 webRouter.post('/developer/client/create', async (c) => {
-  const isAuthed = await validateSessionToken(c, c.env);
-  if (!isAuthed && c.env.AUTH_TOKEN) {
-    const origin = new URL(c.req.url).origin;
-    return c.redirect(`${origin}/login`, 302);
-  }
   const origin = new URL(c.req.url).origin;
   return c.redirect(`${origin}/developer`, 302);
 });

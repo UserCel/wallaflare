@@ -185,6 +185,11 @@ Wallaflare uses an automated GitHub Actions release workflow (`.github/workflows
 9. **Rule 9: Zero-Trust Token Architecture & Endpoint Isolation**:
    - The master password (`AUTH_TOKEN`) must **only** be accepted at initial authentication and token issuance endpoints (`POST /api/auth/token`, `POST /oauth/v2/token`, `/login_check`, `/developer` unlock, and admin wipe).
    - All standard data endpoints (`/api/entries`, `/api/sync`, `/api/tokens`, `/api/annotations`, etc.) strictly require valid issued tokens from the `api_tokens` table (or session cookies that map to active tokens). Never accept master passwords directly on protected data routes.
+10. **Rule 10: Wallabag Client Scraper Handshake & Developer Page Regex**:
+   - Automated client scrapers (such as the official Wallabag Android app `fr.gaulupeau.apps.InThePoche` and Wallabagger) do not use JSON for client creation; they parse and regex-match `/developer` HTML directly.
+   - For app User-Agents (`okhttp`, `InThePoche`, `wallabag`), always serve the minimal, pure Wallabag developer template without extra DOM wrappers, scripts, or duplicate `class="collapsible"` lists that break scraper regexes.
+   - Ensure the collapsible client items retain the exact paragraph order (`client_id`, `client_secret`, `redirect_uri`, `grant_types`) and the trailing `<a href="/developer/client/delete/:id">Delete</a>` anchor required by `WallabagWebService.java`.
+   - On `POST /oauth/v2/token` password grant, automatically prune short-lived ephemeral probe tokens from the same client label created during the connection test phase (< 2 minutes) to prevent duplicate orphaned tokens.
 
 ---
 
