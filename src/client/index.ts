@@ -2,6 +2,8 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 import { showToast, hideToast } from './components/toast';
 import { openModal, closeModal } from './modals/manager';
 import { showConfirmDialog, handleConfirmModalOk, handleConfirmModalCancel } from './modals/confirm';
+import { openEditTitleModal, handleSaveTitle, batchEditTitle } from './modals/edit-title';
+import { showCreatedTokenModal, copyTokenDisplayValue, closeTokenDisplayModal } from './modals/token-display';
 import {
   handleAddArticleBtnClick,
   handleAddTextBtnClick,
@@ -4895,14 +4897,6 @@ import {
       }
     }
 
-    function batchEditTitle() {
-      const ids = Array.from(selectedArticleIds);
-      if (ids.length === 1) {
-        closeAllCardMenus();
-        openEditTitleModal(ids[0]);
-      }
-    }
-
     async function handleExportBatchAnthologyEpub() {
       const ids = Array.from(selectedArticleIds);
       if (ids.length === 0) return;
@@ -5542,34 +5536,6 @@ import {
 
 
         
-    function openEditTitleModal(id) {
-      const item = allEntries.find(e => e.id === id);
-      if (!item) return;
-      document.getElementById('editTitleEntryId').value = String(id);
-      document.getElementById('editTitleInput').value = item.title;
-      openModal('editTitleModal');
-    }
-
-    async function handleSaveTitle(e) {
-      e.preventDefault();
-      const id = parseInt(document.getElementById('editTitleEntryId').value, 10);
-      const newTitle = document.getElementById('editTitleInput').value.trim();
-      if (!id || !newTitle) return;
-
-      const item = allEntries.find(e => e.id === id);
-      if (item) {
-        item.title = newTitle;
-        if (activeArticleId === id) document.getElementById('readerTitle').textContent = newTitle;
-        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-      }
-      closeModal('editTitleModal');
-      filterArticles();
-      showToast('✓ Title updated');
-      enqueueMutation('edit_title', { id: id, title: newTitle });
-    }
-
-
-
     async function handleConfirmWipeDatabase(e) {
       e.preventDefault();
       const passInput = document.getElementById('wipeDbPasswordInput');
@@ -6148,40 +6114,6 @@ import {
       } finally {
         if (btn) btn.disabled = false;
       }
-    }
-
-    function showCreatedTokenModal(token: string, label: string) {
-      const modalEl = document.getElementById('tokenDisplayModal');
-      const valEl = document.getElementById('tokenDisplayValue') as HTMLInputElement | null;
-      const lblEl = document.getElementById('tokenDisplayLabel');
-      if (valEl) valEl.value = token;
-      if (lblEl) lblEl.textContent = 'Token: ' + (label || 'Personal Access Token');
-      if (modalEl) {
-        modalEl.style.display = 'flex';
-        modalEl.classList.add('open');
-      }
-      setTimeout(() => {
-        valEl?.focus();
-        valEl?.select();
-      }, 50);
-    }
-
-    function copyTokenDisplayValue(btn: HTMLElement) {
-      const valEl = document.getElementById('tokenDisplayValue') as HTMLInputElement | null;
-      if (!valEl || !valEl.value) return;
-      navigator.clipboard.writeText(valEl.value).then(() => {
-        const old = btn.textContent;
-        btn.textContent = 'Copied!';
-        btn.classList.add('btn-success');
-        setTimeout(() => {
-          btn.textContent = old;
-          btn.classList.remove('btn-success');
-        }, 2000);
-      }).catch(() => {
-        valEl.select();
-        document.execCommand('copy');
-        showToast('Token copied to clipboard');
-      });
     }
 
     async function handleRevokePersonalToken(id: number, label: string) {
