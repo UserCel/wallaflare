@@ -1,74 +1,80 @@
-import { Article } from "../types";
-
-const DB_NAME = "wallaflare_db";
+const DB_NAME = "wallaflare_offline_db";
 const DB_VERSION = 1;
 const STORE_ENTRIES = "entries";
 
-export function openIndexedDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (typeof indexedDB === "undefined") {
-      return reject(new Error("IndexedDB not supported"));
+export function openIndexedDB(): Promise<IDBDatabase | null> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.indexedDB) return resolve(null);
+    try {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_ENTRIES)) {
+          db.createObjectStore(STORE_ENTRIES, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
     }
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e: any) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_ENTRIES)) {
-        db.createObjectStore(STORE_ENTRIES, { keyPath: "id" });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
   });
 }
 
-export function deduplicateEntries(entries: Article[]): Article[] {
-  const seen = new Set<number>();
-  const out: Article[] = [];
-  for (const e of entries) {
-    if (!seen.has(e.id)) {
-      seen.add(e.id);
-      out.push(e);
+export function deduplicateEntries(entries: any[]): any[] {
+  if (!Array.isArray(entries)) return [];
+  const seen = new Set();
+  const result: any[] = [];
+  for (const item of entries) {
+    if (item && item.id && !seen.has(item.id)) {
+      seen.add(item.id);
+      result.push(item);
     }
   }
-  return out;
+  return result;
 }
 
 export async function clearIndexedDB(): Promise<void> {
   try {
     const db = await openIndexedDB();
+    if (!db) return;
     const tx = db.transaction(STORE_ENTRIES, "readwrite");
     tx.objectStore(STORE_ENTRIES).clear();
-  } catch (e) {
-    console.warn("Failed to clear IndexedDB:", e);
-  }
+  } catch {}
 }
 
-export async function saveEntriesToIndexedDB(entries: Article[]): Promise<void> {
+export async function saveEntriesToIndexedDB(entries: any[]): Promise<void> {
   try {
     const db = await openIndexedDB();
+    if (!db) return;
     const tx = db.transaction(STORE_ENTRIES, "readwrite");
     const store = tx.objectStore(STORE_ENTRIES);
-    for (const e of entries) {
-      store.put(e);
+    await store.clear();
+    if (Array.isArray(entries)) {
+      for (const item of entries) {
+        if (item && item.id) {
+          store.put(item);
+        }
+      }
     }
-  } catch (e) {
-    console.warn("Failed to save entries to IndexedDB:", e);
+  } catch (err) {
+    console.warn("Failed saving to IndexedDB:", err);
   }
 }
 
-export async function deleteEntryFromIndexedDB(id: number): Promise<void> {
+export async function deleteEntryFromIndexedDB(id: number | string): Promise<void> {
   try {
     const db = await openIndexedDB();
+    if (!db) return;
     const tx = db.transaction(STORE_ENTRIES, "readwrite");
     tx.objectStore(STORE_ENTRIES).delete(id);
-  } catch (e) {
-    console.warn("Failed to delete entry from IndexedDB:", e);
-  }
+  } catch {}
 }
 
-export async function loadEntriesFromIndexedDB(): Promise<Article[]> {
+export async function loadEntriesFromIndexedDB(): Promise<any[]> {
   try {
     const db = await openIndexedDB();
+    if (!db) return [];
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_ENTRIES, "readonly");
       const store = tx.objectStore(STORE_ENTRIES);
@@ -76,7 +82,18 @@ export async function loadEntriesFromIndexedDB(): Promise<Article[]> {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => resolve([]);
     });
-  } catch (e) {
+  } catch {
     return [];
   }
+}
+
+// Attach to window for global access & HTML inline event handlers
+if (typeof window !== "undefined") {
+  const w = window as any;
+  w.openIndexedDB = openIndexedDB;
+  w.deduplicateEntries = deduplicateEntries;
+  w.clearIndexedDB = clearIndexedDB;
+  w.saveEntriesToIndexedDB = saveEntriesToIndexedDB;
+  w.deleteEntryFromIndexedDB = deleteEntryFromIndexedDB;
+  w.loadEntriesFromIndexedDB = loadEntriesFromIndexedDB;
 }

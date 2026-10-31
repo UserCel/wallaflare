@@ -1,5 +1,27 @@
 
 
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/gh/antijingoist/opendyslexic@main/compiled/OpenDyslexic-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/gh/antijingoist/opendyslexic@main/compiled/OpenDyslexic-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/gh/antijingoist/opendyslexic@main/compiled/OpenDyslexic-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
     :root {
       --bg-primary: #0f172a;
       --bg-secondary: #1e293b;
@@ -19,7 +41,7 @@
       --font-reader-serif: 'Newsreader', 'David', 'Frank Ruhl Libre', Georgia, 'Times New Roman', serif;
       --font-reader-sans: 'Inter', 'Heebo', 'Rubik', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-reader-mono: 'JetBrains Mono', monospace;
-      --font-reader-dyslexic: 'OpenDyslexic', sans-serif;
+      --font-reader-dyslexic: 'OpenDyslexic', 'Lexend', sans-serif;
 
       --reader-font-family: var(--font-reader-serif);
       --reader-font-size: 18px;

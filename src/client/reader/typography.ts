@@ -1,24 +1,39 @@
-import { state } from "../state";
-import { ThemeType, ReaderFontType } from "../types";
-import {
-  setStoredTheme,
-  setStoredReaderFont,
-  setStoredReaderFontSize,
-  setStoredReaderLineHeight,
-  setStoredReaderContentWidth
-} from "../storage/preferences";
+import { isCapacitorApp } from "../sync/api";
 
-export function setReaderFontFamily(font: ReaderFontType, persist: boolean = true): void {
-  state.readerFont = font;
+export let readerFont: string = "serif";
+export let readerFontSize: number = 18;
+export let readerLineHeight: string = "1.75";
+export let readerContentWidth: string = "740px";
+export let readerTextAlignment: string = "left";
+export let activeTheme: string = "dark";
+
+export function initTypographyControls(): void {
+  readerFont = localStorage.getItem("wf_reader_font") || "serif";
+  readerFontSize = parseInt(localStorage.getItem("wf_reader_font_size") || "18", 10);
+  readerLineHeight = localStorage.getItem("wf_reader_line_height") || "1.75";
+  readerContentWidth = localStorage.getItem("wf_reader_content_width") || "740px";
+  readerTextAlignment = localStorage.getItem("wf_reader_alignment") || "left";
+  activeTheme = localStorage.getItem("wf_theme") || "dark";
+
+  setReaderFontFamily(readerFont, false);
+  setReaderFontSize(readerFontSize, false);
+  setReaderLineHeight(readerLineHeight, false);
+  setReaderContentWidth(readerContentWidth, false);
+  setReaderTextAlignment(readerTextAlignment, false);
+  setTheme(activeTheme, false);
+}
+
+export function setReaderFontFamily(font: string, persist: boolean = true): void {
+  readerFont = font;
   let family = "var(--font-reader-serif)";
   if (font === "sans") family = "var(--font-reader-sans)";
   else if (font === "mono") family = "var(--font-reader-mono)";
   else if (font === "dyslexic") family = "var(--font-reader-dyslexic)";
 
   document.documentElement.style.setProperty("--reader-font-family", family);
-  if (persist) setStoredReaderFont(font);
+  if (persist) localStorage.setItem("wf_reader_font", font);
 
-  document.querySelectorAll("#popoverFontFamilyBtns .opt-font-btn, #settingsFontBtns .opt-font-btn").forEach((btn) => {
+  document.querySelectorAll("#popoverFontFamilyBtns .opt-font-btn, #settingsFontBtns .opt-font-btn").forEach(btn => {
     if (btn.getAttribute("data-font") === font) {
       btn.classList.add("active", "btn-primary");
       btn.classList.remove("btn-outline");
@@ -29,29 +44,30 @@ export function setReaderFontFamily(font: ReaderFontType, persist: boolean = tru
   });
 }
 
-export function setReaderFontSize(size: number, persist: boolean = true): void {
-  state.readerFontSize = size;
-  document.documentElement.style.setProperty("--reader-font-size", `${size}px`);
-  if (persist) setStoredReaderFontSize(size);
+export const setReaderFont = setReaderFontFamily;
 
-  const valEl = document.getElementById("popoverFontSizeVal");
-  if (valEl) valEl.textContent = `${size}px`;
-  const setValEl = document.getElementById("settingsFontSizeVal");
-  if (setValEl) setValEl.textContent = `${size}px`;
+export function setReaderFontSize(px: number, persist: boolean = true): void {
+  px = Math.max(12, Math.min(32, px));
+  readerFontSize = px;
+  document.documentElement.style.setProperty("--reader-font-size", px + "px");
+  const display = document.getElementById("fontSizeDisplay");
+  const range = document.getElementById("fontSizeRange") as HTMLInputElement | null;
+  if (display) display.textContent = px + "px";
+  if (range) range.value = String(px);
+  if (persist) localStorage.setItem("wf_reader_font_size", String(px));
 }
 
 export function adjustReaderFontSize(delta: number): void {
-  const newSize = Math.max(12, Math.min(36, state.readerFontSize + delta));
-  setReaderFontSize(newSize, true);
+  setReaderFontSize(readerFontSize + delta * 2, true);
 }
 
-export function setReaderLineHeight(lh: string, persist: boolean = true): void {
-  state.readerLineHeight = lh;
-  document.documentElement.style.setProperty("--reader-line-height", lh);
-  if (persist) setStoredReaderLineHeight(lh);
+export function setReaderLineHeight(lh: string | number, persist: boolean = true): void {
+  readerLineHeight = String(lh);
+  document.documentElement.style.setProperty("--reader-line-height", String(lh));
+  if (persist) localStorage.setItem("wf_reader_line_height", String(lh));
 
-  document.querySelectorAll("#popoverLineHeightBtns .opt-btn, #settingsLineHeightBtns .opt-btn").forEach((btn) => {
-    if (btn.getAttribute("data-lh") === lh) {
+  document.querySelectorAll("#popoverLineHeightBtns .opt-lh-btn").forEach(btn => {
+    if (btn.getAttribute("data-lh") === String(lh)) {
       btn.classList.add("active", "btn-primary");
       btn.classList.remove("btn-outline");
     } else {
@@ -62,11 +78,31 @@ export function setReaderLineHeight(lh: string, persist: boolean = true): void {
 }
 
 export function setReaderContentWidth(width: string, persist: boolean = true): void {
-  state.readerContentWidth = width;
+  if (width === "100%") width = "1060px";
+  readerContentWidth = width;
   document.documentElement.style.setProperty("--reader-content-max-width", width);
-  if (persist) setStoredReaderContentWidth(width);
+  
+  let padX = "0.85rem";
+  let mobilePadX = "0.55rem";
+  if (width === "620px") {
+    padX = "2.5rem";
+    mobilePadX = "2.25rem";
+  } else if (width === "740px") {
+    padX = "1.5rem";
+    mobilePadX = "1.1rem";
+  } else if (width === "880px") {
+    padX = "0.85rem";
+    mobilePadX = "0.55rem";
+  } else if (width === "1060px") {
+    padX = "0.2rem";
+    mobilePadX = "0.2rem";
+  }
+  document.documentElement.style.setProperty("--reader-padding-x", padX);
+  document.documentElement.style.setProperty("--reader-mobile-padding-x", mobilePadX);
 
-  document.querySelectorAll("#popoverWidthBtns .opt-btn, #settingsWidthBtns .opt-btn").forEach((btn) => {
+  if (persist) localStorage.setItem("wf_reader_content_width", width);
+
+  document.querySelectorAll("#popoverContentWidthBtns .opt-width-btn").forEach(btn => {
     if (btn.getAttribute("data-width") === width) {
       btn.classList.add("active", "btn-primary");
       btn.classList.remove("btn-outline");
@@ -77,65 +113,96 @@ export function setReaderContentWidth(width: string, persist: boolean = true): v
   });
 }
 
-export function setTheme(theme: ThemeType, persist: boolean = true): void {
-  state.activeTheme = theme;
-  document.documentElement.classList.remove("dark", "light", "sepia", "oled");
-  document.documentElement.classList.add(theme);
-  if (persist) setStoredTheme(theme);
+export function setReaderTextAlignment(align: string, persist: boolean = true): void {
+  readerTextAlignment = align;
+  const textAlign = align === "justify" ? "justify" : "start";
+  const hyphens = align === "justify" ? "auto" : "manual";
+  document.documentElement.style.setProperty("--reader-text-align", textAlign);
+  document.documentElement.style.setProperty("--reader-hyphens", hyphens);
+  if (persist) localStorage.setItem("wf_reader_alignment", align);
 
-  document.querySelectorAll(".theme-picker-btn, .popover-theme-btn, .settings-theme-btn").forEach((btn) => {
-    if (btn.getAttribute("data-theme") === theme) {
-      btn.classList.add("active");
+  document.querySelectorAll("#popoverAlignmentBtns .opt-align-btn").forEach(btn => {
+    if (btn.getAttribute("data-align") === align) {
+      btn.classList.add("active", "btn-primary");
+      btn.classList.remove("btn-outline");
     } else {
-      btn.classList.remove("active");
+      btn.classList.remove("active", "btn-primary");
+      btn.classList.add("btn-outline");
+    }
+  });
+}
+
+export function setTheme(theme: string, persist: boolean = true): void {
+  activeTheme = theme;
+  const themes = ["dark", "light", "sepia", "oled"];
+  themes.forEach(t => document.documentElement.classList.remove(t));
+  document.documentElement.classList.add(theme);
+  if (isCapacitorApp()) {
+    document.documentElement.classList.add("is-capacitor-app");
+  }
+  if (persist) localStorage.setItem("wf_theme", theme);
+
+  document.querySelectorAll("#popoverThemeBtns .opt-theme-btn, #settingsModal .opt-theme-btn").forEach(btn => {
+    if (btn.getAttribute("data-theme") === theme) {
+      btn.classList.add("active", "btn-primary");
+      btn.classList.remove("btn-outline");
+    } else {
+      btn.classList.remove("active", "btn-primary");
+      btn.classList.add("btn-outline");
     }
   });
 
-  // Also handle status bar color if running in Capacitor
-  // @ts-ignore
-  if (window.setReaderStatusBar) {
-    // @ts-ignore
-    window.setReaderStatusBar();
+  document.querySelectorAll(".sidebar-theme-picker .theme-swatch-btn").forEach(btn => {
+    const isActive = btn.getAttribute("data-theme") === theme;
+    btn.classList.toggle("active", isActive);
+  });
+
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  if (typeof w.setReaderStatusBar === "function") {
+    w.setReaderStatusBar();
   }
 }
 
 export function toggleTheme(): void {
-  const current = state.activeTheme;
-  const order: ThemeType[] = ["dark", "light", "sepia", "oled"];
-  const nextIdx = (order.indexOf(current) + 1) % order.length;
-  setTheme(order[nextIdx], true);
+  const themes = ["dark", "light", "sepia", "oled"];
+  const idx = themes.indexOf(activeTheme);
+  const nextTheme = themes[(idx + 1) % themes.length];
+  setTheme(nextTheme);
 }
 
-export function toggleReaderAppearancePopover(event?: Event): void {
-  if (event) event.stopPropagation();
+export function toggleReaderAppearancePopover(e?: Event): void {
+  if (e) e.stopPropagation();
   const popover = document.getElementById("readerAppearancePopover");
-  if (popover) {
-    popover.classList.toggle("open");
+  if (!popover) return;
+  const isOpen = popover.style.display !== "none" && popover.style.display !== "";
+  if (isOpen) {
+    popover.style.display = "none";
+  } else {
+    const w = typeof window !== "undefined" ? (window as any) : {};
+    if (typeof w.closeAllCardMenus === "function") w.closeAllCardMenus();
+    if (typeof w.closeReaderMoreMenu === "function") w.closeReaderMoreMenu();
+    popover.style.display = "flex";
   }
 }
 
 export function closeReaderAppearancePopover(): void {
   const popover = document.getElementById("readerAppearancePopover");
-  if (popover) popover.classList.remove("open");
+  if (popover) popover.style.display = "none";
 }
 
-export function toggleReaderFocusMode(): void {
-  state.isFocusMode = !state.isFocusMode;
-  const appWorkspace = document.querySelector(".app-workspace");
-  const readerPane = document.getElementById("paneReader");
-  if (state.isFocusMode) {
-    appWorkspace?.classList.add("focus-mode");
-    readerPane?.classList.add("focus-mode");
-  } else {
-    appWorkspace?.classList.remove("focus-mode");
-    readerPane?.classList.remove("focus-mode");
-  }
-}
-
-export function initAppearanceSettings(): void {
-  setReaderFontFamily(state.readerFont, false);
-  setReaderFontSize(state.readerFontSize, false);
-  setReaderLineHeight(state.readerLineHeight, false);
-  setReaderContentWidth(state.readerContentWidth, false);
-  setTheme(state.activeTheme, false);
+// Attach to window for global access & HTML inline event handlers
+if (typeof window !== "undefined") {
+  const w = window as any;
+  w.setReaderFont = setReaderFont;
+  w.setReaderFontFamily = setReaderFontFamily;
+  w.setReaderFontSize = setReaderFontSize;
+  w.adjustReaderFontSize = adjustReaderFontSize;
+  w.setReaderLineHeight = setReaderLineHeight;
+  w.setReaderContentWidth = setReaderContentWidth;
+  w.setReaderTextAlignment = setReaderTextAlignment;
+  w.setTheme = setTheme;
+  w.toggleTheme = toggleTheme;
+  w.toggleReaderAppearancePopover = toggleReaderAppearancePopover;
+  w.closeReaderAppearancePopover = closeReaderAppearancePopover;
+  w.initTypographyControls = initTypographyControls;
 }

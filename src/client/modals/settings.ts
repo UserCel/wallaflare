@@ -1,11 +1,74 @@
-import { state } from "../state";
 import { openModal, closeModal } from "./manager";
 import { showToast } from "../components/toast";
-import { authFetch, getEffectiveServerUrl, getAuthToken, setAuthToken, apiPost, isCapacitorApp } from "../sync/api";
-import { PREF_KEYS } from "../storage/preferences";
+import { showConfirmDialog } from "./confirm";
+import { showCreatedTokenModal } from "./token-display";
+import { authFetch, setAuthToken, isCapacitorApp } from "../sync/api";
 import { clearIndexedDB } from "../storage/db";
 import { getParserMode, setParserMode, ParserMode } from "../extractor";
-import { $id, setText, getInputValue, setInputValue } from "../utils/dom";
+import { escapeHtml } from "../utils/dom";
+import { normalizeUrl } from "../utils/format";
+
+let activeSettingsTab = "appearance";
+let lastDataTabSyncTime = 0;
+let lastCookiesTabFetchTime = 0;
+let lastTagsTabFetchTime = 0;
+
+export function updateSettingsStats(): void {
+  const localEl = document.getElementById("statsLocalArticles");
+  const serverEl = document.getElementById("statsServerArticles");
+  const compEl = document.getElementById("statsSyncComparison");
+  const revEl = document.getElementById("statsSyncRevision");
+
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  const allEntries: any[] = w.allEntries || [];
+  const serverLibraryCounts = w.serverLibraryCounts;
+  const currentSyncRev = w.currentSyncRev;
+  const isOfflineMode = Boolean(w.isOfflineMode);
+
+  const localTotal = allEntries.length;
+  const unreadCount = allEntries.filter((e: any) => !e.is_archived).length;
+  const serverTotal = (serverLibraryCounts && typeof serverLibraryCounts.total === "number") ? serverLibraryCounts.total : localTotal;
+  const currentRev = Number(localStorage.getItem("wf_sync_rev") || currentSyncRev || 1);
+  const isOffline = (typeof navigator !== "undefined" && !navigator.onLine) || isOfflineMode;
+
+  if (localEl) {
+    localEl.textContent = localTotal + " (" + unreadCount + " unread)";
+  }
+  if (serverEl) {
+    serverEl.textContent = isOffline ? (serverTotal + " (from last sync)") : String(serverTotal);
+  }
+  if (compEl) {
+    if (isOffline) {
+      compEl.textContent = "Offline (Cached from Rev " + currentRev + ")";
+      compEl.style.color = "var(--warning, #f59e0b)";
+    } else if (localTotal === serverTotal) {
+      compEl.textContent = "In Sync ✓ (" + localTotal + "/" + serverTotal + ")";
+      compEl.style.color = "var(--accent, #3b82f6)";
+    } else {
+      const diff = localTotal - serverTotal;
+      compEl.textContent = (diff > 0 ? ("+" + diff) : String(diff)) + " diff (Local: " + localTotal + ", Server: " + serverTotal + ")";
+      compEl.style.color = "var(--warning, #f59e0b)";
+    }
+  }
+  if (revEl) {
+    revEl.textContent = "Rev " + currentRev;
+  }
+
+  // Populate Overview Stats in Server & Data Panel
+  const unreadStatEl = document.getElementById("settingsStatUnread");
+  const starredStatEl = document.getElementById("settingsStatStarred");
+  const timeStatEl = document.getElementById("settingsStatReadingTime");
+
+  const unread = allEntries.filter((e: any) => !e.is_archived).length;
+  const starred = allEntries.filter((e: any) => e.is_starred).length;
+  const totalReadingMins = allEntries
+    .filter((e: any) => !e.is_archived)
+    .reduce((sum: number, e: any) => sum + (e.reading_time || Math.max(1, Math.round((e.content?.length || 500) / 1000))), 0);
+
+  if (unreadStatEl) unreadStatEl.textContent = String(unread);
+  if (starredStatEl) starredStatEl.textContent = String(starred);
+  if (timeStatEl) timeStatEl.textContent = totalReadingMins >= 60 ? Math.floor(totalReadingMins / 60) + "h " + (totalReadingMins % 60) + "m" : totalReadingMins + "m";
+}
 
 export function setParserEngine(mode: ParserMode): void {
   setParserMode(mode);
@@ -17,9 +80,9 @@ export function updateParserEngineUI(): void {
   const currentMode = getParserMode();
   const isCap = isCapacitorApp();
   
-  const btnsContainer = $id("settingsParserBtns");
-  const webNotice = $id("settingsParserWebNotice");
-  const descEl = $id("settingsParserEngineDesc");
+  const btnsContainer = document.getElementById("settingsParserBtns");
+  const webNotice = document.getElementById("settingsParserWebNotice");
+  const descEl = document.getElementById("settingsParserEngineDesc");
 
   if (isCap) {
     if (btnsContainer) btnsContainer.style.display = "grid";
@@ -56,348 +119,425 @@ export function updateParserEngineUI(): void {
   }
 }
 
-export function openSettingsModal(): void {
-  updateSettingsStats();
-  updateParserEngineUI();
-  loadSiteCookies();
-  const webTip = $id("siteCookieWebTip");
-  if (webTip) webTip.style.display = isCapacitorApp() ? "none" : "block";
-  openModal("settingsModal");
+export function formatTokenTimestamp(isoStr: string | null): string {
+  if (!isoStr) return "";
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return isoStr;
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
-export function openServerConnectModal(): void {
-  setInputValue("serverUrlInput", getEffectiveServerUrl());
-  setInputValue("serverTokenInput", getAuthToken());
-  openModal("serverConnectModal");
-}
+export async function populateServerConfigInputs(): Promise<void> {
+  let savedServerUrl = localStorage.getItem("wf_server_url") || "";
+  let savedAuthToken = localStorage.getItem("wf_auth_token") || "";
 
-export function handleSaveServerConnection(): void {
-  const url = getInputValue("serverUrlInput");
-  const token = getInputValue("serverTokenInput");
-  if (url) localStorage.setItem(PREF_KEYS.SERVER_URL, url);
-  setAuthToken(token);
-  showToast("Server configuration saved!");
-  closeModal("serverConnectModal");
-  if ((window as any).loadArticles) (window as any).loadArticles(false);
-}
-
-export function openWipeDbModal(): void {
-  openModal("wipeDbModal");
-}
-
-export async function handleConfirmWipeDatabase(): Promise<void> {
-  try {
-    const { ok } = await apiPost("/api/admin/reset-database.json");
-    if (ok) {
-      await clearIndexedDB();
-      localStorage.removeItem(PREF_KEYS.SYNC_REV);
-      localStorage.removeItem(PREF_KEYS.INSTANCE_ID);
-      showToast("Database wiped successfully!");
-      closeModal("wipeDbModal");
-      closeModal("settingsModal");
-      state.allEntries = [];
-      if ((window as any).loadArticles) (window as any).loadArticles(false);
-    } else {
-      showToast("Failed to wipe database", true);
-    }
-  } catch (e) {
-    showToast("Failed to wipe database", true);
-  }
-}
-
-export function updateSettingsStats(): void {
-  const total = state.allEntries.length;
-  const unread = state.allEntries.filter((e) => !e.is_archived).length;
-  const starred = state.allEntries.filter((e) => e.is_starred).length;
-  const archive = state.allEntries.filter((e) => e.is_archived).length;
-
-  setText("settingsStatsTotal", total);
-  setText("settingsStatsUnread", unread);
-  setText("settingsStatsStarred", starred);
-  setText("settingsStatsArchive", archive);
-}
-
-
-
-
-// -------------------------------------------------------------
-// Logged-In Sites & Paywall Cookie Vault
-// -------------------------------------------------------------
-
-export interface SyncedSiteCookie {
-  id?: number;
-  domain: string;
-  site_name?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-let cachedSiteCookies: SyncedSiteCookie[] = [];
-
-export async function loadSiteCookies(): Promise<void> {
-  try {
-    const res = await authFetch("/api/site-cookies");
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.sites)) {
-        cachedSiteCookies = data.sites;
-        renderSiteCookiesList();
-
-        if (typeof (window as any).AndroidNative !== "undefined" && typeof (window as any).AndroidNative.syncAllDomainCookies === "function") {
-          (window as any).AndroidNative.syncAllDomainCookies(JSON.stringify(cachedSiteCookies));
-        } else if (isCapacitorApp() && typeof (window as any).Capacitor !== "undefined") {
-          const nativePlugin = (window as any).Capacitor.Plugins?.WallaflareNative;
-          if (nativePlugin && typeof nativePlugin.syncAllDomainCookies === "function") {
-            nativePlugin.syncAllDomainCookies({ sites: cachedSiteCookies }).catch(() => {});
-          }
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  if (isCapacitorApp() && (!savedServerUrl || !savedAuthToken) && w.Capacitor?.Plugins?.WallaflareNative?.getServerConfig) {
+    try {
+      const res = await w.Capacitor.Plugins.WallaflareNative.getServerConfig();
+      if (res) {
+        if (res.server_url && !savedServerUrl) {
+          savedServerUrl = res.server_url;
+          localStorage.setItem("wf_server_url", savedServerUrl);
+        }
+        if (res.auth_token && !savedAuthToken) {
+          savedAuthToken = res.auth_token;
+          localStorage.setItem("wf_auth_token", savedAuthToken);
         }
       }
-    }
-  } catch (e) {
-    console.warn("Failed to load site cookies:", e);
+    } catch (e) {}
   }
+
+  const effectiveServerUrl = (isCapacitorApp() ? savedServerUrl : (savedServerUrl || (typeof window !== "undefined" ? window.location.origin : ""))) || (typeof window !== "undefined" ? window.location.origin : "");
+
+  const serverUrlEl = document.getElementById("syncServerUrl");
+  if (serverUrlEl) {
+    serverUrlEl.textContent = effectiveServerUrl;
+  }
+
+  const initialHasReadToken = w.WF_HAS_READ_TOKEN !== undefined 
+    ? Boolean(w.WF_HAS_READ_TOKEN)
+    : (localStorage.getItem("wf_has_read_token") === "true");
+  
+  if (typeof w.updateOpdsTokenBadge === "function") {
+    w.updateOpdsTokenBadge(initialHasReadToken);
+  }
+
+  const tokenParam = initialHasReadToken ? "?token=READ_TOKEN" : "?token=AUTH_TOKEN";
+
+  const opdsUrlEl = document.getElementById("syncOpdsUrl");
+  if (opdsUrlEl) {
+    opdsUrlEl.textContent = effectiveServerUrl + "/opds";
+  }
+
+  const opdsAuthUrlEl = document.getElementById("syncOpdsAuthUrl");
+  if (opdsAuthUrlEl) {
+    opdsAuthUrlEl.textContent = effectiveServerUrl + "/opds" + tokenParam;
+    opdsAuthUrlEl.removeAttribute("data-full-url");
+  }
+
+  const rssUnreadEl = document.getElementById("syncRssUnreadUrl");
+  if (rssUnreadEl) {
+    rssUnreadEl.textContent = effectiveServerUrl + "/feed/unread" + tokenParam;
+    rssUnreadEl.removeAttribute("data-full-url");
+  }
+
+  const rssStarredEl = document.getElementById("syncRssStarredUrl");
+  if (rssStarredEl) {
+    rssStarredEl.textContent = effectiveServerUrl + "/feed/starred" + tokenParam;
+    rssStarredEl.removeAttribute("data-full-url");
+  }
+
+  const rssArchiveEl = document.getElementById("syncRssArchiveUrl");
+  if (rssArchiveEl) {
+    rssArchiveEl.textContent = effectiveServerUrl + "/feed/archive" + tokenParam;
+    rssArchiveEl.removeAttribute("data-full-url");
+  }
+
+  const urlInputs = [
+    document.getElementById("settingsServerUrlInput"),
+    document.getElementById("serverUrlInput")
+  ].filter(Boolean) as HTMLInputElement[];
+
+  const tokenInputs = [
+    document.getElementById("settingsServerTokenInput"),
+    document.getElementById("serverTokenInput")
+  ].filter(Boolean) as HTMLInputElement[];
+
+  urlInputs.forEach(input => {
+    input.value = effectiveServerUrl;
+  });
+
+  tokenInputs.forEach(input => {
+    input.value = "";
+    if (savedAuthToken) {
+      input.placeholder = "•••••••••••• (Saved - leave blank to keep)";
+    } else {
+      input.placeholder = "Enter AUTH_TOKEN";
+    }
+  });
+
+  loadPersonalTokens();
 }
 
-export function renderSiteCookiesList(): void {
-  const container = $id("activeSiteCookiesList");
+export async function loadPersonalTokens(): Promise<void> {
+  const container = document.getElementById("patTokensContainer");
   if (!container) return;
-
-  if (cachedSiteCookies.length === 0) {
-    container.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 0.4rem 0;">No logged-in sites configured yet. Tap a preset above or + Add Site.</div>';
-    return;
-  }
-
-  container.innerHTML = cachedSiteCookies.map((site) => {
-    const name = site.site_name || site.domain;
-    const domain = site.domain;
-    const isEnabled = site.is_enabled !== 0;
-    const statusBadge = isEnabled
-      ? '<span style="color: #22c55e; font-weight: 500;">🟢 Enabled</span>'
-      : '<span style="color: var(--text-muted); font-weight: 500;">⚪ Disabled</span>';
-
-    return `
-      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.45rem 0.65rem; font-size: 0.8rem; opacity: ${isEnabled ? '1' : '0.65'}; transition: opacity 0.2s;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
-          <span style="font-size: 0.9rem;">🔑</span>
-          <div style="overflow: hidden;">
-            <div style="font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${name}</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">${domain} &bull; ${statusBadge}</div>
-          </div>
-        </div>
-        <div style="display: flex; gap: 0.65rem; align-items: center;">
-          <label class="site-cookie-switch" title="${isEnabled ? 'Disable authenticated scraping' : 'Enable authenticated scraping'}">
-            <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="handleToggleSiteCookie('${domain}', this.checked)" />
-            <span class="site-cookie-slider"></span>
-          </label>
-          <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.72rem; color: var(--danger, #ef4444);" onclick="handleDeleteSiteCookie('${domain}')" title="Remove logged-in session">
-            Remove
-          </button>
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-export function openAddSiteCookieDialog(defaultDomain?: string, defaultName?: string): void {
-  setInputValue("siteCookieDomainInput", defaultDomain || "");
-  setInputValue("siteCookieValueInput", "");
-  const titleEl = $id("siteCookieModalTitle");
-  if (titleEl) titleEl.textContent = defaultName ? `Log In to ${defaultName}` : "Log In to Site";
-
-  const isNative = isCapacitorApp();
-  const mobileWrap = $id("siteCookieLoginActionWrap");
-  const webBanner = $id("siteCookieWebBanner");
-  const manualWrap = $id("siteCookieManualValueWrap");
-  const manualInput = $id("siteCookieValueInput") as HTMLTextAreaElement;
-
-  if (mobileWrap) mobileWrap.style.display = isNative ? "block" : "none";
-  if (webBanner) webBanner.style.display = isNative ? "none" : "block";
-  if (manualWrap) manualWrap.style.display = "block";
-  if (manualInput) {
-    manualInput.required = !isNative;
-  }
-
-  openModal("siteCookieModal");
-  if (!isNative && defaultDomain && manualInput) {
-    setTimeout(() => manualInput.focus(), 150);
-  }
-}
-
-export async function handlePresetSiteLogin(domain: string, name: string, loginUrl: string): Promise<void> {
-  if (isCapacitorApp() && typeof (window as any).Capacitor !== "undefined") {
-    const plugins = (window as any).Capacitor.Plugins;
-    const nativePlugin = plugins?.WallaflareNative || plugins?.WallaflareNativePlugin;
-    if (nativePlugin && typeof nativePlugin.openSiteLogin === "function") {
-      try {
-        const res = await nativePlugin.openSiteLogin({ domain, name, url: loginUrl });
-        if (res && res.cookies) {
-          showToast(`✓ Captured login session for ${name}`);
-          await saveSiteCookieToServer(res.domain || domain, res.name || name, res.cookies);
-          await loadSiteCookies();
-          return;
-        }
-      } catch (err) {
-        console.warn("Native site login cancelled or failed:", err);
-      }
-    }
-  }
-  // Web fallback: open dialog to manually enter/paste cookies
-  openAddSiteCookieDialog(domain, name);
-}
-
-export async function launchInAppSiteLogin(): Promise<void> {
-  const domain = getInputValue("siteCookieDomainInput").trim();
-  if (!domain) {
-    showToast("Please enter a domain first", true);
-    return;
-  }
-  const loginUrl = domain.startsWith("http://") || domain.startsWith("https://") ? domain : `https://${domain}`;
-  closeModal("siteCookieModal");
-  await handlePresetSiteLogin(domain, domain, loginUrl);
-}
-
-export async function saveSiteCookieToServer(domain: string, siteName: string, cookieValue: string): Promise<boolean> {
   try {
-    const res = await authFetch("/api/site-cookies", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ domain, site_name: siteName, cookie_value: cookieValue })
-    });
-    if (res.ok) {
-      showToast(`Saved session for ${domain}!`);
-      return true;
-    }
-  } catch {}
-  showToast("Failed to save session to server", true);
-  return false;
-}
-
-export async function handleSaveSiteCookieSubmit(e: Event): Promise<void> {
-  e.preventDefault();
-  const domain = getInputValue("siteCookieDomainInput").trim();
-  const cookieValue = getInputValue("siteCookieValueInput").trim();
-
-  if (!domain || !cookieValue) {
-    showToast("Please provide both domain and cookie string", true);
-    return;
-  }
-
-  const ok = await saveSiteCookieToServer(domain, domain, cookieValue);
-  if (ok) {
-    closeModal("siteCookieModal");
-    await loadSiteCookies();
-  }
-}
-
-
-export async function handleToggleSiteCookie(domain: string, isEnabled: boolean): Promise<void> {
-  const site = cachedSiteCookies.find((s) => s.domain === domain);
-  if (site) site.is_enabled = isEnabled ? 1 : 0;
-  renderSiteCookiesList();
-
-  if (isCapacitorApp() && typeof (window as any).Capacitor !== "undefined") {
-    if (typeof (window as any).AndroidNative !== "undefined" && typeof (window as any).AndroidNative.setDomainEnabled === "function") {
-      (window as any).AndroidNative.setDomainEnabled(domain, isEnabled);
-    } else {
-      const nativePlugin = (window as any).Capacitor.Plugins?.WallaflareNative;
-      if (nativePlugin && typeof nativePlugin.setDomainEnabled === "function") {
-        nativePlugin.setDomainEnabled({ domain, enabled: isEnabled }).catch(() => {});
-      }
-    }
-  }
-
-  try {
-    const res = await authFetch(`/api/site-cookies/${encodeURIComponent(domain)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_enabled: isEnabled })
-    });
-    if (res.ok) {
-      showToast(`${domain} ${isEnabled ? 'enabled' : 'disabled'}`);
+    const res = await authFetch("/api/tokens");
+    if (!res.ok) {
+      container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">Could not load tokens.</div>';
       return;
     }
-  } catch {}
-  showToast("Failed to update site toggle", true);
+    const data = await res.json();
+    const tokens = data.tokens || [];
+    if (tokens.length === 0) {
+      container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">No active tokens. Generate one above to connect third-party apps.</div>';
+      return;
+    }
+    container.innerHTML = tokens.map((t: any) => {
+      const isRevoked = Boolean(t.revoked_at);
+      const dateStr = t.created_at ? formatTokenTimestamp(t.created_at) : "";
+      const lastUsed = t.last_used_at ? ("Last used " + formatTokenTimestamp(t.last_used_at)) : "Never used";
+      const safeLabel = escapeHtml(t.label || "Token");
+      const safePrefix = escapeHtml(t.token_prefix || "");
+      return `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.8rem; gap: 0.5rem;">
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
+              <span>${safeLabel}</span>
+              <code style="font-size: 0.72rem; color: var(--accent); background: var(--bg-primary); padding: 1px 4px; border-radius: 3px;">${safePrefix}</code>
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+              Created ${dateStr} • ${lastUsed} ${isRevoked ? '<span style="color: #ef4444; font-weight: 600;">(Revoked)</span>' : ""}
+            </div>
+          </div>
+          ${!isRevoked ? `<button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4);" onclick="handleRevokePersonalToken(${t.id}, '${safeLabel}')">Revoke</button>` : ""}
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">Error loading tokens.</div>';
+  }
 }
 
-export async function handleDeleteSiteCookie(domain: string): Promise<void> {
-  const confirmed = await (window as any).showConfirmDialog(
-    "Remove Login Session",
-    `Are you sure you want to remove the saved login session for ${domain}?\n\nThis will delete the stored cookies and revert to anonymous scraping for this domain.`,
-    "Remove Session",
+export async function handleCreatePersonalToken(): Promise<void> {
+  const input = document.getElementById("newPatLabelInput") as HTMLInputElement | null;
+  const btn = document.getElementById("generatePatBtn") as HTMLButtonElement | null;
+  const label = input ? input.value.trim() : "";
+  if (!label) {
+    showToast("Please enter a token label");
+    input?.focus();
+    return;
+  }
+  if (btn) btn.disabled = true;
+  try {
+    const res = await authFetch("/api/tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label })
+    });
+    if (!res.ok) {
+      showToast("Failed to create token");
+      return;
+    }
+    const data = await res.json();
+    if (data.token) {
+      if (input) input.value = "";
+      showCreatedTokenModal(data.token, data.label);
+      loadPersonalTokens();
+    }
+  } catch (e) {
+    showToast("Error generating token");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+export async function handleRevokePersonalToken(id: number, label: string): Promise<void> {
+  const confirmed = await showConfirmDialog(
+    "Revoke Token",
+    `Are you sure you want to revoke "${label}"?\n\nAny app or script using this token will be disconnected immediately.`,
+    "Revoke Token",
     true
   );
   if (!confirmed) return;
-
   try {
-    const res = await authFetch(`/api/site-cookies/${encodeURIComponent(domain)}`, {
-      method: "DELETE"
-    });
+    const res = await authFetch("/api/tokens/" + id, { method: "DELETE" });
     if (res.ok) {
-      if (isCapacitorApp() && typeof (window as any).Capacitor !== "undefined") {
-        const nativePlugin = (window as any).Capacitor.Plugins?.WallaflareNative;
-        if (nativePlugin && typeof nativePlugin.clearDomainCookies === "function") {
-          nativePlugin.clearDomainCookies({ domain }).catch(() => {});
-        }
-      }
-      showToast(`Removed login session for ${domain}`);
-      cachedSiteCookies = cachedSiteCookies.filter((s) => s.domain !== domain);
-      renderSiteCookiesList();
-      if (isCapacitorApp() && typeof (window as any).Capacitor !== "undefined") {
-        const nativePlugin = (window as any).Capacitor.Plugins?.WallaflareNative;
-        if (nativePlugin && typeof nativePlugin.syncAllDomainCookies === "function") {
-          nativePlugin.syncAllDomainCookies({ sites: cachedSiteCookies }).catch(() => {});
-        }
-      }
+      showToast("Token revoked successfully");
+      loadPersonalTokens();
+    } else {
+      showToast("Could not revoke token");
     }
-  } catch {
-    showToast("Failed to delete site session", true);
+  } catch (e) {
+    showToast("Error revoking token");
   }
 }
 
-export async function handleClearAllSiteCookies(): Promise<void> {
+export function openSettingsModal(initialTab: string | null = null): void {
+  const modal = document.getElementById("settingsModal");
+  if (!modal) return;
+
+  const isMobile = window.innerWidth < 768;
+  const targetTab = initialTab || (isMobile ? "root" : "appearance");
+
+  const syncClientSecretEl = document.getElementById("syncClientSecretDisplay");
+  if (syncClientSecretEl) {
+    syncClientSecretEl.textContent = "wallaflare";
+  }
+
+  const serverRow = document.getElementById("serverConnectionSettingsRow");
+  if (serverRow) {
+    serverRow.style.display = isCapacitorApp() ? "flex" : "none";
+  }
+
+  populateServerConfigInputs();
+  updateSettingsStats();
+  updateParserEngineUI();
+  const webTip = document.getElementById("siteCookieWebTip");
+  if (webTip) webTip.style.display = isCapacitorApp() ? "none" : "block";
+
+  if (isMobile) {
+    if (targetTab && targetTab !== "root") {
+      switchSettingsTab(targetTab, true);
+      modal.classList.add("is-viewing-panel");
+      const backBtn = document.getElementById("settingsMobileBackBtn");
+      if (backBtn) backBtn.style.display = "inline-flex";
+    } else {
+      modal.classList.remove("is-viewing-panel");
+      const backBtn = document.getElementById("settingsMobileBackBtn");
+      if (backBtn) backBtn.style.display = "none";
+      const title = document.getElementById("settingsModalTitle");
+      if (title) title.textContent = "Settings";
+    }
+  } else {
+    switchSettingsTab(targetTab === "root" ? "appearance" : targetTab, false);
+    modal.classList.remove("is-viewing-panel");
+  }
+
+  openModal("settingsModal");
+}
+
+export function switchSettingsTab(tabName: string, activateMobile: boolean = true): void {
+  activeSettingsTab = tabName || "appearance";
+  updateSettingsStats();
+
+  const now = Date.now();
+  populateServerConfigInputs();
+
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  if (activeSettingsTab === "data") {
+    if (now - lastDataTabSyncTime > 15000) {
+      lastDataTabSyncTime = now;
+      if (typeof w.loadArticles === "function") {
+        w.loadArticles(true, false).then(() => {
+          updateSettingsStats();
+        }).catch(() => {});
+      }
+    }
+  } else if (activeSettingsTab === "cookies") {
+    if (now - lastCookiesTabFetchTime > 15000) {
+      lastCookiesTabFetchTime = now;
+      if (typeof w.loadSiteCookies === "function") w.loadSiteCookies();
+    }
+  } else if (activeSettingsTab === "tags") {
+    if (now - lastTagsTabFetchTime > 15000) {
+      lastTagsTabFetchTime = now;
+      if (typeof w.loadGlobalTags === "function") {
+        w.loadGlobalTags().then(() => {
+          if (typeof w.renderGlobalTagManagerUI === "function") w.renderGlobalTagManagerUI();
+        }).catch(() => {});
+      }
+    }
+  } else if (activeSettingsTab === "integrations") {
+    loadPersonalTokens();
+  }
+
+  // Update nav buttons
+  document.querySelectorAll("#settingsNavPane .settings-nav-item").forEach(btn => {
+    if (btn.getAttribute("data-tab") === activeSettingsTab) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  // Update panels
+  document.querySelectorAll("#settingsContentPane .settings-panel").forEach(panel => {
+    panel.classList.remove("active");
+    (panel as HTMLElement).style.display = "none";
+  });
+
+  const activePanel = document.getElementById("settingsPanel-" + activeSettingsTab);
+  if (activePanel) {
+    activePanel.classList.add("active");
+    activePanel.style.display = "block";
+  }
+
+  const titles: Record<string, string> = {
+    appearance: "Theme & Appearance",
+    cookies: "Cookie Vault & Paywalls",
+    integrations: "Apps & KOReader Sync",
+    tags: "Tag Management",
+    data: "Server & Data",
+    about: "About & Updates"
+  };
+
+  const titleEl = document.getElementById("settingsModalTitle");
+  const modal = document.getElementById("settingsModal");
+  const backBtn = document.getElementById("settingsMobileBackBtn");
+
+  if (window.innerWidth < 768 && activateMobile) {
+    if (modal) modal.classList.add("is-viewing-panel");
+    if (backBtn) backBtn.style.display = "inline-flex";
+    if (titleEl) titleEl.textContent = titles[activeSettingsTab] || "Settings";
+  } else {
+    if (titleEl) titleEl.textContent = "Settings";
+  }
+}
+
+export function handleSettingsMobileBack(): void {
+  const modal = document.getElementById("settingsModal");
+  const backBtn = document.getElementById("settingsMobileBackBtn");
+  const titleEl = document.getElementById("settingsModalTitle");
+  if (modal) modal.classList.remove("is-viewing-panel");
+  if (backBtn) backBtn.style.display = "none";
+  if (titleEl) titleEl.textContent = "Settings";
+}
+
+export function openGlobalTagModal(): void {
+  openSettingsModal("tags");
+}
+
+export function openSyncModal(): void {
+  openSettingsModal("integrations");
+}
+
+export function openServerConnectModal(): void {
+  openSettingsModal("data");
+}
+
+export function openWipeDbModal(): void {
+  openSettingsModal("data");
+}
+
+export async function reconcileDatabase(): Promise<void> {
   const ok = await showConfirmDialog(
-    "Clear All Site Logins",
-    "Are you sure you want to remove all saved site login cookies from both your Cloudflare server and this device?",
-    "Clear All",
-    true
+    "Reconcile Database",
+    "This will clear local storage and re-sync all articles, tags, and counts fresh from Cloudflare D1.\n\nContinue?",
+    "Reconcile & Sync",
+    false
   );
   if (!ok) return;
 
-  try {
-    const res = await authFetch("/api/site-cookies", { method: "DELETE" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  showToast("Reconciling database...");
+  localStorage.removeItem("wf_sync_rev");
+  localStorage.removeItem("wf_instance_id");
+  localStorage.removeItem("wf_cached_articles");
+  localStorage.removeItem("wf_cached_tags");
+  localStorage.removeItem("wf_cached_counts");
+  localStorage.removeItem("wf_pending_mutations");
+  localStorage.removeItem("wf_instance_id");
 
-    cachedSiteCookies = [];
-    renderSiteCookiesList();
-
-    if (typeof (window as any).AndroidNative !== "undefined" && typeof (window as any).AndroidNative.clearAllSiteCookies === "function") {
-      (window as any).AndroidNative.clearAllSiteCookies();
-    } else if (isCapacitorApp() && typeof (window as any).Capacitor !== "undefined") {
-      const nativePlugin = (window as any).Capacitor.Plugins?.WallaflareNative;
-      if (nativePlugin && typeof nativePlugin.clearAllSiteCookies === "function") {
-        nativePlugin.clearAllSiteCookies().catch(() => {});
-      }
-    }
-
-    showToast("✓ All site logins and cookies cleared");
-  } catch (err: any) {
-    showToast(`Failed to clear cookies: ${err.message || "Error"}`, true);
-  }
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  w.currentSyncRev = 0;
+  w.allEntries = [];
+  await clearIndexedDB();
+  if (typeof w.filterArticles === "function") w.filterArticles();
+  if (typeof w.loadArticles === "function") await w.loadArticles(false, true);
+  showToast("✓ Database fully reconciled");
 }
 
+export function handleSaveServerConnection(e?: Event): void {
+  if (e) e.preventDefault();
+  const form = (e && e.target && (e.target as HTMLElement).tagName === "FORM") ? (e.target as HTMLElement) : document;
+  const urlInput = (form.querySelector("#settingsServerUrlInput") || form.querySelector("#serverUrlInput") || document.getElementById("settingsServerUrlInput") || document.getElementById("serverUrlInput")) as HTMLInputElement;
+  const tokenInput = (form.querySelector("#settingsServerTokenInput") || form.querySelector("#serverTokenInput") || document.getElementById("settingsServerTokenInput") || document.getElementById("serverTokenInput")) as HTMLInputElement;
 
+  const w = typeof window !== "undefined" ? (window as any) : {};
+
+  let url = (urlInput?.value || "").trim();
+  const token = (tokenInput?.value || "").trim();
+
+  if (url) {
+    url = normalizeUrl(url).replace(/\/+$/, "");
+    localStorage.setItem("wf_server_url", url);
+  }
+  if (token) {
+    setAuthToken(token);
+  }
+  if (typeof w.syncNativeServerConfig === "function") w.syncNativeServerConfig();
+  populateServerConfigInputs();
+  closeModal("serverConnectModal");
+  closeModal("settingsModal");
+  showToast("✓ Server settings saved");
+  if (typeof w.loadArticles === "function") w.loadArticles(false);
+}
+
+// Attach to window for global access & HTML inline event handlers
 if (typeof window !== "undefined") {
   const w = window as any;
+  w.updateSettingsStats = updateSettingsStats;
   w.setParserEngine = setParserEngine;
   w.updateParserEngineUI = updateParserEngineUI;
-  w.loadSiteCookies = loadSiteCookies;
-  w.renderSiteCookiesList = renderSiteCookiesList;
-  w.openAddSiteCookieDialog = openAddSiteCookieDialog;
-  w.handlePresetSiteLogin = handlePresetSiteLogin;
-  w.launchInAppSiteLogin = launchInAppSiteLogin;
-  w.handleSaveSiteCookieSubmit = handleSaveSiteCookieSubmit;
-  w.handleToggleSiteCookie = handleToggleSiteCookie;
-  w.handleDeleteSiteCookie = handleDeleteSiteCookie;
-  w.handleClearAllSiteCookies = handleClearAllSiteCookies;
+  w.formatTokenTimestamp = formatTokenTimestamp;
+  w.populateServerConfigInputs = populateServerConfigInputs;
+  w.loadPersonalTokens = loadPersonalTokens;
+  w.handleCreatePersonalToken = handleCreatePersonalToken;
+  w.handleRevokePersonalToken = handleRevokePersonalToken;
+  w.openSettingsModal = openSettingsModal;
+  w.switchSettingsTab = switchSettingsTab;
+  w.handleSettingsMobileBack = handleSettingsMobileBack;
+  w.openGlobalTagModal = openGlobalTagModal;
+  w.openSyncModal = openSyncModal;
+  w.openServerConnectModal = openServerConnectModal;
+  w.openWipeDbModal = openWipeDbModal;
+  w.reconcileDatabase = reconcileDatabase;
+  w.handleSaveServerConnection = handleSaveServerConnection;
 }
