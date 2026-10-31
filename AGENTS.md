@@ -156,8 +156,20 @@ Wallaflare uses an automated GitHub Actions release workflow (`.github/workflows
   - 📱 **Android Native App**: `android/app/build.gradle` (`versionName`), packaged as `wallaflare-android-v<android>-web-v<web>-<sha>.apk` (~2.5 MB with R8 & `shrinkResources true`).
   - 📖 **KOReader Plugin**: `integrations/koreader/wallaflare.koplugin/_meta.lua` (`version`), packaged as `wallaflare-koplugin-v<plugin>.zip`.
   - Static aliases: `wallaflare.apk` and `wallaflare.koplugin.zip` for permanent latest-download URLs.
+
+#### 📍 Version String Locations Reference
+When preparing a release or bumping versions, update the corresponding files below:
+
+| Component | File Path | Field / Variable | Description |
+| :--- | :--- | :--- | :--- |
+| 🌐 **Root Release / Web App** | [`package.json`](package.json) | `"version": "X.Y.Z"` | Root release tag (`vX.Y.Z`). Read by `build-web.ts` and `package-release.ts`. |
+| 📖 **KOReader Plugin (Meta)** | [`integrations/koreader/wallaflare.koplugin/_meta.lua`](integrations/koreader/wallaflare.koplugin/_meta.lua) | `version = "X.Y.Z"` | Canonical KOReader plugin version parsed by build scripts & zip generator. |
+| 📖 **KOReader Plugin (Runtime)** | [`integrations/koreader/wallaflare.koplugin/main.lua`](integrations/koreader/wallaflare.koplugin/main.lua) | `version = "X.Y.Z"` | Runtime `self.version`. **Must match `_meta.lua`** so in-app update checks compare correctly. |
+| 📱 **Android Native App** | [`android/app/build.gradle`](android/app/build.gradle) | `versionName "X.Y.Z"`, `versionCode N` | Native Android APK version. Only bump when native Android code changes (Rule 6). |
+| 📱 **Web Native Compatibility** | [`scripts/build-web.ts`](scripts/build-web.ts) | `minNativeVersion = "X.Y.Z"` | Minimum native APK required by web bundle (emitted in `/api/app/version.json`). |
+
 - **Local Packaging Verification**: Run `npm run package:release` to test-package all release assets locally into `release-assets/` (gitignored) before tagging.
-- **Publishing a Release**: Create and push a SemVer tag (e.g. `git tag v1.1.0 && git push origin v1.1.0`). CI will build the web app, compile the release APK, package the KOReader zip, and publish the GitHub Release automatically.
+- **Publishing a Release**: Create and push a SemVer tag (e.g. `git tag v1.2.0 && git push origin v1.2.0`). CI will build the web app, compile the release APK, package the KOReader zip, and publish the GitHub Release automatically.
 
 
 
