@@ -148,6 +148,39 @@ function Api.testConnection(server_url, auth_token)
     return true, "Connection successful"
 end
 
+function Api.exchangePasswordForToken(server_url, password, device_name)
+    server_url = Api.normalizeUrl(server_url)
+    if server_url == "" then
+        return nil, "Server URL is required"
+    end
+    if not password or password == "" then
+        return nil, "Password is required"
+    end
+
+    local url = server_url .. "/api/auth/token"
+    local body = Api.jsonEncode({
+        password = password,
+        label = device_name or "KOReader",
+    })
+
+    local res, err, code = Api.request{
+        url = url,
+        method = "POST",
+        body = body,
+        timeout = 15,
+    }
+
+    if not res then
+        return nil, err or "Failed to connect to server"
+    end
+
+    if type(res) == "table" and res.token then
+        return res.token, nil
+    end
+
+    return nil, "Invalid response from server"
+end
+
 function Api.fetchSync(server_url, auth_token, since_rev, filter_type, page, per_page, sync_tag)
     server_url = Api.normalizeUrl(server_url)
     since_rev = tonumber(since_rev) or 0

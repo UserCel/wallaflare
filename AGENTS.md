@@ -33,6 +33,7 @@
         │ • /opds (OPDS 1.2 Catalog)  │                               │ • Mobile Slide Drawer (1:1) │
         │ • /feed (RSS 2.0 / Atom)    │                               │ • On-Device EPUB / PDF / MD │
         │ • /api/annotations (W3C+v2) │                               │ • Multi-color Annotations   │
+        │ • /api/tokens (Zero-Trust)  │                               │ • Personal Access Tokens UI │
         │ • /api/tags & batch routes  │                               │ • 4 Themes (Dark,Light,OLED)│
         │ • Readability Extractor     │                               │ • RSVP Speed Reader (BiDi)  │
         │ • Rate limiting & Security  │                               └──────────────┬──────────────┘
@@ -43,8 +44,9 @@
         ├─────────────────────────────┤                               ├─────────────────────────────┤
         │ • entries & annotations     │                               │ • WallaflareNativePlugin    │
         │ • tags & entry_tags         │                               │ • Android Share Intents     │
-        │ • config & migrations       │                               │ • Zero-Request OTA Updates  │
-        └─────────────────────────────┘                               └─────────────────────────────┘
+        │ • api_tokens & site_cookies │                               │ • Zero-Request OTA Updates  │
+        │ • config & migrations       │                               └─────────────────────────────┘
+        └─────────────────────────────┘
 ```
 
 ---
@@ -180,6 +182,9 @@ Wallaflare uses an automated GitHub Actions release workflow (`.github/workflows
    - In interactive reading components (e.g. RSVP speed reader, surrounding text strips, annotations):
      - For RTL/BiDi scripts (Hebrew, Arabic), always isolate segments with `unicode-bidi: isolate` and wrap trailing neutral punctuation in Unicode Right-to-Left Marks (`\u200F`) to prevent punctuation from jumping inside words.
      - For continuous drag/scrub gestures across dynamic DOM containers, always use W3C Pointer Events (`pointerdown`, `pointermove`, `pointerup`) with `setPointerCapture(e.pointerId)` so that rapid DOM element mutations or re-renders do not abort the touch gesture on mobile browsers.
+9. **Rule 9: Zero-Trust Token Architecture & Endpoint Isolation**:
+   - The master password (`AUTH_TOKEN`) must **only** be accepted at initial authentication and token issuance endpoints (`POST /api/auth/token`, `POST /oauth/v2/token`, `/login_check`, `/developer` unlock, and admin wipe).
+   - All standard data endpoints (`/api/entries`, `/api/sync`, `/api/tokens`, `/api/annotations`, etc.) strictly require valid issued tokens from the `api_tokens` table (or session cookies that map to active tokens). Never accept master passwords directly on protected data routes.
 
 ---
 

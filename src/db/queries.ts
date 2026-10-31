@@ -74,6 +74,17 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS api_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token_hash TEXT NOT NULL UNIQUE,
+        token_prefix TEXT NOT NULL,
+        label TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_used_at TEXT DEFAULT NULL,
+        expires_at TEXT DEFAULT NULL,
+        revoked_at TEXT DEFAULT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)`,
       `INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)`
     ];
 
@@ -96,7 +107,7 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
   }
 }
 
-import { EntryRow, WallabagEntry, AnnotationItem } from '../types';
+import { EntryRow, WallabagEntry, AnnotationItem, ApiTokenRow } from '../types';
 
 export interface TagItem {
   id: number;
@@ -1541,4 +1552,108 @@ export async function clearAllSiteCookies(db: D1Database): Promise<boolean> {
     console.error('[CookieVault] clearAllSiteCookies error:', e);
     return false;
   }
+}
+
+// -------------------------------------------------------------
+// Zero-Trust API & Device Token System
+// -------------------------------------------------------------
+
+export async function sha256Hex(str: string): Promise<string> {
+  const enc = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export function generateRandomToken(prefix: string = 'wfl_tok_'): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${prefix}${hex}`;
+}
+
+export async function createApiToken(
+  db: D1Database,
+  label: string,
+  prefix: string = 'wfl_tok_',
+  expiresAt: string | null = null
+): Promise<{ id: number; token: string; label: string; token_prefix: string; created_at: string }> {
+  await ensureDatabaseSchema(db);
+  const token = generateRandomToken(prefix);
+  const tokenHash = await sha256Hex(token);
+  const tokenPrefix = token.substring(0, 16) + '...';
+  const now = new Date().toISOString();
+
+  const res = await db.prepare(`
+    INSERT INTO api_tokens (token_hash, token_prefix, label, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(tokenHash, tokenPrefix, label.trim() || 'Device Token', now, expiresAt).run();
+
+  const id = res.meta?.last_row_id ?? 0;
+  return {
+    id: Number(id),
+    token,
+    label: label.trim() || 'Device Token',
+    token_prefix: tokenPrefix,
+    created_at: now
+  };
+}
+
+export async function verifyApiToken(
+  db: D1Database,
+  token: string
+): Promise<{ valid: boolean; tokenRow?: ApiTokenRow }> {
+  if (!token || typeof token !== 'string') return { valid: false };
+  await ensureDatabaseSchema(db);
+  const tokenHash = await sha256Hex(token);
+  const now = new Date().toISOString();
+
+  const row = await db.prepare(`
+    SELECT id, token_prefix, label, created_at, last_used_at, expires_at, revoked_at
+    FROM api_tokens
+    WHERE token_hash = ? AND revoked_at IS NULL
+    LIMIT 1
+  `).bind(tokenHash).first<ApiTokenRow>();
+
+  if (!row) {
+    return { valid: false };
+  }
+
+  if (row.expires_at && row.expires_at < now) {
+    return { valid: false };
+  }
+
+  // Asynchronously update last_used_at
+  db.prepare('UPDATE api_tokens SET last_used_at = ? WHERE id = ?')
+    .bind(now, row.id)
+    .run()
+    .catch(() => {});
+
+  return { valid: true, tokenRow: row };
+}
+
+export async function getApiTokens(db: D1Database): Promise<ApiTokenRow[]> {
+  await ensureDatabaseSchema(db);
+  const res = await db.prepare(`
+    SELECT id, token_prefix, label, created_at, last_used_at, expires_at, revoked_at
+    FROM api_tokens
+    ORDER BY id DESC
+  `).all<ApiTokenRow>();
+  return res.results || [];
+}
+
+export async function revokeApiToken(db: D1Database, id: number): Promise<boolean> {
+  await ensureDatabaseSchema(db);
+  const now = new Date().toISOString();
+  const res = await db.prepare(`
+    UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL
+  `).bind(now, id).run();
+  return (res.meta?.changes ?? 0) > 0;
+}
+
+export async function deleteApiToken(db: D1Database, id: number): Promise<boolean> {
+  await ensureDatabaseSchema(db);
+  const res = await db.prepare(`
+    DELETE FROM api_tokens WHERE id = ?
+  `).bind(id).run();
+  return (res.meta?.changes ?? 0) > 0;
 }

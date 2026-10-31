@@ -73,3 +73,14 @@ export interface WallabagEntry {
   origin_url?: string | null;
   revision?: number;
 }
+
+export interface ApiTokenRow {
+  id: number;
+  token_hash?: string;
+  token_prefix: string;
+  label: string;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+}

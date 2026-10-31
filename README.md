@@ -72,6 +72,10 @@
   - Multi-select bulk export directly from the web workspace (Right-Click Context Menu & Floating Batch Bar).
   - One-tap acquisition from OPDS 1.2 catalog (`📖 Unread Digest (EPUB Anthology)`).
   - Edge endpoint: `GET /api/entries/digest.epub?filter=unread|starred&limit=30` or `?ids=1,2,3` with configurable image quotas (`EPUB_MAX_IMAGES`) and Cloudflare edge caching.
+- **🔑 Zero-Trust Per-Device & Personal Access Tokens (PAT)**:
+  - Cryptographically secure 256-bit tokens stored in D1 (`api_tokens`) with SHA-256 hash indexing.
+  - The master password (`AUTH_TOKEN`) is used only once at login to exchange for an isolated token; protected API endpoints reject master passwords directly, preventing credential leakage.
+  - Generate and manage dedicated Personal Access Tokens (`wfl_pat_...`) in **Settings > Apps & Sync** or on `/developer` for third-party clients (e.g. KOReader Wallabag Plugin, FeedMe, automation scripts), with instant per-device revocation.
 - **🛡️ Two-Tier Security & Privacy**:
   - Server-side Linkedom DOM sanitizer strips unsafe scripts, styles, and trackers.
   - Built-in brute-force rate-limiting and crawler disallow headers.
@@ -173,7 +177,7 @@ Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaf
 - 🖍️ **Bi-Directional Highlight & Note Sync**: Highlights, notes, and colors created on either KOReader or the web dashboard sync with 100% fidelity, using native KOReader DOM anchor resolution and true **Last-Write-Wins** conflict handling.
 - 🏷️ **Remote Archive & Deletion Automation**: Automatically archives (or deletes) articles on Wallaflare when marked finished in KOReader, when reaching 100% reading progress, when set on hold, or when deleting the local file in KOReader.
 - 🗑️ **Smart Sync-Filter Auto-Deletion**: Prunes archived or unstarred articles according to your active Sync Filter (*Unread only*, *Starred only*, or *All articles*), with automatic full reconciliation when switching filters.
-- 🔄 **In-App Over-The-Air (OTA) Updates**: One-tap self-updating directly from KOReader settings with zero manual file transfers.
+- 🔄 **In-App Over-The-Air (OTA) Updates & Force Reinstall**: One-tap self-updating directly from KOReader settings with zero manual file transfers, plus a forced reinstall option for rapid development iteration.
 
 1. **Download the Plugin**:
    - Download the latest plugin zip from **[GitHub Releases](https://github.com/UserCel/wallaflare/releases/latest)** (`wallaflare-koplugin-v...zip`), from your Wallaflare dashboard (**Settings > Integrations**), or from `https://<your-subdomain>.workers.dev/download/wallaflare.koplugin.zip`.
@@ -184,7 +188,7 @@ Wallaflare provides an official **[KOReader Plugin](integrations/koreader/wallaf
 3. **Configure**:
    - In KOReader, open **Tools > Wallaflare > Settings**:
      - **Server URL**: `https://<your-subdomain>.workers.dev`
-     - **API Token**: Your master `AUTH_TOKEN` (required for 2-way sync and REST API access)
+     - **API Token / Master Password**: Enter your master `AUTH_TOKEN` (automatically exchanged for an isolated device token upon first connection) or paste a dedicated Personal Access Token (`wfl_pat_...`)
      - **Download Folder**: Choose where EPUBs are stored (e.g. `/Books/Wallaflare`)
      - **Sync Filter & Remote Archive**: Set your reading queue and auto-archive preferences.
 4. **Sync**:
@@ -257,7 +261,7 @@ Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies:
    - **Client ID**: `wallaflare`
    - **Client Secret**: `wallaflare`
    - **Username**: `wallaflare`
-   - **Password**: Your `AUTH_TOKEN`
+   - **Password**: Your `AUTH_TOKEN` (or generate a dedicated **Personal Access Token** in dashboard **Settings > Apps & Sync**)
 3. Tap **Sync now** in **Tools > Wallabag** — KOReader will sync and download clean EPUBs with covers and reading progress.
 
 ### 📱 Official Wallabag Android App
@@ -270,6 +274,8 @@ Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies:
 1. Open **Wallabagger Settings**.
 2. Enter your instance URL (`https://<your-subdomain>.workers.dev`).
 3. Click **Check URL / Connect** and sign in with your `AUTH_TOKEN`.
+
+> 💡 **Personal Access Tokens (PAT)**: For third-party apps, custom scripts, or clients that require an isolated token without exposing your master password, go to **Settings > Apps & Sync** or visit `/developer` on your instance to generate dedicated tokens (`wfl_pat_...`) with instant per-token revocation.
 
 ---
 

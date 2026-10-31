@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import app from '../index';
 import { EntryRow } from '../types';
 
+export const TEST_TOKEN = 'wfl_tok_test_valid_device_token';
+export const TEST_TOKEN_HASH = '2a05a935f5fda801e7775c66f3ee7cff39acbf1e03e772aa0244e655a2fbb528';
+
 // In-memory mock for D1 Database
 function createMockD1Database() {
   let entries: EntryRow[] = [];
@@ -9,9 +12,22 @@ function createMockD1Database() {
   let entryTags: Array<{ entry_id: number; tag_id: number }> = [];
   let rateLimits: Map<string, { failed_attempts: number; last_attempt_at: number; locked_until: number }> = new Map();
   let annotations: Array<{ id: number; entry_id: number; user_id: string; quote: string; text: string; color: string; ranges: string; target: string | null; created_at: string; updated_at: string }> = [];
+  let apiTokens: Array<{ id: number; token_hash: string; token_prefix: string; label: string; created_at: string; last_used_at: string | null; expires_at: string | null; revoked_at: string | null }> = [
+    {
+      id: 1,
+      token_hash: TEST_TOKEN_HASH,
+      token_prefix: 'wfl_tok_test_val...',
+      label: 'Default Test Device',
+      created_at: new Date().toISOString(),
+      last_used_at: null,
+      expires_at: null,
+      revoked_at: null,
+    }
+  ];
   let autoId = 1;
   let autoTagId = 1;
   let autoAnnotationId = 1;
+  let autoTokenId = 2;
   let currentRev = 1;
   let currentInstanceId = 1780000000000;
   let deletedEntries: Array<{ entry_id: number; revision: number; deleted_at: string }> = [];
@@ -76,12 +92,20 @@ function createMockD1Database() {
             const ip = boundParams[0];
             return (rateLimits.get(ip) || null) as T;
           }
+          if (query.includes('FROM api_tokens')) {
+            const hash = boundParams[0];
+            const found = apiTokens.find(t => t.token_hash === hash && !t.revoked_at);
+            return (found || null) as T;
+          }
           if (query.includes('SELECT MAX(id)')) {
             return entries[entries.length - 1] as T;
           }
           return null as T;
         },
         async all<T = any>() {
+          if (query.includes('FROM api_tokens')) {
+            return { results: [...apiTokens] as T[] };
+          }
           if (query.includes('FROM deleted_entries')) {
             const since = boundParams[0] || 0;
             const matched = deletedEntries.filter(d => d.revision > since);
@@ -347,6 +371,51 @@ function createMockD1Database() {
             const targetIds = boundParams.map(Number);
             entryTags = entryTags.filter(et => !targetIds.includes(et.entry_id));
             return { meta: { changes: 1 } };
+          }
+          if (query.includes('INSERT INTO api_tokens')) {
+            const token_hash = String(boundParams[0]);
+            const token_prefix = String(boundParams[1]);
+            const label = String(boundParams[2]);
+            const created_at = String(boundParams[3]);
+            const expires_at = boundParams[4] ? String(boundParams[4]) : null;
+            const newTok = {
+              id: autoTokenId++,
+              token_hash,
+              token_prefix,
+              label,
+              created_at,
+              expires_at,
+              revoked_at: null,
+              last_used_at: null,
+            };
+            apiTokens.push(newTok);
+            return { meta: { last_row_id: newTok.id, changes: 1 } };
+          }
+          if (query.includes('UPDATE api_tokens SET revoked_at = ?')) {
+            const revokedAt = String(boundParams[0]);
+            const id = Number(boundParams[1]);
+            const tok = apiTokens.find(t => t.id === id && !t.revoked_at);
+            if (tok) {
+              tok.revoked_at = revokedAt;
+              return { meta: { changes: 1 } };
+            }
+            return { meta: { changes: 0 } };
+          }
+          if (query.includes('UPDATE api_tokens SET last_used_at = ?')) {
+            const lastUsedAt = String(boundParams[0]);
+            const id = Number(boundParams[1]);
+            const tok = apiTokens.find(t => t.id === id);
+            if (tok) tok.last_used_at = lastUsedAt;
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('DELETE FROM api_tokens WHERE id = ?')) {
+            const id = Number(boundParams[0]);
+            const idx = apiTokens.findIndex(t => t.id === id);
+            if (idx >= 0) {
+              apiTokens.splice(idx, 1);
+              return { meta: { changes: 1 } };
+            }
+            return { meta: { changes: 0 } };
           }
           if (query.includes('auth_rate_limits') && query.includes('INSERT INTO')) {
             const ip = boundParams[0];
@@ -662,9 +731,44 @@ describe('Wallaflare Protected Mode (AUTH_TOKEN enabled)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('permits authenticated requests with valid Bearer token', async () => {
+  it('rejects master password directly on protected routes (zero-trust architecture)', async () => {
     const res = await app.request('/api/entries.json', {
       headers: { 'Authorization': `Bearer ${SECRET}` },
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('exchanges master password for device token via POST /api/auth/token', async () => {
+    const res = await app.request('/api/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: SECRET, label: 'Test Device' })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.success).toBe(true);
+    expect(data.token).toMatch(/^wfl_tok_[a-f0-9]+$/);
+    expect(data.label).toBe('Test Device');
+
+    // Verify token can access protected endpoints
+    const protectedRes = await app.request('/api/entries.json', {
+      headers: { 'Authorization': `Bearer ${data.token}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(protectedRes.status).toBe(200);
+  });
+
+  it('permits authenticated requests with valid Bearer token', async () => {
+    const res = await app.request('/api/entries.json', {
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` },
     }, {
       DB: mockDb,
       AUTH_TOKEN: SECRET,
@@ -673,11 +777,58 @@ describe('Wallaflare Protected Mode (AUTH_TOKEN enabled)', () => {
   });
 
   it('permits authenticated requests with access_token query param for EPUB download', async () => {
-    const res = await app.request(`/api/entries.json?access_token=${SECRET}`, {}, {
+    const res = await app.request(`/api/entries.json?access_token=${TEST_TOKEN}`, {}, {
       DB: mockDb,
       AUTH_TOKEN: SECRET,
     });
     expect(res.status).toBe(200);
+  });
+
+  it('supports token management: list, create PAT, and revoke tokens', async () => {
+    // 1. List tokens (should include pre-seeded TEST_TOKEN)
+    const listRes = await app.request('/api/tokens', {
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(listRes.status).toBe(200);
+    const listData = await listRes.json<any>();
+    expect(listData.tokens.length).toBeGreaterThanOrEqual(1);
+
+    // 2. Create a Personal Access Token (PAT)
+    const createRes = await app.request('/api/tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'CI PAT Token' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(createRes.status).toBe(201);
+    const createData = await createRes.json<any>();
+    expect(createData.success).toBe(true);
+    expect(createData.token).toMatch(/^wfl_pat_[a-f0-9]+$/);
+    const patToken = createData.token;
+    const patId = createData.id;
+
+    // 3. Authenticate with new PAT
+    const testPatRes = await app.request('/api/entries.json', {
+      headers: { 'Authorization': `Bearer ${patToken}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(testPatRes.status).toBe(200);
+
+    // 4. Revoke the PAT
+    const revokeRes = await app.request(`/api/tokens/${patId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(revokeRes.status).toBe(200);
+    const revokeData = await revokeRes.json<any>();
+    expect(revokeData.success).toBe(true);
+
+    // 5. Revoked token must immediately fail with 401
+    const failRes = await app.request('/api/entries.json', {
+      headers: { 'Authorization': `Bearer ${patToken}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(failRes.status).toBe(401);
   });
 });
 
@@ -1306,7 +1457,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     expect(res.status).toBe(200);
     const data = await res.json<any>();
-    expect(data.access_token).toBe(SECRET);
+    expect(data.access_token).toMatch(/^wfl_tok_[a-f0-9]+$/);
     expect(data.token_type).toBe("bearer");
   });
 
@@ -1349,7 +1500,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
   it('returns Cache-Control headers on /api/tags.json for extensions and supports live queries', async () => {
     // 1. Check standard tags request contains Cache-Control header for extension caching
     const tagsRes = await app.request('/api/tags.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(tagsRes.status).toBe(200);
     expect(tagsRes.headers.get('Cache-Control')).toContain('private, max-age=300');
@@ -1359,7 +1510,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SECRET}`
+        'Authorization': `Bearer ${TEST_TOKEN}`
       },
       body: JSON.stringify({
         title: 'Live Tag Article',
@@ -1373,7 +1524,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     const liveTagsRes = await app.request('/api/tags.json?_t=' + Date.now(), {
       headers: {
         'Cache-Control': 'no-cache',
-        'Authorization': `Bearer ${SECRET}`
+        'Authorization': `Bearer ${TEST_TOKEN}`
       }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
@@ -1390,7 +1541,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SECRET}`
+        'Authorization': `Bearer ${TEST_TOKEN}`
       },
       body: JSON.stringify({ label: 'Science Fiction' })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
@@ -1402,7 +1553,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     // 2. Listing tags includes the newly created standalone tag
     const listRes = await app.request('/api/tags.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(listRes.status).toBe(200);
@@ -1412,7 +1563,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     // 3. Deleting tag by slug works and cleans up
     const deleteSlugRes = await app.request('/api/tags/science-fiction.json', {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(deleteSlugRes.status).toBe(200);
     const deleteSlugJson = await deleteSlugRes.json<any>();
@@ -1425,14 +1576,14 @@ describe("Developer Page & OAuth Client Secret Security", () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SECRET}`
+        'Authorization': `Bearer ${TEST_TOKEN}`
       },
       body: JSON.stringify({ label: 'Unused Standalone Tag' })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     // 2. Call /api/sync.json
     const syncRes = await app.request('/api/sync.json?perPage=10', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(syncRes.status).toBe(200);
@@ -1460,7 +1611,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SECRET}`
+          'Authorization': `Bearer ${TEST_TOKEN}`
         },
         body: JSON.stringify({
           title: `Book Article ${padded}`,
@@ -1473,7 +1624,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     // 1. Fetch Page 1 (50 items) sorted by title ASC
     const page1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=title&order=asc', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(page1Res.status).toBe(200);
@@ -1491,7 +1642,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     // 2. Fetch Page 2 (remaining items) for Title ASC
     const page2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=title&order=asc', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(page2Res.status).toBe(200);
@@ -1502,13 +1653,13 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     // 3. Fetch Page 1 and Page 2 with Oldest First sorting
     const oldestP1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=oldest', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const oldestP1 = await oldestP1Res.json<any>();
     expect(oldestP1.entries.length).toBe(50);
 
     const oldestP2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=oldest', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const oldestP2 = await oldestP2Res.json<any>();
     const oldestP2Items = oldestP2._embedded?.items || oldestP2;
@@ -1516,14 +1667,14 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     // 4. Fetch Page 1 and Page 2 with Newest First sorting
     const newestP1Res = await app.request('/api/sync.json?page=1&perPage=50&sort=newest', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const newestP1 = await newestP1Res.json<any>();
     expect(newestP1.entries.length).toBe(50);
     expect(newestP1.entries[0].title).toBe('Book Article 060');
 
     const newestP2Res = await app.request('/api/entries.json?page=2&perPage=50&sort=newest', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const newestP2 = await newestP2Res.json<any>();
     const newestP2Items = newestP2._embedded?.items || newestP2;
@@ -1539,7 +1690,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
   it("supports monotonic sync_rev delta sync, returning up_to_date: true when no changes occurred", async () => {
     // 1. Initial Sync
     const syncRes1 = await app.request('/api/sync.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(syncRes1.status).toBe(200);
@@ -1550,7 +1701,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     // 2. Refocus Sync with since_rev = rev (no changes)
     const syncRes2 = await app.request(`/api/sync.json?since_rev=${rev}`, {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(syncRes2.status).toBe(200);
@@ -1567,7 +1718,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SECRET}`
+        'Authorization': `Bearer ${TEST_TOKEN}`
       },
       body: JSON.stringify({
         title: 'Article To Be Deleted',
@@ -1581,7 +1732,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     // 2. Sync state before deletion
     const beforeSyncRes = await app.request('/api/sync.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const beforeSyncData = await beforeSyncRes.json<any>();
     const beforeRev = beforeSyncData.sync_rev;
@@ -1589,13 +1740,13 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     // 3. Delete the article
     const delRes = await app.request(`/api/entries/${deleteTargetId}.json`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(delRes.status).toBe(200);
 
     // 4. Client delta sync with since_rev = beforeRev
     const afterSyncRes = await app.request(`/api/sync.json?since_rev=${beforeRev}`, {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(afterSyncRes.status).toBe(200);
@@ -1609,21 +1760,21 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     // 1. Ingest 2 test articles
     const p1 = await app.request('/api/entries.json', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ title: 'Batch Item 1', content: '<p>1</p>', url: 'https://example.com/b1' })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const item1 = await p1.json<any>();
 
     const p2 = await app.request('/api/entries.json', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ title: 'Batch Item 2', content: '<p>2</p>', url: 'https://example.com/b2' })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const item2 = await p2.json<any>();
 
     // 2. Sync revision before batch deletion
     const beforeSyncRes = await app.request('/api/sync.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const beforeSyncData = await beforeSyncRes.json<any>();
     const beforeRev = beforeSyncData.sync_rev;
@@ -1631,14 +1782,14 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     // 3. Batch delete both items
     const batchDelRes = await app.request('/api/entries/list.json', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ ids: [item1.id, item2.id] })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(batchDelRes.status).toBe(200);
 
     // 4. Delta sync should return both tombstones
     const afterSyncRes = await app.request(`/api/sync.json?since_rev=${beforeRev}`, {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const afterSyncData = await afterSyncRes.json<any>();
     expect(afterSyncData.up_to_date).toBe(false);
@@ -1650,14 +1801,14 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     // 1. Ingest an article
     const postRes = await app.request('/api/entries.json', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ title: 'Original Title', content: '<p>Body</p>', url: 'https://example.com/sync-patch-test' })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const article = await postRes.json<any>();
 
     // 2. Client gets current sync_rev baseline
     const syncRes1 = await app.request('/api/sync.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const data1 = await syncRes1.json<any>();
     const baselineRev = data1.sync_rev;
@@ -1665,14 +1816,14 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     // 3. Client A stars and archives the article via PATCH
     const patchRes = await app.request(`/api/entries/${article.id}.json`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ starred: 1, archive: 1, title: 'Updated Title' })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(patchRes.status).toBe(200);
 
     // 4. Client B calls delta sync with since_rev = baselineRev
     const syncRes2 = await app.request(`/api/sync.json?since_rev=${baselineRev}`, {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(syncRes2.status).toBe(200);
     const data2 = await syncRes2.json<any>();
@@ -1726,7 +1877,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
     const res = await app.request('/api/sync.json', {
       headers: {
-        'Authorization': `Bearer ${SECRET}`,
+        'Authorization': `Bearer ${TEST_TOKEN}`,
         'CF-Connecting-IP': '10.0.0.99'
       }
     }, { DB: emptyDb, AUTH_TOKEN: SECRET });
@@ -1741,7 +1892,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
 
   it("returns active client credentials on GET /api/client-info when authenticated", async () => {
     const res = await app.request("/api/client-info", {
-      headers: { "Authorization": `Bearer ${SECRET}` }
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
     }, {
       DB: mockDb,
       AUTH_TOKEN: SECRET,
@@ -1790,7 +1941,7 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     const res = await app.request("/api/entries.json", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${SECRET}`,
+        "Authorization": `Bearer ${TEST_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -1818,7 +1969,7 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     const res = await app.request(`/api/annotations/${createdEntryId}.json`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${SECRET}`,
+        "Authorization": `Bearer ${TEST_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -1848,12 +1999,12 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     // Create an annotation first
     await app.request(`/api/annotations/${createdEntryId}.json`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ quote: "First highlight", color: "yellow" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     const res = await app.request(`/api/annotations/${createdEntryId}.json`, {
-      headers: { "Authorization": `Bearer ${SECRET}` }
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(res.status).toBe(200);
@@ -1866,14 +2017,14 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
   it("updates annotation note, color, and selected quote on PATCH /api/annotations/:id.json", async () => {
     const postRes = await app.request(`/api/annotations/${createdEntryId}.json`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ quote: "Update me", color: "yellow", text: "Old note" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const created = await postRes.json<any>();
 
     const patchRes = await app.request(`/api/annotations/${created.id}.json`, {
       method: "PATCH",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ quote: "Updated selected quote passage", color: "purple", text: "Updated personal comment" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
@@ -1888,14 +2039,14 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
   it("deletes an annotation on DELETE /api/annotations/:id.json", async () => {
     const postRes = await app.request(`/api/annotations/${createdEntryId}.json`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ quote: "Delete me" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const created = await postRes.json<any>();
 
     const delRes = await app.request(`/api/annotations/${created.id}.json`, {
       method: "DELETE",
-      headers: { "Authorization": `Bearer ${SECRET}` }
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     expect(delRes.status).toBe(200);
@@ -1907,13 +2058,13 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     // Add an annotation
     await app.request(`/api/annotations/${createdEntryId}.json`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ quote: "Embedded highlight", color: "blue" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     // Fetch entries
     const listRes = await app.request("/api/entries.json", {
-      headers: { "Authorization": `Bearer ${SECRET}` }
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(listRes.status).toBe(200);
     const listData = await listRes.json<any>();
@@ -1949,7 +2100,7 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     // 1. Rejects invalid password
     const badRes = await app.request('/api/admin/reset-database.json', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ token: 'wrong_password' })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(badRes.status).toBe(401);
@@ -1957,7 +2108,7 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
     // 2. Succeeds with correct password
     const goodRes = await app.request('/api/admin/reset-database.json', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ token: SECRET })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(goodRes.status).toBe(200);
@@ -1968,14 +2119,14 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
 
     // 3. Database is completely empty, revision is 1, and instance_id is assigned
     const listRes = await app.request('/api/entries.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const listData = await listRes.json<any>();
     expect(listData.total).toBe(0);
     expect(listData._embedded.items.length).toBe(0);
 
     const syncRes = await app.request('/api/sync.json', {
-      headers: { 'Authorization': `Bearer ${SECRET}` }
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const syncData = await syncRes.json<any>();
     expect(syncData.sync_rev).toBe(1);
@@ -1996,7 +2147,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
   it("starts with content_revision = 1 on new entry creation", async () => {
     const res = await app.request("/api/entries.json", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         url: "https://example.com/rev-article-1",
         title: "Dual Revision Article 1",
@@ -2013,7 +2164,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
   it("preserves content_revision = 1 when adding annotations, but bumps sync revision", async () => {
     const createRes = await app.request("/api/entries.json", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         url: "https://example.com/rev-article-2",
         title: "Article with Annotations",
@@ -2027,7 +2178,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
     // Add annotation
     const annRes = await app.request(`/api/annotations/${entry.id}.json`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         quote: "Highlight me",
         color: "yellow",
@@ -2038,7 +2189,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
 
     // Verify sync delta returns updated entry with preserved content_revision
     const syncRes = await app.request(`/api/sync.json?since_rev=${initialRev}`, {
-      headers: { "Authorization": `Bearer ${SECRET}` }
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const syncData = await syncRes.json<any>();
     expect(syncData.up_to_date).toBe(false);
@@ -2053,7 +2204,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
   it("preserves content_revision = 1 when adding/removing tags and starring", async () => {
     const createRes = await app.request("/api/entries.json", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         url: "https://example.com/rev-article-3",
         title: "Tagging Article",
@@ -2066,19 +2217,19 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
     // Star article
     await app.request(`/api/entries/${entry.id}.json`, {
       method: "PATCH",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ starred: 1 })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     // Add tag
     await app.request(`/api/entries/${entry.id}/tags.json`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ tags: "science, technology" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
 
     const syncRes = await app.request(`/api/sync.json?since_rev=${initialRev}`, {
-      headers: { "Authorization": `Bearer ${SECRET}` }
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const syncData = await syncRes.json<any>();
     expect(syncData.entries.length).toBe(1);
@@ -2090,7 +2241,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
   it("increments content_revision when title or content is edited", async () => {
     const createRes = await app.request("/api/entries.json", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         url: "https://example.com/rev-article-4",
         title: "Original Title",
@@ -2103,7 +2254,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
     // Edit title
     const patchRes1 = await app.request(`/api/entries/${entry.id}.json`, {
       method: "PATCH",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ title: "Updated Title After Re-fetch" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const updated1 = await patchRes1.json<any>();
@@ -2112,7 +2263,7 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
     // Edit content
     const patchRes2 = await app.request(`/api/entries/${entry.id}.json`, {
       method: "PATCH",
-      headers: { "Authorization": `Bearer ${SECRET}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "<p>Freshly scraped article content body.</p>" })
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     const updated2 = await patchRes2.json<any>();

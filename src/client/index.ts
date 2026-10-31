@@ -514,6 +514,16 @@ import {
       }
       const response = await fetch(fullUrl, { ...options, headers });
       if (response.status === 401) {
+        // Token was rejected, revoked, or invalid: purge cached bad credentials immediately so we never burn rate-limit attempts
+        setAuthToken('');
+        allEntries = [];
+        cachedGlobalTags = [];
+        currentSyncRev = 0;
+        try {
+          localStorage.removeItem('wf_cached_articles');
+          localStorage.removeItem('wf_cached_tags');
+          localStorage.removeItem('wf_cached_counts');
+        } catch (e) {}
         showAuthOverlay();
       }
       // Inspect header-reported web asset version and trigger background OTA if newer
@@ -529,6 +539,10 @@ import {
       document.documentElement.classList.add('wf-needs-auth');
       const overlay = document.getElementById('authOverlay');
       if (overlay) overlay.style.display = 'flex';
+      const grid = document.getElementById('articlesGrid');
+      if (grid && !getAuthToken()) {
+        grid.innerHTML = '';
+      }
     }
 
     function hideAuthOverlay() {
@@ -553,9 +567,20 @@ import {
       if (errorBanner) errorBanner.style.display = 'none';
 
       try {
-        setAuthToken(token);
-        const res = await authFetch('/api/entries.json?perPage=1');
-        if (res.ok || res.status === 200) {
+        // Exchange master password for an issued device token
+        const exchangeUrl = (getApiBaseUrl() || '') + '/api/auth/token';
+        const exchangeRes = await fetch(exchangeUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: token,
+            label: isCapacitorApp() ? 'Wallaflare Android App' : 'Web Dashboard'
+          })
+        });
+
+        const data = await exchangeRes.json().catch(() => ({}));
+        if (exchangeRes.ok && data.token) {
+          setAuthToken(data.token);
           hideAuthOverlay();
           input.value = '';
           showToast('✓ Library Unlocked');
@@ -563,7 +588,7 @@ import {
         } else {
           setAuthToken('');
           if (errorBanner) {
-            errorBanner.textContent = 'Invalid authentication token / password.';
+            errorBanner.textContent = data.message || 'Invalid authentication token / password.';
             errorBanner.style.display = 'block';
           }
         }
@@ -1593,6 +1618,10 @@ import {
 
     async function loadArticles(silent = false, reset = true) {
       if (isLoadingArticles) return;
+      if (document.documentElement.classList.contains('wf-needs-auth') || !getAuthToken()) {
+        showAuthOverlay();
+        return;
+      }
       isLoadingArticles = true;
 
       // Always drain pending offline mutations to Cloudflare before requesting delta sync
@@ -1920,6 +1949,9 @@ import {
     }
 
     function renderFromInstantLocalCache() {
+      if (document.documentElement.classList.contains('wf-needs-auth') || !getAuthToken()) {
+        return;
+      }
       try {
         const fastArticles = localStorage.getItem('wf_cached_articles');
         if (fastArticles) {
@@ -6766,6 +6798,128 @@ import {
           input.placeholder = 'Enter AUTH_TOKEN';
         }
       });
+      loadPersonalTokens();
+    }
+
+    async function loadPersonalTokens() {
+      const container = document.getElementById('patTokensContainer');
+      if (!container) return;
+      try {
+        const res = await authFetch('/api/tokens');
+        if (!res.ok) {
+          container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">Could not load tokens.</div>';
+          return;
+        }
+        const data = await res.json();
+        const tokens = data.tokens || [];
+        if (tokens.length === 0) {
+          container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">No active tokens. Generate one above to connect third-party apps.</div>';
+          return;
+        }
+        container.innerHTML = tokens.map((t: any) => {
+          const isRevoked = Boolean(t.revoked_at);
+          const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString() : '';
+          const lastUsed = t.last_used_at ? ('Last used ' + new Date(t.last_used_at).toLocaleDateString()) : 'Never used';
+          const safeLabel = escapeHtml(t.label || 'Token');
+          const safePrefix = escapeHtml(t.token_prefix || '');
+          return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.8rem; gap: 0.5rem;">
+              <div style="min-width: 0; flex: 1;">
+                <div style="font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
+                  <span>${safeLabel}</span>
+                  <code style="font-size: 0.72rem; color: var(--accent); background: var(--bg-primary); padding: 1px 4px; border-radius: 3px;">${safePrefix}</code>
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+                  Created ${dateStr} • ${lastUsed} ${isRevoked ? '<span style="color: #ef4444; font-weight: 600;">(Revoked)</span>' : ''}
+                </div>
+              </div>
+              ${!isRevoked ? `<button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4);" onclick="handleRevokePersonalToken(${t.id}, '${safeLabel}')">Revoke</button>` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">Error loading tokens.</div>';
+      }
+    }
+
+    async function handleCreatePersonalToken() {
+      const input = document.getElementById('newPatLabelInput') as HTMLInputElement | null;
+      const btn = document.getElementById('generatePatBtn') as HTMLButtonElement | null;
+      const label = input ? input.value.trim() : '';
+      if (!label) {
+        showToast('Please enter a token label');
+        input?.focus();
+        return;
+      }
+      if (btn) btn.disabled = true;
+      try {
+        const res = await authFetch('/api/tokens', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label })
+        });
+        if (!res.ok) {
+          showToast('Failed to create token');
+          return;
+        }
+        const data = await res.json();
+        if (data.token) {
+          if (input) input.value = '';
+          showCreatedTokenModal(data.token, data.label);
+          loadPersonalTokens();
+        }
+      } catch (e) {
+        showToast('Error generating token');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function showCreatedTokenModal(token: string, label: string) {
+      const valEl = document.getElementById('tokenDisplayValue') as HTMLInputElement | null;
+      const lblEl = document.getElementById('tokenDisplayLabel');
+      if (valEl) valEl.value = token;
+      if (lblEl) lblEl.textContent = 'Token: ' + (label || 'Personal Access Token');
+      openModal('tokenDisplayModal');
+    }
+
+    function copyTokenDisplayValue(btn: HTMLElement) {
+      const valEl = document.getElementById('tokenDisplayValue') as HTMLInputElement | null;
+      if (!valEl || !valEl.value) return;
+      navigator.clipboard.writeText(valEl.value).then(() => {
+        const old = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('btn-success');
+        setTimeout(() => {
+          btn.textContent = old;
+          btn.classList.remove('btn-success');
+        }, 2000);
+      }).catch(() => {
+        valEl.select();
+        document.execCommand('copy');
+        showToast('Token copied to clipboard');
+      });
+    }
+
+    async function handleRevokePersonalToken(id: number, label: string) {
+      const confirmed = await showConfirmDialog(
+        'Revoke Token',
+        `Are you sure you want to revoke "${label}"?\n\nAny app or script using this token will be disconnected immediately.`,
+        'Revoke Token',
+        true
+      );
+      if (!confirmed) return;
+      try {
+        const res = await authFetch('/api/tokens/' + id, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Token revoked successfully');
+          loadPersonalTokens();
+        } else {
+          showToast('Could not revoke token');
+        }
+      } catch (e) {
+        showToast('Error revoking token');
+      }
     }
 
     function openSettingsModal(initialTab = null) {
@@ -6839,6 +6993,8 @@ import {
           lastTagsTabFetchTime = now;
           loadGlobalTags().then(() => renderGlobalTagManagerUI()).catch(() => {});
         }
+      } else if (activeSettingsTab === 'integrations') {
+        loadPersonalTokens();
       }
 
       // Update nav buttons
@@ -7153,6 +7309,13 @@ import {
     function initRefocusRefresh() {
       let lastRefreshTime = Date.now();
       const triggerRefresh = () => {
+        if (document.documentElement.classList.contains('wf-needs-auth') || !getAuthToken()) {
+          return;
+        }
+        const overlay = document.getElementById('authOverlay');
+        if (overlay && overlay.style.display !== 'none') {
+          return;
+        }
         checkNativePendingSavedArticles();
         processOutboxMutations();
         const now = Date.now();
@@ -7947,6 +8110,10 @@ if (typeof window !== "undefined") {
   try { (window as any).switchSettingsTab = switchSettingsTab; } catch (e) {}
   try { (window as any).handleSettingsMobileBack = handleSettingsMobileBack; } catch (e) {}
   try { (window as any).openSyncModal = openSyncModal; } catch (e) {}
+  try { (window as any).loadPersonalTokens = loadPersonalTokens; } catch (e) {}
+  try { (window as any).handleCreatePersonalToken = handleCreatePersonalToken; } catch (e) {}
+  try { (window as any).copyTokenDisplayValue = copyTokenDisplayValue; } catch (e) {}
+  try { (window as any).handleRevokePersonalToken = handleRevokePersonalToken; } catch (e) {}
 
   try { (window as any).loadSiteCookies = loadSiteCookies; } catch (e) {}
   try { (window as any).renderSiteCookiesList = renderSiteCookiesList; } catch (e) {}

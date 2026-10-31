@@ -8,14 +8,14 @@
       </div>
       <div>
         <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.3rem;">Protected Library</h2>
-        <p style="font-size: 0.85rem; color: var(--text-secondary);">Enter your Wallaflare Access Token or Password</p>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Enter master password (exchanged for a secure device token) or an existing token</p>
       </div>
       <div class="auth-error-banner" id="authErrorMsg"></div>
       <form id="authForm" action="/login_check" method="post" name="loginform" onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
         <input type="hidden" name="_csrf_token" value="wallaflare_csrf_token_8a92b" />
         <input type="hidden" id="username" name="_username" value="wallaflare" autocomplete="username" />
         <div class="form-group" style="text-align: left;">
-          <input type="password" id="authKeyInput" name="_password" placeholder="Enter AUTH_TOKEN / Password" autocomplete="current-password" required autofocus>
+          <input type="password" id="authKeyInput" name="_password" placeholder="Master Password or Token" autocomplete="current-password" required autofocus>
         </div>
         <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.65rem;">Unlock</button>
       </form>

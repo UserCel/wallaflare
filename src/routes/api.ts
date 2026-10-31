@@ -1,6 +1,7 @@
 import { OTA_VERSION, OTA_MIN_NATIVE_VERSION, OTA_BUNDLE_B64, OTA_CHECKSUM } from '../views/ota-bundle';
 import { KOPLUGIN_VERSION, KOPLUGIN_FILES } from '../views/koplugin-bundle';
 import { Hono } from 'hono';
+import { getCookie } from 'hono/cookie';
 import { Env, EntryRow, WallabagEntry } from '../types';
 import {
   getEntries,
@@ -42,7 +43,12 @@ import {
   resetAuthRateLimit,
   timingSafeCompare,
   slugify,
-  wipeDatabase
+  wipeDatabase,
+  createApiToken,
+  verifyApiToken,
+  getApiTokens,
+  revokeApiToken,
+  deleteApiToken
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain, sanitizeHtmlFragment, escapeHtmlText } from '../services/extractor';
 import { generateEpub, generateDigestEpub } from '../services/epub';
@@ -64,8 +70,13 @@ export const apiRouter = new Hono<{ Bindings: Env }>();
 // Authentication Middleware
 // -------------------------------------------------------------
 export const authMiddleware = async (c: any, next: any) => {
-  // Skip verify endpoint as it handles its own rate limiting & validation
-  if (c.req.path === '/api/auth/verify') {
+  // Skip verify and token exchange endpoints as they handle their own validation
+  if (
+    c.req.path === '/api/auth/verify' ||
+    c.req.path === '/api/auth/token' ||
+    c.req.path === '/oauth/v2/token' ||
+    c.req.path === '/api/oauth/v2/token'
+  ) {
     return next();
   }
 
@@ -83,12 +94,16 @@ export const authMiddleware = async (c: any, next: any) => {
     token = c.req.query('access_token') || c.req.query('token') || '';
   }
 
+  if (!token) {
+    token = getCookie(c, 'wf_auth_token') || '';
+  }
+
   // If no token was provided at all (e.g. unauthenticated guest / logged out visitor),
   // reject immediately with 401 without consuming failed rate-limit attempts.
   if (!token) {
     return c.json({
       error: 'Unauthorized',
-      message: 'Authentication required. Please log in.'
+      message: 'Authentication required. Please provide a valid device or API token.'
     }, 401);
   }
 
@@ -104,14 +119,15 @@ export const authMiddleware = async (c: any, next: any) => {
     }, 429);
   }
 
-  const isValid = timingSafeCompare(token, configuredToken);
-
-  if (isValid) {
+  // Zero-Trust Token Verification: verify token against api_tokens table
+  const tokenCheck = await verifyApiToken(c.env.DB, token);
+  if (tokenCheck.valid) {
     await resetAuthRateLimit(c.env.DB, ip);
+    c.set('apiToken', tokenCheck.tokenRow);
     return next();
   }
 
-  // Only record failed attempts if a non-empty wrong token was actively submitted
+  // The master password is intentionally NOT accepted on protected endpoints — only issued tokens.
   const failure = await recordFailedAuthAttempt(c.env.DB, ip);
   if (failure.locked) {
     return c.json({
@@ -125,7 +141,7 @@ export const authMiddleware = async (c: any, next: any) => {
 
   return c.json({
     error: 'Unauthorized',
-    message: `Invalid authentication token. ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
+    message: `Invalid or revoked device/API token. ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
     attempts_left: failure.attempts_left
   }, 401);
 };
@@ -233,6 +249,7 @@ const oauthTokenHandler = async (c: any) => {
   let clientSecret = '';
   let username = '';
   let password = '';
+  let deviceName = '';
   let body: any = {};
 
   const contentType = c.req.header('Content-Type') || '';
@@ -243,6 +260,7 @@ const oauthTokenHandler = async (c: any) => {
     clientSecret = body.client_secret || '';
     username = body.username || '';
     password = body.password || '';
+    deviceName = body.device_name || body.device || '';
   } else {
     body = await c.req.parseBody().catch(() => ({}));
     grantType = String(body.grant_type || '');
@@ -250,6 +268,7 @@ const oauthTokenHandler = async (c: any) => {
     clientSecret = String(body.client_secret || '');
     username = String(body.username || '');
     password = String(body.password || '');
+    deviceName = String(body.device_name || body.device || '');
   }
 
   const expectedToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
@@ -269,18 +288,16 @@ const oauthTokenHandler = async (c: any) => {
       const isSecretValid = !clientSecret || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
       isMatch = Boolean(isUserValid && isPasswordValid && isSecretValid);
     } else if (grantType === 'client_credentials') {
-      // Only honoured when an operator explicitly configured CLIENT_SECRET. Never fall back to the
-      // public default, otherwise anyone could mint the master token without a password.
       const explicitClientSecret = c.env.CLIENT_SECRET;
       isMatch = Boolean(
         clientSecret &&
         (timingSafeCompare(clientSecret, expectedToken) || (explicitClientSecret && timingSafeCompare(clientSecret, explicitClientSecret)))
       );
     } else if (grantType === 'refresh_token') {
-      const refreshToken = c.req.query('refresh_token') || body.refresh_token || '';
-      isMatch = Boolean(refreshToken && timingSafeCompare(refreshToken, expectedToken));
+      const refreshToken = String(c.req.query('refresh_token') || body.refresh_token || '');
+      const tokenCheck = await verifyApiToken(c.env.DB, refreshToken);
+      isMatch = tokenCheck.valid;
     } else {
-      // Unknown grant types must present the real credential, never a public identifier.
       const candidate = password || clientSecret;
       isMatch = Boolean(candidate && timingSafeCompare(candidate, expectedToken));
     }
@@ -306,18 +323,100 @@ const oauthTokenHandler = async (c: any) => {
 
   await resetAuthRateLimit(c.env.DB, ip);
 
-  const tokenValue = expectedToken || 'wallaflare_bearer_token_secret';
+  // Issue real cryptographic token into api_tokens table
+  const label = deviceName.trim() || c.req.header('user-agent')?.slice(0, 50) || 'Wallabag OAuth Client';
+  const tokenObj = await createApiToken(c.env.DB, label, 'wfl_tok_');
 
   return c.json({
-    access_token: tokenValue,
+    access_token: tokenObj.token,
     expires_in: 86400 * 365,
     token_type: 'bearer',
     scope: null,
-    refresh_token: tokenValue,
+    refresh_token: tokenObj.token,
   });
 };
 
 apiRouter.post('/oauth/v2/token', oauthTokenHandler);
+apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
+
+// -------------------------------------------------------------
+// Direct Token Exchange Endpoint (for KOReader & Web Dashboard)
+// -------------------------------------------------------------
+apiRouter.post('/api/auth/token', async (c: any) => {
+  const ip = getClientIp(c);
+  const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
+  if (!rateLimit.allowed) {
+    return c.json({
+      success: false,
+      error: 'rate_limited',
+      message: `Too many failed attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.`,
+      locked: true,
+      remaining_minutes: rateLimit.remaining_minutes || 15,
+      remaining_seconds: rateLimit.remaining_seconds || 900
+    }, 429);
+  }
+
+  const configuredToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
+  const body = await c.req.json().catch(() => ({}));
+  const password = String(body.password || body.token || '');
+  const label = String(body.label || body.device_name || c.req.header('user-agent')?.slice(0, 50) || 'Device Token').trim();
+
+  if (configuredToken) {
+    if (!password) {
+      return c.json({
+        success: false,
+        error: 'missing_password',
+        message: 'Master password is required.'
+      }, 400);
+    }
+    const isMasterValid = timingSafeCompare(password, configuredToken);
+    if (!isMasterValid) {
+      // If the provided secret is already a valid active device token / PAT, accept and reuse it directly
+      const tokenCheck = await verifyApiToken(c.env.DB, password);
+      if (tokenCheck.valid && tokenCheck.tokenRow) {
+        await resetAuthRateLimit(c.env.DB, ip);
+        return c.json({
+          success: true,
+          token: password,
+          id: tokenCheck.tokenRow.id,
+          label: tokenCheck.tokenRow.label,
+          token_prefix: tokenCheck.tokenRow.token_prefix,
+          created_at: tokenCheck.tokenRow.created_at
+        });
+      }
+
+      const failure = await recordFailedAuthAttempt(c.env.DB, ip);
+      if (failure.locked) {
+        return c.json({
+          success: false,
+          error: 'rate_limited',
+          message: 'Too many failed login attempts. Locked out for 15 minutes.',
+          locked: true,
+          remaining_minutes: 15,
+          attempts_left: 0
+        }, 429);
+      }
+      return c.json({
+        success: false,
+        error: 'invalid_password',
+        message: `Incorrect master password. ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before lockout.`,
+        attempts_left: failure.attempts_left
+      }, 401);
+    }
+  }
+
+  await resetAuthRateLimit(c.env.DB, ip);
+  const tokenObj = await createApiToken(c.env.DB, label, 'wfl_tok_');
+
+  return c.json({
+    success: true,
+    token: tokenObj.token,
+    id: tokenObj.id,
+    label: tokenObj.label,
+    token_prefix: tokenObj.token_prefix,
+    created_at: tokenObj.created_at
+  });
+});
 
 // -------------------------------------------------------------
 // Auth Verify Endpoint (with rate-limiting & attempts feedback)
@@ -350,9 +449,15 @@ apiRouter.post('/api/auth/verify', async (c: any) => {
     token = body.token || body.password || '';
   }
 
-  const isValid = timingSafeCompare(token, configuredToken);
+  // Check master password OR check if it is an active device token
+  const isMasterValid = timingSafeCompare(token, configuredToken);
+  let isTokenValid = false;
+  if (!isMasterValid) {
+    const check = await verifyApiToken(c.env.DB, token);
+    isTokenValid = check.valid;
+  }
 
-  if (isValid) {
+  if (isMasterValid || isTokenValid) {
     await resetAuthRateLimit(c.env.DB, ip);
     return c.json({ success: true, attempts_left: 5 });
   }
@@ -372,9 +477,43 @@ apiRouter.post('/api/auth/verify', async (c: any) => {
   return c.json({
     success: false,
     error: 'invalid_token',
-    message: `Incorrect password! ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
+    message: `Incorrect credentials! ${failure.attempts_left} attempt${failure.attempts_left === 1 ? '' : 's'} remaining before a 15-minute lockout.`,
     attempts_left: failure.attempts_left
   }, 400);
+});
+
+// -------------------------------------------------------------
+// Personal Access Tokens & Connected Devices Management
+// -------------------------------------------------------------
+apiRouter.get('/api/tokens', authMiddleware, async (c: any) => {
+  const tokens = await getApiTokens(c.env.DB);
+  return c.json({ tokens });
+});
+
+apiRouter.post('/api/tokens', authMiddleware, async (c: any) => {
+  const body = await c.req.json().catch(() => ({}));
+  const label = String(body.label || 'Personal Access Token').trim();
+  const tokenObj = await createApiToken(c.env.DB, label, 'wfl_pat_');
+  return c.json({
+    success: true,
+    token: tokenObj.token,
+    id: tokenObj.id,
+    label: tokenObj.label,
+    token_prefix: tokenObj.token_prefix,
+    created_at: tokenObj.created_at
+  }, 201);
+});
+
+apiRouter.delete('/api/tokens/:id', authMiddleware, async (c: any) => {
+  const id = Number(c.req.param('id'));
+  if (isNaN(id) || id <= 0) {
+    return c.json({ error: 'Invalid token ID' }, 400);
+  }
+  const revoked = await revokeApiToken(c.env.DB, id);
+  if (!revoked) {
+    return c.json({ error: 'Token not found or already revoked' }, 404);
+  }
+  return c.json({ success: true, message: 'Token revoked successfully' });
 });
 
 apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);

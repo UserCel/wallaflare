@@ -385,6 +385,13 @@ function Wallaflare:addToMainMenu(menu_items)
                         end,
                     },
                     {
+                        text = _("Force reinstall plugin from server"),
+                        keep_menu_open = true,
+                        callback = function()
+                            self:promptForceReinstallPlugin()
+                        end,
+                    },
+                    {
                         text = _("Reset local sync state"),
                         keep_menu_open = true,
                         callback = function()
@@ -449,6 +456,10 @@ end
 
 function Wallaflare:editServerSettings()
     local dialog
+    local has_token = (self.settings.auth_token and self.settings.auth_token ~= "")
+    local token_hint = has_token and (_("Active: ") .. self.settings.auth_token:sub(1, 12) .. "...") or _("Master Password / AUTH_TOKEN")
+    local token_desc = has_token and _("Password / Token (blank to keep active):") or _("Password (exchanged for device token):")
+
     dialog = MultiInputDialog:new{
         title = _("Wallaflare Server Settings"),
         fields = {
@@ -458,9 +469,9 @@ function Wallaflare:editServerSettings()
                 hint = "https://<your-subdomain>.workers.dev",
             },
             {
-                text = self.settings.auth_token or "",
-                description = _("API Token (AUTH_TOKEN):"),
-                hint = "AUTH_TOKEN",
+                text = "",
+                description = token_desc,
+                hint = token_hint,
                 text_type = "password",
             },
         },
@@ -479,17 +490,57 @@ function Wallaflare:editServerSettings()
                     callback = function()
                         local fields = dialog:getFields()
                         local raw_url = fields[1] or ""
-                        local raw_token = fields[2] or ""
+                        local raw_input = fields[2] or ""
 
                         local clean_url = Api.normalizeUrl(raw_url)
-                        local clean_token = raw_token:gsub("^%s+", ""):gsub("%s+$", "")
+                        local clean_input = raw_input:gsub("^%s+", ""):gsub("%s+$", "")
 
                         self.settings.server_url = clean_url
-                        self.settings.auth_token = clean_token
-                        Store:saveSettings()
 
+                        if clean_input == "" then
+                            if has_token then
+                                Store:saveSettings()
+                                UIManager:close(dialog)
+                                UIManager:show(InfoMessage:new{ text = _("Wallaflare settings saved."), timeout = 2 })
+                                return
+                            else
+                                UIManager:show(InfoMessage:new{ text = _("Password or token is required."), timeout = 2 })
+                                return
+                            end
+                        end
+
+                        if clean_input:match("^wfl_") then
+                            self.settings.auth_token = clean_input
+                            Store:saveSettings()
+                            UIManager:close(dialog)
+                            UIManager:show(InfoMessage:new{ text = _("Wallaflare API token saved."), timeout = 2 })
+                            return
+                        end
+
+                        local dev_name = "KOReader"
+                        pcall(function()
+                            local ok_d, dev = pcall(require, "device")
+                            if ok_d and dev and dev.model then
+                                dev_name = "KOReader (" .. tostring(dev.model) .. ")"
+                            end
+                        end)
+
+                        local issued_token, err = Api.exchangePasswordForToken(clean_url, clean_input, dev_name)
+                        if not issued_token then
+                            UIManager:show(InfoMessage:new{
+                                text = _("Authentication failed: ") .. (err or _("Invalid credentials")),
+                                timeout = 4,
+                            })
+                            return
+                        end
+
+                        self.settings.auth_token = issued_token
+                        Store:saveSettings()
                         UIManager:close(dialog)
-                        UIManager:show(InfoMessage:new{ text = _("Wallaflare settings saved."), timeout = 2 })
+                        UIManager:show(InfoMessage:new{
+                            text = _("✓ Connected! Device token generated and saved."),
+                            timeout = 3,
+                        })
                     end,
                 },
             },
@@ -614,6 +665,28 @@ function Wallaflare:showStatusDialog()
     })
 end
 
+function Wallaflare:promptForceReinstallPlugin()
+    if not self.settings.server_url or self.settings.server_url == "" then
+        self:editServerSettings()
+        return
+    end
+
+    local confirm = ConfirmBox:new{
+        text = string.format(
+            _("Force Reinstall Wallaflare Plugin\n\nRe-download and overwrite all local plugin files directly from your server (v%s)?\n\nThis installs the latest server-bundled build even before version numbers are bumped."),
+            self.version
+        ),
+        ok_text = _("Reinstall Now"),
+        cancel_text = _("Cancel"),
+        ok_callback = function()
+            NetworkMgr:runWhenConnected(function()
+                self:installPluginUpdate(self.version)
+            end)
+        end,
+    }
+    UIManager:show(confirm)
+end
+
 function Wallaflare:checkForPluginUpdate(is_manual)
     if not self.settings.server_url or self.settings.server_url == "" then
         if is_manual then self:editServerSettings() end
@@ -633,10 +706,19 @@ function Wallaflare:checkForPluginUpdate(is_manual)
 
         if not has_update then
             if is_manual then
-                UIManager:show(InfoMessage:new{
-                    text = string.format(_("Wallaflare plugin is up to date (v%s)."), self.version),
-                    timeout = 3,
-                })
+                local confirm = ConfirmBox:new{
+                    text = string.format(
+                        _("Wallaflare Plugin is Up to Date\n\nInstalled version: v%s\nServer bundled version: v%s\n\nWould you like to force re-download and reinstall the latest server files anyway?"),
+                        self.version,
+                        tostring(latest_ver or self.version)
+                    ),
+                    ok_text = _("Force Reinstall"),
+                    cancel_text = _("Close"),
+                    ok_callback = function()
+                        self:installPluginUpdate(latest_ver or self.version)
+                    end,
+                }
+                UIManager:show(confirm)
             end
             return
         end

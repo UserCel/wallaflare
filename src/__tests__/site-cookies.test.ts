@@ -19,6 +19,16 @@ class MockD1Database {
     annotations: [],
     deleted_entries: [],
     sync_state: [{ id: 1, revision: 1, instance_id: 1, updated_at: new Date().toISOString() }],
+    api_tokens: [{
+      id: 1,
+      token_hash: "cc0af97287543b65da2c7e1476426021826cab166f1e063ed012b855ff819656",
+      token_prefix: "test_token...",
+      label: "Test Token",
+      created_at: new Date().toISOString(),
+      expires_at: null,
+      revoked_at: null,
+      last_used_at: null,
+    }],
   };
 
   prepare(query: string) {
@@ -90,9 +100,14 @@ class MockD1Database {
       return { meta: { changes: 1 } };
     };
 
-    const handleFirst = async () => {
+    const handleFirst = async (params: any[] = []) => {
       if (q.includes("SELECT revision FROM sync_state")) {
         return { revision: this.tables.sync_state[0].revision };
+      }
+      if (q.includes("FROM api_tokens")) {
+        const hash = params[0];
+        const tok = this.tables.api_tokens.find((t: any) => t.token_hash === hash && !t.revoked_at);
+        return tok || null;
       }
       return null;
     };
@@ -100,7 +115,7 @@ class MockD1Database {
     return {
       bind: (...params: any[]) => ({
         all: () => handleAll(params),
-        first: handleFirst,
+        first: () => handleFirst(params),
         run: () => handleRun(params),
       }),
       run: () => handleRun([]),

@@ -3,13 +3,49 @@ import app from '../index';
 import { sanitizeHtmlFragment, sanitizeArticleDom, parseHtmlIsomorphic, escapeHtmlText, extractArticleFromUrl } from '../services/extractor';
 
 function createNoopDb() {
+  const apiTokens: any[] = [];
   return {
-    prepare(_query: string) {
+    prepare(query: string) {
+      let bound: any[] = [];
       const stmt: any = {
-        bind() { return stmt; },
-        async first() { return null; },
-        async all() { return { results: [] }; },
-        async run() { return { meta: { changes: 1 } }; },
+        bind(...params: any[]) {
+          bound = params;
+          return stmt;
+        },
+        async first() {
+          if (query.includes('FROM api_tokens')) {
+            const hash = bound[0];
+            return apiTokens.find(t => t.token_hash === hash && !t.revoked_at) || null;
+          }
+          return null;
+        },
+        async all() {
+          if (query.includes('FROM api_tokens')) {
+            return { results: [...apiTokens] };
+          }
+          return { results: [] };
+        },
+        async run() {
+          if (query.includes('INSERT INTO api_tokens')) {
+            const [token_hash, token_prefix, label, created_at, expires_at] = bound;
+            const newTok = {
+              id: apiTokens.length + 1,
+              token_hash,
+              token_prefix,
+              label,
+              created_at,
+              expires_at,
+              revoked_at: null,
+              last_used_at: null,
+            };
+            apiTokens.push(newTok);
+            return { meta: { last_row_id: newTok.id, changes: 1 } };
+          }
+          if (query.includes('UPDATE api_tokens')) {
+            return { meta: { changes: 1 } };
+          }
+          return { meta: { changes: 1 } };
+        },
       };
       return stmt;
     },
@@ -33,10 +69,33 @@ describe('Auth: no built-in default credentials when AUTH_TOKEN is configured', 
     expect(res.status).toBe(401);
   });
 
-  it('still accepts the real token', async () => {
+  it('rejects the master password directly on protected routes (zero-trust tokens only)', async () => {
     const res = await app.request('/api/entries.json', {
       headers: { Authorization: `Bearer ${SECRET}`, 'CF-Connecting-IP': '203.0.113.7' },
     }, env());
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts issued device tokens on protected routes', async () => {
+    const sharedDb = createNoopDb();
+    const tokenRes = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.7' },
+      body: JSON.stringify({
+        grant_type: 'password',
+        client_id: 'wallaflare',
+        client_secret: 'wallaflare',
+        username: 'wallaflare',
+        password: SECRET,
+      }),
+    }, { DB: sharedDb, AUTH_TOKEN: SECRET });
+    expect(tokenRes.status).toBe(200);
+    const tokenData = await tokenRes.json<any>();
+    expect(tokenData.access_token).toMatch(/^wfl_tok_[a-f0-9]+$/);
+
+    const res = await app.request('/api/entries.json', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}`, 'CF-Connecting-IP': '203.0.113.7' },
+    }, { DB: sharedDb, AUTH_TOKEN: SECRET });
     expect(res.status).toBe(200);
   });
 
@@ -72,7 +131,7 @@ describe('Auth: no built-in default credentials when AUTH_TOKEN is configured', 
       username: 'wallaflare', password: SECRET,
     });
     expect(res.status).toBe(200);
-    expect((await res.json<any>()).access_token).toBe(SECRET);
+    expect((await res.json<any>()).access_token).toMatch(/^wfl_tok_[a-f0-9]+$/);
   });
 
   it('rejects wallaflare/wallaflare on the web login form', async () => {

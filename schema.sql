@@ -97,4 +97,18 @@ CREATE TABLE IF NOT EXISTS site_cookies (
 
 CREATE INDEX IF NOT EXISTS idx_site_cookies_domain ON site_cookies(domain);
 
+-- API & Device Tokens Table (Zero-Trust Token System)
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash TEXT NOT NULL UNIQUE,
+  token_prefix TEXT NOT NULL,
+  label TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT DEFAULT NULL,
+  expires_at TEXT DEFAULT NULL,
+  revoked_at TEXT DEFAULT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash);
+
 INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 0);

@@ -1,7 +1,7 @@
 import { Context, Next } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { Env, OAuthTokenResponse } from '../types';
-import { timingSafeCompare } from '../db/queries';
+import { timingSafeCompare, verifyApiToken } from '../db/queries';
 
 export function getExpectedSecret(env: Env): string | undefined {
   return env.AUTH_TOKEN || env.CLIENT_SECRET;
@@ -38,7 +38,20 @@ export async function validateSessionToken(c: Context<{ Bindings: Env }> | strin
   }
 
   const expectedSession = await createSessionToken(env);
-  return timingSafeCompare(cookieVal, expectedSession) || timingSafeCompare(cookieVal, env.AUTH_TOKEN);
+  if (timingSafeCompare(cookieVal, expectedSession) || timingSafeCompare(cookieVal, env.AUTH_TOKEN)) {
+    return true;
+  }
+
+  if (env.DB) {
+    try {
+      const tokenCheck = await verifyApiToken(env.DB, cookieVal);
+      if (tokenCheck.valid) {
+        return true;
+      }
+    } catch (e) {}
+  }
+
+  return false;
 }
 
 export function generateToken(env: Env): OAuthTokenResponse {
