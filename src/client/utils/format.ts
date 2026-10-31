@@ -14,6 +14,17 @@ export function sanitizeFileName(name: string, ext: string = ""): string {
   return ext ? `${safe}.${ext.replace(/^\./, "")}` : safe;
 }
 
+export function normalizeUrl(url?: string): string {
+  if (!url) return "";
+  let trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("//")) return "https:" + trimmed;
+  if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = "https://" + trimmed;
+  }
+  return trimmed;
+}
+
 export function formatCardDate(dateInput?: string | number | Date | null): { label: string; tooltip: string } {
   if (!dateInput) return { label: "", tooltip: "" };
   const d = typeof dateInput === "object" && dateInput instanceof Date ? dateInput : new Date(dateInput);

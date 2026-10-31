@@ -2,7 +2,17 @@ import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArt
 import { showToast, hideToast } from './components/toast';
 import { openModal, closeModal } from './modals/manager';
 import { showConfirmDialog, handleConfirmModalOk, handleConfirmModalCancel } from './modals/confirm';
+import {
+  handleAddArticleBtnClick,
+  handleAddTextBtnClick,
+  renderAddTextTagChips,
+  removeAddTextTag,
+  syncAddTextTagChips,
+  handleIngestUrl,
+  handleIngestText
+} from './modals/add-article';
 import { escapeHtml } from './utils/dom';
+import { formatCardDate, normalizeUrl } from './utils/format';
 import {
   getEffectiveGlobalTags,
   loadGlobalTags,
@@ -653,7 +663,7 @@ import {
     async function handleLogout() {
       const confirmed = await showConfirmDialog(
         'Log Out',
-        'Are you sure you want to log out of Wallaflare?\\n\\nAll locally cached articles, offline data, and sync states will be cleared.',
+        'Are you sure you want to log out of Wallaflare?\n\nAll locally cached articles, offline data, and sync states will be cleared.',
         'Log Out',
         true
       );
@@ -687,74 +697,6 @@ import {
         if (svg) svg.classList.remove('is-refreshing-spin');
       }
     }
-
-    let addTextCustomTags: string[] = [];
-    function renderAddTextTagChips() {
-      const container = document.getElementById('addTextAvailableTags') || document.getElementById('addTextTagsChips');
-      const wrapper = document.getElementById('addTextTagsContainer');
-      if (!container) return;
-      if (!addTextCustomTags || addTextCustomTags.length === 0) {
-        container.innerHTML = '';
-        if (wrapper) wrapper.style.display = 'none';
-        return;
-      }
-      if (wrapper) wrapper.style.display = 'block';
-      container.innerHTML = addTextCustomTags
-        .map(tag => '<span class="tag-chip">' + escapeHtml(tag) + '<button type="button" class="tag-chip-del" onclick="removeAddTextTag(\'' + escapeHtml(tag).replace(/'/g, "\\'") + '\')">&times;</button></span>')
-        .join('');
-    }
-    function removeAddTextTag(tag: string) {
-      addTextCustomTags = (addTextCustomTags || []).filter(t => t !== tag);
-      const input = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
-      if (input) input.value = addTextCustomTags.join(', ');
-      renderAddTextTagChips();
-    }
-    function syncAddTextTagChips() {
-      const input = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
-      const raw = (input?.value || '').trim();
-      addTextCustomTags = raw ? raw.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-      renderAddTextTagChips();
-    }
-
-    function formatCardDate(dateInput) {
-      if (!dateInput) return { label: "", tooltip: "" };
-      const d = typeof dateInput === "object" && dateInput instanceof Date ? dateInput : new Date(dateInput);
-      const time = d.getTime();
-      if (isNaN(time)) return { label: "", tooltip: "" };
-
-      const tooltip = d.toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short"
-      });
-
-      const now = Date.now();
-      const diffSec = Math.floor((now - time) / 1000);
-
-      if (diffSec < 45) return { label: "Just now", tooltip: tooltip };
-      const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return { label: diffMin + "m ago", tooltip: tooltip };
-      const diffHour = Math.floor(diffMin / 60);
-      if (diffHour < 24) return { label: diffHour + "h ago", tooltip: tooltip };
-      const diffDay = Math.floor(diffHour / 24);
-      if (diffDay < 7) return { label: diffDay + "d ago", tooltip: tooltip };
-      if (diffDay < 30) {
-        const diffWeek = Math.floor(diffDay / 7);
-        return { label: diffWeek + "w ago", tooltip: tooltip };
-      }
-
-      const currentYear = new Date().getFullYear();
-      if (d.getFullYear() === currentYear) {
-        return {
-          label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-          tooltip: tooltip
-        };
-      }
-      return {
-        label: d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
-        tooltip: tooltip
-      };
-    }
-
 
     // Keyboard Shortcuts & Modal Dismissal Hierarchy
     window.addEventListener('keydown', (e) => {
@@ -2506,6 +2448,9 @@ import {
 
       if (e.ctrlKey || e.metaKey || e.shiftKey) {
         e.preventDefault();
+        if (selectedArticleIds.size === 0 && activeArticleId && activeArticleId !== id) {
+          selectedArticleIds.add(activeArticleId);
+        }
         toggleArticleSelection(id);
         return;
       }
@@ -2975,7 +2920,7 @@ import {
     }
 
     async function deleteEntryAction(id) {
-      const ok = await showConfirmDialog('Delete Article', 'Are you sure you want to delete this article?\\n\\nThis action cannot be undone.', 'Delete Article', true);
+      const ok = await showConfirmDialog('Delete Article', 'Are you sure you want to delete this article?\n\nThis action cannot be undone.', 'Delete Article', true);
       if (!ok) return;
 
       const item = allEntries.find(e => e.id === id);
@@ -5076,11 +5021,11 @@ import {
           const item = allEntries.find(e => e.id === id);
           if (!item) continue;
           const bodyMd = htmlToMarkdown(item.content || item.text || '');
-          const mdContent = '# ' + (item.title || 'Untitled') + '\\n\\n' +
-            '- **Source:** ' + (item.url || 'N/A') + '\\n' +
-            '- **Author:** ' + (item.author || 'N/A') + '\\n' +
-            '- **Date:** ' + (item.created_at || new Date().toISOString()) + '\\n\\n' +
-            '---\\n\\n' +
+          const mdContent = '# ' + (item.title || 'Untitled') + '\n\n' +
+            '- **Source:** ' + (item.url || 'N/A') + '\n' +
+            '- **Author:** ' + (item.author || 'N/A') + '\n' +
+            '- **Date:** ' + (item.created_at || new Date().toISOString()) + '\n\n' +
+            '---\n\n' +
             bodyMd;
           const safeName = (item.title || ('article-' + id)).replace(/[/\\:*?"<>|]/g, '').trim() + '.md';
           zipFiles[safeName] = strToU8(mdContent);
@@ -5200,7 +5145,12 @@ import {
     async function batchDeleteArticles() {
       const ids = Array.from(selectedArticleIds);
       if (ids.length === 0) return;
-      const ok = await showConfirmDialog('Delete Articles', 'Are you sure you want to delete ' + ids.length + ' articles?\\n\\nThis action cannot be undone.', 'Delete', true);
+      const ok = await showConfirmDialog(
+        'Delete Articles',
+        'Are you sure you want to delete ' + ids.length + ' article' + (ids.length === 1 ? '' : 's') + '?\n\nThis action cannot be undone.',
+        'Delete',
+        true
+      );
       if (!ok) return;
 
       const deleteIds = [...ids];
@@ -5575,134 +5525,6 @@ import {
       const item = allEntries.find(e => e.id === id);
       if (item && item.url) {
         window.open(item.url, '_blank', 'noopener,noreferrer');
-      }
-    }
-
-    // Ingest URL & Text Handlers
-    function handleAddArticleBtnClick() {
-      if (isOfflineMode) {
-        showToast('Connecting to server...');
-        loadArticles(false);
-        return;
-      }
-      openModal('addUrlModal');
-    }
-
-    function handleAddTextBtnClick() {
-      addTextCustomTags = [];
-      const input = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
-      if (input) input.value = '';
-      renderAddTextTagChips();
-      openModal('addTextModal');
-    }
-
-    async function handleIngestUrl(e) {
-      e.preventDefault();
-      const input = document.getElementById('urlInput') as HTMLInputElement;
-      const btn = document.getElementById('ingestUrlBtn') as HTMLButtonElement;
-      const errEl = document.getElementById('addUrlErrorMsg');
-      if (errEl) {
-        errEl.style.display = 'none';
-        errEl.textContent = '';
-      }
-      let url = (input?.value || '').trim();
-      if (!url) return;
-      url = normalizeUrl(url);
-
-      btn.disabled = true;
-      btn.textContent = 'Extracting...';
-
-      try {
-        const result = await saveArticleWithFallback(url);
-        if (!result.ok) throw new Error(result.error || 'Failed to save article');
-        const item = result.data;
-        closeModal('addUrlModal');
-        if (input) input.value = '';
-        if (item && item.id) {
-          allEntries.unshift(item);
-          syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-          checkNativePendingSavedArticles();
-          updateCounts();
-          renderSidebarTags();
-          filterArticles();
-          if (result.alreadyExists) {
-            showToast('Article is already in your library!');
-          } else if (result.emptyContent) {
-            showToast('⚠️ Saved link only (article text was blocked or empty)', true, 5000);
-          } else {
-            showToast(result.parserUsed === 'device' ? '✓ Article extracted on device & saved!' : '✓ Article saved successfully!');
-          }
-          openReader(item.id);
-        } else {
-          showToast(result.alreadyExists ? 'Article is already in your library!' : '✓ Article saved successfully!');
-          loadArticles(false);
-        }
-      } catch (err: any) {
-        let friendlyError = err?.message || 'Failed to save article';
-        if (/exceeded CPU time limit|CPU limit/i.test(friendlyError)) {
-          friendlyError = "⚡ Cloudflare Worker exceeded CPU time limit parsing this large webpage. Tip: Extract via the Wallaflare Android App (device parser) or save as Custom Text.";
-        } else if (/NetworkError|CORS|Failed to fetch/i.test(friendlyError)) {
-          friendlyError = "⚠️ Device extraction failed due to browser CORS security restrictions. Standard desktop browsers cannot scrape external websites directly. Switch to 'Auto' in Settings for server fallback, or use the Wallaflare Android App.";
-        }
-        if (errEl) {
-          errEl.textContent = friendlyError;
-          errEl.style.display = 'block';
-        }
-        showToast(friendlyError, true, 7000);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Fetch & Save';
-      }
-    }
-
-    async function handleIngestText(e) {
-      e.preventDefault();
-      const title = (document.getElementById('textTitle') as HTMLInputElement)?.value.trim();
-      const content = (document.getElementById('textContent') as HTMLTextAreaElement)?.value.trim();
-      const author = (document.getElementById('textAuthor') as HTMLInputElement)?.value.trim();
-      const tags = (document.getElementById('textTags') as HTMLInputElement)?.value.trim();
-      const url = (document.getElementById('textUrl') as HTMLInputElement)?.value.trim();
-      const previewPicture = (document.getElementById('textPreviewPicture') as HTMLInputElement)?.value.trim();
-      const btn = document.getElementById('ingestTextBtn') as HTMLButtonElement;
-
-      if (!title || !content) return;
-      if (btn) btn.disabled = true;
-
-      try {
-        const res = await authFetch('/api/entries.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, content, author, tags, url, preview_picture: previewPicture })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const item = await res.json();
-        closeModal('addTextModal');
-        const titleInput = document.getElementById('textTitle') as HTMLInputElement;
-        const contentInput = document.getElementById('textContent') as HTMLTextAreaElement;
-        const authorInput = document.getElementById('textAuthor') as HTMLInputElement;
-        const tagsInput = (document.getElementById('textTags') || document.getElementById('addTextTagsInput')) as HTMLInputElement;
-        const urlInput = document.getElementById('textUrl') as HTMLInputElement;
-        const previewInput = document.getElementById('textPreviewPicture') as HTMLInputElement;
-        if (titleInput) titleInput.value = '';
-        if (contentInput) contentInput.value = '';
-        if (authorInput) authorInput.value = '';
-        if (tagsInput) tagsInput.value = '';
-        if (urlInput) urlInput.value = '';
-        if (previewInput) previewInput.value = '';
-        addTextCustomTags = [];
-        renderAddTextTagChips();
-        allEntries.unshift(item);
-        syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
-        checkNativePendingSavedArticles();
-        updateCounts();
-        renderSidebarTags();
-        filterArticles();
-        showToast('✓ Custom entry saved');
-        openReader(item.id);
-      } catch (err) {
-        showToast('Failed to save entry');
-      } finally {
-        if (btn) btn.disabled = false;
       }
     }
 
@@ -6906,7 +6728,7 @@ import {
     async function reconcileDatabase() {
       const ok = await showConfirmDialog(
         'Reconcile Database',
-        'This will clear local storage and re-sync all articles, tags, and counts fresh from Cloudflare D1.\\n\\nContinue?',
+        'This will clear local storage and re-sync all articles, tags, and counts fresh from Cloudflare D1.\n\nContinue?',
         'Reconcile & Sync',
         false
       );
@@ -6930,17 +6752,6 @@ import {
 
 
     
-    function normalizeUrl(url) {
-      if (!url) return '';
-      url = url.trim();
-      if (!url) return '';
-      if (url.startsWith('//')) return 'https:' + url;
-      if (!/^https?:\/\//i.test(url)) {
-        url = 'https://' + url;
-      }
-      return url;
-    }
-
     function handleSaveServerConnection(e) {
       if (e) e.preventDefault();
       const form = (e && e.target && e.target.tagName === 'FORM') ? e.target : document;

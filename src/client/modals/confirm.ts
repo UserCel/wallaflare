@@ -17,7 +17,9 @@ export function showConfirmDialog(
     const btn = document.getElementById("confirmModalBtn") as HTMLElement | null;
 
     if (titleEl) titleEl.textContent = title;
-    if (msgEl) msgEl.textContent = message;
+    if (msgEl) {
+      msgEl.textContent = (message || "").replace(/\\n/g, "\n");
+    }
     if (btn) {
       btn.textContent = confirmBtnText;
       btn.className = isDanger ? "btn btn-primary" : "btn btn-primary";

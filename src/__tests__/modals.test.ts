@@ -71,6 +71,21 @@ describe("Modals Manager & Confirm Dialog Unit Tests", () => {
     expect(modal?.classList.contains("open")).toBe(false);
   });
 
+  it("showConfirmDialog unescapes literal backslash-n to real newlines in modal message", async () => {
+    const promise = showConfirmDialog(
+      "Delete Articles",
+      "Are you sure you want to delete 2 articles?\\n\\nThis action cannot be undone.",
+      "Delete",
+      true
+    );
+    const msg = document.getElementById("confirmModalMsg");
+    expect(msg?.textContent).toBe("Are you sure you want to delete 2 articles?\n\nThis action cannot be undone.");
+    expect(msg?.textContent).not.toContain("\\n");
+
+    handleConfirmModalCancel();
+    await promise;
+  });
+
   it("showConfirmDialog resolves false on Cancel", async () => {
     const promise = showConfirmDialog("Wipe Data", "Reset database?", "Wipe", false);
     const modal = document.getElementById("confirmModal");
