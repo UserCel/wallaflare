@@ -1142,6 +1142,16 @@ describe('Markdown Export Engine & Text Integrity Validation', () => {
     });
   });
 
+  describe("Mobile Navigation Drawer Safe Area & Clearance", () => {
+    it("uses dynamic safe top padding for mobile side panel without hardcoded redundant top padding", () => {
+      const html = renderDashboardHtml('Wallaflare');
+      // Must not contain the old hardcoded 3.5rem in mobile-nav-dropdown
+      expect(html).not.toMatch(/\.mobile-nav-dropdown\s*\{[^}]*padding-top:\s*max\(3\.5rem/);
+      // Must use dynamic var(--app-safe-top) clearance
+      expect(html).toMatch(/\.mobile-nav-dropdown\s*\{[^}]*var\(--app-safe-top/);
+    });
+  });
+
 });
 
 

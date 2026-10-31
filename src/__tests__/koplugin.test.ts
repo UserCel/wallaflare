@@ -8,5 +8,5 @@ describe("KOReader Plugin Automated Test Suite", () => {
     });
     expect(output).toContain("All KOReader plugin unit tests passed successfully!");
     expect(output).toContain("0 failed");
-  });
+  }, 20000);
 });

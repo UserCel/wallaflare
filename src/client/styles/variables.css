@@ -38,8 +38,7 @@
     }
 
     html.is-capacitor-app {
-      /* --app-safe-top is set synchronously by AndroidNative.getStatusBarHeight() in the
-         inline <script> injected by build-web.ts. Do NOT override with env() here. */
+      --app-safe-top: max(48px, env(safe-area-inset-top, 0px));
     }
 
     html.light {
