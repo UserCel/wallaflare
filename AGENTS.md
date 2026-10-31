@@ -190,6 +190,10 @@ Wallaflare uses an automated GitHub Actions release workflow (`.github/workflows
    - For app User-Agents (`okhttp`, `InThePoche`, `wallabag`), always serve the minimal, pure Wallabag developer template without extra DOM wrappers, scripts, or duplicate `class="collapsible"` lists that break scraper regexes.
    - Ensure the collapsible client items retain the exact paragraph order (`client_id`, `client_secret`, `redirect_uri`, `grant_types`) and the trailing `<a href="/developer/client/delete/:id">Delete</a>` anchor required by `WallabagWebService.java`.
    - On `POST /oauth/v2/token` password grant, automatically prune short-lived ephemeral probe tokens from the same client label created during the connection test phase (< 2 minutes) to prevent duplicate orphaned tokens.
+11. **Rule 11: Modular Web Architecture & No Monolithic Inlines**:
+   - **NEVER** add new features, UI logic, or modals directly into the monolithic `src/client/index.ts`.
+   - All new features, modals, tools, reader components, or sync handlers must be authored as modular, dedicated TypeScript modules under `src/client/` (e.g. `src/client/reader/`, `src/client/modals/`, `src/client/components/`, `src/client/sync/`, or `src/client/storage/`) with clear interfaces and unit test coverage.
+   - `src/client/index.ts` serves solely as the composition root, wiring dependencies and exporting public window symbols for backward compatibility. Whenever extracting an existing component, always remove the extracted code from `index.ts` to prevent stale, duplicated implementations.
 
 ---
 
