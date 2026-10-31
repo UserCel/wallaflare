@@ -77,6 +77,29 @@
           </div>
         </div>
         <div class="sidebar-tag-list" id="sidebarTagList"></div>
+        <script>
+          try {
+            var _rawTags = JSON.parse(localStorage.getItem('wf_cached_tags') || '[]');
+            if (Array.isArray(_rawTags) && _rawTags.length > 0) {
+              var _tc = document.getElementById('sidebarTagCount');
+              if (_tc) _tc.textContent = String(_rawTags.length);
+              var _tl = document.getElementById('sidebarTagList');
+              if (_tl) {
+                _tl.innerHTML = _rawTags.map(function(t) {
+                  var l = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
+                  var s = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
+                  var cnt = (typeof t === 'object' && (typeof t.count === 'number' ? t.count : typeof t.entry_count === 'number' ? t.entry_count : 0)) || 0;
+                  var safeSlug = s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                  var safeLabel = l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                  return '<button class="sidebar-tag-item" onclick="filterByTag(\'' + safeSlug + '\')">' +
+                    '<span>#' + safeLabel + '</span>' +
+                    (cnt > 0 ? '<span class="badge-count">' + cnt + '</span>' : '') +
+                  '</button>';
+                }).join('');
+              }
+            }
+          } catch(e) {}
+        </script>
         <button class="sidebar-sub-action-btn" onclick="openGlobalTagManager()" title="Manage &amp; Clean Tags">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
           <span>Manage Tags</span>

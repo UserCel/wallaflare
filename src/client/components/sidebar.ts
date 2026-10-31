@@ -83,24 +83,47 @@ export function getEffectiveGlobalTags(entries?: any[], cachedTags?: any[]): Tag
     const label = (typeof t === "string" ? t : (t.label || t.name || t.slug || "")).trim();
     const slug = (typeof t === "string" ? t : (t.slug || t.label || t.name || "")).trim();
     const key = (slug || label).toLowerCase();
-    if (key) map.set(key, { id: t.id || Date.now(), label: label || slug, slug: slug || label, count: 0 });
+    const initialCount = (typeof t === "object" && (typeof t.count === "number" ? t.count : typeof t.entry_count === "number" ? t.entry_count : 0)) || 0;
+    if (key) {
+      map.set(key, {
+        id: t.id || Date.now(),
+        label: label || slug,
+        slug: slug || label,
+        count: initialCount,
+        entry_count: initialCount
+      });
+    }
   });
 
+  const localCounts = new Map<string, number>();
   (currentEntries || []).forEach((entry: any) => {
     (entry.tags || []).forEach((t: any) => {
       const label = (typeof t === "string" ? t : (t.label || t.name || t.slug || "")).trim();
       const slug = (typeof t === "string" ? t : (t.slug || t.label || t.name || "")).trim();
       const key = (slug || label).toLowerCase();
       if (key) {
+        localCounts.set(key, (localCounts.get(key) || 0) + 1);
         if (!map.has(key)) {
-          map.set(key, { id: (typeof t === "object" && t.id) ? t.id : Date.now(), label: label || slug, slug: slug || label, count: 1 });
-        } else {
-          const existing = map.get(key)!;
-          existing.count = (existing.count || 0) + 1;
+          map.set(key, {
+            id: (typeof t === "object" && t.id) ? t.id : Date.now(),
+            label: label || slug,
+            slug: slug || label,
+            count: 0,
+            entry_count: 0
+          });
         }
       }
     });
   });
+
+  if (currentEntries && currentEntries.length > 0) {
+    for (const [key, item] of map.entries()) {
+      const local = localCounts.get(key) || 0;
+      item.count = Math.max(item.count || 0, local);
+      item.entry_count = item.count;
+    }
+  }
+
   return Array.from(map.values());
 }
 
@@ -133,10 +156,11 @@ export function renderSidebarTags(): void {
   const htmlContent = tags.length === 0
     ? '<div style="font-size: 0.75rem; color: var(--text-muted); padding: 0.35rem 0.5rem; font-style: italic;">No tags yet</div>'
     : tags.map(t => {
+        const count = typeof t.count === "number" ? t.count : (typeof t.entry_count === "number" ? t.entry_count : 0);
         const isActive = activeTag && activeTag.toLowerCase() === (t.slug || t.label).toLowerCase();
         return '<button class="sidebar-tag-item ' + (isActive ? 'active' : '') + '" onclick="filterByTag(\'' + escapeHtml(t.slug || t.label).replace(/'/g, "\\'") + '\')">' +
           '<span>#' + escapeHtml(t.label) + '</span>' +
-          (t.count > 0 ? '<span class="badge-count">' + t.count + '</span>' : '') +
+          (count > 0 ? '<span class="badge-count">' + count + '</span>' : '') +
         '</button>';
       }).join('');
 

@@ -151,4 +151,46 @@ describe("Sidebar Component Unit Tests", () => {
     setCachedGlobalTags([{ label: "PersistedTag", slug: "persistedtag", count: 0 }]);
     expect(mockStorage["wf_cached_tags"]).toContain("PersistedTag");
   });
+
+  it("preserves tag badge counts directly from cache on cold refresh before articles load", () => {
+    const cachedWithCounts = [
+      { id: 101, label: "Tech", slug: "tech", entry_count: 8 },
+      { id: 102, label: "News", slug: "news", count: 3 }
+    ];
+
+    // Cold boot scenario: allEntries is empty []
+    const effective = getEffectiveGlobalTags([], cachedWithCounts);
+    expect(effective.find(t => t.slug === "tech")?.count).toBe(8);
+    expect(effective.find(t => t.slug === "news")?.count).toBe(3);
+
+    // Sidebar DOM rendering
+    setCachedGlobalTags(cachedWithCounts);
+    renderSidebarTags();
+    const tagList = document.getElementById("sidebarTagList");
+    expect(tagList?.innerHTML).toContain('<span class="badge-count">8</span>');
+    expect(tagList?.innerHTML).toContain('<span class="badge-count">3</span>');
+    expect(tagList?.innerHTML).toContain("#Tech");
+    expect(tagList?.innerHTML).toContain("#News");
+  });
+
+  it("merges local article tags with cached counts", () => {
+    const cached = [
+      { id: 201, label: "AI", slug: "ai", entry_count: 2 }
+    ];
+    // Suppose local active entries have 5 articles with tag AI
+    const entries = [
+      { id: 1, tags: [{ label: "AI", slug: "ai" }] },
+      { id: 2, tags: [{ label: "AI", slug: "ai" }] },
+      { id: 3, tags: [{ label: "AI", slug: "ai" }] },
+      { id: 4, tags: [{ label: "AI", slug: "ai" }] },
+      { id: 5, tags: [{ label: "AI", slug: "ai" }] },
+      { id: 6, tags: [{ label: "Science", slug: "science" }] }
+    ];
+    const effective = getEffectiveGlobalTags(entries, cached);
+    const aiTag = effective.find(t => t.slug === "ai");
+    const sciTag = effective.find(t => t.slug === "science");
+
+    expect(aiTag?.count).toBe(5);
+    expect(sciTag?.count).toBe(1);
+  });
 });
