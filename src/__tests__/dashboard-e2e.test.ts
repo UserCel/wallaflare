@@ -72,6 +72,96 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
     expect(check.total).toBeGreaterThan(30);
   });
 
+  it("guarantees 100% Window API contract parity across all exported dashboard functions and properties", async () => {
+    const expectedSymbols = [
+      "activeArticleId", "addQuickTagToActiveArticles", "adjustAnnotationSelection", "adjustModalSelection",
+      "adjustPopoverSelection", "adjustReaderFontSize", "adjustSpeedReadFontSize", "adjustSpeedReadWpm",
+      "allEntries", "applyAnnotationsToReader", "authFetch", "batchArchiveArticles", "batchDeleteArticles",
+      "batchEditTitle", "batchManageTags", "batchOpenHighlights", "batchOpenOriginal", "batchRefetchContent",
+      "batchStarArticles", "batchToggleArchive", "batchToggleStar", "changePopoverHighlightColor",
+      "checkCapacitorOtaFromVersion", "checkNativePendingSavedArticles", "cleanupUnusedTags",
+      "clearActiveTextSelection", "clearArticleSelection", "clearIndexedDB", "clearSearch", "clearSearchInput",
+      "closeAllCardMenus", "closeAnnotationNoteModal", "closeBatchMenu", "closeCardContextMenu",
+      "closeGlobalTagModal", "closeHighlightPopover", "closeMobileNavMenu", "closeModal", "closeReader",
+      "closeReaderAppearancePopover", "closeReaderMoreMenu", "closeReaderSearchBar", "closeSpeedRead",
+      "closeTagModal", "compareSemVer", "copyAllModalHighlights", "copyCurrentAnnotationNoteModal",
+      "copyDirectText", "copyModalAnnotation", "copyPopoverQuote", "copySyncOpdsAuthUrl", "copySyncValue",
+      "copyTokenDisplayValue", "currentFilter", "cycleViewMode", "deduplicateEntries", "deleteActiveArticle",
+      "deleteEntryAction", "deleteEntryFromIndexedDB", "deleteGlobalTag", "deleteModalAnnotation",
+      "deletePopoverHighlight", "downloadActiveEpub", "downloadEpub", "downloadRemainingLibraryInBackground",
+      "editModalAnnotation", "enqueueMutation", "escapeHtml", "exportActiveMarkdown", "exportActivePdf",
+      "exportMarkdown", "exportPdf", "filterArticles", "filterByTag", "filterHighlightsModalList",
+      "formatAllAnnotationsReadable", "formatAnnotationReadable", "generateSortMenuHtml",
+      "generateUnifiedArticleMenuHtml", "getAllEntries", "getApiBaseUrl", "getAppWebVersion",
+      "getArticlesFromOfflineDb", "getAuthToken", "getEffectiveGlobalTags", "getEffectiveServerUrl",
+      "getFilteredEntries", "getPendingMutations", "getSortedAnnotations", "handleAddArticleBtnClick",
+      "handleAddTagBtnClick", "handleAddTextBtnClick", "handleAndroidBackButton", "handleBatchExportAnthologyEpub",
+      "handleBatchExportEpub", "handleBatchExportJson", "handleBatchExportMarkdown", "handleBatchExportPdf",
+      "handleCardClick", "handleCardContextMenu", "handleCardTouchEnd", "handleCardTouchMove",
+      "handleCardTouchStart", "handleClearAllSiteCookies", "handleConfirmModalCancel", "handleConfirmModalOk",
+      "handleConfirmWipeDatabase", "handleConnectionFailure", "handleCopySelection", "handleCreateHighlight",
+      "handleCreateHighlightWithNote", "handleCreatePersonalToken", "handleDeleteGlobalTagClick",
+      "handleDeleteSiteCookie", "handleExportBatchAnthologyEpub", "handleExportBatchEpub", "handleExportBatchJson",
+      "handleExportBatchMarkdown", "handleFilterByTagClick", "handleIngestText", "handleIngestUrl", "handleLogin",
+      "handleLogout", "handleManualRefresh", "handlePresetSiteLogin", "handleReaderBack", "handleReaderBodyClick",
+      "handleReaderScroll", "handleReaderSearchInput", "handleReaderSearchKeydown", "handleRemoveTagBtnClick",
+      "handleRevokePersonalToken", "handleRouteState", "handleSaveAnnotationNoteForm", "handleSaveServerConnection",
+      "handleSaveSiteCookieSubmit", "handleSaveTitle", "handleSearchInput", "handleSearchInputKeydown",
+      "handleSettingsMobileBack", "handleSpeedReadScrub", "handleToggleSiteCookie", "hideAuthOverlay",
+      "hideReaderTopBar", "hideToast", "highlightTextInNode", "htmlToMarkdown", "initAppearanceSettings",
+      "initCapacitorOtaUpdater", "initInfiniteScroll", "initLiveTimestamps", "initPaneFocusListeners",
+      "initPullToRefresh", "initReaderHoverTopBar", "initReaderSelectionHandlers", "initRefocusRefresh",
+      "initSelectionDeselectListener", "isCapacitorApp", "isRtlText", "isSelectionMode", "isSpeedReadOpen",
+      "jumpReaderSearchMatch", "launchInAppSiteLogin", "loadArticles", "loadEntriesFromIndexedDB",
+      "loadGlobalTags", "loadMoreArticles", "loadMoreRenderedCards", "loadPersonalTokens", "loadSiteCookies",
+      "navigateTo", "openActiveOriginalLink", "openAddSiteCookieDialog", "openAnnotationNoteModal",
+      "openArticleHighlightsModal", "openArticleOriginalLink", "openBatchContextMenu", "openCardContextMenu",
+      "openEditTitleModal", "openGlobalTagManager", "openHighlightPopover", "openIndexedDB", "openModal",
+      "openReader", "openReaderSearchBar", "openServerConnectModal", "openSettingsModal", "openSpeedRead",
+      "openSyncModal", "openTagModal", "openTagModalForSelection", "openWipeDbModal", "pauseSpeedRead",
+      "playSpeedRead", "prependSavedArticle", "prependSavedArticles", "processOutboxMutations", "reconcileDatabase",
+      "refetchActiveArticleContent", "refetchArticleContent", "refreshArticlesSilently", "removeAddTextTag",
+      "removeTagFromActiveArticles", "renderAddTextTagChips", "renderArticles", "renderArticlesChunked",
+      "renderFromInstantLocalCache", "renderGlobalTagManagerUI", "renderModalHighlightsList", "renderSidebarTags",
+      "renderSiteCookiesList", "renderTagModalUI", "restartSpeedRead", "saveArticlesToOfflineDb",
+      "saveEntriesToIndexedDB", "savePendingMutations", "scheduleReaderTopBarAutoHide", "scrollToAnnotation",
+      "selectModalNoteColor", "selectedArticleIds", "setAllEntries", "setAuthToken", "setFilter", "setFilterDirect",
+      "setHighlightsSort", "setKeyboardPaneFocus", "setParserEngine", "setReaderAlignment", "setReaderContentWidth",
+      "setReaderFont", "setReaderFontFamily", "setReaderFontSize", "setReaderLineHeight", "setReaderStatusBar",
+      "setReaderTextAlignment", "setSortOrder", "setSpeedReadFontSize", "setSpeedReadWpm", "setTheme", "setViewMode",
+      "setupElasticOverscroll", "setupMobileDrawerSwipeTracking", "shareOrDownloadBlob", "shouldReaderAutoHide",
+      "showAuthOverlay", "showConfirmDialog", "showOtaRestartBanner", "showReaderTopBar", "showToast",
+      "sortEntries", "sortEntriesLocally", "stepSpeedRead", "submitAddTag", "submitCreateGlobalTag",
+      "switchSettingsTab", "syncAddTextTagChips", "syncLocalEntriesCache", "toggleActiveArchive",
+      "toggleActiveStar", "toggleArchive", "toggleArticleSelection", "toggleBatchExportSubmenu", "toggleBatchMenu",
+      "toggleContextExportSubmenu", "toggleFocusMode", "toggleMobileNavMenu", "toggleReaderAppearancePopover",
+      "toggleReaderExportSubmenu", "toggleReaderFocusMode", "toggleReaderHighlightsModal", "toggleReaderMoreMenu",
+      "toggleReaderSearchBar", "toggleSelectAllArticles", "toggleSidebarTagsCollapse", "toggleSortMenu",
+      "toggleSpeedReadFontFamily", "toggleSpeedReadPlay", "toggleStar", "toggleTheme", "triggerHaptic",
+      "updateArticlesFooterStatus", "updateBatchUI", "updateCounts", "updateHighlightsBadge",
+      "updateLiveRelativeTimestamps", "updateOfflineUI", "updateParserEngineUI", "updateReadingProgress",
+      "updateSettingsStats", "updateVersionDisplay"
+    ];
+
+    const result = await page.evaluate((symbols) => {
+      const missing: string[] = [];
+      const notDefined: string[] = [];
+
+      for (const sym of symbols) {
+        if (!(sym in window)) {
+          missing.push(sym);
+        } else if ((window as any)[sym] === undefined) {
+          notDefined.push(sym);
+        }
+      }
+      return { missing, notDefined, totalChecked: symbols.length };
+    }, expectedSymbols);
+
+    expect(result.missing).toEqual([]);
+    expect(result.notDefined).toEqual([]);
+    expect(result.totalChecked).toBeGreaterThan(200);
+  });
+
   it("renders 3-pane layout, brand title without interpolation corruption, and valid version display", async () => {
     const info = await page.evaluate(() => {
       const sidebar = !!document.getElementById("paneSidebar");
@@ -867,6 +957,14 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
       const globalModalOpen = document.getElementById("globalTagModal")?.classList.contains("open");
       const globalTagsListItems = document.querySelectorAll("#globalTagListContainer > div").length;
 
+      // Test creating a new global tag in the modal and verifying it appears immediately
+      const newGlobalInput = document.getElementById("newGlobalTagInput") as HTMLInputElement;
+      if (newGlobalInput) newGlobalInput.value = "brand-new-global-tag";
+      await w.submitCreateGlobalTag();
+      const afterCreateHtml = document.getElementById("globalTagListContainer")?.innerHTML || "";
+      const hasNewTagImmediately = afterCreateHtml.includes("brand-new-global-tag");
+      w.closeGlobalTagModal();
+
       return {
         singleModalOpen,
         hasSingleExtra: a101Tags1.includes("single-extra-tag"),
@@ -881,7 +979,8 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
         a101HasBeta,
         a102HasBeta,
         globalModalOpen,
-        globalTagsListItems
+        globalTagsListItems,
+        hasNewTagImmediately
       };
     });
 
@@ -898,6 +997,7 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
     expect(testResult.a102HasBeta).toBe(false);
     expect(testResult.globalModalOpen).toBe(true);
     expect(testResult.globalTagsListItems).toBeGreaterThan(0);
+    expect(testResult.hasNewTagImmediately).toBe(true);
   });
   it("verifies deleting articles immediately zeroes sidebar counts and settings displays Cloudflare D1 sync status", async () => {
     const testResult = await page.evaluate(async () => {
@@ -949,5 +1049,34 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
     expect(testResult.countAfterAll).toBe("0");
     expect(testResult.localStatsText).toContain("0 (0 unread)");
     expect(testResult.syncRevText).toContain("Rev");
+  });
+
+  it("synchronously restores cached tags and badge counts on cold refresh from localStorage", async () => {
+    const check = await page.evaluate(() => {
+      const w = window as any;
+      document.documentElement.classList.remove("wf-needs-auth");
+      localStorage.removeItem("wf_cached_articles");
+      localStorage.setItem("wf_cached_tags", JSON.stringify([{ label: "ColdTag", slug: "coldtag", count: 0 }]));
+      localStorage.setItem("wf_cached_counts", JSON.stringify({ unread: 33, starred: 4, archive: 11, total: 44 }));
+
+      // Simulate cold init with empty live memory
+      w.allEntries = [];
+      w.renderFromInstantLocalCache();
+
+      const unread = document.getElementById("countUnread")?.textContent;
+      const total = document.getElementById("countAll")?.textContent;
+      const tagsListHtml = document.getElementById("sidebarTagList")?.innerHTML || "";
+
+      return {
+        unread,
+        total,
+        entriesCount: w.allEntries.length,
+        hasColdTag: tagsListHtml.includes("ColdTag")
+      };
+    });
+
+    expect(check.unread).toBe("33");
+    expect(check.total).toBe("44");
+    expect(check.hasColdTag).toBe(true);
   });
 });

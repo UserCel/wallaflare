@@ -1,4 +1,20 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
+import { showToast, hideToast } from './components/toast';
+import {
+  getEffectiveGlobalTags,
+  loadGlobalTags,
+  renderSidebarTags,
+  toggleSidebarTagsCollapse,
+  filterByTag,
+  setFilter,
+  updateCounts,
+  getSelectedTagFilter,
+  setSelectedTagFilter,
+  getCachedGlobalTags,
+  setCachedGlobalTags,
+  getIsSidebarTagsCollapsed,
+  setIsSidebarTagsCollapsed
+} from './components/sidebar';
 import {
   openSpeedRead,
   closeSpeedRead,
@@ -24,6 +40,7 @@ import {
     }
 
     let allEntries = [];
+    let cachedGlobalTags = [];
     let currentFilter = 'unread';
     let activeArticleId = null;
     let activeKeyboardPane = "list"; // "list" | "reader"
@@ -749,26 +766,6 @@ import {
         confirmResolve = null;
         resolve(false);
       }
-    }
-
-    let toastTimeout = null;
-    function showToast(msg, duration = 3000) {
-      const toast = document.getElementById('toast');
-      const msgEl = document.getElementById('toastMsg');
-      if (!toast || !msgEl) return;
-      msgEl.textContent = msg;
-      toast.classList.add('show');
-      if (toastTimeout) clearTimeout(toastTimeout);
-      toastTimeout = setTimeout(() => {
-        toast.classList.remove('show');
-        toastTimeout = null;
-      }, duration);
-    }
-
-    function hideToast() {
-      const toast = document.getElementById('toast');
-      if (toast) toast.classList.remove('show');
-      if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = null; }
     }
 
     function escapeHtml(str) {
@@ -1565,6 +1562,10 @@ import {
     let lastOfflineToastTime = 0;
 
     function updateOfflineUI(offline) {
+      const stateChanged = (isOfflineMode !== offline);
+      if (!stateChanged && hasCompletedInitialLoad) {
+        return;
+      }
       isOfflineMode = offline;
       const btn = document.getElementById('addArticleBtn');
       const textBtn = document.getElementById('addTextBtn');
@@ -1575,8 +1576,8 @@ import {
       const mobileDrawerBtn = document.getElementById('mobileDrawerAddArticleBtn');
       const mobileDrawerTextBtn = document.getElementById('mobileDrawerAddTextBtn');
 
-      const offlineSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>';
-      const onlineSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+      const offlineSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>';
+      const onlineSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
 
       if (offline) {
         if (btn) {
@@ -1612,17 +1613,21 @@ import {
         if (textBtn) {
           textBtn.title = 'Add Custom Text / Markdown';
         }
-        if (sidebarBtn) {
+        if (sidebarBtn && (sidebarBtn.classList.contains('btn-offline-mode') || !hasCompletedInitialLoad)) {
           sidebarBtn.classList.remove('btn-offline-mode');
           sidebarBtn.classList.add('btn-primary');
           sidebarBtn.title = 'Add URL';
-          sidebarBtn.innerHTML = onlineSvg + '<span>Add URL</span>';
+          if (sidebarBtn.classList.contains('btn-offline-mode')) {
+            sidebarBtn.innerHTML = onlineSvg + '<span>Add URL</span>';
+          }
         }
-        if (mobileDrawerBtn) {
+        if (mobileDrawerBtn && (mobileDrawerBtn.classList.contains('btn-offline-mode') || !hasCompletedInitialLoad)) {
           mobileDrawerBtn.classList.remove('btn-offline-mode');
           mobileDrawerBtn.classList.add('btn-primary');
           mobileDrawerBtn.title = 'Add URL';
-          mobileDrawerBtn.innerHTML = onlineSvg + '<span>Add URL</span>';
+          if (mobileDrawerBtn.classList.contains('btn-offline-mode')) {
+            mobileDrawerBtn.innerHTML = onlineSvg + '<span>Add URL</span>';
+          }
         }
         if (icon) {
           icon.innerHTML = '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>';
@@ -1750,6 +1755,7 @@ import {
 
           if (Array.isArray(data.tags)) {
             cachedGlobalTags = data.tags;
+            setCachedGlobalTags(data.tags);
           }
           if (Array.isArray(data.site_cookies)) {
             const cookiesJson = JSON.stringify(data.site_cookies);
@@ -1977,7 +1983,7 @@ import {
     }
 
     function renderFromInstantLocalCache() {
-      if (document.documentElement.classList.contains('wf-needs-auth') || !getAuthToken()) {
+      if (document.documentElement.classList.contains('wf-needs-auth')) {
         return;
       }
       try {
@@ -1993,6 +1999,7 @@ import {
           const parsedTags = JSON.parse(fastTags);
           if (Array.isArray(parsedTags) && parsedTags.length > 0) {
             cachedGlobalTags = parsedTags;
+            setCachedGlobalTags(parsedTags);
           }
         }
         const fastCounts = localStorage.getItem('wf_cached_counts');
@@ -2318,150 +2325,13 @@ import {
     function syncLocalEntriesCache(entries, tags, counts) {
       try {
         if (entries !== undefined) localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
-        if (tags !== undefined) localStorage.setItem('wf_cached_tags', JSON.stringify(tags || []));
+        if (tags !== undefined) {
+          localStorage.setItem('wf_cached_tags', JSON.stringify(tags || []));
+          setCachedGlobalTags(tags || []);
+        }
         if (counts !== undefined) localStorage.setItem('wf_cached_counts', JSON.stringify(counts || null));
       } catch (err) {}
       saveArticlesToOfflineDb(entries || []);
-    }
-
-    // Tag list and filtering
-    let selectedTagFilter = null;
-    let cachedGlobalTags = [];
-    let isSidebarTagsCollapsed = false;
-
-    function getEffectiveGlobalTags() {
-      const map = new Map();
-      (cachedGlobalTags || []).forEach(t => {
-        const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
-        const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
-        const key = (slug || label).toLowerCase();
-        if (key) map.set(key, { id: t.id || Date.now(), label: label || slug, slug: slug || label, count: 0 });
-      });
-
-      (allEntries || []).forEach(entry => {
-        (entry.tags || []).forEach(t => {
-          const label = (typeof t === 'string' ? t : (t.label || t.name || t.slug || '')).trim();
-          const slug = (typeof t === 'string' ? t : (t.slug || t.label || t.name || '')).trim();
-          const key = (slug || label).toLowerCase();
-          if (key) {
-            if (!map.has(key)) {
-              map.set(key, { id: (typeof t === 'object' && t.id) ? t.id : Date.now(), label: label || slug, slug: slug || label, count: 1 });
-            } else {
-              const existing = map.get(key);
-              existing.count = (existing.count || 0) + 1;
-            }
-          }
-        });
-      });
-      return Array.from(map.values());
-    }
-
-    async function loadGlobalTags() {
-      try {
-        const res = await authFetch('/api/tags.json?_t=' + Date.now(), { cache: 'no-store' });
-        if (res.ok) {
-          cachedGlobalTags = await res.json();
-          renderSidebarTags();
-        }
-      } catch (e) {}
-    }
-
-    function renderSidebarTags() {
-      const listEl = document.getElementById('sidebarTagList');
-      const countEl = document.getElementById('sidebarTagCount');
-      const listMobileEl = document.getElementById('sidebarTagListMobile');
-      const countMobileEl = document.getElementById('sidebarTagCountMobile');
-
-      const tags = getEffectiveGlobalTags();
-      if (countEl) countEl.textContent = String(tags.length);
-      if (countMobileEl) countMobileEl.textContent = String(tags.length);
-
-      const htmlContent = tags.length === 0
-        ? '<div style="font-size: 0.75rem; color: var(--text-muted); padding: 0.35rem 0.5rem; font-style: italic;">No tags yet</div>'
-        : tags.map(t => {
-            const isActive = selectedTagFilter && selectedTagFilter.toLowerCase() === (t.slug || t.label).toLowerCase();
-            return '<button class="sidebar-tag-item ' + (isActive ? 'active' : '') + '" onclick="filterByTag(\'' + escapeHtml(t.slug || t.label).replace(/'/g, "\\'") + '\')">' +
-              '<span>#' + escapeHtml(t.label) + '</span>' +
-              (t.count > 0 ? '<span class="badge-count">' + t.count + '</span>' : '') +
-            '</button>';
-          }).join('');
-
-      if (listEl) listEl.innerHTML = htmlContent;
-      if (listMobileEl) listMobileEl.innerHTML = htmlContent;
-    }
-
-    function toggleSidebarTagsCollapse() {
-      isSidebarTagsCollapsed = !isSidebarTagsCollapsed;
-      const listEl = document.getElementById('sidebarTagList');
-      const chevron = document.getElementById('sidebarTagChevron');
-      const listMobileEl = document.getElementById('sidebarTagListMobile');
-      const chevronMobile = document.getElementById('sidebarTagChevronMobile');
-
-      if (listEl) listEl.classList.toggle('collapsed', isSidebarTagsCollapsed);
-      if (chevron) chevron.style.transform = isSidebarTagsCollapsed ? 'rotate(-90deg)' : 'none';
-      if (listMobileEl) listMobileEl.classList.toggle('collapsed', isSidebarTagsCollapsed);
-      if (chevronMobile) chevronMobile.style.transform = isSidebarTagsCollapsed ? 'rotate(-90deg)' : 'none';
-    }
-
-    function filterByTag(slug) {
-      if (selectedTagFilter === slug) {
-        selectedTagFilter = null;
-      } else {
-        selectedTagFilter = slug;
-      }
-      renderSidebarTags();
-      filterArticles();
-    }
-
-    function setFilter(filter, updateHistory = true) {
-      currentFilter = filter;
-      document.querySelectorAll('.sidebar-nav-item').forEach(b => b.classList.remove('active'));
-      const activeBtn = document.getElementById('tab' + filter.charAt(0).toUpperCase() + filter.slice(1));
-      const activeMobileBtn = document.getElementById('tab' + filter.charAt(0).toUpperCase() + filter.slice(1) + 'Mobile');
-      if (activeBtn) activeBtn.classList.add('active');
-      if (activeMobileBtn) activeMobileBtn.classList.add('active');
-      filterArticles();
-
-      if (updateHistory) {
-        const newPath = filter === 'unread' ? '/' : ('/' + filter);
-        if (window.location.pathname !== newPath) {
-          history.pushState({ filter }, '', newPath);
-        }
-      }
-    }
-
-    function updateCounts() {
-      let unread = 0;
-      let starred = 0;
-      let archive = 0;
-      let total = 0;
-
-      for (const e of (allEntries || [])) {
-        if (!e.is_archived) unread++;
-        if (e.is_starred) starred++;
-        if (e.is_archived) archive++;
-        total++;
-      }
-
-      const unreadEl = document.getElementById('countUnread');
-      const starredEl = document.getElementById('countStarred');
-      const archiveEl = document.getElementById('countArchive');
-      const totalEl = document.getElementById('countAll');
-
-      const unreadMobileEl = document.getElementById('countUnreadMobile');
-      const starredMobileEl = document.getElementById('countStarredMobile');
-      const archiveMobileEl = document.getElementById('countArchiveMobile');
-      const totalMobileEl = document.getElementById('countAllMobile');
-
-      if (unreadEl) unreadEl.textContent = String(unread);
-      if (starredEl) starredEl.textContent = String(starred);
-      if (archiveEl) archiveEl.textContent = String(archive);
-      if (totalEl) totalEl.textContent = String(total);
-
-      if (unreadMobileEl) unreadMobileEl.textContent = String(unread);
-      if (starredMobileEl) starredMobileEl.textContent = String(starred);
-      if (archiveMobileEl) archiveMobileEl.textContent = String(archive);
-      if (totalMobileEl) totalMobileEl.textContent = String(total);
     }
 
     function getFilteredEntries() {
@@ -2476,8 +2346,9 @@ import {
         filtered = filtered.filter(e => e.is_archived);
       }
 
-      if (selectedTagFilter) {
-        const filterLower = selectedTagFilter.toLowerCase().trim();
+      const activeTag = getSelectedTagFilter();
+      if (activeTag) {
+        const filterLower = activeTag.toLowerCase().trim();
         filtered = filtered.filter(e => {
           const tags = Array.isArray(e.tags) ? e.tags : [];
           return tags.some(t => {
@@ -2517,10 +2388,11 @@ import {
     function filterArticles() {
       const banner = document.getElementById('activeTagFilterBanner');
       const activeTagName = document.getElementById('activeTagName');
+      const activeTag = getSelectedTagFilter();
       if (banner && activeTagName) {
-        if (selectedTagFilter) {
+        if (activeTag) {
           banner.style.display = 'flex';
-          activeTagName.textContent = '#' + selectedTagFilter;
+          activeTagName.textContent = '#' + activeTag;
         } else {
           banner.style.display = 'none';
         }
@@ -2565,10 +2437,11 @@ import {
             title = 'No matches found';
             desc = 'No articles matching "' + escapeHtml(search) + '"';
             actionsHtml = '<button type="button" class="empty-state-btn" onclick="clearSearch()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Clear Search</span></button>';
-          } else if (selectedTagFilter) {
+          } else if (getSelectedTagFilter()) {
+            const activeTag = getSelectedTagFilter();
             iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>';
             title = 'No tagged articles';
-            desc = 'No articles tagged with #' + escapeHtml(selectedTagFilter);
+            desc = 'No articles tagged with #' + escapeHtml(activeTag);
             actionsHtml = '<button type="button" class="empty-state-btn" onclick="filterByTag(null)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Clear Tag Filter</span></button>';
           } else if (currentFilter === 'starred') {
             iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
@@ -6218,6 +6091,7 @@ import {
       }
       if (cachedGlobalTags) {
         cachedGlobalTags = cachedGlobalTags.filter(t => (t.slug || '').toLowerCase() !== tagLower && (t.label || '').toLowerCase() !== tagLower);
+        setCachedGlobalTags(cachedGlobalTags);
       }
       if (modified) {
         syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
@@ -6243,6 +6117,7 @@ import {
       if (!exists) {
         cachedGlobalTags.push({ id: Date.now(), label: val, slug: val.toLowerCase(), count: 0 });
       }
+      setCachedGlobalTags(cachedGlobalTags);
       input.value = '';
       renderSidebarTags();
       renderGlobalTagManagerUI();
@@ -6259,8 +6134,10 @@ import {
           const idx = cachedGlobalTags.findIndex(t => t.slug === created.slug || t.label.toLowerCase() === created.label.toLowerCase());
           if (idx >= 0) cachedGlobalTags[idx] = created;
           else cachedGlobalTags.push(created);
+          setCachedGlobalTags(cachedGlobalTags);
         }
-        loadGlobalTags();
+        await loadGlobalTags();
+        renderGlobalTagManagerUI();
       } catch (e) {}
     }
 
@@ -8017,7 +7894,6 @@ if (typeof window !== "undefined") {
   try { (window as any).refetchActiveArticleContent = refetchActiveArticleContent; } catch (e) {}
   try { (window as any).refetchArticleContent = refetchArticleContent; } catch (e) {}
   try { (window as any).htmlToMarkdown = htmlToMarkdown; } catch (e) {}
-  try { (window as any).nodeToMd = nodeToMd; } catch (e) {}
   try { (window as any).highlightTextInNode = highlightTextInNode; } catch (e) {}
   try { (window as any).getSortedAnnotations = getSortedAnnotations; } catch (e) {}
   try { (window as any).exportMarkdown = exportMarkdown; } catch (e) {}
@@ -8222,6 +8098,16 @@ if (typeof window !== "undefined") {
     Object.defineProperty(w, 'selectedArticleIds', {
       get() { return selectedArticleIds; },
       set(val) { selectedArticleIds = val; },
+      configurable: true
+    });
+    Object.defineProperty(w, 'cachedGlobalTags', {
+      get() { return cachedGlobalTags; },
+      set(val) { cachedGlobalTags = val; },
+      configurable: true
+    });
+    Object.defineProperty(w, 'serverLibraryCounts', {
+      get() { return serverLibraryCounts; },
+      set(val) { serverLibraryCounts = val; },
       configurable: true
     });
   } catch (e) {}

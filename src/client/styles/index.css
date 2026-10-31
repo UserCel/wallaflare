@@ -267,6 +267,11 @@
       border-radius: 999px;
       color: var(--text-muted);
       font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      min-width: 1.35rem;
+      text-align: center;
+      display: inline-block;
+      box-sizing: border-box;
     }
 
     /* -------------------------------------------------------------
@@ -296,6 +301,7 @@
       box-sizing: border-box;
       overflow-y: auto;
       overflow-x: hidden;
+      scrollbar-gutter: stable;
       z-index: 50;
       flex-shrink: 0;
       gap: 0.85rem;

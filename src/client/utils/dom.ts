@@ -43,3 +43,12 @@ export function setInputValue(id: string, value: string): void {
   const input = $id<HTMLInputElement | HTMLTextAreaElement>(id);
   if (input) input.value = value;
 }
+
+export function escapeHtml(str: any): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
