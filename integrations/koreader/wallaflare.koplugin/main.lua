@@ -497,6 +497,11 @@ function Wallaflare:editServerSettings()
 
                         self.settings.server_url = clean_url
 
+                        if clean_url == "" then
+                            UIManager:show(InfoMessage:new{ text = _("Server URL is required."), timeout = 3 })
+                            return
+                        end
+
                         if clean_input == "" then
                             if has_token then
                                 Store:saveSettings()
@@ -525,22 +530,25 @@ function Wallaflare:editServerSettings()
                             end
                         end)
 
-                        local issued_token, err = Api.exchangePasswordForToken(clean_url, clean_input, dev_name)
-                        if not issued_token then
-                            UIManager:show(InfoMessage:new{
-                                text = _("Authentication failed: ") .. (err or _("Invalid credentials")),
-                                timeout = 4,
-                            })
-                            return
-                        end
+                        UIManager:show(InfoMessage:new{ text = _("Connecting to Wallaflare..."), timeout = 2 })
+                        NetworkMgr:runWhenConnected(function()
+                            local issued_token, err = Api.exchangePasswordForToken(clean_url, clean_input, dev_name)
+                            if not issued_token then
+                                UIManager:show(InfoMessage:new{
+                                    text = _("Authentication failed: ") .. tostring(err or _("Invalid credentials")),
+                                    timeout = 5,
+                                })
+                                return
+                            end
 
-                        self.settings.auth_token = issued_token
-                        Store:saveSettings()
-                        UIManager:close(dialog)
-                        UIManager:show(InfoMessage:new{
-                            text = _("✓ Connected! Device token generated and saved."),
-                            timeout = 3,
-                        })
+                            self.settings.auth_token = issued_token
+                            Store:saveSettings()
+                            UIManager:close(dialog)
+                            UIManager:show(InfoMessage:new{
+                                text = _("✓ Connected! Device token generated and saved."),
+                                timeout = 3,
+                            })
+                        end)
                     end,
                 },
             },

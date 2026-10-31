@@ -342,6 +342,28 @@ apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
 // -------------------------------------------------------------
 // Direct Token Exchange Endpoint (for KOReader & Web Dashboard)
 // -------------------------------------------------------------
+function parseUserAgentLabel(ua: string): string {
+  if (!ua) return 'Device Token';
+  if (/koreader/i.test(ua)) return 'KOReader Plugin';
+  if (/wallabag/i.test(ua)) return 'Wallabag Client';
+  let os = '';
+  if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+  else if (/macintosh|mac os x/i.test(ua)) os = 'macOS';
+  else if (/windows/i.test(ua)) os = 'Windows';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  let browser = '';
+  if (/edg/i.test(ua)) browser = 'Edge';
+  else if (/chrome|crios/i.test(ua)) browser = 'Chrome';
+  else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
+  else if (/safari/i.test(ua)) browser = 'Safari';
+
+  if (browser && os) return `Web Browser (${browser} on ${os})`;
+  if (os) return `Device (${os})`;
+  return 'Device Token';
+}
+
 apiRouter.post('/api/auth/token', async (c: any) => {
   const ip = getClientIp(c);
   const rateLimit = await checkAuthRateLimit(c.env.DB, ip);
@@ -359,7 +381,8 @@ apiRouter.post('/api/auth/token', async (c: any) => {
   const configuredToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
   const body = await c.req.json().catch(() => ({}));
   const password = String(body.password || body.token || '');
-  const label = String(body.label || body.device_name || c.req.header('user-agent')?.slice(0, 50) || 'Device Token').trim();
+  const rawLabel = String(body.label || body.device_name || '').trim();
+  const label = rawLabel || parseUserAgentLabel(c.req.header('user-agent') || '');
 
   if (configuredToken) {
     if (!password) {
@@ -511,9 +534,9 @@ apiRouter.delete('/api/tokens/:id', authMiddleware, async (c: any) => {
   }
   const revoked = await revokeApiToken(c.env.DB, id);
   if (!revoked) {
-    return c.json({ error: 'Token not found or already revoked' }, 404);
+    return c.json({ error: 'Token not found or already deleted' }, 404);
   }
-  return c.json({ success: true, message: 'Token revoked successfully' });
+  return c.json({ success: true, message: 'Token deleted successfully' });
 });
 
 apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);

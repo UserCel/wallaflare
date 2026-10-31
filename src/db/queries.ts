@@ -1642,12 +1642,7 @@ export async function getApiTokens(db: D1Database): Promise<ApiTokenRow[]> {
 }
 
 export async function revokeApiToken(db: D1Database, id: number): Promise<boolean> {
-  await ensureDatabaseSchema(db);
-  const now = new Date().toISOString();
-  const res = await db.prepare(`
-    UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL
-  `).bind(now, id).run();
-  return (res.meta?.changes ?? 0) > 0;
+  return deleteApiToken(db, id);
 }
 
 export async function deleteApiToken(db: D1Database, id: number): Promise<boolean> {

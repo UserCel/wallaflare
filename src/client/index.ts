@@ -552,6 +552,31 @@ import {
     }
 
 
+    function getClientDeviceLabel(): string {
+      if (isCapacitorApp()) return 'Wallaflare Android App';
+      const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+      let os = '';
+      if (/android/i.test(ua)) os = 'Android';
+      else if (/iPad|iPhone|iPod/.test(ua)) os = 'iOS';
+      else if (/macintosh|mac os x/i.test(ua)) os = 'macOS';
+      else if (/windows/i.test(ua)) os = 'Windows';
+      else if (/cros/i.test(ua)) os = 'ChromeOS';
+      else if (/linux/i.test(ua)) os = 'Linux';
+
+      let browser = '';
+      if (/edg/i.test(ua)) browser = 'Edge';
+      else if (/chrome|crios/i.test(ua)) browser = 'Chrome';
+      else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
+      else if (/safari/i.test(ua)) browser = 'Safari';
+
+      if (browser && os) {
+        return `Web Dashboard (${browser} on ${os})`;
+      } else if (os) {
+        return `Web Dashboard (${os})`;
+      }
+      return 'Web Dashboard';
+    }
+
     async function handleLogin(e) {
       e.preventDefault();
       const input = document.getElementById('authKeyInput');
@@ -574,7 +599,7 @@ import {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             password: token,
-            label: isCapacitorApp() ? 'Wallaflare Android App' : 'Web Dashboard'
+            label: getClientDeviceLabel()
           })
         });
 
@@ -665,7 +690,10 @@ import {
 
     function closeModal(id) {
       const modalEl = document.getElementById(id);
-      if (modalEl) modalEl.classList.remove('open');
+      if (modalEl) {
+        modalEl.classList.remove('open');
+        modalEl.style.display = '';
+      }
       try {
         if (document.activeElement && typeof (document.activeElement as HTMLElement).blur === 'function') {
           (document.activeElement as HTMLElement).blur();
@@ -6801,6 +6829,19 @@ import {
       loadPersonalTokens();
     }
 
+    function formatTokenTimestamp(isoStr: string | null): string {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr;
+      return d.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
     async function loadPersonalTokens() {
       const container = document.getElementById('patTokensContainer');
       if (!container) return;
@@ -6818,8 +6859,8 @@ import {
         }
         container.innerHTML = tokens.map((t: any) => {
           const isRevoked = Boolean(t.revoked_at);
-          const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString() : '';
-          const lastUsed = t.last_used_at ? ('Last used ' + new Date(t.last_used_at).toLocaleDateString()) : 'Never used';
+          const dateStr = t.created_at ? formatTokenTimestamp(t.created_at) : '';
+          const lastUsed = t.last_used_at ? ('Last used ' + formatTokenTimestamp(t.last_used_at)) : 'Never used';
           const safeLabel = escapeHtml(t.label || 'Token');
           const safePrefix = escapeHtml(t.token_prefix || '');
           return `
@@ -6876,11 +6917,19 @@ import {
     }
 
     function showCreatedTokenModal(token: string, label: string) {
+      const modalEl = document.getElementById('tokenDisplayModal');
       const valEl = document.getElementById('tokenDisplayValue') as HTMLInputElement | null;
       const lblEl = document.getElementById('tokenDisplayLabel');
       if (valEl) valEl.value = token;
       if (lblEl) lblEl.textContent = 'Token: ' + (label || 'Personal Access Token');
-      openModal('tokenDisplayModal');
+      if (modalEl) {
+        modalEl.style.display = 'flex';
+        modalEl.classList.add('open');
+      }
+      setTimeout(() => {
+        valEl?.focus();
+        valEl?.select();
+      }, 50);
     }
 
     function copyTokenDisplayValue(btn: HTMLElement) {
@@ -7312,14 +7361,10 @@ import {
         if (document.documentElement.classList.contains('wf-needs-auth') || !getAuthToken()) {
           return;
         }
-        const overlay = document.getElementById('authOverlay');
-        if (overlay && overlay.style.display !== 'none') {
-          return;
-        }
         checkNativePendingSavedArticles();
         processOutboxMutations();
         const now = Date.now();
-        if (now - lastRefreshTime > 4000) {
+        if (now - lastRefreshTime > 2500) {
           lastRefreshTime = now;
           loadArticles(true);
         }

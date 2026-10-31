@@ -468,6 +468,39 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
 
+      function formatTime(isoStr) {
+        if (!isoStr) return '';
+        var d = new Date(isoStr);
+        if (isNaN(d.getTime())) return isoStr;
+        return d.toLocaleString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      function getDeviceLabel() {
+        var ua = navigator.userAgent || '';
+        var os = '';
+        if (/android/i.test(ua)) os = 'Android';
+        else if (/iPad|iPhone|iPod/.test(ua)) os = 'iOS';
+        else if (/macintosh|mac os x/i.test(ua)) os = 'macOS';
+        else if (/windows/i.test(ua)) os = 'Windows';
+        else if (/linux/i.test(ua)) os = 'Linux';
+
+        var browser = '';
+        if (/edg/i.test(ua)) browser = 'Edge';
+        else if (/chrome|crios/i.test(ua)) browser = 'Chrome';
+        else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
+        else if (/safari/i.test(ua)) browser = 'Safari';
+
+        if (browser && os) return 'Developer Page (' + browser + ' on ' + os + ')';
+        if (os) return 'Developer Page (' + os + ')';
+        return 'Developer Page';
+      }
+
       function renderTokens(tokens) {
         if (!tokens || tokens.length === 0) {
           patList.innerHTML = '<li style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">No personal tokens created yet.</li>';
@@ -478,14 +511,15 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
           var t = tokens[i];
           var isPat = t.token_prefix && t.token_prefix.indexOf('wfl_pat_') === 0;
           var badge = isPat ? '<span style="font-size: 0.7rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 1px 6px; border-radius: 4px;">PAT</span>' : '<span style="font-size: 0.7rem; color: var(--text-secondary); background: rgba(255, 255, 255, 0.05); padding: 1px 6px; border-radius: 4px;">Device</span>';
-          var date = t.created_at ? t.created_at.substring(0, 10) : '';
+          var date = t.created_at ? formatTime(t.created_at) : '';
+          var lastUsed = t.last_used_at ? ('Last used ' + formatTime(t.last_used_at)) : 'Never used';
           html += '<li style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 6px;">' +
             '<div>' +
               '<div style="font-weight: 600; font-size: 0.85rem; color: #fff; display: flex; align-items: center; gap: 6px;">' +
                 escapeHtml(t.label || 'Token') + ' ' + badge +
               '</div>' +
               '<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">' +
-                '<code>' + escapeHtml(t.token_prefix || 'wfl_...') + '...</code> &bull; Created ' + escapeHtml(date) +
+                '<code>' + escapeHtml(t.token_prefix || 'wfl_...') + '...</code> &bull; Created ' + escapeHtml(date) + ' &bull; ' + escapeHtml(lastUsed) +
               '</div>' +
             '</div>' +
             '<button class="delete-link dev-revoke-btn" data-id="' + t.id + '" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 6px; cursor: pointer; color: #f87171; font-size: 0.78rem; font-weight: 600; padding: 4px 8px;">Revoke</button>' +
@@ -539,7 +573,7 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string): st
           fetch('/api/auth/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: pwd, client_name: 'Developer Page' })
+            body: JSON.stringify({ password: pwd, client_name: getDeviceLabel() })
           })
           .then(function(res) {
             if (!res.ok) throw new Error('Incorrect password');

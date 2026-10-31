@@ -106,8 +106,14 @@ function Api.request(opts)
         return nil, "Network request failed: " .. tostring(one_or_err)
     end
 
-    if not one_or_err or not code then
-        return nil, "No response from server: " .. tostring(one_or_err or "connection failed")
+    if not one_or_err then
+        local err_msg = tostring(code or "connection failed")
+        logger.err("Wallaflare: Request failed: " .. err_msg)
+        return nil, "No response from server: " .. err_msg
+    end
+
+    if not code then
+        return nil, "No response from server: missing status code"
     end
 
     local response_str = table.concat(response_chunks)

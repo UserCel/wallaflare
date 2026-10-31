@@ -107,6 +107,9 @@ package.preload["json"] = function()
             local ver = str:match('"version"%s*:%s*"([^"]+)"')
             if ver then result.version = ver end
 
+            local tok = str:match('"token"%s*:%s*"([^"]+)"')
+            if tok then result.token = tok end
+
             local top_id = str:match('"id"%s*:%s*(%d+)')
             if top_id and not str:find('"entries"') then result.id = tonumber(top_id) end
             
@@ -555,6 +558,38 @@ describe("3. Network API Client & Response Unpacking", function()
         assert_true(sent_url:find("since_rev=55") ~= nil)
         assert_true(sent_url:find("archive=0") ~= nil)
         assert_true(sent_url:find("perPage=50") ~= nil)
+    end)
+
+    it("exchanges master password for device token on first login", function()
+        mock_http_requests = {}
+        mock_http_response = {
+            status_code = 200,
+            headers = { ["content-type"] = "application/json" },
+            body = '{"success":true,"token":"wfl_dev_secret12345","label":"KOReader (Kindle)"}'
+        }
+
+        local tok, err = Api.exchangePasswordForToken("https://my-wallaflare.example.com/", "masterpass123", "KOReader (Kindle)")
+        assert_true(err == nil, "Should succeed without error, got: " .. tostring(err))
+        assert_eq(tok, "wfl_dev_secret12345")
+        assert_eq(#mock_http_requests, 1)
+        assert_eq(mock_http_requests[1].url, "https://my-wallaflare.example.com/api/auth/token")
+        assert_eq(mock_http_requests[1].method, "POST")
+        local sent_body = tostring(mock_http_requests[1].source or "")
+        assert_true(sent_body:find("masterpass123") ~= nil)
+        assert_true(sent_body:find("KOReader %(Kindle%)") ~= nil)
+    end)
+
+    it("handles password exchange failure when master password is incorrect", function()
+        mock_http_requests = {}
+        mock_http_response = {
+            status_code = 401,
+            headers = { ["content-type"] = "application/json" },
+            body = '{"error":"unauthorized","message":"Incorrect password"}'
+        }
+
+        local tok, err = Api.exchangePasswordForToken("https://my-wallaflare.example.com", "wrongpass", "KOReader")
+        assert_true(tok == nil, "Token should be nil on failure")
+        assert_true(err:find("Authentication failed") ~= nil, "Expected auth failure message, got: " .. tostring(err))
     end)
 end)
 

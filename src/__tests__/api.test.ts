@@ -766,6 +766,77 @@ describe('Wallaflare Protected Mode (AUTH_TOKEN enabled)', () => {
     expect(protectedRes.status).toBe(200);
   });
 
+  it('handles KOReader first-time login lifecycle: acquires token, performs sync, and revokes/deletes cleanly', async () => {
+    // 1. KOReader first connection: exchanges master password for an isolated device token
+    const authRes = await app.request('/api/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: SECRET, label: 'KOReader (Kindle Paperwhite)' })
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(authRes.status).toBe(200);
+    const authData = await authRes.json<any>();
+    expect(authData.success).toBe(true);
+    expect(authData.token).toMatch(/^wfl_tok_[a-f0-9]+$/);
+    expect(authData.label).toBe('KOReader (Kindle Paperwhite)');
+    const koToken = authData.token;
+    const koTokenId = authData.id;
+
+    // 2. Direct master password access on protected data endpoint is rejected (Zero-Trust)
+    const masterDirectRes = await app.request('/api/sync.json?since_rev=0', {
+      headers: { 'Authorization': `Bearer ${SECRET}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(masterDirectRes.status).toBe(401);
+
+    // 3. Newly acquired KOReader token successfully syncs
+    const syncRes = await app.request('/api/sync.json?since_rev=0', {
+      headers: { 'Authorization': `Bearer ${koToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(syncRes.status).toBe(200);
+    const syncData = await syncRes.json<any>();
+    expect(syncData.entries).toBeDefined();
+
+    // 4. Token appears in /api/tokens active list
+    const tokensRes = await app.request('/api/tokens', {
+      headers: { 'Authorization': `Bearer ${koToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(tokensRes.status).toBe(200);
+    const tokensData = await tokensRes.json<any>();
+    const found = tokensData.tokens.find((t: any) => t.id === koTokenId);
+    expect(found).toBeDefined();
+    expect(found.label).toBe('KOReader (Kindle Paperwhite)');
+
+    // 5. Revoking the token deletes it from D1
+    const revokeRes = await app.request(`/api/tokens/${koTokenId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${koToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(revokeRes.status).toBe(200);
+
+    // 6. Token is immediately rejected on subsequent requests
+    const postRevokeRes = await app.request('/api/sync.json?since_rev=0', {
+      headers: { 'Authorization': `Bearer ${koToken}` }
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+    });
+    expect(postRevokeRes.status).toBe(401);
+  });
+
   it('permits authenticated requests with valid Bearer token', async () => {
     const res = await app.request('/api/entries.json', {
       headers: { 'Authorization': `Bearer ${TEST_TOKEN}` },

@@ -1396,7 +1396,7 @@
       justify-content: center;
       padding: 1rem;
     }
-    .modal-backdrop.open, .tag-modal-overlay.open { display: flex; }
+    .modal-backdrop.open, .tag-modal-overlay.open { display: flex !important; }
     .modal, .tag-modal {
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
