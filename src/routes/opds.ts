@@ -10,6 +10,8 @@ import {
   checkAuthRateLimit,
   recordFailedAuthAttempt,
   resetAuthRateLimit,
+  verifyFeedToken,
+  isMasterPasswordConfigured,
 } from '../db/queries';
 import { getClientIp } from './api';
 import { generateEpub, generateDigestEpub } from '../services/epub';
@@ -70,12 +72,10 @@ export function extractOpdsToken(c: Context<{ Bindings: Env }>): string | null {
 }
 
 export async function opdsAuthMiddleware(c: Context<{ Bindings: Env }>, next: () => Promise<void>) {
-  const masterSecret = c.env?.AUTH_TOKEN || c.env?.CLIENT_SECRET;
-  const readSecret = c.env?.READ_TOKEN;
-  const effectiveSecret = readSecret || masterSecret;
+  const isConfigured = await isMasterPasswordConfigured(c.env?.DB, c.env);
 
-  // Open access if no secret configured
-  if (!effectiveSecret) {
+  // Open access if no password/token is configured on instance
+  if (!isConfigured) {
     return await next();
   }
 
@@ -91,7 +91,7 @@ export async function opdsAuthMiddleware(c: Context<{ Bindings: Env }>, next: ()
   if (!provided) {
     c.header('WWW-Authenticate', 'Basic realm="Wallaflare OPDS"');
     c.header('Content-Type', 'text/plain; charset=utf-8');
-    return c.text('401 Unauthorized: Authentication required. Please log in.\n', 401);
+    return c.text('401 Unauthorized: Dedicated read token required. Please provide a valid feed token from your Wallaflare dashboard.\n', 401);
   }
 
   // 3. Active token was submitted: check IP rate limit on 'opds' scope (which also blocks if admin is locked)
@@ -107,14 +107,12 @@ export async function opdsAuthMiddleware(c: Context<{ Bindings: Env }>, next: ()
     }
   }
 
-  // When READ_TOKEN is configured, strictly validate against READ_TOKEN.
-  // When READ_TOKEN is not configured, fall back to masterSecret.
-  const isValid = Boolean(effectiveSecret && timingSafeCompare(provided, effectiveSecret));
+  // Strictly validate against dedicated feed token or active PAT (master password is completely rejected!)
+  const isValid = await verifyFeedToken(c.env?.DB, c.env, provided);
 
   if (isValid) {
     if (c.env?.DB) {
-      // If READ_TOKEN is dedicated, reset only 'opds' scope; if single masterSecret, reset 'admin'
-      await resetAuthRateLimit(c.env.DB, ip, readSecret ? 'opds' : 'admin');
+      await resetAuthRateLimit(c.env.DB, ip, 'opds');
     }
     return await next();
   }
@@ -133,7 +131,7 @@ export async function opdsAuthMiddleware(c: Context<{ Bindings: Env }>, next: ()
   c.header('WWW-Authenticate', 'Basic realm="Wallaflare OPDS"');
   c.header('Content-Type', 'text/plain; charset=utf-8');
   return c.text(
-    `401 Unauthorized: Invalid OPDS credentials. ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining before a 15-minute lockout.\n`,
+    `401 Unauthorized: Dedicated read token required. Please provide a valid feed token from your Wallaflare dashboard. ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining before a 15-minute lockout.\n`,
     401
   );
 }

@@ -1,7 +1,7 @@
 import { Context, Next } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { Env, OAuthTokenResponse } from '../types';
-import { timingSafeCompare, verifyApiToken } from '../db/queries';
+import { timingSafeCompare, verifyApiToken, getConfig, isMasterPasswordConfigured } from '../db/queries';
 
 export function getExpectedSecret(env: Env): string | undefined {
   return env.AUTH_TOKEN || env.CLIENT_SECRET;
@@ -11,18 +11,29 @@ export function getClientSecret(env: Env): string {
   return env.CLIENT_SECRET || 'wallaflare';
 }
 
-export async function createSessionToken(env: Env): Promise<string> {
-  if (!env.AUTH_TOKEN) {
+export async function createSessionToken(env: Env, secretSeed?: string): Promise<string> {
+  let seed = secretSeed;
+  if (!seed && env.DB) {
+    try {
+      const stored = await getConfig(env.DB, 'admin_password');
+      if (stored) seed = stored;
+    } catch (e) {}
+  }
+  if (!seed) {
+    seed = env.AUTH_TOKEN;
+  }
+  if (!seed) {
     return 'wallaflare_session_open';
   }
-  const enc = new TextEncoder().encode(`${env.AUTH_TOKEN}:wallaflare_session_salt_v1`);
+  const enc = new TextEncoder().encode(`${seed}:wallaflare_session_salt_v1`);
   const hash = await crypto.subtle.digest('SHA-256', enc);
   const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
   return `wfl_sess_${hex.substring(0, 32)}`;
 }
 
 export async function validateSessionToken(c: Context<{ Bindings: Env }> | string | undefined | null, env: Env): Promise<boolean> {
-  if (!env.AUTH_TOKEN) {
+  const isConfigured = await isMasterPasswordConfigured(env.DB, env);
+  if (!isConfigured) {
     return true;
   }
 
@@ -37,11 +48,28 @@ export async function validateSessionToken(c: Context<{ Bindings: Env }> | strin
     return false;
   }
 
-  const expectedSession = await createSessionToken(env);
-  if (timingSafeCompare(cookieVal, expectedSession) || timingSafeCompare(cookieVal, env.AUTH_TOKEN)) {
-    return true;
+  // 1. Check against D1 hashed password session
+  if (env.DB) {
+    try {
+      const d1Hash = await getConfig(env.DB, 'admin_password');
+      if (d1Hash) {
+        const expectedSession = await createSessionToken(env, d1Hash);
+        if (timingSafeCompare(cookieVal, expectedSession)) {
+          return true;
+        }
+      }
+    } catch (e) {}
   }
 
+  // 2. Check against env.AUTH_TOKEN session
+  if (env.AUTH_TOKEN) {
+    const expectedEnvSession = await createSessionToken(env, env.AUTH_TOKEN);
+    if (timingSafeCompare(cookieVal, expectedEnvSession) || timingSafeCompare(cookieVal, env.AUTH_TOKEN)) {
+      return true;
+    }
+  }
+
+  // 3. Check against api_tokens table (e.g. cookie contains valid token)
   if (env.DB) {
     try {
       const tokenCheck = await verifyApiToken(env.DB, cookieVal);

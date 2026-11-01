@@ -4,7 +4,7 @@ import { renderDashboardHtml } from '../views/dashboard';
 import { ICON_192_B64, ICON_512_B64 } from './icons-b64';
 import { KOPLUGIN_ZIP_B64 } from '../views/koplugin-bundle';
 import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
-import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare } from '../db/queries';
+import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare, verifyMasterPassword, isMasterPasswordConfigured, ensureConfigSeeded } from '../db/queries';
 import { getClientIp } from './api';
 import { escapeHtmlText } from '../services/extractor';
 
@@ -156,7 +156,7 @@ webRouter.get('/manifest.json', (c) => {
 async function renderWebDashboard(c: any) {
   const appName = c.env?.APP_NAME || 'Wallaflare';
   const hasReadToken = Boolean(c.env?.READ_TOKEN);
-  const isAuthed = c.env?.AUTH_TOKEN ? await validateSessionToken(c, c.env) : true;
+  const isAuthed = await validateSessionToken(c, c.env);
   return c.html(renderDashboardHtml(appName, hasReadToken, isAuthed));
 }
 
@@ -739,13 +739,13 @@ webRouter.post('/login_check', async (c) => {
     password = String(body._password || body.password || '');
   }
 
-  const expectedToken = c.env.AUTH_TOKEN;
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
   const expectedUsername = (c.env.USERNAME || 'wallaflare').toLowerCase();
 
-  if (expectedToken) {
+  if (isConfigured) {
     const isUserValid = String(username || '').trim().toLowerCase() === expectedUsername;
-    const isPassValid = password && timingSafeCompare(password, expectedToken);
-    if (!isUserValid || !isPassValid) {
+    const passCheck = await verifyMasterPassword(c.env.DB, c.env, password);
+    if (!isUserValid || !passCheck.valid) {
       if (c.env.DB) {
         await recordFailedAuthAttempt(c.env.DB, ip);
       }
@@ -767,7 +767,8 @@ webRouter.get('/developer', async (c) => {
   const isAuthed = await validateSessionToken(c, c.env);
   const ua = c.req.header('user-agent') || '';
   const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
-  if (!isAuthed && c.env.AUTH_TOKEN && !isAppClient) {
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
+  if (!isAuthed && isConfigured && !isAppClient) {
     const origin = new URL(c.req.url).origin;
     return c.redirect(`${origin}/login`, 302);
   }

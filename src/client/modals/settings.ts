@@ -2,7 +2,7 @@ import { openModal, closeModal } from "./manager";
 import { showToast } from "../components/toast";
 import { showConfirmDialog } from "./confirm";
 import { showCreatedTokenModal } from "./token-display";
-import { authFetch, setAuthToken, isCapacitorApp } from "../sync/api";
+import { authFetch, apiJson, apiPost, setAuthToken, isCapacitorApp } from "../sync/api";
 import { clearIndexedDB } from "../storage/db";
 import { getParserMode, setParserMode, ParserMode } from "../extractor";
 import { escapeHtml } from "../utils/dom";
@@ -197,6 +197,40 @@ export async function populateServerConfigInputs(): Promise<void> {
   if (rssArchiveEl) {
     rssArchiveEl.textContent = effectiveServerUrl + "/feed/archive" + tokenParam;
     rssArchiveEl.removeAttribute("data-full-url");
+  }
+
+  // Fetch and populate active dedicated feed token from Cloudflare D1
+  try {
+    const { ok, data: feedRes } = await apiJson("/api/feed-token");
+    if (ok && feedRes?.success && feedRes.feed_token) {
+      const feedToken = feedRes.feed_token;
+      const feedTokenEl = document.getElementById("activeFeedTokenDisplay");
+      if (feedTokenEl) {
+        feedTokenEl.textContent = feedToken;
+      }
+      if (opdsAuthUrlEl) {
+        opdsAuthUrlEl.textContent = feedRes.opds_url || `${effectiveServerUrl}/opds?token=${feedToken}`;
+      }
+      if (rssUnreadEl) {
+        rssUnreadEl.textContent = feedRes.rss_urls?.unread || `${effectiveServerUrl}/feed/unread?token=${feedToken}`;
+      }
+      if (rssStarredEl) {
+        rssStarredEl.textContent = feedRes.rss_urls?.starred || `${effectiveServerUrl}/feed/starred?token=${feedToken}`;
+      }
+      if (rssArchiveEl) {
+        rssArchiveEl.textContent = feedRes.rss_urls?.archive || `${effectiveServerUrl}/feed/archive?token=${feedToken}`;
+      }
+    } else {
+      const feedTokenEl = document.getElementById("activeFeedTokenDisplay");
+      if (feedTokenEl && feedTokenEl.textContent === "Loading...") {
+        feedTokenEl.textContent = "Error loading token";
+      }
+    }
+  } catch (e) {
+    const feedTokenEl = document.getElementById("activeFeedTokenDisplay");
+    if (feedTokenEl && feedTokenEl.textContent === "Loading...") {
+      feedTokenEl.textContent = "Error loading token";
+    }
   }
 
   const urlInputs = [
@@ -520,6 +554,95 @@ export function handleSaveServerConnection(e?: Event): void {
   if (typeof w.loadArticles === "function") w.loadArticles(false);
 }
 
+export async function handleCustomizeFeedToken(): Promise<void> {
+  const currentToken = document.getElementById("activeFeedTokenDisplay")?.textContent?.trim() || "";
+  const custom = prompt(
+    "Enter a custom read token for OPDS & RSS (4-64 alphanumeric characters, underscores, or hyphens):",
+    (currentToken === "Loading..." || currentToken.startsWith("Error")) ? "" : currentToken
+  );
+  if (!custom) return;
+  const token = custom.trim();
+  if (!/^[a-zA-Z0-9_-]{4,64}$/.test(token)) {
+    showToast("Invalid token format. Must be 4-64 characters (letters, numbers, _ or -).");
+    return;
+  }
+  try {
+    const { ok, data: res } = await apiPost("/api/feed-token", { token });
+    if (ok && res?.success) {
+      showToast("✓ Feed token updated successfully!");
+      await populateServerConfigInputs();
+    } else {
+      showToast(res?.message || "Failed to update feed token.");
+    }
+  } catch (err: any) {
+    showToast("Error updating feed token: " + err.message);
+  }
+}
+
+export async function handleRegenerateFeedToken(): Promise<void> {
+  const confirmed = confirm("Regenerate syndication feed token? External e-readers and RSS apps using the old token will need to be updated.");
+  if (!confirmed) return;
+  try {
+    const { ok, data: res } = await apiPost("/api/feed-token", { token: "regenerate" });
+    if (ok && res?.success) {
+      showToast("✓ Feed token regenerated!");
+      await populateServerConfigInputs();
+    } else {
+      showToast(res?.message || "Failed to regenerate feed token.");
+    }
+  } catch (err: any) {
+    showToast("Error regenerating feed token: " + err.message);
+  }
+}
+
+export async function handleChangeMasterPassword(event: Event): Promise<void> {
+  if (event) event.preventDefault();
+  const currentInput = document.getElementById("changePasswordCurrentInput") as HTMLInputElement;
+  const newInput = document.getElementById("changePasswordNewInput") as HTMLInputElement;
+  const confirmInput = document.getElementById("changePasswordConfirmInput") as HTMLInputElement;
+  const submitBtn = document.getElementById("changePasswordSubmitBtn") as HTMLButtonElement;
+
+  const currentPassword = (currentInput?.value || "").trim();
+  const newPassword = (newInput?.value || "").trim();
+  const confirmPassword = (confirmInput?.value || "").trim();
+
+  if (!newPassword || newPassword.length < 8) {
+    showToast("New password must be at least 8 characters.");
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    showToast("New passwords do not match.");
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Updating...";
+  }
+
+  try {
+    const { ok, data: res } = await apiPost("/api/admin/change-password", {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+    if (ok && res?.success) {
+      showToast("✓ Master password updated successfully!");
+      if (currentInput) currentInput.value = "";
+      if (newInput) newInput.value = "";
+      if (confirmInput) confirmInput.value = "";
+    } else {
+      showToast("Failed to change password: " + (res?.message || res?.error || "Invalid credentials"));
+    }
+  } catch (err: any) {
+    showToast("Error updating password: " + err.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Update Password";
+    }
+  }
+}
+
 // Attach to window for global access & HTML inline event handlers
 if (typeof window !== "undefined") {
   const w = window as any;
@@ -540,4 +663,7 @@ if (typeof window !== "undefined") {
   w.openWipeDbModal = openWipeDbModal;
   w.reconcileDatabase = reconcileDatabase;
   w.handleSaveServerConnection = handleSaveServerConnection;
+  w.handleCustomizeFeedToken = handleCustomizeFeedToken;
+  w.handleRegenerateFeedToken = handleRegenerateFeedToken;
+  w.handleChangeMasterPassword = handleChangeMasterPassword;
 }

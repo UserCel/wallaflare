@@ -7,6 +7,8 @@ import {
   checkAuthRateLimit,
   recordFailedAuthAttempt,
   resetAuthRateLimit,
+  verifyFeedToken,
+  isMasterPasswordConfigured,
 } from '../db/queries';
 import { getClientIp } from './api';
 import { validateSessionToken } from '../services/auth';
@@ -63,12 +65,10 @@ export function extractFeedToken(c: Context<{ Bindings: Env }>): string | null {
 }
 
 export async function feedAuthMiddleware(c: Context<{ Bindings: Env }>, next: () => Promise<void>) {
-  const masterSecret = c.env?.AUTH_TOKEN || c.env?.CLIENT_SECRET;
-  const readSecret = c.env?.READ_TOKEN;
-  const effectiveSecret = readSecret || masterSecret;
+  const isConfigured = await isMasterPasswordConfigured(c.env?.DB, c.env);
 
   // Open access if no secret configured
-  if (!effectiveSecret) {
+  if (!isConfigured) {
     return await next();
   }
 
@@ -83,7 +83,7 @@ export async function feedAuthMiddleware(c: Context<{ Bindings: Env }>, next: ()
   if (!provided) {
     c.header('WWW-Authenticate', 'Basic realm="Wallaflare RSS Feed"');
     c.header('Content-Type', 'text/plain; charset=utf-8');
-    return c.text('401 Unauthorized: Authentication required. Please provide a valid feed token.\n', 401);
+    return c.text('401 Unauthorized: Dedicated read token required. Please provide a valid feed token from your Wallaflare dashboard.\n', 401);
   }
 
   // 3. Check rate limit on 'opds' scope
@@ -99,11 +99,12 @@ export async function feedAuthMiddleware(c: Context<{ Bindings: Env }>, next: ()
     }
   }
 
-  const isValid = Boolean(effectiveSecret && timingSafeCompare(provided, effectiveSecret));
+  // Strictly validate against dedicated feed token or active PAT (master password is completely rejected!)
+  const isValid = await verifyFeedToken(c.env?.DB, c.env, provided);
 
   if (isValid) {
     if (c.env?.DB) {
-      await resetAuthRateLimit(c.env.DB, ip, readSecret ? 'opds' : 'admin');
+      await resetAuthRateLimit(c.env.DB, ip, 'opds');
     }
     return await next();
   }
@@ -125,7 +126,7 @@ export async function feedAuthMiddleware(c: Context<{ Bindings: Env }>, next: ()
   c.header('WWW-Authenticate', 'Basic realm="Wallaflare RSS Feed"');
   c.header('Content-Type', 'text/plain; charset=utf-8');
   return c.text(
-    `401 Unauthorized: Invalid feed token credentials. ${attemptsLeft} attempt(s) remaining.\n`,
+    `401 Unauthorized: Dedicated read token required. Please provide a valid feed token from your Wallaflare dashboard. ${attemptsLeft} attempt(s) remaining.\n`,
     401
   );
 }

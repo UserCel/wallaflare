@@ -7,6 +7,7 @@ function createMockD1Database() {
   let tags: Array<{ id: number; label: string; slug: string }> = [];
   let entryTags: Array<{ entry_id: number; tag_id: number }> = [];
   let rateLimits: Map<string, { failed_attempts: number; last_attempt_at: number; locked_until: number }> = new Map();
+  let config: Map<string, string> = new Map();
   let autoId = 1;
   let autoTagId = 1;
 
@@ -14,6 +15,7 @@ function createMockD1Database() {
     _entries: entries,
     _tags: tags,
     _entryTags: entryTags,
+    _config: config,
     addEntry(entry: Partial<EntryRow>, tagLabels: string[] = []) {
       const newEntry: EntryRow = {
         id: autoId++,
@@ -78,6 +80,11 @@ function createMockD1Database() {
             const ip = boundParams[0];
             return (rateLimits.get(ip) || null) as T;
           }
+          if (query.includes('FROM config WHERE key = ?')) {
+            const key = boundParams[0];
+            const val = config.get(key);
+            return val !== undefined ? ({ value: val } as T) : null;
+          }
           return null as T;
         },
         async all<T = any>() {
@@ -141,6 +148,14 @@ function createMockD1Database() {
             boundParams.forEach(p => rateLimits.delete(p));
             return { meta: { changes: 1 } };
           }
+          if (query.includes('config') && query.includes('INSERT INTO')) {
+            config.set(boundParams[0], boundParams[1]);
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('DELETE FROM config')) {
+            config.clear();
+            return { meta: { changes: 1 } };
+          }
           return { success: true };
         },
       };
@@ -151,7 +166,8 @@ function createMockD1Database() {
 
 describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => {
   let mockDb: ReturnType<typeof createMockD1Database>;
-  const AUTH_SECRET = 'opds_test_secret_123';
+  const READ_SECRET = 'opds_test_secret_123';
+  const AUTH_SECRET = 'master_admin_password_456';
 
   beforeEach(() => {
     mockDb = createMockD1Database();
@@ -165,6 +181,7 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -173,12 +190,13 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
   });
 
   it('authenticates via HTTP Basic Auth (KOReader dialog login)', async () => {
-    const basicAuth = 'Basic ' + Buffer.from(`wallaflare:${AUTH_SECRET}`).toString('base64');
+    const basicAuth = 'Basic ' + Buffer.from(`wallaflare:${READ_SECRET}`).toString('base64');
     const res = await app.request('/opds', {
       method: 'GET',
       headers: { Authorization: basicAuth },
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -194,10 +212,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
   });
 
   it('authenticates via URL query token ?token=... (Crosspoint / QR scan)', async () => {
-    const res = await app.request(`/opds?token=${AUTH_SECRET}`, {
+    const res = await app.request(`/opds?token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -205,7 +224,7 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     const text = await res.text();
     expect(text).toContain('urn:wallaflare:opds:root');
     // Verifies token propagation in navigation subsection links
-    expect(text).toContain(`token=${AUTH_SECRET}`);
+    expect(text).toContain(`token=${READ_SECRET}`);
   });
 
   it('accepts dedicated READ_TOKEN and rejects AUTH_TOKEN on /opds when READ_TOKEN is set', async () => {
@@ -225,7 +244,7 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     const text = await res.text();
     expect(text).toContain('urn:wallaflare:opds:root');
 
-    // 2. AUTH_TOKEN is strictly rejected on /opds when READ_TOKEN is configured
+    // 2. AUTH_TOKEN is strictly rejected on /opds with generic message
     const masterOnOpdsRes = await app.request(`/opds?token=${masterToken}`, {
       method: 'GET',
     }, {
@@ -234,12 +253,14 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
       READ_TOKEN: dedicatedToken,
     });
     expect(masterOnOpdsRes.status).toBe(401);
+    const masterText = await masterOnOpdsRes.text();
+    expect(masterText).toContain('Dedicated read token required');
   });
 
-  it('falls back to AUTH_TOKEN on /opds when READ_TOKEN is NOT set', async () => {
+  it('strictly rejects AUTH_TOKEN on /opds even when READ_TOKEN is not in env', async () => {
     const masterToken = 'master_admin_secret_only';
 
-    // 1. AUTH_TOKEN succeeds on /opds
+    // 1. AUTH_TOKEN is rejected on /opds
     const res = await app.request(`/opds?token=${masterToken}`, {
       method: 'GET',
     }, {
@@ -247,11 +268,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
       AUTH_TOKEN: masterToken,
     });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
     const text = await res.text();
-    expect(text).toContain('urn:wallaflare:opds:root');
+    expect(text).toContain('Dedicated read token required');
 
-    // 2. Wrong token is rejected
+    // 2. Wrong token gets the exact same generic error (preventing password detection oracle)
     const wrongRes = await app.request('/opds?token=wrong_token', {
       method: 'GET',
     }, {
@@ -259,6 +280,8 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
       AUTH_TOKEN: masterToken,
     });
     expect(wrongRes.status).toBe(401);
+    const wrongText = await wrongRes.text();
+    expect(wrongText).toContain('Dedicated read token required');
   });
 
   it('allows open access to /opds when no secrets are configured in environment', async () => {
@@ -274,10 +297,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
   });
 
   it('serves OpenSearch description at /opds/opensearch.xml', async () => {
-    const res = await app.request(`/opds/opensearch.xml?token=${AUTH_SECRET}`, {
+    const res = await app.request(`/opds/opensearch.xml?token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -289,10 +313,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
   });
 
   it('serves unread articles acquisition feed with EPUB download links', async () => {
-    const res = await app.request(`/opds/unread?token=${AUTH_SECRET}`, {
+    const res = await app.request(`/opds/unread?token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -307,14 +332,15 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     // Check acquisition EPUB link and propagated token
     expect(text).toContain('rel="http://opds-spec.org/acquisition"');
     expect(text).toContain('type="application/epub+zip"');
-    expect(text).toContain(`/opds/download/1.epub?token=${AUTH_SECRET}`);
+    expect(text).toContain(`/opds/download/1.epub?token=${READ_SECRET}`);
   });
 
   it('serves starred articles acquisition feed', async () => {
-    const res = await app.request(`/opds/starred?token=${AUTH_SECRET}`, {
+    const res = await app.request(`/opds/starred?token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -326,10 +352,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
   });
 
   it('serves tags navigation feed and tag-filtered acquisition feed', async () => {
-    const tagsRes = await app.request(`/opds/tags?token=${AUTH_SECRET}`, {
+    const tagsRes = await app.request(`/opds/tags?token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -339,10 +366,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     expect(tagsText).toContain('tech');
     expect(tagsText).toContain('/opds/tags/tech');
 
-    const tagFilterRes = await app.request(`/opds/tags/tech?token=${AUTH_SECRET}`, {
+    const tagFilterRes = await app.request(`/opds/tags/tech?token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -354,10 +382,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
   });
 
   it('searches articles via /opds/search?q=...', async () => {
-    const res = await app.request(`/opds/search?q=Starred&token=${AUTH_SECRET}`, {
+    const res = await app.request(`/opds/search?q=Starred&token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -368,10 +397,11 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
   });
 
   it('downloads EPUB directly via /opds/download/:id.epub', async () => {
-    const res = await app.request(`/opds/download/1.epub?token=${AUTH_SECRET}`, {
+    const res = await app.request(`/opds/download/1.epub?token=${READ_SECRET}`, {
       method: 'GET',
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
 
@@ -401,6 +431,7 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
         }
       }, {
         DB: mockDb as any,
+        READ_TOKEN: READ_SECRET,
         AUTH_TOKEN: AUTH_SECRET,
       });
 
@@ -420,11 +451,12 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     const lockedRes = await app.request('/opds', {
       method: 'GET',
       headers: {
-        'Authorization': 'Basic ' + Buffer.from('wallaflare:' + AUTH_SECRET).toString('base64'),
+        'Authorization': 'Basic ' + Buffer.from('wallaflare:' + READ_SECRET).toString('base64'),
         'CF-Connecting-IP': testIp
       }
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
     expect(lockedRes.status).toBe(429);
@@ -440,16 +472,18 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
         headers: { 'CF-Connecting-IP': testIp }
       }, {
         DB: mockDb as any,
+        READ_TOKEN: READ_SECRET,
         AUTH_TOKEN: AUTH_SECRET,
       });
     }
 
-    // Successful authentication with ?token=AUTH_SECRET
-    const goodRes = await app.request(`/opds?token=${AUTH_SECRET}`, {
+    // Successful authentication with ?token=READ_SECRET
+    const goodRes = await app.request(`/opds?token=${READ_SECRET}`, {
       method: 'GET',
       headers: { 'CF-Connecting-IP': testIp }
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
     expect(goodRes.status).toBe(200);
@@ -460,6 +494,7 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
       headers: { 'CF-Connecting-IP': testIp }
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
     expect(freshWrongRes.status).toBe(401);
@@ -480,6 +515,7 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
         }
       }, {
         DB: mockDb as any,
+        READ_TOKEN: READ_SECRET,
         AUTH_TOKEN: AUTH_SECRET,
       });
 
@@ -488,11 +524,12 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
     }
 
     // Since zero failed attempts were recorded, a valid request immediately succeeds
-    const goodRes = await app.request(`/opds?token=${AUTH_SECRET}`, {
+    const goodRes = await app.request(`/opds?token=${READ_SECRET}`, {
       method: 'GET',
       headers: { 'CF-Connecting-IP': testIp }
     }, {
       DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
       AUTH_TOKEN: AUTH_SECRET,
     });
     expect(goodRes.status).toBe(200);

@@ -7,6 +7,7 @@ function createMockD1Database() {
   let tags: Array<{ id: number; label: string; slug: string }> = [];
   let entryTags: Array<{ entry_id: number; tag_id: number }> = [];
   let rateLimits: Map<string, { failed_attempts: number; last_attempt_at: number; locked_until: number }> = new Map();
+  let config: Map<string, string> = new Map();
   let autoId = 1;
   let autoTagId = 1;
 
@@ -14,6 +15,7 @@ function createMockD1Database() {
     _entries: entries,
     _tags: tags,
     _entryTags: entryTags,
+    _config: config,
     addEntry(entry: Partial<EntryRow>, tagLabels: string[] = []) {
       const newEntry: EntryRow = {
         id: autoId++,
@@ -56,6 +58,11 @@ function createMockD1Database() {
           if (query.includes('FROM auth_rate_limits WHERE ip = ?')) {
             const ip = boundParams[0];
             return (rateLimits.get(ip) || null) as T;
+          }
+          if (query.includes('FROM config WHERE key = ?')) {
+            const key = boundParams[0];
+            const val = config.get(key);
+            return val !== undefined ? ({ value: val } as T) : null;
           }
           if (query.includes('COUNT(*)')) {
             let filtered = [...entries];
@@ -119,6 +126,14 @@ function createMockD1Database() {
           }
           if (query.includes('DELETE FROM auth_rate_limits')) {
             boundParams.forEach((p) => rateLimits.delete(p));
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('config') && query.includes('INSERT INTO')) {
+            config.set(boundParams[0], boundParams[1]);
+            return { meta: { changes: 1 } };
+          }
+          if (query.includes('DELETE FROM config')) {
+            config.clear();
             return { meta: { changes: 1 } };
           }
           return { success: true };
@@ -247,9 +262,11 @@ describe('RSS 2.0 Feed Syndication (/feed)', () => {
     });
 
     expect(res.status).toBe(401);
+    const text = await res.text();
+    expect(text).toContain('Dedicated read token required');
   });
 
-  it('falls back to AUTH_TOKEN when READ_TOKEN is not configured', async () => {
+  it('strictly rejects AUTH_TOKEN on /feed with generic error even when READ_TOKEN is not in env', async () => {
     const res = await app.request(`/feed/unread?token=${AUTH_TOKEN}`, {
       headers: { 'CF-Connecting-IP': '198.51.100.8' },
     }, {
@@ -257,9 +274,9 @@ describe('RSS 2.0 Feed Syndication (/feed)', () => {
       AUTH_TOKEN,
     });
 
-    expect(res.status).toBe(200);
-    const xml = await res.text();
-    expect(xml).toContain('Unread Articles');
+    expect(res.status).toBe(401);
+    const text = await res.text();
+    expect(text).toContain('Dedicated read token required');
   });
 
   it('enforces brute-force rate-limiting lockout after 5 consecutive failed feed token attempts', async () => {

@@ -142,6 +142,23 @@
                 </div>
               </div>
               <div>
+                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">📖 Dedicated Read Token (OPDS &amp; RSS)</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Isolated read-only token for e-ink readers (KOReader, Xteink) and RSS apps. Protects your master password from URL exposure.</p>
+                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                      <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">Active Feed Token</label>
+                      <div style="display: flex; gap: 0.35rem;">
+                        <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="handleCustomizeFeedToken()">Edit Token</button>
+                        <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="handleRegenerateFeedToken()">Regenerate</button>
+                      </div>
+                    </div>
+                    <div class="code-box" id="activeFeedTokenDisplay" style="word-break: break-all; font-size: 0.82rem; padding: 0.45rem 0.75rem; font-family: monospace; font-weight: 600; color: var(--accent);">Loading...</div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
                 <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">OPDS 1.2 Book Catalog</h4>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Browse and download articles as EPUBs on <strong>KOReader</strong>, <strong>Crosspoint</strong>, and e-ink e-readers.</p>
                 <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
@@ -367,6 +384,32 @@
                   <div style="display: flex; justify-content: flex-end;">
                     <button class="btn btn-primary" onclick="handleSaveServerConnection(event)" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Save Connection</button>
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">🔐 Master Access Password</h4>
+                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Change your master password stored in Cloudflare D1 with salted PBKDF2 hashing without redeploying.</p>
+                  <form onsubmit="handleChangeMasterPassword(event)" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <div>
+                      <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Current Password</label>
+                      <input type="password" id="changePasswordCurrentInput" class="input" placeholder="Current master password..." style="width: 100%; font-size: 0.82rem;" required />
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                      <div>
+                        <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">New Password</label>
+                        <input type="password" id="changePasswordNewInput" class="input" placeholder="Min. 8 characters..." style="width: 100%; font-size: 0.82rem;" minlength="8" required />
+                      </div>
+                      <div>
+                        <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Confirm New Password</label>
+                        <input type="password" id="changePasswordConfirmInput" class="input" placeholder="Re-enter new password..." style="width: 100%; font-size: 0.82rem;" minlength="8" required />
+                      </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 0.25rem;">
+                      <button type="submit" class="btn btn-primary" id="changePasswordSubmitBtn" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;">Update Password</button>
+                    </div>
+                  </form>
                 </div>
               </div>
 

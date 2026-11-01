@@ -111,4 +111,11 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash);
 
+-- Server Configuration & Vault (Hashed Master Password & Dedicated Feed Tokens)
+CREATE TABLE IF NOT EXISTS config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 0);

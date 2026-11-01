@@ -50,32 +50,20 @@
   - 4-color palette (`🟡`, `🟢`, `🔵`, `🟣`), attached notes, in-memory batching, and Markdown export with highlights (`==text==`) and footnotes (`[^note]`).
   - Interactive KOReader-style word boundary adjustment (`+W` / `-W` for start and end) directly in the floating popover and note editor for typo-free quote resizing without highlight loss.
   - Full bi-directional sync with KOReader: synchronizes highlights, notes, colors, and modified quote selections with Last-Write-Wins conflict resolution.
+- **🔑 Zero-Trust Architecture & In-App Password Management**:
+  - **Salted PBKDF2 Password Hashing**: Master password is securely hashed in Cloudflare D1 with 100,000 iterations of PBKDF2-SHA256 and per-instance random salts.
+  - **Change Password In-App**: Update your master password directly from **Settings > Server & Data** without needing Wrangler CLI or redeploying.
+  - **Personal Access Tokens (PAT)**: Cryptographically secure 256-bit tokens stored in D1 (`api_tokens`) with SHA-256 hash indexing. Protected endpoints strictly reject master passwords directly.
+  - **Isolated Syndication Read Tokens**: `/feed` and `/opds` strictly require a dedicated read token, completely blocking master passwords from ever being exposed in feed URLs or RSS server logs. Tokens can be customized (short for e-ink keyboards like Xteink) or regenerated with 1 click in **Settings > Apps & Sync**.
 - **📡 RSS 2.0 & Atom Feed Syndication**:
   - Full-text RSS feeds with sanitized `<content:encoded>` HTML for **NetNewsWire**, **Reeder**, **Feeder**, **Feedly**, **NewsFlash**, and RSS aggregators.
   - Dedicated endpoints for Unread (`/feed/unread`), Starred (`/feed/starred`), Archive (`/feed/archive`), All (`/feed/all`), and Tags (`/feed/tags/:tag`).
-  - Compatible with Wallabag v2 single-user legacy feed paths (`/feed/:user/:token/unread`).
-  - Strict read-only credential isolation via `READ_TOKEN` with IP-based brute-force rate-limiting.
+  - Strict read-only credential isolation with uniform generic 401 challenge and IP-based brute-force rate-limiting.
 - **📚 OPDS 1.2 Book Catalog & Acquisition Feeds**:
   - Full OPDS 1.2 Atom XML catalog compatibility for **KOReader**, **Crosspoint**, **Moon+ Reader**, **Librera**, **Foliate**, and e-ink e-readers.
   - Dedicated feeds for Unread, Starred, All, Archive, and Tags, with OpenSearch 1.1 in-app catalog search.
   - Dynamic, on-the-fly EPUB 3 downloads with embedded cover art and metadata.
-  - Supports HTTP Basic Auth (`wallaflare` / `AUTH_TOKEN` or `READ_TOKEN`), Bearer headers, and pre-authenticated direct URLs (`?token=...`) with recursive child link token propagation.
-  - Optional read-only `READ_TOKEN` secret to isolate e-reader and RSS feed credentials from administrative controls.
-- **📦 On-Device Multi-Format Exports**:
-  - Client-side **EPUB 3** (with cover art, inline images, and metadata), **GitHub-flavored Markdown** (with YAML frontmatter), and **PDF** generation without third-party services.
-  - **Anthology EPUB (.epub)** multi-article compilation into a single volume with interactive Table of Contents.
-  - Bulk ZIP exports for multiple selected articles.
-- **📚 Daily Digest & Anthology EPUBs**:
-  - Compile multiple articles or your entire Unread queue into a single, beautifully bound multi-chapter EPUB book.
-  - Generates a rich interactive Table of Contents with reading times, domain labels, and multi-tag badges (`<dc:subject>`).
-  - Strict BiDi / RTL script isolation (with KDE Okular, KOReader, and Apple Books compatibility) so Hebrew/Arabic and English articles render cleanly side-by-side.
-  - Multi-select bulk export directly from the web workspace (Right-Click Context Menu & Floating Batch Bar).
-  - One-tap acquisition from OPDS 1.2 catalog (`📖 Unread Digest (EPUB Anthology)`).
-  - Edge endpoint: `GET /api/entries/digest.epub?filter=unread|starred&limit=30` or `?ids=1,2,3` with configurable image quotas (`EPUB_MAX_IMAGES`) and Cloudflare edge caching.
-- **🔑 Zero-Trust Per-Device & Personal Access Tokens (PAT)**:
-  - Cryptographically secure 256-bit tokens stored in D1 (`api_tokens`) with SHA-256 hash indexing.
-  - The master password (`AUTH_TOKEN`) is used only once at login to exchange for an isolated token; protected API endpoints reject master passwords directly, preventing credential leakage.
-  - Generate and manage dedicated Personal Access Tokens (`wfl_pat_...`) in **Settings > Apps & Sync** or on `/developer` for third-party clients (e.g. KOReader Wallabag Plugin, FeedMe, automation scripts), with instant per-device revocation.
+  - Pre-authenticated direct URLs (`?token=...`) with recursive child link token propagation using your dedicated read token.
 - **🛡️ Two-Tier Security & Privacy**:
   - Server-side Linkedom DOM sanitizer strips unsafe scripts, styles, and trackers.
   - Built-in brute-force rate-limiting and crawler disallow headers.
@@ -93,7 +81,7 @@ Deploy your own private Wallaflare instance in just a few clicks via Cloudflare 
 1. Click the **Deploy to Cloudflare** button above.
 2. Authorize Cloudflare to clone the repository to your GitHub or GitLab account.
 3. Cloudflare automatically provisions a **D1 Database** (`wallaflare-db`) and binds it to your Worker.
-4. When prompted, enter your master access password for `AUTH_TOKEN`.
+4. When prompted, enter your initial bootstrap password for `AUTH_TOKEN`. *(On first login, Wallaflare hashes this password into D1 using salted PBKDF2; you can subsequently change it in the Web UI Settings without redeploying).*
 5. After deployment completes, your instance will be live at `https://wallaflare.<your-subdomain>.workers.dev`!
 
 ---
@@ -129,17 +117,15 @@ database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 npm run db:migrate:remote
 ```
 
-### 4. Set Master Access Password
+### 4. Set Initial Master Password (Bootstrap)
 ```bash
 npx wrangler secret put AUTH_TOKEN
 ```
+> 💡 **In-App Password Management**: `AUTH_TOKEN` is used as an initial bootstrap seed on first launch. Once you log in, your password is permanently managed in Cloudflare D1 with salted PBKDF2 hashing, and can be changed anytime directly in the web dashboard (**Settings > Server & Data**) without running Wrangler commands.
 
-*(Optional)* Set a dedicated read-only token for OPDS e-readers and RSS readers (KOReader, Feeder, NetNewsWire):
-```bash
-npx wrangler secret put READ_TOKEN
-```
+> 📖 **Syndication Feeds (OPDS & RSS)**: You no longer need to configure `READ_TOKEN` via Wrangler! Dedicated read tokens are automatically generated and managed in **Settings > Apps & Sync**, where you can copy pre-authenticated URLs or set custom short tokens for e-ink devices (e.g. Xteink).
 
-> 💡 **Local Development & Testing**: When running locally (`npm run dev`), Wallaflare runs in **open development mode** without requiring a login if `AUTH_TOKEN` is unset. To test password protection locally, copy `.dev.vars.example` to `.dev.vars` (gitignored) and set your test `AUTH_TOKEN`.
+> 🛠️ **Local Development & Testing**: When running locally (`npm run dev`), Wallaflare runs in **open development mode** without requiring a login if no password is configured. To test password protection locally, copy `.dev.vars.example` to `.dev.vars` (gitignored) and set your test `AUTH_TOKEN`.
 
 ### 5. Deploy
 ```bash
@@ -222,20 +208,20 @@ Wallaflare serves a native **OPDS 1.2 Book Catalog** for instant browsing and do
   ```
   - **KOReader**: Go to **Tools > OPDS catalog > Add new catalog**, enter the catalog URL, and sign in with:
     - **Username**: `wallaflare`
-    - **Password**: Your `READ_TOKEN` (if configured) or master `AUTH_TOKEN`
-    *(Note: If a dedicated `READ_TOKEN` is set, only `READ_TOKEN` is accepted on `/opds` for strict security isolation).*
+    - **Password**: Your dedicated Read Token (found in dashboard **Settings > Apps & Sync**)
+    *(Note: For strict credential isolation, `/opds` exclusively accepts dedicated read tokens or PATs; master passwords are blocked).*
   - **In-Catalog Search**: Full support for OpenSearch 1.1 search queries (`/opds/search?q=...`) inside KOReader and OPDS apps.
 
-- **Pre-Authenticated Direct URL (Crosspoint / Embedded E-readers)**:
+- **Pre-Authenticated Direct URL (Crosspoint / Embedded E-readers / Xteink)**:
   ```
-  https://<your-subdomain>.workers.dev/opds?token=YOUR_TOKEN
+  https://<your-subdomain>.workers.dev/opds?token=YOUR_READ_TOKEN
   ```
-  *(Automatically propagates `?token=...` across all catalog categories and EPUB acquisition links so embedded readers download in 1 click without separate authentication dialogs).*
+  *(You can copy this directly from **Settings > Apps & Sync** or customize the token to a short string for easy typing on e-ink keyboards).*
 
 ---
 
 ### 📡 RSS 2.0 & Atom Feeds (Feeder, NetNewsWire, Reeder, Feedly)
-Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies:
+Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies. Your pre-authenticated feed URLs are ready to copy in **Settings > Apps & Sync**:
 
 - **Available Feed Endpoints**:
   | Feed Type | URL |
@@ -250,7 +236,7 @@ Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies:
   If your RSS reader supports HTTP Basic Auth (e.g. NetNewsWire, Reeder, Feeder):
   - **Feed URL**: `https://<your-subdomain>.workers.dev/feed/unread`
   - **Username**: `wallaflare`
-  - **Password**: Your `READ_TOKEN` (or master `AUTH_TOKEN`)
+  - **Password**: Your dedicated Read Token (found in **Settings > Apps & Sync**)
 
 ---
 

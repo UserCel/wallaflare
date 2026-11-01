@@ -48,11 +48,17 @@ import {
   verifyApiToken,
   getApiTokens,
   revokeApiToken,
-  deleteApiToken
+  deleteApiToken,
+  verifyMasterPassword,
+  setMasterPassword,
+  isMasterPasswordConfigured,
+  ensureConfigSeeded,
+  getOrCreateFeedToken,
+  setFeedToken
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain, sanitizeHtmlFragment, escapeHtmlText } from '../services/extractor';
 import { generateEpub, generateDigestEpub } from '../services/epub';
-import { getClientSecret } from '../services/auth';
+import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
 
 
 export function getClientIp(c: any): string {
@@ -80,8 +86,13 @@ export const authMiddleware = async (c: any, next: any) => {
     return next();
   }
 
-  const configuredToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
-  if (!configuredToken) {
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
+  if (!isConfigured) {
+    return next();
+  }
+
+  // Allow web session cookie (PHPSESSID) if valid
+  if (await validateSessionToken(c, c.env)) {
     return next();
   }
 
@@ -320,10 +331,10 @@ const oauthTokenHandler = async (c: any) => {
     deviceName = String(body.device_name || body.device || '');
   }
 
-  const expectedToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
   const expectedClientSecret = getClientSecret(c.env);
 
-  if (expectedToken) {
+  if (isConfigured) {
     let isMatch = false;
 
     if (grantType === 'password' || !grantType) {
@@ -331,16 +342,18 @@ const oauthTokenHandler = async (c: any) => {
       const usernameCandidate = String(username || body.username || '').trim().toLowerCase();
       const isUserValid = usernameCandidate === expectedUsername;
       const passwordCandidate = password || body.password || '';
-      const isPasswordValid = passwordCandidate && timingSafeCompare(passwordCandidate, expectedToken);
+      const passCheck = await verifyMasterPassword(c.env.DB, c.env, passwordCandidate);
+      const isPasswordValid = passCheck.valid;
       // client_id / client_secret are public Wallabag-compat identifiers (shown on /developer);
       // the password above is what actually authenticates.
-      const isSecretValid = !clientSecret || Boolean(isPasswordValid) || timingSafeCompare(clientSecret, expectedClientSecret) || timingSafeCompare(clientSecret, expectedToken) || timingSafeCompare(clientSecret, 'wallaflare');
+      const isSecretValid = !clientSecret || Boolean(isPasswordValid) || timingSafeCompare(clientSecret, expectedClientSecret) || (c.env.AUTH_TOKEN && timingSafeCompare(clientSecret, c.env.AUTH_TOKEN)) || timingSafeCompare(clientSecret, 'wallaflare');
       isMatch = Boolean(isUserValid && isPasswordValid && isSecretValid);
     } else if (grantType === 'client_credentials') {
       const explicitClientSecret = c.env.CLIENT_SECRET;
+      const passCheck = await verifyMasterPassword(c.env.DB, c.env, clientSecret);
       isMatch = Boolean(
         clientSecret &&
-        (timingSafeCompare(clientSecret, expectedToken) || (explicitClientSecret && timingSafeCompare(clientSecret, explicitClientSecret)))
+        (passCheck.valid || (explicitClientSecret && timingSafeCompare(clientSecret, explicitClientSecret)))
       );
     } else if (grantType === 'refresh_token') {
       const refreshToken = String(c.req.query('refresh_token') || body.refresh_token || '');
@@ -348,7 +361,8 @@ const oauthTokenHandler = async (c: any) => {
       isMatch = tokenCheck.valid;
     } else {
       const candidate = password || clientSecret;
-      isMatch = Boolean(candidate && timingSafeCompare(candidate, expectedToken));
+      const passCheck = await verifyMasterPassword(c.env.DB, c.env, candidate);
+      isMatch = passCheck.valid;
     }
 
     if (!isMatch) {
@@ -448,13 +462,13 @@ apiRouter.post('/api/auth/token', async (c: any) => {
     }, 429);
   }
 
-  const configuredToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
   const body = await c.req.json().catch(() => ({}));
   const password = String(body.password || body.token || '');
   const rawLabel = String(body.label || body.device_name || '').trim();
   const label = rawLabel || parseUserAgentLabel(c.req.header('user-agent') || '');
 
-  if (configuredToken) {
+  if (isConfigured) {
     if (!password) {
       return c.json({
         success: false,
@@ -462,7 +476,8 @@ apiRouter.post('/api/auth/token', async (c: any) => {
         message: 'Master password is required.'
       }, 400);
     }
-    const isMasterValid = timingSafeCompare(password, configuredToken);
+    const passCheck = await verifyMasterPassword(c.env.DB, c.env, password);
+    const isMasterValid = passCheck.valid;
     if (!isMasterValid) {
       // If the provided secret is already a valid active device token / PAT, accept and reuse it directly
       const tokenCheck = await verifyApiToken(c.env.DB, password);
@@ -528,8 +543,8 @@ apiRouter.post('/api/auth/verify', async (c: any) => {
     }, 429);
   }
 
-  const configuredToken = c.env.AUTH_TOKEN || c.env.CLIENT_SECRET;
-  if (!configuredToken) {
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
+  if (!isConfigured) {
     return c.json({ success: true, attempts_left: 5 });
   }
 
@@ -543,7 +558,8 @@ apiRouter.post('/api/auth/verify', async (c: any) => {
   }
 
   // Check master password OR check if it is an active device token
-  const isMasterValid = timingSafeCompare(token, configuredToken);
+  const passCheck = await verifyMasterPassword(c.env.DB, c.env, token);
+  const isMasterValid = passCheck.valid;
   let isTokenValid = false;
   if (!isMasterValid) {
     const check = await verifyApiToken(c.env.DB, token);
@@ -1658,11 +1674,12 @@ const resetDatabaseHandler = async (c: any) => {
   }
 
   const providedToken = String(body.token || body.password || body.auth_token || '').trim();
-  const configuredToken = String(c.env.AUTH_TOKEN || c.env.CLIENT_SECRET || '').trim();
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
 
-  // If AUTH_TOKEN is configured on server, require exact password/token match in body
-  if (configuredToken) {
-    if (!providedToken || !timingSafeCompare(providedToken, configuredToken)) {
+  // If password is configured on server, require exact password match in body
+  if (isConfigured) {
+    const passCheck = await verifyMasterPassword(c.env.DB, c.env, providedToken);
+    if (!passCheck.valid) {
       return c.json({ error: 'Invalid authentication token / password' }, 401);
     }
   }
@@ -1678,3 +1695,121 @@ const resetDatabaseHandler = async (c: any) => {
 
 apiRouter.post('/api/admin/reset-database', authMiddleware, resetDatabaseHandler);
 apiRouter.post('/api/admin/reset-database.json', authMiddleware, resetDatabaseHandler);
+
+// -------------------------------------------------------------
+// Change Master Password: POST /api/admin/change-password
+// -------------------------------------------------------------
+apiRouter.post('/api/admin/change-password', async (c) => {
+  const ip = getClientIp(c);
+  if (c.env.DB) {
+    const rateLimit = await checkAuthRateLimit(c.env.DB, ip, 'admin');
+    if (!rateLimit.allowed) {
+      return c.json({
+        success: false,
+        error: 'rate_limited',
+        message: `Too many failed attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.`
+      }, 429);
+    }
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const currentPassword = String(body.current_password || body.password || '').trim();
+  const newPassword = String(body.new_password || '').trim();
+
+  if (!newPassword || newPassword.length < 8) {
+    return c.json({
+      success: false,
+      error: 'invalid_password',
+      message: 'New password must be at least 8 characters long.'
+    }, 400);
+  }
+
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
+  if (isConfigured) {
+    if (!currentPassword) {
+      return c.json({
+        success: false,
+        error: 'missing_current_password',
+        message: 'Current master password is required.'
+      }, 400);
+    }
+    const check = await verifyMasterPassword(c.env.DB, c.env, currentPassword);
+    if (!check.valid) {
+      if (c.env.DB) await recordFailedAuthAttempt(c.env.DB, ip, 'admin');
+      return c.json({
+        success: false,
+        error: 'invalid_current_password',
+        message: 'Current master password is incorrect.'
+      }, 401);
+    }
+  }
+
+  if (c.env.DB) {
+    await resetAuthRateLimit(c.env.DB, ip, 'admin');
+    await setMasterPassword(c.env.DB, newPassword);
+  }
+
+  // Issue updated session token for seamless continuous login
+  const sessionToken = await createSessionToken(c.env);
+  c.header('Set-Cookie', `PHPSESSID=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
+
+  return c.json({
+    success: true,
+    message: 'Master password has been updated and securely hashed in Cloudflare D1.'
+  });
+});
+
+// -------------------------------------------------------------
+// Syndication Feed Token: GET /api/feed-token & POST /api/feed-token
+// -------------------------------------------------------------
+apiRouter.get('/api/feed-token', authMiddleware, async (c) => {
+  const origin = new URL(c.req.url).origin;
+  if (c.env.DB) {
+    await ensureConfigSeeded(c.env.DB, c.env);
+  }
+  const feedToken = await getOrCreateFeedToken(c.env.DB, c.env);
+
+  return c.json({
+    success: true,
+    feed_token: feedToken,
+    opds_url: `${origin}/opds?token=${feedToken}`,
+    rss_urls: {
+      all: `${origin}/feed/all/${feedToken}/rss.xml`,
+      unread: `${origin}/feed/unread?token=${feedToken}`,
+      starred: `${origin}/feed/starred?token=${feedToken}`,
+      archive: `${origin}/feed/archive?token=${feedToken}`
+    }
+  });
+});
+
+apiRouter.post('/api/feed-token', authMiddleware, async (c) => {
+  const origin = new URL(c.req.url).origin;
+  const body = await c.req.json().catch(() => ({}));
+  const requestedToken = String(body.token || '').trim();
+
+  let finalToken: string;
+  try {
+    if (!c.env.DB) {
+      return c.json({ success: false, error: 'no_db', message: 'D1 database binding required to manage feed tokens.' }, 500);
+    }
+    finalToken = await setFeedToken(c.env.DB, requestedToken);
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      error: 'invalid_token_format',
+      message: err.message || 'Invalid feed token format.'
+    }, 400);
+  }
+
+  return c.json({
+    success: true,
+    feed_token: finalToken,
+    opds_url: `${origin}/opds?token=${finalToken}`,
+    rss_urls: {
+      all: `${origin}/feed/all/${finalToken}/rss.xml`,
+      unread: `${origin}/feed/unread?token=${finalToken}`,
+      starred: `${origin}/feed/starred?token=${finalToken}`,
+      archive: `${origin}/feed/archive?token=${finalToken}`
+    }
+  });
+});

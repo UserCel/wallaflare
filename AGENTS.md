@@ -199,9 +199,11 @@ When preparing a release or bumping versions, update the corresponding files bel
    - In interactive reading components (e.g. RSVP speed reader, surrounding text strips, annotations):
      - For RTL/BiDi scripts (Hebrew, Arabic), always isolate segments with `unicode-bidi: isolate` and wrap trailing neutral punctuation in Unicode Right-to-Left Marks (`\u200F`) to prevent punctuation from jumping inside words.
      - For continuous drag/scrub gestures across dynamic DOM containers, always use W3C Pointer Events (`pointerdown`, `pointermove`, `pointerup`) with `setPointerCapture(e.pointerId)` so that rapid DOM element mutations or re-renders do not abort the touch gesture on mobile browsers.
-9. **Rule 9: Zero-Trust Token Architecture & Endpoint Isolation**:
-   - The master password (`AUTH_TOKEN`) must **only** be accepted at initial authentication and token issuance endpoints (`POST /api/auth/token`, `POST /oauth/v2/token`, `/login_check`, `/developer` unlock, and admin wipe).
-   - All standard data endpoints (`/api/entries`, `/api/sync`, `/api/tokens`, `/api/annotations`, etc.) strictly require valid issued tokens from the `api_tokens` table (or session cookies that map to active tokens). Never accept master passwords directly on protected data routes.
+9. **Rule 9: Zero-Trust Token Architecture, Master Password Vault & Feed Isolation**:
+   - The master password is stored in Cloudflare D1 `config` table as a salted PBKDF2-SHA256 hash (100,000 iterations). It auto-migrates from `env.AUTH_TOKEN` upon first login.
+   - Master password authentication is **strictly isolated** to initial credential exchange endpoints (`POST /api/auth/token`, `POST /oauth/v2/token`, `/login_check`, `/developer` unlock, `POST /api/admin/change-password`, and admin database wipe).
+   - Standard data endpoints (`/api/entries`, `/api/sync`, `/api/tokens`, `/api/annotations`, etc.) strictly require valid issued tokens from the `api_tokens` table (or session cookies that map to active tokens).
+   - Syndication feed endpoints (`/feed/*` and `/opds/*`) strictly require dedicated read tokens from the D1 `config` table (`feed_token`) or read-scoped PATs. Master passwords are completely blocked on feeds, and unauthenticated requests must always return the exact generic 401 error message to prevent password detection oracles.
 10. **Rule 10: Wallabag Client Scraper Handshake & Developer Page Regex**:
    - Automated client scrapers (such as the official Wallabag Android app `fr.gaulupeau.apps.InThePoche` and Wallabagger) do not use JSON for client creation; they parse and regex-match `/developer` HTML directly.
    - For app User-Agents (`okhttp`, `InThePoche`, `wallabag`), always serve the minimal, pure Wallabag developer template without extra DOM wrappers, scripts, or duplicate `class="collapsible"` lists that break scraper regexes.

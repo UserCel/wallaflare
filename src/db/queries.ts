@@ -85,6 +85,11 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         revoked_at TEXT DEFAULT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)`,
+      `CREATE TABLE IF NOT EXISTS config (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
       `INSERT OR IGNORE INTO sync_state (id, revision, instance_id) VALUES (1, 1, 1)`
     ];
 
@@ -107,7 +112,7 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
   }
 }
 
-import { EntryRow, WallabagEntry, AnnotationItem, ApiTokenRow } from '../types';
+import { EntryRow, WallabagEntry, AnnotationItem, ApiTokenRow, Env } from '../types';
 
 export interface TagItem {
   id: number;
@@ -1400,6 +1405,8 @@ export async function getSyncState(db: D1Database): Promise<{ revision: number; 
 }
 
 export async function wipeDatabase(db: D1Database): Promise<{ instance_id: number; revision: number }> {
+  seededDbs.delete(db as object);
+  clearConfigCache(db);
   await ensureDatabaseSchema(db);
   const now = new Date().toISOString();
   const currentSync = await getSyncState(db);
@@ -1409,6 +1416,8 @@ export async function wipeDatabase(db: D1Database): Promise<{ instance_id: numbe
   await db.prepare('DELETE FROM entries').run();
   await db.prepare('DELETE FROM tags').run();
   await db.prepare('DELETE FROM deleted_entries').run();
+  await db.prepare('DELETE FROM api_tokens').run().catch(() => {});
+  await db.prepare('DELETE FROM config').run().catch(() => {});
   await db.prepare('DELETE FROM sync_state').run();
   await db.prepare('INSERT INTO sync_state (id, revision, instance_id, updated_at) VALUES (1, 1, ?, ?)').bind(newInstanceId, now).run();
   return { instance_id: newInstanceId, revision: 1 };
@@ -1651,4 +1660,301 @@ export async function deleteApiToken(db: D1Database, id: number): Promise<boolea
     DELETE FROM api_tokens WHERE id = ?
   `).bind(id).run();
   return (res.meta?.changes ?? 0) > 0;
+}
+
+// -------------------------------------------------------------
+// Config & Vault Store (Master Password & Dedicated Feed Tokens)
+// -------------------------------------------------------------
+
+const dbConfigCaches = new WeakMap<object, Map<string, { value: string | null; timestamp: number }>>();
+const CONFIG_CACHE_TTL_MS = 60_000; // 1-minute in-memory isolate cache to minimize D1 reads
+
+function getConfigCache(db: D1Database): Map<string, { value: string | null; timestamp: number }> {
+  let cache = dbConfigCaches.get(db as object);
+  if (!cache) {
+    cache = new Map();
+    dbConfigCaches.set(db as object, cache);
+  }
+  return cache;
+}
+
+export function clearConfigCache(db?: D1Database): void {
+  if (db) {
+    dbConfigCaches.delete(db as object);
+  }
+}
+
+export async function getConfig(db: D1Database, key: string): Promise<string | null> {
+  const cache = getConfigCache(db);
+  const cached = cache.get(key);
+  if (cached && (Date.now() - cached.timestamp < CONFIG_CACHE_TTL_MS)) {
+    return cached.value;
+  }
+  await ensureDatabaseSchema(db);
+  const row = await db.prepare('SELECT value FROM config WHERE key = ?').bind(key).first<{ value: string }>();
+  const val = row ? row.value : null;
+  cache.set(key, { value: val, timestamp: Date.now() });
+  return val;
+}
+
+export async function setConfig(db: D1Database, key: string, value: string): Promise<void> {
+  await ensureDatabaseSchema(db);
+  await db.prepare(`
+    INSERT INTO config (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `).bind(key, value).run();
+  const cache = getConfigCache(db);
+  cache.set(key, { value, timestamp: Date.now() });
+}
+
+export async function deleteConfig(db: D1Database, key: string): Promise<boolean> {
+  await ensureDatabaseSchema(db);
+  const res = await db.prepare('DELETE FROM config WHERE key = ?').bind(key).run();
+  const cache = getConfigCache(db);
+  cache.delete(key);
+  return (res.meta?.changes ?? 0) > 0;
+}
+
+export async function hashPassword(
+  password: string,
+  saltHex?: string
+): Promise<{ hashString: string; saltHex: string; hashHex: string }> {
+  let saltBytes: Uint8Array;
+  if (saltHex) {
+    const matches = saltHex.match(/.{1,2}/g) || [];
+    saltBytes = new Uint8Array(matches.map(byte => parseInt(byte, 16)));
+  } else {
+    saltBytes = crypto.getRandomValues(new Uint8Array(16));
+  }
+  const actualSaltHex = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  const enc = new TextEncoder().encode(password);
+  const keyMaterial = await crypto.subtle.importKey('raw', enc, { name: 'PBKDF2' }, false, ['deriveBits']);
+  const iterations = 100000;
+  const derived = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  );
+  const hashHex = Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashString = `pbkdf2:${iterations}:${actualSaltHex}:${hashHex}`;
+  return { hashString, saltHex: actualSaltHex, hashHex };
+}
+
+export async function verifyPasswordHash(password: string, storedHashString: string): Promise<boolean> {
+  if (!password || !storedHashString) return false;
+  const parts = storedHashString.split(':');
+  if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
+  const iterations = parseInt(parts[1], 10);
+  const saltHex = parts[2];
+  const expectedHashHex = parts[3];
+  if (!iterations || !saltHex || !expectedHashHex) return false;
+
+  const matches = saltHex.match(/.{1,2}/g) || [];
+  const saltBytes = new Uint8Array(matches.map(byte => parseInt(byte, 16)));
+  const enc = new TextEncoder().encode(password);
+  const keyMaterial = await crypto.subtle.importKey('raw', enc, { name: 'PBKDF2' }, false, ['deriveBits']);
+  const derived = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  );
+  const computedHashHex = Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return timingSafeCompare(computedHashHex, expectedHashHex);
+}
+
+export async function verifyMasterPassword(
+  db: D1Database | undefined,
+  env: Env,
+  candidatePassword: string
+): Promise<{ valid: boolean; migrated?: boolean }> {
+  if (!candidatePassword) return { valid: false };
+
+  if (db) {
+    try {
+      const stored = await getConfig(db, 'admin_password');
+      if (stored) {
+        const valid = await verifyPasswordHash(candidatePassword, stored);
+        return { valid };
+      }
+    } catch (e) {}
+
+    // No password in D1 yet: check env.AUTH_TOKEN or env.CLIENT_SECRET
+    const envSecret = env.AUTH_TOKEN || env.CLIENT_SECRET;
+    if (envSecret) {
+      if (timingSafeCompare(candidatePassword, envSecret)) {
+        // Auto-seed into D1
+        try {
+          const { hashString } = await hashPassword(candidatePassword);
+          await setConfig(db, 'admin_password', hashString);
+          return { valid: true, migrated: true };
+        } catch (e) {
+          return { valid: true };
+        }
+      }
+      return { valid: false };
+    }
+
+    // Neither D1 nor env has password
+    return { valid: false };
+  }
+
+  // Fallback if no D1 binding
+  const envSecret = env.AUTH_TOKEN || env.CLIENT_SECRET;
+  if (!envSecret) return { valid: true };
+  return { valid: timingSafeCompare(candidatePassword, envSecret) };
+}
+
+export async function setMasterPassword(db: D1Database, newPassword: string): Promise<void> {
+  const { hashString } = await hashPassword(newPassword);
+  await setConfig(db, 'admin_password', hashString);
+  seededDbs.add(db as object);
+}
+
+export async function isMasterPasswordConfigured(db: D1Database | undefined, env: Env): Promise<boolean> {
+  // 1. Fast path: If AUTH_TOKEN or CLIENT_SECRET is set in environment, auth is guaranteed configured (0 D1 reads)
+  if (Boolean(env.AUTH_TOKEN || env.CLIENT_SECRET)) {
+    return true;
+  }
+  // 2. Otherwise check D1 config table
+  if (db) {
+    try {
+      const stored = await getConfig(db, 'admin_password');
+      if (stored) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
+// -------------------------------------------------------------
+// Syndication Feed Token Management (RSS 2.0 & OPDS 1.2)
+// -------------------------------------------------------------
+
+function generateSecureRandomToken(length = 16): string {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  let token = 'wf_';
+  for (let i = 0; i < length - 3; i++) {
+    token += chars[bytes[i] % chars.length];
+  }
+  return token;
+}
+
+const seededDbs = new WeakSet<object>();
+
+export function resetConfigSeededFlag(db?: D1Database): void {
+  if (db) {
+    seededDbs.delete(db as object);
+  }
+}
+
+export async function ensureConfigSeeded(db: D1Database | undefined, env: Env): Promise<void> {
+  if (!db || seededDbs.has(db as object)) return;
+  try {
+    // 1. Seed master password if env has AUTH_TOKEN or CLIENT_SECRET and D1 lacks admin_password
+    const envSecret = env.AUTH_TOKEN || env.CLIENT_SECRET;
+    if (envSecret && envSecret.trim().length > 0) {
+      const stored = await getConfig(db, 'admin_password');
+      if (!stored) {
+        const { hashString } = await hashPassword(envSecret.trim());
+        await setConfig(db, 'admin_password', hashString);
+      }
+    }
+
+    // 2. Seed feed token if D1 lacks feed_token
+    const feedToken = await getConfig(db, 'feed_token');
+    if (!feedToken) {
+      if (env.READ_TOKEN && env.READ_TOKEN.trim().length > 0) {
+        await setConfig(db, 'feed_token', env.READ_TOKEN.trim());
+      } else {
+        await setConfig(db, 'feed_token', generateSecureRandomToken(16));
+      }
+    }
+    seededDbs.add(db as object);
+  } catch (e) {
+    console.warn('ensureConfigSeeded error:', e);
+  }
+}
+
+export async function getOrCreateFeedToken(db: D1Database | undefined, env: Env): Promise<string> {
+  if (db) {
+    try {
+      const stored = await getConfig(db, 'feed_token');
+      if (stored && stored.trim().length > 0) {
+        return stored.trim();
+      }
+    } catch (e) {}
+
+    // Check env.READ_TOKEN fallback to seed
+    if (env.READ_TOKEN && env.READ_TOKEN.trim().length > 0) {
+      const token = env.READ_TOKEN.trim();
+      try {
+        await setConfig(db, 'feed_token', token);
+      } catch (e) {}
+      return token;
+    }
+
+    // Auto-generate clean 16-char token
+    const token = generateSecureRandomToken(16);
+    try {
+      await setConfig(db, 'feed_token', token);
+    } catch (e) {}
+    return token;
+  }
+
+  return env.READ_TOKEN || 'wf_feed_dev_token';
+}
+
+export async function setFeedToken(db: D1Database, token: string): Promise<string> {
+  const sanitized = token.trim();
+  let finalToken = sanitized;
+  if (!finalToken || finalToken === 'regenerate') {
+    finalToken = generateSecureRandomToken(16);
+  } else {
+    if (!/^[a-zA-Z0-9_-]{4,64}$/.test(finalToken)) {
+      throw new Error('Feed token must be 4-64 alphanumeric characters, underscores, or hyphens.');
+    }
+  }
+  await setConfig(db, 'feed_token', finalToken);
+  seededDbs.add(db as object);
+  return finalToken;
+}
+
+export async function verifyFeedToken(
+  db: D1Database | undefined,
+  env: Env,
+  candidateToken: string | null | undefined
+): Promise<boolean> {
+  if (!candidateToken || candidateToken.trim().length === 0) return false;
+  const trimmed = candidateToken.trim();
+
+  // 1. Verify against active feed token
+  const activeFeedToken = await getOrCreateFeedToken(db, env);
+  if (timingSafeCompare(trimmed, activeFeedToken)) {
+    return true;
+  }
+
+  // 2. Or verify against active api_tokens row (e.g. PAT)
+  if (db) {
+    try {
+      const check = await verifyApiToken(db, trimmed);
+      if (check.valid) {
+        return true;
+      }
+    } catch (e) {}
+  }
+
+  // Notice: Master password (AUTH_TOKEN / admin_password) is STRICTLY REJECTED here!
+  return false;
 }
