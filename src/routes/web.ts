@@ -4,7 +4,7 @@ import { renderDashboardHtml } from '../views/dashboard';
 import { ICON_192_B64, ICON_512_B64 } from './icons-b64';
 import { KOPLUGIN_ZIP_B64 } from '../views/koplugin-bundle';
 import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
-import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare, verifyMasterPassword, isMasterPasswordConfigured, ensureConfigSeeded } from '../db/queries';
+import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare, verifyMasterPassword, isMasterPasswordConfigured } from '../db/queries';
 import { getClientIp } from './api';
 import { escapeHtmlText } from '../services/extractor';
 

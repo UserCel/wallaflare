@@ -1405,7 +1405,6 @@ export async function getSyncState(db: D1Database): Promise<{ revision: number; 
 }
 
 export async function wipeDatabase(db: D1Database): Promise<{ instance_id: number; revision: number }> {
-  seededDbs.delete(db as object);
   clearConfigCache(db);
   await ensureDatabaseSchema(db);
   const now = new Date().toISOString();
@@ -1819,7 +1818,6 @@ export async function verifyMasterPassword(
 export async function setMasterPassword(db: D1Database, newPassword: string): Promise<void> {
   const { hashString } = await hashPassword(newPassword);
   await setConfig(db, 'admin_password', hashString);
-  seededDbs.add(db as object);
 }
 
 export async function isMasterPasswordConfigured(db: D1Database | undefined, env: Env): Promise<boolean> {
@@ -1849,42 +1847,6 @@ function generateSecureRandomToken(length = 16): string {
     token += chars[bytes[i] % chars.length];
   }
   return token;
-}
-
-const seededDbs = new WeakSet<object>();
-
-export function resetConfigSeededFlag(db?: D1Database): void {
-  if (db) {
-    seededDbs.delete(db as object);
-  }
-}
-
-export async function ensureConfigSeeded(db: D1Database | undefined, env: Env): Promise<void> {
-  if (!db || seededDbs.has(db as object)) return;
-  try {
-    // 1. Seed master password if env has AUTH_TOKEN or CLIENT_SECRET and D1 lacks admin_password
-    const envSecret = env.AUTH_TOKEN || env.CLIENT_SECRET;
-    if (envSecret && envSecret.trim().length > 0) {
-      const stored = await getConfig(db, 'admin_password');
-      if (!stored) {
-        const { hashString } = await hashPassword(envSecret.trim());
-        await setConfig(db, 'admin_password', hashString);
-      }
-    }
-
-    // 2. Seed feed token if D1 lacks feed_token
-    const feedToken = await getConfig(db, 'feed_token');
-    if (!feedToken) {
-      if (env.READ_TOKEN && env.READ_TOKEN.trim().length > 0) {
-        await setConfig(db, 'feed_token', env.READ_TOKEN.trim());
-      } else {
-        await setConfig(db, 'feed_token', generateSecureRandomToken(16));
-      }
-    }
-    seededDbs.add(db as object);
-  } catch (e) {
-    console.warn('ensureConfigSeeded error:', e);
-  }
 }
 
 export async function getOrCreateFeedToken(db: D1Database | undefined, env: Env): Promise<string> {
@@ -1927,7 +1889,6 @@ export async function setFeedToken(db: D1Database, token: string): Promise<strin
     }
   }
   await setConfig(db, 'feed_token', finalToken);
-  seededDbs.add(db as object);
   return finalToken;
 }
 

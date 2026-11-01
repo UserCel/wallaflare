@@ -52,7 +52,6 @@ import {
   verifyMasterPassword,
   setMasterPassword,
   isMasterPasswordConfigured,
-  ensureConfigSeeded,
   getOrCreateFeedToken,
   setFeedToken
 } from '../db/queries';
@@ -1764,9 +1763,6 @@ apiRouter.post('/api/admin/change-password', async (c) => {
 // -------------------------------------------------------------
 apiRouter.get('/api/feed-token', authMiddleware, async (c) => {
   const origin = new URL(c.req.url).origin;
-  if (c.env.DB) {
-    await ensureConfigSeeded(c.env.DB, c.env);
-  }
   const feedToken = await getOrCreateFeedToken(c.env.DB, c.env);
 
   return c.json({

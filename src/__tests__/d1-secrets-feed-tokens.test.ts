@@ -11,8 +11,6 @@ import {
   verifyFeedToken,
   getConfig,
   setConfig,
-  ensureConfigSeeded,
-  resetConfigSeededFlag,
   clearConfigCache
 } from '../db/queries';
 
@@ -85,8 +83,7 @@ describe('D1 Master Password & Dedicated Feed Token Vault', () => {
 
   beforeEach(() => {
     mockDb = createMockD1Database();
-    clearConfigCache();
-    resetConfigSeededFlag();
+    clearConfigCache(mockDb);
   });
 
   describe('PBKDF2 Password Hashing', () => {
@@ -242,8 +239,7 @@ describe('D1 Master Password & Dedicated Feed Token Vault', () => {
       expect(regenJson.feed_token).not.toBe('my-xteink-token');
     });
 
-    it('automatically seeds admin_password and feed_token into D1 config without sign-out/sign-in', async () => {
-      resetConfigSeededFlag();
+    it('seeds admin_password on-demand upon first login verification and feed_token upon first access', async () => {
       const env = {
         DB: mockDb,
         AUTH_TOKEN: 'existing-secret-from-wrangler',
@@ -254,20 +250,24 @@ describe('D1 Master Password & Dedicated Feed Token Vault', () => {
       expect(await getConfig(mockDb, 'admin_password')).toBeNull();
       expect(await getConfig(mockDb, 'feed_token')).toBeNull();
 
-      // Ensure config seeded runs
-      await ensureConfigSeeded(mockDb, env);
+      // 1. feed_token is seeded when feed token is accessed
+      const token = await getOrCreateFeedToken(mockDb, env);
+      expect(token).toBe('existing-read-token');
+      expect(await getConfig(mockDb, 'feed_token')).toBe('existing-read-token');
+      // admin_password is still not touched
+      expect(await getConfig(mockDb, 'admin_password')).toBeNull();
 
-      // Both should now be populated in D1
+      // 2. admin_password is seeded when verifyMasterPassword runs with the env secret
+      const check = await verifyMasterPassword(mockDb, env, 'existing-secret-from-wrangler');
+      expect(check.valid).toBe(true);
+      expect(check.migrated).toBe(true);
+
       const seededPass = await getConfig(mockDb, 'admin_password');
-      const seededFeed = await getConfig(mockDb, 'feed_token');
-
       expect(seededPass).not.toBeNull();
       expect(await verifyPasswordHash('existing-secret-from-wrangler', seededPass!)).toBe(true);
-      expect(seededFeed).toBe('existing-read-token');
     });
 
     it('requires authentication for /api/feed-token when password is configured', async () => {
-      resetConfigSeededFlag();
       const env = { DB: mockDb, AUTH_TOKEN: 'admin-password-123' } as any;
 
       // Unauthenticated request should be rejected by authMiddleware
