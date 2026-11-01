@@ -261,6 +261,100 @@ export async function populateServerConfigInputs(): Promise<void> {
 
 let loadedPatTokens: any[] = [];
 
+export interface PatSortOption {
+  id: string;
+  label: string;
+  iconSvg: string;
+}
+
+export const PAT_SORT_OPTIONS: PatSortOption[] = [
+  {
+    id: "last_used_desc",
+    label: "Recently Used",
+    iconSvg: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>'
+  },
+  {
+    id: "unused_first",
+    label: "Unused First",
+    iconSvg: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>'
+  },
+  {
+    id: "created_desc",
+    label: "Newest Added",
+    iconSvg: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>'
+  },
+  {
+    id: "created_asc",
+    label: "Oldest Added",
+    iconSvg: '<polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>'
+  },
+  {
+    id: "label_asc",
+    label: "Label (A–Z)",
+    iconSvg: '<path d="M4 19V5h3v14H4zM10 19l4.5-14h2L21 19h-2.4l-.8-2.6h-3.6l-.8 2.6H10zm4.2-4.7h2.6L15.5 9.2h-.1l-1.2 5.1z"></path>'
+  }
+];
+
+export function getPatSortOrder(): string {
+  try {
+    return localStorage.getItem("wf_pat_sort") || "last_used_desc";
+  } catch (e) {
+    return "last_used_desc";
+  }
+}
+
+export function generatePatSortMenuHtml(currentOrder: string = "last_used_desc"): string {
+  return PAT_SORT_OPTIONS.map((opt) => {
+    const isActive = opt.id === currentOrder;
+    const checkmark = isActive
+      ? '<span style="margin-left: auto; font-weight: 700; color: var(--accent); font-size: 0.9rem;">✓</span>'
+      : '';
+
+    return (
+      `<button type="button" class="menu-item ${isActive ? "active" : ""}" onclick="setPatSortOrder('${opt.id}');">` +
+        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">` +
+          opt.iconSvg +
+        `</svg>` +
+        `<span>${opt.label}</span>` +
+        checkmark +
+      `</button>`
+    );
+  }).join("");
+}
+
+export function closePatSortMenu(): void {
+  const menu = document.getElementById("patSortDropdownMenu");
+  if (menu) menu.classList.remove("open");
+}
+
+export function togglePatSortMenu(): void {
+  const menu = document.getElementById("patSortDropdownMenu");
+  if (!menu) return;
+  const isOpen = menu.classList.contains("open");
+  if (typeof (window as any).closeAllCardMenus === "function") {
+    (window as any).closeAllCardMenus();
+  } else {
+    document.querySelectorAll(".card-dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+  }
+  if (!isOpen) {
+    const currentSort = getPatSortOrder();
+    menu.innerHTML = generatePatSortMenuHtml(currentSort);
+    menu.classList.add("open");
+  }
+}
+
+export function setPatSortOrder(order: string): void {
+  try {
+    localStorage.setItem("wf_pat_sort", order);
+  } catch (e) {}
+  closePatSortMenu();
+  renderPersonalTokens();
+}
+
+export function setLoadedPatTokens(tokens: any[]): void {
+  loadedPatTokens = tokens;
+}
+
 export function sortPatTokens(tokens: any[], sortBy: string): any[] {
   const list = [...tokens];
   switch (sortBy) {
@@ -300,8 +394,8 @@ export function sortPatTokens(tokens: any[], sortBy: string): any[] {
 export function renderPersonalTokens(): void {
   const container = document.getElementById("patTokensContainer");
   const sortBar = document.getElementById("patSortBar");
-  const sortSelect = document.getElementById("patSortSelect") as HTMLSelectElement | null;
   const countEl = document.getElementById("patTokensCount");
+  const sortLabelEl = document.getElementById("patSortBtnLabel");
   if (!container) return;
 
   if (loadedPatTokens.length === 0) {
@@ -310,13 +404,11 @@ export function renderPersonalTokens(): void {
     return;
   }
 
-  const sortBy = sortSelect?.value || localStorage.getItem("wf_pat_sort") || "last_used_desc";
-  if (sortSelect && sortSelect.value !== sortBy) {
-    sortSelect.value = sortBy;
+  const sortBy = getPatSortOrder();
+  const currentOpt = PAT_SORT_OPTIONS.find((o) => o.id === sortBy) || PAT_SORT_OPTIONS[0];
+  if (sortLabelEl) {
+    sortLabelEl.textContent = currentOpt.label;
   }
-  try {
-    localStorage.setItem("wf_pat_sort", sortBy);
-  } catch (e) {}
 
   if (sortBar) sortBar.style.display = "flex";
   const unusedCount = loadedPatTokens.filter(t => !t.last_used_at && !t.revoked_at).length;
@@ -482,6 +574,7 @@ export function openSettingsModal(initialTab: string | null = null): void {
 }
 
 export function switchSettingsTab(tabName: string, activateMobile: boolean = true): void {
+  closePatSortMenu();
   activeSettingsTab = tabName || "appearance";
   updateSettingsStats();
 
@@ -736,6 +829,9 @@ if (typeof window !== "undefined") {
   w.populateServerConfigInputs = populateServerConfigInputs;
   w.loadPersonalTokens = loadPersonalTokens;
   w.renderPersonalTokens = renderPersonalTokens;
+  w.togglePatSortMenu = togglePatSortMenu;
+  w.closePatSortMenu = closePatSortMenu;
+  w.setPatSortOrder = setPatSortOrder;
   w.handleCreatePersonalToken = handleCreatePersonalToken;
   w.handleRevokePersonalToken = handleRevokePersonalToken;
   w.openSettingsModal = openSettingsModal;

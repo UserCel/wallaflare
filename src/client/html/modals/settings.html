@@ -270,15 +270,13 @@
 
                   <div id="patSortBar" style="display: none; justify-content: space-between; align-items: center; font-size: 0.76rem; color: var(--text-muted); padding: 0 0.1rem;">
                     <span id="patTokensCount">0 tokens</span>
-                    <div style="display: flex; align-items: center; gap: 0.35rem;">
-                      <span>Sort:</span>
-                      <select id="patSortSelect" onchange="renderPersonalTokens()" style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; font-size: 0.76rem; cursor: pointer;">
-                        <option value="last_used_desc">Recently Used</option>
-                        <option value="unused_first">Unused First</option>
-                        <option value="created_desc">Newest Added</option>
-                        <option value="created_asc">Oldest Added</option>
-                        <option value="label_asc">Label (A–Z)</option>
-                      </select>
+                    <div class="card-menu-wrap" style="position: relative;">
+                      <button type="button" class="btn btn-outline" id="patSortBtn" onclick="event.stopPropagation(); togglePatSortMenu()" style="padding: 2px 8px; font-size: 0.76rem; display: flex; align-items: center; gap: 0.35rem; cursor: pointer;" title="Sort Tokens">
+                        <span style="color: var(--text-muted); font-size: 0.74rem;">Sort:</span>
+                        <span id="patSortBtnLabel" style="font-weight: 500; color: var(--text-primary);">Recently Used</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </button>
+                      <div class="search-dropdown-menu card-dropdown-menu open-down" id="patSortDropdownMenu" onclick="event.stopPropagation()" style="position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 100;"></div>
                     </div>
                   </div>
 

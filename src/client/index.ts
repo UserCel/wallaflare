@@ -4038,6 +4038,17 @@ function initReaderHoverTopBar() {
             closeBatchMenu();
           }
         }
+
+        const patSortDropdown = document.getElementById('patSortDropdownMenu');
+        if (patSortDropdown && patSortDropdown.classList.contains('open')) {
+          if (!e.target.closest('#patSortDropdownMenu, #patSortBtn')) {
+            if (typeof (window as any).closePatSortMenu === 'function') {
+              (window as any).closePatSortMenu();
+            } else {
+              patSortDropdown.classList.remove('open');
+            }
+          }
+        }
       };
       document.addEventListener('pointerdown', dismissPopovers);
 
