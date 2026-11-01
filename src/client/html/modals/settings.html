@@ -249,7 +249,7 @@
 
                   <div>
                     <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">5. Password</label>
-                    <div class="code-box" style="color: var(--text-muted); font-size: 0.82rem; padding: 0.45rem 0.75rem;">Your private AUTH_TOKEN password</div>
+                    <div class="code-box" style="color: var(--text-muted); font-size: 0.82rem; padding: 0.45rem 0.75rem;">Your Master Password</div>
                   </div>
                 </div>
               </div>
@@ -267,6 +267,20 @@
                     <input type="text" id="newPatLabelInput" class="input" placeholder="Token label (e.g. KOReader Wallabag, FeedMe)..." style="flex: 1; font-size: 0.82rem; padding: 0.45rem 0.75rem;" />
                     <button type="submit" id="generatePatBtn" class="btn btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.82rem; white-space: nowrap;">Generate Token</button>
                   </form>
+
+                  <div id="patSortBar" style="display: none; justify-content: space-between; align-items: center; font-size: 0.76rem; color: var(--text-muted); padding: 0 0.1rem;">
+                    <span id="patTokensCount">0 tokens</span>
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                      <span>Sort:</span>
+                      <select id="patSortSelect" onchange="renderPersonalTokens()" style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; font-size: 0.76rem; cursor: pointer;">
+                        <option value="last_used_desc">Recently Used</option>
+                        <option value="unused_first">Unused First</option>
+                        <option value="created_desc">Newest Added</option>
+                        <option value="created_asc">Oldest Added</option>
+                        <option value="label_asc">Label (A–Z)</option>
+                      </select>
+                    </div>
+                  </div>
 
                   <div id="patTokensContainer" style="display: flex; flex-direction: column; gap: 0.45rem;">
                     <div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.5rem;">Loading active tokens...</div>
@@ -378,8 +392,8 @@
                     <input type="url" id="settingsServerUrlInput" class="input" placeholder="https://<your-subdomain>.workers.dev" style="width: 100%; font-size: 0.82rem;" />
                   </div>
                   <div>
-                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Auth Token / Password</label>
-                    <input type="password" id="settingsServerTokenInput" class="input" placeholder="Your AUTH_TOKEN" style="width: 100%; font-size: 0.82rem;" />
+                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Master Password or Device Token</label>
+                    <input type="password" id="settingsServerTokenInput" class="input" placeholder="Master password or device token" style="width: 100%; font-size: 0.82rem;" />
                   </div>
                   <div style="display: flex; justify-content: flex-end;">
                     <button class="btn btn-primary" onclick="handleSaveServerConnection(event)" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Save Connection</button>
@@ -419,7 +433,7 @@
                   <div style="font-size: 0.85rem; font-weight: 600; color: var(--danger);">Reset &amp; Wipe Cloudflare D1 Database</div>
                   <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0;">Permanently deletes all articles, tags, highlights, and resets revisions to 1.</p>
                   <form onsubmit="handleConfirmWipeDatabase(event)" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.25rem;">
-                    <input type="password" id="wipeDbPasswordInput" class="input" placeholder="Enter master AUTH_TOKEN to confirm..." style="flex: 1; font-size: 0.82rem;" required />
+                    <input type="password" id="wipeDbPasswordInput" class="input" placeholder="Enter master password to confirm..." style="flex: 1; font-size: 0.82rem;" required />
                     <button type="submit" class="btn btn-danger" id="wipeDbConfirmBtn" style="padding: 0.45rem 0.85rem; font-size: 0.8rem; white-space: nowrap;">Wipe Database</button>
                   </form>
                   <div id="wipeDbErrorMsg" style="color: var(--danger); font-size: 0.75rem; display: none;"></div>

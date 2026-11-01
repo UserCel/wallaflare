@@ -6,7 +6,7 @@ import { authFetch, apiJson, apiPost, setAuthToken, isCapacitorApp } from "../sy
 import { clearIndexedDB } from "../storage/db";
 import { getParserMode, setParserMode, ParserMode } from "../extractor";
 import { escapeHtml } from "../utils/dom";
-import { normalizeUrl } from "../utils/format";
+import { normalizeUrl, formatCardDate } from "../utils/format";
 
 let activeSettingsTab = "appearance";
 let lastDataTabSyncTime = 0;
@@ -252,50 +252,133 @@ export async function populateServerConfigInputs(): Promise<void> {
     if (savedAuthToken) {
       input.placeholder = "•••••••••••• (Saved - leave blank to keep)";
     } else {
-      input.placeholder = "Enter AUTH_TOKEN";
+      input.placeholder = "Master password or device token";
     }
   });
 
   loadPersonalTokens();
 }
 
+let loadedPatTokens: any[] = [];
+
+export function sortPatTokens(tokens: any[], sortBy: string): any[] {
+  const list = [...tokens];
+  switch (sortBy) {
+    case "unused_first":
+      return list.sort((a, b) => {
+        if (Boolean(a.revoked_at) !== Boolean(b.revoked_at)) {
+          return a.revoked_at ? 1 : -1;
+        }
+        const aUsed = Boolean(a.last_used_at);
+        const bUsed = Boolean(b.last_used_at);
+        if (aUsed !== bUsed) return aUsed ? 1 : -1;
+        if (!aUsed) {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+        return new Date(a.last_used_at).getTime() - new Date(b.last_used_at).getTime();
+      });
+    case "created_desc":
+      return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    case "created_asc":
+      return list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    case "label_asc":
+      return list.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+    case "last_used_desc":
+    default:
+      return list.sort((a, b) => {
+        if (Boolean(a.revoked_at) !== Boolean(b.revoked_at)) {
+          return a.revoked_at ? 1 : -1;
+        }
+        const aTime = a.last_used_at ? new Date(a.last_used_at).getTime() : 0;
+        const bTime = b.last_used_at ? new Date(b.last_used_at).getTime() : 0;
+        if (aTime !== bTime) return bTime - aTime;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }
+}
+
+export function renderPersonalTokens(): void {
+  const container = document.getElementById("patTokensContainer");
+  const sortBar = document.getElementById("patSortBar");
+  const sortSelect = document.getElementById("patSortSelect") as HTMLSelectElement | null;
+  const countEl = document.getElementById("patTokensCount");
+  if (!container) return;
+
+  if (loadedPatTokens.length === 0) {
+    if (sortBar) sortBar.style.display = "none";
+    container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">No active tokens. Generate one above to connect third-party apps.</div>';
+    return;
+  }
+
+  const sortBy = sortSelect?.value || localStorage.getItem("wf_pat_sort") || "last_used_desc";
+  if (sortSelect && sortSelect.value !== sortBy) {
+    sortSelect.value = sortBy;
+  }
+  try {
+    localStorage.setItem("wf_pat_sort", sortBy);
+  } catch (e) {}
+
+  if (sortBar) sortBar.style.display = "flex";
+  const unusedCount = loadedPatTokens.filter(t => !t.last_used_at && !t.revoked_at).length;
+  if (countEl) {
+    countEl.textContent = `${loadedPatTokens.length} token${loadedPatTokens.length === 1 ? "" : "s"}${unusedCount > 0 ? ` (${unusedCount} unused)` : ""}`;
+  }
+
+  const sorted = sortPatTokens(loadedPatTokens, sortBy);
+
+  container.innerHTML = sorted.map((t: any) => {
+    const isRevoked = Boolean(t.revoked_at);
+    const createdFmt = formatCardDate(t.created_at);
+    const safeLabel = escapeHtml(t.label || "Token");
+    const safePrefix = escapeHtml(t.token_prefix || "");
+
+    let lastUsedHtml = "";
+    if (isRevoked) {
+      lastUsedHtml = `<span style="color: #ef4444; font-weight: 600;">Revoked</span>`;
+    } else if (t.last_used_at) {
+      const usedFmt = formatCardDate(t.last_used_at);
+      lastUsedHtml = `<span title="Last used: ${escapeHtml(usedFmt.tooltip)}">Last used ${escapeHtml(usedFmt.label)}</span>`;
+    } else {
+      lastUsedHtml = `<span style="color: #f59e0b; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); padding: 1px 6px; border-radius: 4px; font-weight: 600; font-size: 0.7rem;">Never used</span>`;
+    }
+
+    const createdHtml = createdFmt.label
+      ? `<span title="Created: ${escapeHtml(createdFmt.tooltip)}">Added ${escapeHtml(createdFmt.label)}</span>`
+      : "";
+
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.65rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.8rem; gap: 0.5rem;">
+        <div style="min-width: 0; flex: 1;">
+          <div style="font-weight: 600; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+            <span>${safeLabel}</span>
+            <code style="font-size: 0.72rem; color: var(--accent); background: var(--bg-primary); padding: 1px 5px; border-radius: 3px; font-family: monospace;">${safePrefix}</code>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+            ${createdHtml ? `${createdHtml} • ` : ""}${lastUsedHtml}
+          </div>
+        </div>
+        ${!isRevoked ? `<button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); white-space: nowrap;" onclick="handleRevokePersonalToken(${t.id}, '${safeLabel}')">Revoke</button>` : ""}
+      </div>
+    `;
+  }).join("");
+}
+
 export async function loadPersonalTokens(): Promise<void> {
   const container = document.getElementById("patTokensContainer");
+  const sortBar = document.getElementById("patSortBar");
   if (!container) return;
   try {
     const res = await authFetch("/api/tokens");
     if (!res.ok) {
+      if (sortBar) sortBar.style.display = "none";
       container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">Could not load tokens.</div>';
       return;
     }
     const data = await res.json();
-    const tokens = data.tokens || [];
-    if (tokens.length === 0) {
-      container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">No active tokens. Generate one above to connect third-party apps.</div>';
-      return;
-    }
-    container.innerHTML = tokens.map((t: any) => {
-      const isRevoked = Boolean(t.revoked_at);
-      const dateStr = t.created_at ? formatTokenTimestamp(t.created_at) : "";
-      const lastUsed = t.last_used_at ? ("Last used " + formatTokenTimestamp(t.last_used_at)) : "Never used";
-      const safeLabel = escapeHtml(t.label || "Token");
-      const safePrefix = escapeHtml(t.token_prefix || "");
-      return `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.8rem; gap: 0.5rem;">
-          <div style="min-width: 0; flex: 1;">
-            <div style="font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-              <span>${safeLabel}</span>
-              <code style="font-size: 0.72rem; color: var(--accent); background: var(--bg-primary); padding: 1px 4px; border-radius: 3px;">${safePrefix}</code>
-            </div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
-              Created ${dateStr} • ${lastUsed} ${isRevoked ? '<span style="color: #ef4444; font-weight: 600;">(Revoked)</span>' : ""}
-            </div>
-          </div>
-          ${!isRevoked ? `<button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4);" onclick="handleRevokePersonalToken(${t.id}, '${safeLabel}')">Revoke</button>` : ""}
-        </div>
-      `;
-    }).join("");
+    loadedPatTokens = data.tokens || [];
+    renderPersonalTokens();
   } catch (e) {
+    if (sortBar) sortBar.style.display = "none";
     container.innerHTML = '<div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.4rem;">Error loading tokens.</div>';
   }
 }
@@ -652,6 +735,7 @@ if (typeof window !== "undefined") {
   w.formatTokenTimestamp = formatTokenTimestamp;
   w.populateServerConfigInputs = populateServerConfigInputs;
   w.loadPersonalTokens = loadPersonalTokens;
+  w.renderPersonalTokens = renderPersonalTokens;
   w.handleCreatePersonalToken = handleCreatePersonalToken;
   w.handleRevokePersonalToken = handleRevokePersonalToken;
   w.openSettingsModal = openSettingsModal;
