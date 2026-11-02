@@ -1,4 +1,5 @@
 import { state } from "../state";
+import { pushOverlayHistory, popOverlayHistory } from "../utils/overlay-history";
 
 export function openModal(id: string): void {
   if (typeof window !== "undefined") {
@@ -18,6 +19,7 @@ export function openModal(id: string): void {
   const modalEl = document.getElementById(id);
   if (modalEl) {
     modalEl.classList.add("open");
+    pushOverlayHistory(id, () => closeModal(id));
     if (id === "addUrlModal") {
       setTimeout(() => document.getElementById("urlInput")?.focus(), 60);
     } else if (id === "addTextModal") {
@@ -40,6 +42,7 @@ export function closeModal(id: string): void {
     modalEl.classList.remove("open");
     modalEl.style.display = "";
   }
+  popOverlayHistory(id);
   try {
     if (typeof document !== "undefined" && document.activeElement && typeof (document.activeElement as HTMLElement).blur === "function") {
       (document.activeElement as HTMLElement).blur();
@@ -54,14 +57,14 @@ export function initGlobalModalListeners(): void {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       const openModals = document.querySelectorAll(".modal-overlay.open, .modal-backdrop.open");
-      openModals.forEach((m) => m.classList.remove("open"));
+      openModals.forEach((m) => closeModal(m.id));
     }
   });
 
   document.querySelectorAll(".modal-overlay, .modal-backdrop").forEach((modal) => {
     modal.addEventListener("click", (e) => {
       if (e.target === modal) {
-        modal.classList.remove("open");
+        closeModal(modal.id);
       }
     });
   });

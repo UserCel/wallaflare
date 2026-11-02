@@ -1,6 +1,13 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
 import { showToast, hideToast } from './components/toast';
 import { openModal, closeModal } from './modals/manager';
+import {
+  handleOverlayPopstate,
+  pushOverlayHistory,
+  popOverlayHistory,
+  getOverlayStack,
+  clearOverlayHistory
+} from './utils/overlay-history';
 import { showConfirmDialog, handleConfirmModalOk, handleConfirmModalCancel } from './modals/confirm';
 import { openEditTitleModal, handleSaveTitle, batchEditTitle } from './modals/edit-title';
 import { showCreatedTokenModal, copyTokenDisplayValue, closeTokenDisplayModal } from './modals/token-display';
@@ -1305,6 +1312,9 @@ import {
 
     // Navigation & Routing
     window.addEventListener('popstate', (e) => {
+      if (handleOverlayPopstate()) {
+        return;
+      }
       handleRouteState();
     });
 
@@ -4145,6 +4155,11 @@ if (typeof window !== "undefined") {
   try { (window as any).toggleSpeedReadFontFamily = toggleSpeedReadFontFamily; } catch (e) {}
   try { (window as any).handleSpeedReadScrub = handleSpeedReadScrub; } catch (e) {}
   try { (window as any).isSpeedReadOpen = isSpeedReadOpen; } catch (e) {}
+  try { (window as any).pushOverlayHistory = pushOverlayHistory; } catch (e) {}
+  try { (window as any).popOverlayHistory = popOverlayHistory; } catch (e) {}
+  try { (window as any).handleOverlayPopstate = handleOverlayPopstate; } catch (e) {}
+  try { (window as any).getOverlayStack = getOverlayStack; } catch (e) {}
+  try { (window as any).clearOverlayHistory = clearOverlayHistory; } catch (e) {}
   try { (window as any).toggleReaderMoreMenu = toggleReaderMoreMenu; } catch (e) {}
   try { (window as any).closeReaderMoreMenu = closeReaderMoreMenu; } catch (e) {}
   try { (window as any).toggleReaderExportSubmenu = toggleReaderExportSubmenu; } catch (e) {}

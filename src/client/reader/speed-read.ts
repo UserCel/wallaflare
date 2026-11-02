@@ -1,6 +1,8 @@
 // Wallaflare Speed Read (RSVP) Focus Engine
 // Implements an Optimal Recognition Point (ORP) Fixed-Focal Reticle Presentation
 
+import { pushOverlayHistory, popOverlayHistory } from '../utils/overlay-history';
+
 export interface SpeedReadToken {
   word: string;
   clean: string;
@@ -934,6 +936,7 @@ export function openSpeedRead(): void {
     }
     modal.removeAttribute('dir');
     document.body.classList.add('speed-read-active');
+    pushOverlayHistory('speedReadModal', () => closeSpeedRead());
   }
 
   const strip = document.getElementById('speedReadStrip');
@@ -974,6 +977,7 @@ export function closeSpeedRead(): void {
     modal.style.display = 'none';
   }
   document.body.classList.remove('speed-read-active', 'speed-read-dragging');
+  popOverlayHistory('speedReadModal');
 
   // Accurately restore or advance scroll position in the reader
   const scrollEl = document.getElementById('readerScrollContainer');

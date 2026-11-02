@@ -1,4 +1,5 @@
 import { openModal, closeModal } from "./manager";
+import { pushOverlayHistory, popOverlayHistory } from "../utils/overlay-history";
 import { showToast } from "../components/toast";
 import { showConfirmDialog } from "./confirm";
 import { showCreatedTokenModal } from "./token-display";
@@ -644,7 +645,12 @@ export function switchSettingsTab(tabName: string, activateMobile: boolean = tru
   const backBtn = document.getElementById("settingsMobileBackBtn");
 
   if (window.innerWidth < 768 && activateMobile) {
-    if (modal) modal.classList.add("is-viewing-panel");
+    if (modal) {
+      if (!modal.classList.contains("is-viewing-panel")) {
+        pushOverlayHistory("settings-viewing-panel", () => handleSettingsMobileBack());
+      }
+      modal.classList.add("is-viewing-panel");
+    }
     if (backBtn) backBtn.style.display = "inline-flex";
     if (titleEl) titleEl.textContent = titles[activeSettingsTab] || "Settings";
   } else {
@@ -659,6 +665,7 @@ export function handleSettingsMobileBack(): void {
   if (modal) modal.classList.remove("is-viewing-panel");
   if (backBtn) backBtn.style.display = "none";
   if (titleEl) titleEl.textContent = "Settings";
+  popOverlayHistory("settings-viewing-panel");
 }
 
 export function openGlobalTagModal(): void {

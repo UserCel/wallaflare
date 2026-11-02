@@ -2,14 +2,15 @@ import { state } from "../state";
 import { PREF_KEYS } from "../storage/preferences";
 
 export function isCapacitorApp(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined" || !window.location) return false;
   const isCapGlobal = !!(window as any).Capacitor?.isNativePlatform?.();
   const isAndroidScheme =
     window.location.protocol === "capacitor:" ||
     window.location.protocol === "ionic:" ||
     window.location.hostname === "localhost";
   const hasAndroidBridge = typeof (window as any).AndroidBridge !== "undefined";
-  return isCapGlobal || (isAndroidScheme && hasAndroidBridge);
+  const hasCapClass = typeof document !== "undefined" && Boolean(document.documentElement?.classList?.contains("is-capacitor-app"));
+  return isCapGlobal || hasCapClass || (isAndroidScheme && hasAndroidBridge);
 }
 
 export function getEffectiveServerUrl(): string {

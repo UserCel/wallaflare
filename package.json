@@ -44,8 +44,11 @@
     "puppeteer": "^25.8.0",
     "tsx": "^4.23.12",
     "typescript": "^5.7.3",
-    "vitest": "^3.0.7",
+    "vitest": "^5.0.5",
     "wrangler": "^4.125.0"
+  },
+  "overrides": {
+    "glob": "^14.0.3"
   },
   "engines": {
     "node": ">=20.0.0"

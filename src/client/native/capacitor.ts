@@ -82,14 +82,19 @@ export function initCapacitorBridge(): void {
 }
 
 export function handleAndroidBackButton(): void {
-  const openModalEl = document.querySelector(".modal-overlay.open");
+  if (typeof (window as any).handleAndroidBackButton === "function") {
+    const handled = (window as any).handleAndroidBackButton();
+    if (handled) return;
+  }
+
+  const openModalEl = document.querySelector(".modal-backdrop.open, .modal-overlay.open, .tag-modal-overlay.open, .speed-read-overlay.open, .modal.open");
   if (openModalEl) {
     openModalEl.classList.remove("open");
     return;
   }
 
   const readerPane = document.getElementById("paneReader");
-  if (readerPane?.classList.contains("mobile-active")) {
+  if (readerPane?.classList.contains("mobile-active") || (typeof document !== "undefined" && document.body.classList.contains("is-reading-mobile"))) {
     if ((window as any).closeReader) (window as any).closeReader();
     return;
   }

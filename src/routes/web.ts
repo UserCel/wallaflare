@@ -16,6 +16,26 @@ const WALLABAG_SVG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
   <path d="M35 40 L65 40 M35 52 L65 52 M35 64 L55 64" stroke="#f97316" stroke-width="4" stroke-linecap="round"/>
 </svg>`;
 
+const WALLAFLARE_APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <rect width="108" height="108" rx="24" fill="#0f172a"/>
+  <!-- Background Circle Accent -->
+  <circle cx="54" cy="54" r="34" fill="#3b82f6"/>
+  <!-- Open Book Left Page -->
+  <path d="M34 42 C34 39.8 35.8 38 38 38 L52 38 L52 70 L38 70 C35.8 70 34 68.2 34 66 Z" fill="#FFFFFF"/>
+  <!-- Open Book Right Page -->
+  <path d="M56 38 L70 38 C72.2 38 74 39.8 74 42 L74 66 C74 68.2 72.2 70 70 70 L56 70 Z" fill="#E2E8F0"/>
+  <!-- Center Spine / Divider -->
+  <rect x="52.5" y="36" width="3" height="36" fill="#0f172a"/>
+  <!-- Text Lines on Left Page -->
+  <rect x="38" y="45" width="10" height="2.5" rx="1.25" fill="#0f172a"/>
+  <rect x="38" y="51" width="10" height="2.5" rx="1.25" fill="#0f172a"/>
+  <rect x="38" y="57" width="7" height="2.5" rx="1.25" fill="#0f172a"/>
+  <!-- Text Lines on Right Page -->
+  <rect x="60" y="45" width="10" height="2.5" rx="1.25" fill="#3b82f6"/>
+  <rect x="60" y="51" width="10" height="2.5" rx="1.25" fill="#64748b"/>
+  <rect x="60" y="57" width="7" height="2.5" rx="1.25" fill="#64748b"/>
+</svg>`;
+
 const serviceWorkerJs = `
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -82,7 +102,13 @@ webRouter.get('/img/logo-wallabag.svg', (c) => {
 webRouter.get('/favicon.ico', (c) => {
   c.header('Content-Type', 'image/svg+xml');
   c.header('Cache-Control', 'public, max-age=31536000, immutable');
-  return c.body(WALLABAG_SVG_LOGO);
+  return c.body(WALLAFLARE_APP_ICON_SVG);
+});
+
+webRouter.get('/favicon.svg', (c) => {
+  c.header('Content-Type', 'image/svg+xml');
+  c.header('Cache-Control', 'public, max-age=31536000, immutable');
+  return c.body(WALLAFLARE_APP_ICON_SVG);
 });
 
 // -----------------------------------------------------------------

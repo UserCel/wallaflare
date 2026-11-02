@@ -1,4 +1,6 @@
 import http from 'http';
+import fs from 'fs';
+import { execSync } from 'child_process';
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { renderDashboardHtml } from "../views/dashboard";
@@ -17,7 +19,18 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
     }).listen(0);
     const port = (server.address() as any).port;
 
+    let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (!executablePath) {
+      try {
+        const detected = execSync("which google-chrome || which google-chrome-stable || which chromium || which chromium-browser", { encoding: "utf8" }).trim().split("\n")[0];
+        if (detected && fs.existsSync(detected)) {
+          executablePath = detected;
+        }
+      } catch (e) {}
+    }
+
     browser = await puppeteer.launch({
+      executablePath,
       headless: true,
       args: [
         "--no-sandbox",
@@ -103,7 +116,7 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
       "handleCreateHighlightWithNote", "handleCreatePersonalToken", "handleDeleteGlobalTagClick",
       "handleDeleteSiteCookie", "handleExportBatchAnthologyEpub", "handleExportBatchEpub", "handleExportBatchJson",
       "handleExportBatchMarkdown", "handleFilterByTagClick", "handleIngestText", "handleIngestUrl", "handleLogin",
-      "handleLogout", "handleManualRefresh", "handlePresetSiteLogin", "handleReaderBack", "handleReaderBodyClick",
+      "handleLogout", "handleManualRefresh", "handleOverlayPopstate", "handlePresetSiteLogin", "handleReaderBack", "handleReaderBodyClick",
       "handleReaderScroll", "handleReaderSearchInput", "handleReaderSearchKeydown", "handleRemoveTagBtnClick",
       "handleRevokePersonalToken", "handleRouteState", "handleSaveAnnotationNoteForm", "handleSaveServerConnection",
       "handleSaveSiteCookieSubmit", "handleSaveTitle", "handleSearchInput", "handleSearchInputKeydown",
@@ -1078,5 +1091,104 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
     expect(check.unread).toBe("33");
     expect(check.total).toBe("44");
     expect(check.hasColdTag).toBe(true);
+  });
+
+  it("verifies mobile browser back gesture (popstate) closes Speed Reader and Settings dialog before closing reader view", async () => {
+    const testResult = await page.evaluate(() => {
+      const w = window as any;
+
+      // 1. Ensure test articles and open article 101 in reader
+      w.allEntries = [
+        {
+          id: 101,
+          title: "Speed Read Back Gesture Test Article",
+          content: "<p>This is a paragraph dedicated to testing speed reading and back gestures on mobile browsers. It contains several sentences to allow reading tokens.</p>",
+          url: "https://example.com/speed-read-test",
+          domain_name: "example.com",
+          is_archived: 0,
+          is_starred: 0,
+          published_at: "2026-03-01T12:00:00Z"
+        }
+      ];
+      w.openReader(101, false);
+      const articleOpenInitial = w.activeArticleId === 101;
+
+      // 2. Open Speed Reader modal
+      w.openSpeedRead();
+      const speedModal = document.getElementById("speedReadModal");
+      const speedOpenInitial = speedModal?.classList.contains("open") && speedModal.style.display !== "none";
+
+      // 3. Simulate mobile browser back gesture (popstate)
+      window.dispatchEvent(new PopStateEvent("popstate"));
+
+      // Speed Reader should be closed, but article 101 MUST remain open!
+      const speedClosedAfterBack = !speedModal?.classList.contains("open") && speedModal.style.display === "none";
+      const articleStillOpenAfterSpeedBack = w.activeArticleId === 101;
+
+      // 4. Open Settings modal
+      w.openSettingsModal("appearance");
+      const settingsModal = document.getElementById("settingsModal");
+      const settingsOpenInitial = settingsModal?.classList.contains("open");
+
+      // 5. Simulate mobile browser back gesture (popstate)
+      window.dispatchEvent(new PopStateEvent("popstate"));
+
+      // Settings modal should be closed, article 101 remains open!
+      const settingsClosedAfterBack = !settingsModal?.classList.contains("open");
+      const articleStillOpenAfterSettingsBack = w.activeArticleId === 101;
+
+      // 6. Mobile Settings drill-down test
+      w.openSettingsModal("appearance");
+      settingsModal?.classList.add("is-viewing-panel");
+      w.pushOverlayHistory("settings-viewing-panel", () => w.handleSettingsMobileBack());
+
+      const isViewingPanelInitial = settingsModal?.classList.contains("is-viewing-panel");
+
+      // Back gesture 1 -> Exits drill-down sub-panel back to Settings category list
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      const isViewingPanelAfterBack1 = settingsModal?.classList.contains("is-viewing-panel");
+      const settingsStillOpenAfterBack1 = settingsModal?.classList.contains("open");
+
+      // Back gesture 2 -> Closes Settings modal
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      const settingsClosedAfterBack2 = !settingsModal?.classList.contains("open");
+      const articleStillOpenAfterBack2 = w.activeArticleId === 101;
+
+      // Cleanup: Close reader
+      w.closeReader(false);
+      const readerClosedFinal = w.activeArticleId === null;
+
+      return {
+        articleOpenInitial,
+        speedOpenInitial,
+        speedClosedAfterBack,
+        articleStillOpenAfterSpeedBack,
+        settingsOpenInitial,
+        settingsClosedAfterBack,
+        articleStillOpenAfterSettingsBack,
+        isViewingPanelInitial,
+        isViewingPanelAfterBack1,
+        settingsStillOpenAfterBack1,
+        settingsClosedAfterBack2,
+        articleStillOpenAfterBack2,
+        readerClosedFinal
+      };
+    });
+
+    expect(testResult.articleOpenInitial).toBe(true);
+    expect(testResult.speedOpenInitial).toBe(true);
+    expect(testResult.speedClosedAfterBack).toBe(true);
+    expect(testResult.articleStillOpenAfterSpeedBack).toBe(true);
+
+    expect(testResult.settingsOpenInitial).toBe(true);
+    expect(testResult.settingsClosedAfterBack).toBe(true);
+    expect(testResult.articleStillOpenAfterSettingsBack).toBe(true);
+
+    expect(testResult.isViewingPanelInitial).toBe(true);
+    expect(testResult.isViewingPanelAfterBack1).toBe(false);
+    expect(testResult.settingsStillOpenAfterBack1).toBe(true);
+    expect(testResult.settingsClosedAfterBack2).toBe(true);
+    expect(testResult.articleStillOpenAfterBack2).toBe(true);
+    expect(testResult.readerClosedFinal).toBe(true);
   });
 });

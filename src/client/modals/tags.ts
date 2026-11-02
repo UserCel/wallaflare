@@ -1,4 +1,5 @@
 import { openModal, closeModal } from "./manager";
+import { pushOverlayHistory, popOverlayHistory } from "../utils/overlay-history";
 import { showToast } from "../components/toast";
 import { showConfirmDialog } from "./confirm";
 import {
@@ -44,11 +45,13 @@ export function openTagModal(target?: number | number[]): void {
 
   renderTagModalUI();
   document.getElementById("tagModal")?.classList.add("open");
+  pushOverlayHistory("tagModal", () => closeTagModal());
 }
 
 export function closeTagModal(): void {
   activeTagModalIds = [];
   document.getElementById("tagModal")?.classList.remove("open");
+  popOverlayHistory("tagModal");
 }
 
 export function openTagModalForSelection(): void {

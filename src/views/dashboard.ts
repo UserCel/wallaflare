@@ -11,7 +11,9 @@ export function renderDashboardHtml(appName: string = 'Wallaflare', hasReadToken
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="generator" content="wallabag">
   <meta name="wallabag:version" content="2.6.9">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/img/icon-192.png">
   <title>${appName}</title>
   <script>
     window.WF_HAS_READ_TOKEN = ${hasReadToken ? 'true' : 'false'};
