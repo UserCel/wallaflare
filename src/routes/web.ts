@@ -88,9 +88,9 @@ webRouter.get('/download/wallaflare.koplugin.zip', (c) => {
 });
 
 webRouter.get('/sw.js', (c) => {
-  c.header('Content-Type', 'application/javascript');
+  c.header('Content-Type', 'application/javascript; charset=utf-8');
   c.header('Service-Worker-Allowed', '/');
-  return c.text(serviceWorkerJs);
+  return c.body(serviceWorkerJs);
 });
 
 webRouter.get('/img/logo-wallabag.svg', (c) => {
@@ -115,49 +115,48 @@ webRouter.get('/favicon.svg', (c) => {
 // PWA Web App Manifest (Dynamic Origin Resolution)
 // -----------------------------------------------------------------
 function getManifest(c: any) {
-  const origin = new URL(c.req.url).origin;
-  const appName = c.env.APP_NAME || 'Wallaflare';
+  const appName = c.env?.APP_NAME || 'Wallaflare';
   return {
     name: appName,
     short_name: appName,
     description: 'Serverless read-it-later & Wallabag client',
-    id: `${origin}/`,
-    start_url: `${origin}/`,
-    scope: `${origin}/`,
+    id: '/',
+    start_url: '/',
+    scope: '/',
     display: 'standalone',
     orientation: 'any',
     background_color: '#0f172a',
-    theme_color: '#f97316',
+    theme_color: '#0f172a',
     categories: ['news', 'productivity', 'utilities'],
     prefer_related_applications: false,
     icons: [
       {
-        src: `${origin}/img/icon-192.png`,
+        src: '/img/icon-192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any'
       },
       {
-        src: `${origin}/img/icon-512.png`,
+        src: '/img/icon-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any'
       },
       {
-        src: `${origin}/img/icon-maskable-192.png`,
+        src: '/img/icon-maskable-192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'maskable'
       },
       {
-        src: `${origin}/img/icon-maskable-512.png`,
+        src: '/img/icon-maskable-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable'
       }
     ],
     share_target: {
-      action: `${origin}/share-target`,
+      action: '/share-target',
       method: 'GET',
       enctype: 'application/x-www-form-urlencoded',
       params: {
@@ -170,13 +169,13 @@ function getManifest(c: any) {
 }
 
 webRouter.get('/manifest.webmanifest', (c) => {
-  c.header('Content-Type', 'application/manifest+json');
-  return c.json(getManifest(c));
+  c.header('Content-Type', 'application/manifest+json; charset=utf-8');
+  return c.body(JSON.stringify(getManifest(c)));
 });
 
 webRouter.get('/manifest.json', (c) => {
-  c.header('Content-Type', 'application/manifest+json');
-  return c.json(getManifest(c));
+  c.header('Content-Type', 'application/manifest+json; charset=utf-8');
+  return c.body(JSON.stringify(getManifest(c)));
 });
 
 async function renderWebDashboard(c: any) {

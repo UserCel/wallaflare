@@ -35,7 +35,9 @@
         │ • /api/annotations (W3C+v2) │                               │ • Multi-color Annotations   │
         │ • /api/tokens (Zero-Trust)  │                               │ • Personal Access Tokens UI │
         │ • /api/tags & batch routes  │                               │ • 4 Themes (Dark,Light,OLED)│
-        │ • Readability Extractor     │                               │ • RSVP Speed Reader (BiDi)  │
+        │ • /manifest.webmanifest     │                               │ • PWA Web Share Target API  │
+        │ • /sw.js (Service Worker)   │                               │ • RSVP Speed Reader (BiDi)  │
+        │ • Readability Extractor     │                               └──────────────┬──────────────┘
         │ • Rate limiting & Security  │                               └──────────────┬──────────────┘
         └──────────────┬──────────────┘                               └──────────────┬──────────────┘
                        │                                                             │
@@ -77,7 +79,7 @@
 │   │   ├── reader/            # In-reader engines (annotations, export, typography, search, RSVP speed reader)
 │   │   ├── storage/           # Offline storage engines (IndexedDB library cache, persistent outbox queue)
 │   │   ├── styles/            # index.css — single source of truth for all client CSS (bundled by bundle-client.ts)
-│   │   ├── utils/             # Formatters, DOM helpers, and clipboard utilities
+│   │   ├── utils/             # Formatters, DOM helpers, overlay history, and PWA share target
 │   │   └── index.ts           # Client composition root, routing & app shell
 │   ├── index.ts               # Cloudflare Worker entry point (Hono application)
 │   ├── routes/
@@ -185,8 +187,10 @@ When preparing a release or bumping versions, update the corresponding files bel
    - Before completing any task involving code changes, verify with `npm run build:web && npm test` to ensure zero compilation or syntax errors.
 4. **Rule 4: Client-Side Template Escaping**:
    - `src/views/dashboard.ts` embeds client-side scripts inside TypeScript template literals (`` `...` ``). Always double-escape backslashes when writing literal newlines (e.g. `'\\n'`) to prevent unexpected token syntax errors in the browser.
-5. **Rule 5: Capacitor Native App Considerations**:
-   - The app runs both in standard browsers and inside a native Android Capacitor container (`isCapacitorApp()`). Always preserve native features (e.g. `WallaflareNativePlugin` share intent, status bar notch clearance `#readerSafeTopFill`, and haptics).
+5. **Rule 5: Capacitor Native App vs. Browser PWA Separation**:
+   - The app runs in three environments: standard desktop browsers, browser PWA (WebAPK), and inside a native Android Capacitor container (`isCapacitorApp()`).
+   - Always preserve native features (e.g. `WallaflareNativePlugin` share intent, status bar notch clearance `#readerSafeTopFill`, and haptics).
+   - Browser-only capabilities (Service Worker `/sw.js` registration and PWA Web Share Target URL parsing) must be guarded with `!isCapacitorApp()` to ensure zero interference with native Android intent handling.
 6. **Rule 6: Native Android APK Version Bumping & In-App Notification**:
    - Whenever introducing changes to native Android code (e.g. in `android/`, `MainActivity.java`, `WallaflareNativePlugin.java`, `SaveArticleService.java`, native bridge interfaces, AndroidManifest, or background services):
      1. Bump `versionCode` and `versionName` in `android/app/build.gradle`.

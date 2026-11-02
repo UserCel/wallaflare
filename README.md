@@ -137,7 +137,7 @@ Your instance is now live worldwide! 🎉
 
 ## 📱 Client Setup Guide
 
-### 📱 Native Android App (Capacitor & OTA Updates)
+### 📱 Native Android App (Capacitor & OTA Updates) — *Recommended for Android*
 Wallaflare includes a native Android app wrapper with system share sheet integration, native file sharing, and automatic Over-The-Air (OTA) web bundle updates:
 
 - 📥 **Download Pre-built APK**: Grab the latest APK from **[GitHub Releases](https://github.com/UserCel/wallaflare/releases/latest)** (`wallaflare-android-v...apk` or `wallaflare.apk`).
@@ -153,6 +153,20 @@ Wallaflare includes a native Android app wrapper with system share sheet integra
   ```bash
   npm run deploy
   ```
+
+> 💡 **Why the native app is recommended over PWA on Android**:
+> - **Background Share Sheet**: Shares directly via Android's native `ACTION_SEND` intent and saves in the background without opening a browser window.
+> - **No CORS Restrictions**: Bypasses browser cross-origin limitations to fetch and extract content on-device.
+> - **Hardware & Screen Clearance**: Full notch/status bar insets (`#readerSafeTopFill`), native haptics, and zero reliance on Google's cloud WebAPK minting service.
+
+---
+
+### 🌐 Progressive Web App (PWA & Web Share Target)
+Wallaflare is a fully certified W3C Progressive Web App installable on desktop (Chrome, Edge, Safari) and mobile browsers:
+
+- **Standalone App Experience**: Installable via your browser's install prompt or menu (**Install Wallaflare** / **Add to Dock**) with dark splash screens and zero browser chrome.
+- **Web Share Target**: On supported browsers (Chrome, Edge), sharing a link or text to Wallaflare directly opens `/share-target` and automatically ingests the shared article into your library.
+- **Offline Shell**: Service Worker (`/sw.js`) caches application assets for instant launches.
 
 ---
 

@@ -8,6 +8,7 @@ import {
   getOverlayStack,
   clearOverlayHistory
 } from './utils/overlay-history';
+import { initPwa, handlePwaShareTarget } from './utils/pwa';
 import { showConfirmDialog, handleConfirmModalOk, handleConfirmModalCancel } from './modals/confirm';
 import { openEditTitleModal, handleSaveTitle, batchEditTitle } from './modals/edit-title';
 import { showCreatedTokenModal, copyTokenDisplayValue, closeTokenDisplayModal } from './modals/token-display';
@@ -4124,6 +4125,7 @@ function initReaderHoverTopBar() {
     initSelectionDeselectListener();
     initReaderSelectionHandlers();
     initCapacitorOtaUpdater();
+    initPwa();
 
 
     // Attach all functions to window for HTML inline handlers & test compatibility
@@ -4406,6 +4408,8 @@ if (typeof window !== "undefined") {
   try { (window as any).checkCapacitorOtaFromVersion = checkCapacitorOtaFromVersion; } catch (e) {}
   try { (window as any).showOtaRestartBanner = showOtaRestartBanner; } catch (e) {}
   try { (window as any).initCapacitorOtaUpdater = initCapacitorOtaUpdater; } catch (e) {}
+  try { (window as any).initPwa = initPwa; } catch (e) {}
+  try { (window as any).handlePwaShareTarget = handlePwaShareTarget; } catch (e) {}
   try { (window as any).updateVersionDisplay = updateVersionDisplay; } catch (e) {}
   try { (window as any).initReaderHoverTopBar = initReaderHoverTopBar; } catch (e) {}
   try { (window as any).initSelectionDeselectListener = initSelectionDeselectListener; } catch (e) {}
