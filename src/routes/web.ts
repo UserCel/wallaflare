@@ -4,7 +4,7 @@ import { renderDashboardHtml } from '../views/dashboard';
 import { ICON_192_B64, ICON_512_B64 } from './icons-b64';
 import { KOPLUGIN_ZIP_B64 } from '../views/koplugin-bundle';
 import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
-import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare, verifyMasterPassword, isMasterPasswordConfigured } from '../db/queries';
+import { checkAuthRateLimit, recordFailedAuthAttempt, resetAuthRateLimit, timingSafeCompare, verifyMasterPassword, isMasterPasswordConfigured, getApiTokens } from '../db/queries';
 import { getClientIp } from './api';
 import { escapeHtmlText } from '../services/extractor';
 
@@ -226,7 +226,31 @@ function renderWallabagLoginPage(errorMessage?: string): string {
 </html>`;
 }
 
-function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string, isAppClient = false): string {
+function renderTokensListHtml(tokens: any[]): string {
+  if (!tokens || tokens.length === 0) {
+    return '<li style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 0.8rem; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 10px;">No active tokens or connected devices yet.</li>';
+  }
+  return tokens.map(t => {
+    const isPat = t.token_prefix && t.token_prefix.startsWith('wfl_pat_');
+    const badge = isPat
+      ? '<span style="font-size: 0.7rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 1px 6px; border-radius: 4px;">PAT</span>'
+      : '<span style="font-size: 0.7rem; color: var(--text-secondary); background: rgba(255, 255, 255, 0.05); padding: 1px 6px; border-radius: 4px;">Device</span>';
+    const date = t.created_at ? new Date(t.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+    const lastUsed = t.last_used_at ? `Last used ${new Date(t.last_used_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}` : 'Never used';
+    return `<li style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 6px;">
+      <div>
+        <div style="font-weight: 600; font-size: 0.85rem; color: #fff; display: flex; align-items: center; gap: 6px;">
+          ${escapeHtmlText(t.label || 'Token')} ${badge}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+          <code>${escapeHtmlText(t.token_prefix || 'wfl_...')}...</code> &bull; Created ${escapeHtmlText(date)} &bull; ${escapeHtmlText(lastUsed)}
+        </div>
+      </div>
+    </li>`;
+  }).join('');
+}
+
+function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string, isAppClient = false, tokens: any[] = []): string {
   const origin = new URL(c.req.url).origin;
   if (isAppClient) {
     return `<!DOCTYPE html>
@@ -470,242 +494,23 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string, isA
           <h2 style="margin-bottom: 0;">Personal Access Tokens</h2>
           <span style="font-size: 0.72rem; color: #4ade80; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); padding: 2px 8px; border-radius: 9999px; font-weight: 600;">Zero-Trust</span>
         </div>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">
-          Generate persistent tokens for third-party clients (e.g. KOReader Wallabag Plugin), FeedMe, automation scripts, or external integrations.
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
+          Active tokens for third-party clients (e.g. KOReader Wallabag Plugin), FeedMe, automation scripts, or external integrations. To create, rename, or revoke tokens, open <strong>Settings &rarr; Apps &amp; Sync</strong> on your Dashboard.
         </p>
 
-        <div id="devTokenUnlockBox" style="display: none; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-bottom: 14px;">
-          <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">Authenticate with Master Password:</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="password" id="devMasterPasswordInput" placeholder="Enter master password..." style="flex: 1; padding: 8px 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff; font-size: 0.85rem;" />
-            <button id="devUnlockBtn" style="padding: 8px 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem;">Unlock</button>
-          </div>
-          <div id="devUnlockError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px;"></div>
-        </div>
+        <ul class="pat-list" style="list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+          ${renderTokensListHtml(tokens)}
+        </ul>
 
-        <div id="devTokenControls" style="display: none;">
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="text" id="devPatLabelInput" placeholder="Token name (e.g. KOReader Wallabag, Script)..." style="flex: 1; padding: 8px 12px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; color: #fff; font-size: 0.85rem;" />
-            <button id="devPatCreateBtn" style="padding: 8px 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">Generate</button>
-          </div>
-
-          <div id="devNewTokenBanner" style="display: none; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
-            <div style="font-size: 0.72rem; color: #4ade80; font-weight: 700; margin-bottom: 4px; text-transform: uppercase;">New Token Created (Copy now &mdash; will not be shown again):</div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <code id="devNewTokenText" style="flex: 1; color: #4ade80; word-break: break-all; padding: 6px 8px; font-size: 0.8rem;"></code>
-              <button id="devNewTokenCopyBtn" style="padding: 6px 12px; background: #22c55e; color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.75rem;">Copy</button>
-            </div>
-          </div>
-
-          <ul id="devPatList" class="pat-list" style="list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 0;">
-            <li style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">Loading tokens...</li>
-          </ul>
-        </div>
+        <a href="/?settings=integrations" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); text-decoration: none; font-size: 0.82rem; font-weight: 500; transition: all 0.15s ease;">
+          <span>Manage in Settings &rarr; Apps &amp; Sync &rarr;</span>
+        </a>
       </div>
       <div class="footer-link">
         <a href="/">&larr; Back to Dashboard</a>
       </div>
     </main>
   </div>
-  <script>
-    (function() {
-      function getToken() {
-        var local = localStorage.getItem('wf_auth_token');
-        if (local) return local;
-        var match = document.cookie.match(/(?:^|;\\s*)wf_auth_token=([^;]+)/);
-        return match ? decodeURIComponent(match[1]) : '';
-      }
-
-      function setToken(t) {
-        if (t) {
-          localStorage.setItem('wf_auth_token', t);
-          document.cookie = 'wf_auth_token=' + encodeURIComponent(t) + '; Path=/; Max-Age=31536000; SameSite=Lax';
-        }
-      }
-
-      var token = getToken();
-      var unlockBox = document.getElementById('devTokenUnlockBox');
-      var controls = document.getElementById('devTokenControls');
-      var patList = document.getElementById('devPatList');
-      var unlockBtn = document.getElementById('devUnlockBtn');
-      var masterInput = document.getElementById('devMasterPasswordInput');
-      var unlockErr = document.getElementById('devUnlockError');
-      var createBtn = document.getElementById('devPatCreateBtn');
-      var labelInput = document.getElementById('devPatLabelInput');
-      var banner = document.getElementById('devNewTokenBanner');
-      var newText = document.getElementById('devNewTokenText');
-      var copyBtn = document.getElementById('devNewTokenCopyBtn');
-
-      function escapeHtml(str) {
-        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      }
-
-      function formatTime(isoStr) {
-        if (!isoStr) return '';
-        var d = new Date(isoStr);
-        if (isNaN(d.getTime())) return isoStr;
-        return d.toLocaleString(undefined, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
-
-      function getDeviceLabel() {
-        var ua = navigator.userAgent || '';
-        var os = '';
-        if (/android/i.test(ua)) os = 'Android';
-        else if (/iPad|iPhone|iPod/.test(ua)) os = 'iOS';
-        else if (/macintosh|mac os x/i.test(ua)) os = 'macOS';
-        else if (/windows/i.test(ua)) os = 'Windows';
-        else if (/linux/i.test(ua)) os = 'Linux';
-
-        var browser = '';
-        if (/edg/i.test(ua)) browser = 'Edge';
-        else if (/chrome|crios/i.test(ua)) browser = 'Chrome';
-        else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
-        else if (/safari/i.test(ua)) browser = 'Safari';
-
-        if (browser && os) return 'Developer Page (' + browser + ' on ' + os + ')';
-        if (os) return 'Developer Page (' + os + ')';
-        return 'Developer Page';
-      }
-
-      function renderTokens(tokens) {
-        if (!tokens || tokens.length === 0) {
-          patList.innerHTML = '<li style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">No personal tokens created yet.</li>';
-          return;
-        }
-        var html = '';
-        for (var i = 0; i < tokens.length; i++) {
-          var t = tokens[i];
-          var isPat = t.token_prefix && t.token_prefix.indexOf('wfl_pat_') === 0;
-          var badge = isPat ? '<span style="font-size: 0.7rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 1px 6px; border-radius: 4px;">PAT</span>' : '<span style="font-size: 0.7rem; color: var(--text-secondary); background: rgba(255, 255, 255, 0.05); padding: 1px 6px; border-radius: 4px;">Device</span>';
-          var date = t.created_at ? formatTime(t.created_at) : '';
-          var lastUsed = t.last_used_at ? ('Last used ' + formatTime(t.last_used_at)) : 'Never used';
-          html += '<li style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 6px;">' +
-            '<div>' +
-              '<div style="font-weight: 600; font-size: 0.85rem; color: #fff; display: flex; align-items: center; gap: 6px;">' +
-                escapeHtml(t.label || 'Token') + ' ' + badge +
-              '</div>' +
-              '<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">' +
-                '<code>' + escapeHtml(t.token_prefix || 'wfl_...') + '...</code> &bull; Created ' + escapeHtml(date) + ' &bull; ' + escapeHtml(lastUsed) +
-              '</div>' +
-            '</div>' +
-            '<button class="delete-link dev-revoke-btn" data-id="' + t.id + '" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 6px; cursor: pointer; color: #f87171; font-size: 0.78rem; font-weight: 600; padding: 4px 8px;">Revoke</button>' +
-          '</li>';
-        }
-        patList.innerHTML = html;
-        var revokeBtns = patList.querySelectorAll('.dev-revoke-btn');
-        for (var j = 0; j < revokeBtns.length; j++) {
-          revokeBtns[j].addEventListener('click', function(e) {
-            var id = e.target.getAttribute('data-id');
-            if (confirm('Revoke this token? Connected clients using it will lose access immediately.')) {
-              revokeToken(id);
-            }
-          });
-        }
-      }
-
-      function loadTokens() {
-        fetch('/api/tokens', {
-          headers: { 'Authorization': 'Bearer ' + token }
-        })
-        .then(function(res) {
-          if (!res.ok) throw new Error('Unauthorized');
-          return res.json();
-        })
-        .then(function(data) {
-          unlockBox.style.display = 'none';
-          controls.style.display = 'block';
-          renderTokens(data.tokens || []);
-        })
-        .catch(function() {
-          unlockBox.style.display = 'block';
-          controls.style.display = 'none';
-        });
-      }
-
-      function revokeToken(id) {
-        fetch('/api/tokens/' + id, {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + token }
-        })
-        .then(function(res) { return res.json(); })
-        .then(function() { loadTokens(); });
-      }
-
-      if (unlockBtn) {
-        unlockBtn.addEventListener('click', function() {
-          var pwd = masterInput.value.trim();
-          if (!pwd) return;
-          unlockErr.style.display = 'none';
-          fetch('/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: pwd, client_name: getDeviceLabel() })
-          })
-          .then(function(res) {
-            if (!res.ok) throw new Error('Incorrect password');
-            return res.json();
-          })
-          .then(function(data) {
-            if (data && data.token) {
-              token = data.token;
-              setToken(token);
-              loadTokens();
-            }
-          })
-          .catch(function(err) {
-            unlockErr.textContent = err.message || 'Authentication failed';
-            unlockErr.style.display = 'block';
-          });
-        });
-      }
-
-      if (createBtn) {
-        createBtn.addEventListener('click', function() {
-          var label = labelInput.value.trim() || 'Wallabag Client';
-          fetch('/api/tokens', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify({ label: label })
-          })
-          .then(function(res) { return res.json(); })
-          .then(function(data) {
-            if (data && data.token) {
-              newText.textContent = data.token;
-              banner.style.display = 'block';
-              labelInput.value = '';
-              loadTokens();
-            }
-          });
-        });
-      }
-
-      if (copyBtn) {
-        copyBtn.addEventListener('click', function() {
-          var val = newText.textContent;
-          navigator.clipboard.writeText(val).then(function() {
-            copyBtn.textContent = 'Copied!';
-            setTimeout(function() { copyBtn.textContent = 'Copy'; }, 2000);
-          });
-        });
-      }
-
-      if (token) {
-        loadTokens();
-      } else {
-        unlockBox.style.display = 'block';
-        controls.style.display = 'none';
-      }
-    })();
-  </script>
 </body>
 </html>`;
 }
@@ -798,7 +603,13 @@ webRouter.get('/developer', async (c) => {
     return c.redirect(`${origin}/login`, 302);
   }
   const clientSecret = getClientSecret(c.env);
-  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret, isAppClient));
+  let tokens: any[] = [];
+  if (!isAppClient && c.env.DB) {
+    try {
+      tokens = await getApiTokens(c.env.DB);
+    } catch {}
+  }
+  return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret, isAppClient, tokens));
 });
 
 webRouter.get('/developer/client/create', async (c) => {

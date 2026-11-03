@@ -57,6 +57,50 @@ describe("UI Consistency & System Dialog Audit", () => {
     ).toEqual([]);
   });
 
+  it("ensures no native system dialogs (prompt, alert, confirm) exist in client source code", () => {
+    const clientRoot = path.resolve(__dirname, "../client");
+    function getTsFiles(dir: string): string[] {
+      const files: string[] = [];
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          files.push(...getTsFiles(fullPath));
+        } else if (entry.isFile() && entry.name.endsWith(".ts")) {
+          files.push(fullPath);
+        }
+      }
+      return files;
+    }
+
+    const allTsFiles = getTsFiles(clientRoot);
+    expect(allTsFiles.length).toBeGreaterThan(10);
+
+    const violations: { file: string; line: number; match: string }[] = [];
+    const systemDialogRegex = /(?:\bwindow\.(?:prompt|alert|confirm)\s*\(|\bprompt\s*\(|\balert\s*\(|(?<!show[A-Za-z0-9_]*|handle[A-Za-z0-9_]*)\bconfirm\s*\()/;
+
+    for (const file of allTsFiles) {
+      const content = fs.readFileSync(file, "utf-8");
+      const lines = content.split("\n");
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("//") || trimmed.startsWith("*")) return;
+        if (systemDialogRegex.test(line)) {
+          violations.push({
+            file: path.relative(clientRoot, file),
+            line: idx + 1,
+            match: trimmed
+          });
+        }
+      });
+    }
+
+    expect(
+      violations,
+      `Found native system dialogs (prompt/alert/confirm) which degrade visual consistency across OS platforms. Replace with custom modal dialogs (e.g. showPromptDialog, showConfirmDialog):\n${violations.map(v => `${v.file}:${v.line} -> ${v.match}`).join("\n")}`
+    ).toEqual([]);
+  });
+
   it("verifies all dropdown menus utilize standard .card-dropdown-menu and .menu-item conventions", () => {
     const settingsHtml = fs.readFileSync(path.join(htmlRoot, "modals/settings.html"), "utf-8");
     const articleListHtml = fs.readFileSync(path.join(htmlRoot, "workspace/article-list.html"), "utf-8");

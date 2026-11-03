@@ -1,4 +1,4 @@
-import { extractArticleFromDom, ExtractedArticle } from "../services/extractor";
+import { extractArticleFromDom, extractArticleFromHtml, ExtractedArticle } from "../services/extractor";
 import { isCapacitorApp, apiPost } from "./sync/api";
 import { parseHTML } from "linkedom";
 
@@ -53,18 +53,7 @@ export function isValidArticleContent(content?: string, textContent?: string): b
 }
 
 export function clientExtractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
-  let doc: any;
-  if (typeof window !== "undefined" && typeof window.DOMParser !== "undefined") {
-    const parser = new window.DOMParser();
-    doc = parser.parseFromString(html, "text/html");
-  } else if (typeof document !== "undefined" && document.implementation) {
-    doc = document.implementation.createHTMLDocument("");
-    doc.documentElement.innerHTML = html;
-  } else {
-    // Fallback for Node/test environments
-    doc = parseHTML(html).document;
-  }
-  return extractArticleFromDom(doc, originalUrl, html);
+  return extractArticleFromHtml(html, originalUrl);
 }
 
 export async function clientFetchHtml(url: string): Promise<{ html: string; finalUrl?: string; status: number }> {

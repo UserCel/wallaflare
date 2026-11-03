@@ -164,6 +164,51 @@ describe('Image and Srcset URL Canonicalization', () => {
     expect(result.content).toContain('src="https://upload.wikimedia.org/thumb.jpg"');
     expect(result.content).toContain('srcset="https://upload.wikimedia.org/500px.jpg 2x, https://en.wikipedia.org/local/1x.jpg 1x"');
   });
+
+  it('accurately extracts markdown titles starting with # and does not bleed into paragraph text', () => {
+    const rawMarkdown = `# Chapter 12: Tessera’s Gambit
+
+The three-meter coil of flexible composite conduit dragged against Corin’s left collarbone like an iron chain. Twelve hours of hand-winding forty structural plys around a copper mandrel, followed by an acidified zinc quench that smelled of vinegar and metal filings, had produced a dense, leathery black casing of vulcanized gutta-percha and silk that resisted bending.`;
+
+    const result = extractArticleFromHtml(rawMarkdown, 'https://raw.githubusercontent.com/user/repo/main/chapter12.md');
+    expect(result.title).toBe('Chapter 12: Tessera’s Gambit');
+    expect(result.content).toContain('The three-meter coil');
+    expect(result.content).not.toMatch(/<h[1-6][^>]*>Chapter 12: Tessera’s Gambit<\/h[1-6]>/i);
+  });
+
+  it('removes duplicate leading title heading from the article body while preserving subheadings', () => {
+    const html = `
+      <article>
+        <h1>Breaking: Major Discovery Announced</h1>
+        <p>Scientists have discovered something extraordinary today.</p>
+        <h2>Technical Details</h2>
+        <p>Here are the technical specifics of the discovery.</p>
+      </article>
+    `;
+    const result = extractArticleFromHtml(html, 'https://example.com/discovery');
+    expect(result.title).toBe('Breaking: Major Discovery Announced');
+    expect(result.content).not.toMatch(/<h[1-6][^>]*>Breaking: Major Discovery Announced<\/h[1-6]>/i);
+    expect(result.content).toMatch(/<h2[^>]*>Technical Details<\/h2>/i);
+    expect(result.content).toContain('Scientists have discovered something extraordinary today.');
+  });
+
+  it('extracts metadata from YAML frontmatter in markdown files', () => {
+    const markdownWithFm = `---
+title: Custom Book Title
+author: Jane Doe
+date: 2026-01-01
+---
+# Chapter 1
+
+First chapter content.`;
+
+    const result = extractArticleFromHtml(markdownWithFm);
+    expect(result.title).toBe('Custom Book Title');
+    expect(result.byline).toBe('Jane Doe');
+    expect(result.publishedAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(result.content).toContain('First chapter content');
+    expect(result.content).not.toContain('title: Custom Book Title');
+  });
 });
 
 describe('Article Sanitization & XSS Defense', () => {

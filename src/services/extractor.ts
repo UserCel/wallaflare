@@ -252,6 +252,50 @@ export function parseHtmlIsomorphic(html: string): { document: any } {
   return parseHTML(html);
 }
 
+export function normalizeTitleForComparison(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u201A\u201B']/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F"]/g, '"')
+    .replace(/[\s\-_—–:|]+/g, ' ')
+    .trim();
+}
+
+export function isLeadingHeadingDuplicate(headingEl: any, title: string, root: any): boolean {
+  if (!headingEl || !title) return false;
+
+  // Verify that the heading is at the start of the body content
+  let curr: any = headingEl;
+  while (curr && curr !== root) {
+    let prev = curr.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3 /* Node.TEXT_NODE */) {
+        if ((prev.textContent || '').trim().length > 0) {
+          return false;
+        }
+      } else if (prev.nodeType === 1 /* Node.ELEMENT_NODE */) {
+        const text = (prev.textContent || '').trim();
+        if (text.length > 0 && !/^header|nav|figure|img$/i.test(prev.tagName)) {
+          return false;
+        }
+      }
+      prev = prev.previousSibling;
+    }
+    curr = curr.parentElement;
+  }
+
+  const headingText = headingEl.textContent || '';
+  const normH = normalizeTitleForComparison(headingText);
+  const normT = normalizeTitleForComparison(title);
+
+  if (!normH || !normT) return false;
+  if (normH === normT) return true;
+  // If either starts with the other with substantial length (e.g. site name appended or chapter prefix)
+  if (normH.length >= 8 && (normT.startsWith(normH) || normH.startsWith(normT))) return true;
+
+  return false;
+}
+
 export function extractArticleFromDom(document: any, originalUrl?: string, rawHtmlFallback?: string): ExtractedArticle {
   const domainName = originalUrl ? extractDomain(originalUrl) : 'direct-input';
   if (originalUrl) {
@@ -371,7 +415,22 @@ export function extractArticleFromDom(document: any, originalUrl?: string, rawHt
     parsed = null;
   }
   const textContent = parsed?.textContent?.trim() || document.body?.textContent?.trim() || '';
-  const title = parsed?.title?.trim() || docTitle?.trim() || ogTitle?.trim() || twitterTitle?.trim() || textContent.slice(0, 50) || 'Untitled Article';
+
+  const firstH1 = document.querySelector('article h1, main h1, .post-title, .entry-title, h1');
+  const h1Text = firstH1?.textContent?.trim() || null;
+  const fallbackHeading = h1Text || document.querySelector('h2, .article-title, #title')?.textContent?.trim() || null;
+  const textLines = textContent.split(/\r?\n/).map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+  const firstLine = textLines[0] || '';
+  const textFallback = firstLine.length > 80 ? firstLine.slice(0, 80).replace(/\s+\S*$/, '...') : firstLine;
+
+  const rawTitle = parsed?.title?.trim()
+    || docTitle?.trim()
+    || ogTitle?.trim()
+    || twitterTitle?.trim()
+    || fallbackHeading
+    || textFallback
+    || 'Untitled Article';
+  const title = rawTitle.replace(/\s+/g, ' ').trim();
   let content = parsed?.content || document.body?.innerHTML || `<p>${textContent || rawHtmlFallback || ''}</p>`;
   let contentFirstImg: string | null = null;
   if (content) {
@@ -382,6 +441,20 @@ export function extractArticleFromDom(document: any, originalUrl?: string, rawHt
       }
       applySiteSpecificRules(contentDoc, domainName);
       sanitizeArticleDom(contentDoc);
+
+      // Strip leading heading if it duplicates the article title
+      if (title && title !== 'Untitled Article' && contentDoc.body) {
+        let leadingHeading = contentDoc.querySelector('h1, h2, h3, h4');
+        while (leadingHeading && isLeadingHeadingDuplicate(leadingHeading, title, contentDoc.body)) {
+          const parent = leadingHeading.parentElement;
+          leadingHeading.remove();
+          if (parent && parent !== contentDoc.body && parent.tagName && parent.tagName.toLowerCase() === 'header' && !parent.textContent?.trim()) {
+            parent.remove();
+          }
+          leadingHeading = contentDoc.querySelector('h1, h2, h3, h4');
+        }
+      }
+
       content = contentDoc.body ? contentDoc.body.innerHTML : content;
 
       const imgEl = contentDoc.querySelector('img');
@@ -416,11 +489,41 @@ export function extractArticleFromDom(document: any, originalUrl?: string, rawHt
   };
 }
 
+export function extractFrontmatter(text: string): { content: string; metadata: Record<string, string> } {
+  const metadata: Record<string, string> = {};
+  if (!text || typeof text !== 'string') {
+    return { content: '', metadata };
+  }
+  const match = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
+  if (!match) {
+    return { content: text, metadata };
+  }
+  const yamlBlock = match[1];
+  for (const line of yamlBlock.split(/\r?\n/)) {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx > 0) {
+      const key = line.slice(0, colonIdx).trim().toLowerCase();
+      let val = line.slice(colonIdx + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1).trim();
+      }
+      if (key && val) {
+        metadata[key] = val;
+      }
+    }
+  }
+  const content = text.slice(match[0].length);
+  return { content, metadata };
+}
+
 export function markdownToHtml(md: string): string {
   if (!md || typeof md !== 'string') return '';
 
+  // 0. Extract and strip YAML frontmatter if present
+  const { content: cleanMd } = extractFrontmatter(md);
+
   // 1. Normalize line endings
-  let text = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  let text = cleanMd.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
   // 2. Protect and extract fenced code blocks (```lang ... ```)
   const codeBlocks: string[] = [];
@@ -536,12 +639,26 @@ export function markdownToHtml(md: string): string {
 export function extractArticleFromHtml(html: string, originalUrl?: string): ExtractedArticle {
   const isFullHtmlDoc = /^\s*<!DOCTYPE|^\s*<html/i.test(html);
   let formattedHtml = html;
+  let frontmatter: Record<string, string> = {};
   if (!isFullHtmlDoc) {
-    formattedHtml = markdownToHtml(html);
+    const fm = extractFrontmatter(html);
+    frontmatter = fm.metadata;
+    formattedHtml = markdownToHtml(fm.content);
   }
+  const metaTags: string[] = ['<meta charset="utf-8">'];
+  if (frontmatter['title']) {
+    metaTags.push(`<title>${escapeHtmlText(frontmatter['title'])}</title>`);
+  }
+  if (frontmatter['author'] || frontmatter['byline']) {
+    metaTags.push(`<meta name="author" content="${escapeHtmlText(frontmatter['author'] || frontmatter['byline'])}">`);
+  }
+  if (frontmatter['date'] || frontmatter['published'] || frontmatter['publishdate']) {
+    metaTags.push(`<meta name="publish-date" content="${escapeHtmlText(frontmatter['date'] || frontmatter['published'] || frontmatter['publishdate'])}">`);
+  }
+
   const fullHtml = formattedHtml.includes('<html') || formattedHtml.includes('<!DOCTYPE')
     ? formattedHtml
-    : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${formattedHtml}</body></html>`;
+    : `<!DOCTYPE html><html><head>${metaTags.join('')}</head><body>${formattedHtml}</body></html>`;
   const { document } = parseHtmlIsomorphic(fullHtml);
   return extractArticleFromDom(document, originalUrl, formattedHtml);
 }

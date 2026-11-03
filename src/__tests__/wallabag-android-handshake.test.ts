@@ -288,7 +288,9 @@ describe('Official Wallabag Android App Handshake (fr.gaulupeau.apps.InThePoche)
     });
     const webHtml = await webRes.text();
     expect(webHtml).toContain('Personal Access Tokens');
-    expect(webHtml).toContain('devPatList');
+    expect(webHtml).toContain('pat-list');
+    expect(webHtml).toContain('Manage in Settings &rarr; Apps &amp; Sync');
+    expect(webHtml).toContain('?settings=integrations');
   });
 
   it('rejects invalid password on /login_check and /oauth/v2/token', async () => {

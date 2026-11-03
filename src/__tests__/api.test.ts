@@ -495,6 +495,121 @@ describe('Wallaflare Protected Mode (AUTH_TOKEN enabled)', () => {
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(failRes.status).toBe(401);
   });
+
+  it('supports token auto-numbering on duplicates and renaming via PATCH /api/tokens/:id', async () => {
+    // 1. Create token "Kobo Clara"
+    const t1Res = await app.request('/api/tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'Kobo Clara' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(t1Res.status).toBe(201);
+    const t1Data = await t1Res.json<any>();
+    expect(t1Data.label).toBe('Kobo Clara');
+
+    // 2. Create another token with identical label -> auto-appends (2)
+    const t2Res = await app.request('/api/tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'Kobo Clara' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(t2Res.status).toBe(201);
+    const t2Data = await t2Res.json<any>();
+    expect(t2Data.label).toBe('Kobo Clara (2)');
+
+    // 3. Create a third token with identical label -> auto-appends (3)
+    const t3Res = await app.request('/api/tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'Kobo Clara' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(t3Res.status).toBe(201);
+    const t3Data = await t3Res.json<any>();
+    expect(t3Data.label).toBe('Kobo Clara (3)');
+
+    // 4. Rename without auth -> 401
+    const unauthRes = await app.request(`/api/tokens/${t1Data.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'Living Room E-Reader' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(unauthRes.status).toBe(401);
+
+    // 5. Rename with invalid ID or empty label -> 400
+    const badIdRes = await app.request('/api/tokens/invalid', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'Valid Label' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(badIdRes.status).toBe(400);
+
+    const emptyLabelRes = await app.request(`/api/tokens/${t1Data.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: '   ' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(emptyLabelRes.status).toBe(400);
+
+    // 6. Rename non-existent token -> 404
+    const notFoundRes = await app.request('/api/tokens/999999', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'Ghost Token' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(notFoundRes.status).toBe(404);
+
+    // 7. Successfully rename active token
+    const renameRes = await app.request(`/api/tokens/${t1Data.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'Kobo Clara (Bedside)' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(renameRes.status).toBe(200);
+    const renameData = await renameRes.json<any>();
+    expect(renameData.success).toBe(true);
+    expect(renameData.label).toBe('Kobo Clara (Bedside)');
+
+    // 8. Renaming to an existing active label auto-resolves suffix
+    const renameCollisionRes = await app.request(`/api/tokens/${t1Data.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ label: 'Kobo Clara (2)' })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(renameCollisionRes.status).toBe(200);
+    const collisionData = await renameCollisionRes.json<any>();
+    expect(collisionData.success).toBe(true);
+    // Since Kobo Clara (2) is occupied by t2, and Kobo Clara (3) by t3, resolves to (4)
+    expect(collisionData.label).toBe('Kobo Clara (4)');
+
+    // Clean up test tokens
+    await app.request(`/api/tokens/${t1Data.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${TEST_TOKEN}` } }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    await app.request(`/api/tokens/${t2Data.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${TEST_TOKEN}` } }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    await app.request(`/api/tokens/${t3Data.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${TEST_TOKEN}` } }, { DB: mockDb, AUTH_TOKEN: SECRET });
+  });
 });
 
 describe('Wallaflare Brute Force & Rate Limiting Protection', () => {
@@ -812,7 +927,7 @@ describe('Custom Text Ingestion (Plain text & Markdown)', () => {
   });
 
   it('handles multi-element markdown with headings, bold, lists, and code blocks', async () => {
-    const markdownContent = '# Engineering Log\n\n**Warning**: anomaly detected in sector 4.\n\n- Inspect conduits\n- Check thermal dampeners\n\nRun command: `diagnostics --all`';
+    const markdownContent = '# Engineering Log\n\n## Sector Diagnostics\n\n**Warning**: anomaly detected in sector 4.\n\n- Inspect conduits\n- Check thermal dampeners\n\nRun command: `diagnostics --all`';
 
     const res = await app.request('/api/entries.json', {
       method: 'POST',
@@ -825,7 +940,8 @@ describe('Custom Text Ingestion (Plain text & Markdown)', () => {
 
     expect(res.status).toBe(200);
     const data = await res.json<any>();
-    expect(data.content).toMatch(/<h[12]>Engineering Log<\/h[12]>/);
+    expect(data.content).not.toMatch(/<h[1-6][^>]*>Engineering Log<\/h[1-6]>/i);
+    expect(data.content).toMatch(/<h[23][^>]*>Sector Diagnostics<\/h[23]>/i);
     expect(data.content).toContain('<strong>Warning</strong>: anomaly detected');
     expect(data.content).toContain('<ul><li>Inspect conduits</li><li>Check thermal dampeners</li></ul>');
     expect(data.content).toContain('<code>diagnostics --all</code>');

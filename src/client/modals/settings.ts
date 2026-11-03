@@ -2,6 +2,7 @@ import { openModal, closeModal } from "./manager";
 import { pushOverlayHistory, popOverlayHistory } from "../utils/overlay-history";
 import { showToast } from "../components/toast";
 import { showConfirmDialog } from "./confirm";
+import { showPromptDialog } from "./prompt";
 import { showCreatedTokenModal } from "./token-display";
 import { authFetch, apiJson, apiPost, setAuthToken, isCapacitorApp } from "../sync/api";
 import { clearIndexedDB } from "../storage/db";
@@ -450,7 +451,12 @@ export function renderPersonalTokens(): void {
             ${createdHtml ? `${createdHtml} • ` : ""}${lastUsedHtml}
           </div>
         </div>
-        ${!isRevoked ? `<button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); white-space: nowrap;" onclick="handleRevokePersonalToken(${t.id}, '${safeLabel}')">Revoke</button>` : ""}
+        ${!isRevoked ? `
+          <div style="display: flex; gap: 0.35rem; align-items: center;">
+            <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem; white-space: nowrap;" data-token-label="${safeLabel}" onclick="handleRenamePersonalToken(${t.id}, this.getAttribute('data-token-label'))">Rename</button>
+            <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); white-space: nowrap;" data-token-label="${safeLabel}" onclick="handleRevokePersonalToken(${t.id}, this.getAttribute('data-token-label'))">Revoke</button>
+          </div>
+        ` : ""}
       </div>
     `;
   }).join("");
@@ -527,6 +533,41 @@ export async function handleRevokePersonalToken(id: number, label: string): Prom
     }
   } catch (e) {
     showToast("Error revoking token");
+  }
+}
+
+export async function handleRenamePersonalToken(id: number, currentLabel: string): Promise<void> {
+  const newLabel = await showPromptDialog(
+    "Rename API Token",
+    "Enter a new label for this token:",
+    currentLabel,
+    "Rename",
+    "e.g. KOReader (Bedside)"
+  );
+  if (newLabel === null) return;
+  const trimmed = newLabel.trim();
+  if (!trimmed) {
+    showToast("Token label cannot be empty");
+    return;
+  }
+  if (trimmed === currentLabel) return;
+
+  try {
+    const res = await authFetch(`/api/tokens/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: trimmed }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || "Failed to rename token");
+      return;
+    }
+    const data = await res.json();
+    showToast(`✓ Token renamed to "${data.label}"`);
+    loadPersonalTokens();
+  } catch (e) {
+    showToast("Error renaming token");
   }
 }
 
@@ -739,9 +780,13 @@ export function handleSaveServerConnection(e?: Event): void {
 
 export async function handleCustomizeFeedToken(): Promise<void> {
   const currentToken = document.getElementById("activeFeedTokenDisplay")?.textContent?.trim() || "";
-  const custom = prompt(
+  const initialValue = (currentToken === "Loading..." || currentToken.startsWith("Error")) ? "" : currentToken;
+  const custom = await showPromptDialog(
+    "Customize Feed Token",
     "Enter a custom read token for OPDS & RSS (4-64 alphanumeric characters, underscores, or hyphens):",
-    (currentToken === "Loading..." || currentToken.startsWith("Error")) ? "" : currentToken
+    initialValue,
+    "Update",
+    "e.g. my_custom_feed_token"
   );
   if (!custom) return;
   const token = custom.trim();
@@ -763,7 +808,12 @@ export async function handleCustomizeFeedToken(): Promise<void> {
 }
 
 export async function handleRegenerateFeedToken(): Promise<void> {
-  const confirmed = confirm("Regenerate syndication feed token? External e-readers and RSS apps using the old token will need to be updated.");
+  const confirmed = await showConfirmDialog(
+    "Regenerate Feed Token",
+    "Regenerate syndication feed token? External e-readers and RSS apps using the old token will need to be updated.",
+    "Regenerate",
+    true
+  );
   if (!confirmed) return;
   try {
     const { ok, data: res } = await apiPost("/api/feed-token", { token: "regenerate" });

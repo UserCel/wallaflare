@@ -10,6 +10,7 @@ import {
 } from './utils/overlay-history';
 import { initPwa, handlePwaShareTarget } from './utils/pwa';
 import { showConfirmDialog, handleConfirmModalOk, handleConfirmModalCancel } from './modals/confirm';
+import { showPromptDialog, handlePromptModalSubmit, handlePromptModalCancel } from './modals/prompt';
 import { openEditTitleModal, handleSaveTitle, batchEditTitle } from './modals/edit-title';
 import { showCreatedTokenModal, copyTokenDisplayValue, closeTokenDisplayModal } from './modals/token-display';
 import { copyDirectText, fallbackCopyText } from './utils/clipboard';
@@ -75,6 +76,7 @@ import {
   populateServerConfigInputs,
   loadPersonalTokens,
   handleCreatePersonalToken,
+  handleRenamePersonalToken,
   handleRevokePersonalToken,
   openSettingsModal,
   switchSettingsTab,
@@ -1343,6 +1345,20 @@ import {
       }
 
       closeReader(false);
+
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const settingsParam = urlParams.get('settings');
+        const hash = window.location.hash || '';
+        if (settingsParam || hash === '#settings' || hash.startsWith('#settings=')) {
+          const targetTab = settingsParam || (hash.includes('=') ? hash.split('=')[1] : 'integrations');
+          setTimeout(() => {
+            if (typeof openSettingsModal === 'function') {
+              openSettingsModal(targetTab || 'integrations');
+            }
+          }, 100);
+        }
+      } catch (e) {}
     }
 
     function navigateTo(path) {
@@ -4183,6 +4199,9 @@ if (typeof window !== "undefined") {
   try { (window as any).showConfirmDialog = showConfirmDialog; } catch (e) {}
   try { (window as any).handleConfirmModalOk = handleConfirmModalOk; } catch (e) {}
   try { (window as any).handleConfirmModalCancel = handleConfirmModalCancel; } catch (e) {}
+  try { (window as any).showPromptDialog = showPromptDialog; } catch (e) {}
+  try { (window as any).handlePromptModalSubmit = handlePromptModalSubmit; } catch (e) {}
+  try { (window as any).handlePromptModalCancel = handlePromptModalCancel; } catch (e) {}
   try { (window as any).showToast = showToast; } catch (e) {}
   try { (window as any).hideToast = hideToast; } catch (e) {}
   try { (window as any).escapeHtml = escapeHtml; } catch (e) {}
@@ -4385,6 +4404,7 @@ if (typeof window !== "undefined") {
   try { (window as any).loadPersonalTokens = loadPersonalTokens; } catch (e) {}
   try { (window as any).handleCreatePersonalToken = handleCreatePersonalToken; } catch (e) {}
   try { (window as any).copyTokenDisplayValue = copyTokenDisplayValue; } catch (e) {}
+  try { (window as any).handleRenamePersonalToken = handleRenamePersonalToken; } catch (e) {}
   try { (window as any).handleRevokePersonalToken = handleRevokePersonalToken; } catch (e) {}
 
   try { (window as any).loadSiteCookies = loadSiteCookies; } catch (e) {}

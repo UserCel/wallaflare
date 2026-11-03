@@ -1579,6 +1579,37 @@ export function generateRandomToken(prefix: string = 'wfl_tok_'): string {
   return `${prefix}${hex}`;
 }
 
+export async function getUniqueTokenLabel(db: D1Database, desiredLabel: string, excludeId?: number): Promise<string> {
+  await ensureDatabaseSchema(db);
+  const base = desiredLabel.trim() || 'Device Token';
+  const rows = await db.prepare(`
+    SELECT id, label FROM api_tokens WHERE revoked_at IS NULL
+  `).all<{ id: number; label: string }>();
+
+  const activeLabels = new Set(
+    (rows.results || [])
+      .filter(r => excludeId === undefined || r.id !== excludeId)
+      .map(r => r.label.trim().toLowerCase())
+  );
+
+  if (!activeLabels.has(base.toLowerCase())) {
+    return base;
+  }
+
+  let root = base;
+  const match = base.match(/^(.*?)\s*\((\d+)\)$/);
+  let counter = 2;
+  if (match) {
+    root = match[1].trim();
+    counter = parseInt(match[2], 10) + 1;
+  }
+
+  while (activeLabels.has(`${root} (${counter})`.toLowerCase())) {
+    counter++;
+  }
+  return `${root} (${counter})`;
+}
+
 export async function createApiToken(
   db: D1Database,
   label: string,
@@ -1586,6 +1617,7 @@ export async function createApiToken(
   expiresAt: string | null = null
 ): Promise<{ id: number; token: string; label: string; token_prefix: string; created_at: string }> {
   await ensureDatabaseSchema(db);
+  const uniqueLabel = await getUniqueTokenLabel(db, label);
   const token = generateRandomToken(prefix);
   const tokenHash = await sha256Hex(token);
   const tokenPrefix = token.substring(0, 16) + '...';
@@ -1594,13 +1626,13 @@ export async function createApiToken(
   const res = await db.prepare(`
     INSERT INTO api_tokens (token_hash, token_prefix, label, created_at, expires_at)
     VALUES (?, ?, ?, ?, ?)
-  `).bind(tokenHash, tokenPrefix, label.trim() || 'Device Token', now, expiresAt).run();
+  `).bind(tokenHash, tokenPrefix, uniqueLabel, now, expiresAt).run();
 
   const id = res.meta?.last_row_id ?? 0;
   return {
     id: Number(id),
     token,
-    label: label.trim() || 'Device Token',
+    label: uniqueLabel,
     token_prefix: tokenPrefix,
     created_at: now
   };
@@ -1659,6 +1691,34 @@ export async function deleteApiToken(db: D1Database, id: number): Promise<boolea
     DELETE FROM api_tokens WHERE id = ?
   `).bind(id).run();
   return (res.meta?.changes ?? 0) > 0;
+}
+
+export async function renameApiToken(
+  db: D1Database,
+  id: number,
+  newLabel: string
+): Promise<{ success: boolean; label?: string; error?: string }> {
+  await ensureDatabaseSchema(db);
+  const cleanLabel = newLabel.trim();
+  if (!cleanLabel) {
+    return { success: false, error: 'Token label cannot be empty' };
+  }
+
+  const existing = await db.prepare(`
+    SELECT id, label FROM api_tokens WHERE id = ? AND revoked_at IS NULL
+  `).bind(id).first<{ id: number; label: string }>();
+
+  if (!existing) {
+    return { success: false, error: 'Token not found or revoked' };
+  }
+
+  const uniqueLabel = await getUniqueTokenLabel(db, cleanLabel, id);
+  const res = await db.prepare(`
+    UPDATE api_tokens SET label = ? WHERE id = ?
+  `).bind(uniqueLabel, id).run();
+
+  const changes = res.meta?.changes ?? 0;
+  return { success: changes > 0, label: uniqueLabel };
 }
 
 // -------------------------------------------------------------

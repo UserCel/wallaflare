@@ -1,0 +1,19 @@
+<!-- Modal: Prompt Input Dialog -->
+<div class="modal-backdrop" id="promptModal" style="z-index: 10000 !important;">
+  <div class="modal" style="max-width: 440px; text-align: left;">
+    <div class="modal-header">
+      <h3 class="modal-title" id="promptModalTitle">Prompt</h3>
+      <button type="button" class="close-btn" onclick="handlePromptModalCancel()">&times;</button>
+    </div>
+    <form onsubmit="handlePromptModalSubmit(event)" style="display: flex; flex-direction: column; gap: 0.95rem; margin-top: 0.5rem;">
+      <div id="promptModalMsg" style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; white-space: pre-line;"></div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <input type="text" id="promptModalInput" style="width: 100%; box-sizing: border-box;" autocomplete="off" />
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.35rem;">
+        <button type="button" class="btn btn-secondary" onclick="handlePromptModalCancel()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="promptModalBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

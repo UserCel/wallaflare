@@ -48,6 +48,7 @@ import {
   verifyApiToken,
   getApiTokens,
   revokeApiToken,
+  renameApiToken,
   deleteApiToken,
   verifyMasterPassword,
   setMasterPassword,
@@ -623,6 +624,29 @@ apiRouter.delete('/api/tokens/:id', authMiddleware, async (c: any) => {
   }
   return c.json({ success: true, message: 'Token deleted successfully' });
 });
+
+const renameTokenHandler = async (c: any) => {
+  const id = Number(c.req.param('id'));
+  if (isNaN(id) || id <= 0) {
+    return c.json({ error: 'Invalid token ID' }, 400);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const label = typeof body.label === 'string' ? body.label.trim() : '';
+  if (!label) {
+    return c.json({ error: 'Token label is required' }, 400);
+  }
+  const result = await renameApiToken(c.env.DB, id, label);
+  if (!result.success) {
+    return c.json(
+      { error: result.error || 'Failed to rename token' },
+      result.error === 'Token not found or revoked' ? 404 : 400
+    );
+  }
+  return c.json({ success: true, id, label: result.label });
+};
+
+apiRouter.patch('/api/tokens/:id', authMiddleware, renameTokenHandler);
+apiRouter.put('/api/tokens/:id', authMiddleware, renameTokenHandler);
 
 apiRouter.post('/api/oauth/v2/token', oauthTokenHandler);
 

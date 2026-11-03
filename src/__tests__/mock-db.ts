@@ -76,7 +76,17 @@ export function createMockD1Database() {
             const found = tags.find(t => t.slug === val || t.label === val);
             return (found || null) as T;
           }
-          if (query.includes('SELECT * FROM entries WHERE id = ?') || (query.includes('WHERE id = ?') && !query.includes('tags'))) {
+          if (query.includes('FROM api_tokens')) {
+            if (query.includes('WHERE id = ?')) {
+              const id = Number(boundParams[0]);
+              const found = apiTokens.find(t => t.id === id && !t.revoked_at);
+              return (found || null) as T;
+            }
+            const hash = boundParams[0];
+            const found = apiTokens.find(t => t.token_hash === hash && !t.revoked_at);
+            return (found || null) as T;
+          }
+          if (query.includes('SELECT * FROM entries WHERE id = ?') || (query.includes('WHERE id = ?') && !query.includes('tags') && !query.includes('api_tokens'))) {
             const id = boundParams[0];
             const found = entries.find(e => e.id === id);
             return (found || null) as T;
@@ -89,11 +99,6 @@ export function createMockD1Database() {
           if (query.includes('FROM auth_rate_limits WHERE ip = ?')) {
             const ip = boundParams[0];
             return (rateLimits.get(ip) || null) as T;
-          }
-          if (query.includes('FROM api_tokens')) {
-            const hash = boundParams[0];
-            const found = apiTokens.find(t => t.token_hash === hash && !t.revoked_at);
-            return (found || null) as T;
           }
           if (query.includes('SELECT MAX(id)')) {
             return entries[entries.length - 1] as T;
@@ -395,6 +400,16 @@ export function createMockD1Database() {
             const tok = apiTokens.find(t => t.id === id && !t.revoked_at);
             if (tok) {
               tok.revoked_at = revokedAt;
+              return { meta: { changes: 1 } };
+            }
+            return { meta: { changes: 0 } };
+          }
+          if (query.includes('UPDATE api_tokens SET label = ?')) {
+            const newLabel = String(boundParams[0]);
+            const id = Number(boundParams[1]);
+            const tok = apiTokens.find(t => t.id === id && !t.revoked_at);
+            if (tok) {
+              tok.label = newLabel;
               return { meta: { changes: 1 } };
             }
             return { meta: { changes: 0 } };

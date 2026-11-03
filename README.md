@@ -275,7 +275,7 @@ Wallaflare serves real-time RSS 2.0 feeds with full article HTML bodies. Your pr
 2. Enter your instance URL (`https://<your-subdomain>.workers.dev`).
 3. Click **Check URL / Connect** and sign in with your `AUTH_TOKEN`.
 
-> 💡 **Personal Access Tokens (PAT)**: For third-party apps, custom scripts, or clients that require an isolated token without exposing your master password, go to **Settings > Apps & Sync** or visit `/developer` on your instance to generate dedicated tokens (`wfl_pat_...`) with instant per-token revocation.
+> 💡 **Personal Access Tokens (PAT)**: For third-party apps, custom scripts, or clients that require an isolated token without exposing your master password, go to **Settings > Apps & Sync** on your Dashboard to generate, rename, or revoke dedicated tokens (`wfl_pat_...`) with automatic duplicate numbering and instant per-token revocation.
 
 ---
 
