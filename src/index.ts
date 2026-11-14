@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Env } from './types';
 import { apiRouter } from './routes/api';
-import { webRouter } from './routes/web';
+import { webRouter, renderNotFoundPage } from './routes/web';
 import { opdsRouter } from './routes/opds';
 import { feedRouter } from './routes/feed';
 import { ensureDatabaseSchema } from './db/queries';
@@ -58,7 +58,19 @@ app.onError((err, c) => {
 
 // 404 Fallback
 app.notFound((c) => {
-  return c.json({ error: 'Not Found', path: c.req.path }, 404);
+  const path = c.req.path;
+  const accept = c.req.header('Accept') || '';
+  const isApiOrMachine =
+    path.startsWith('/api/') ||
+    path.startsWith('/oauth/') ||
+    path.startsWith('/opds') ||
+    path.startsWith('/feed') ||
+    (accept.includes('application/json') && !accept.includes('text/html'));
+
+  if (isApiOrMachine) {
+    return c.json({ error: 'Not Found', path }, 404);
+  }
+  return c.html(renderNotFoundPage(path), 404);
 });
 
 export default app;

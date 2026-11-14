@@ -9,6 +9,7 @@ import {
   clearOverlayHistory
 } from './utils/overlay-history';
 import { initPwa, handlePwaShareTarget } from './utils/pwa';
+import { initAppScrollbars } from './utils/scrollbars';
 import { showConfirmDialog, handleConfirmModalOk, handleConfirmModalCancel } from './modals/confirm';
 import { showPromptDialog, handlePromptModalSubmit, handlePromptModalCancel } from './modals/prompt';
 import { openEditTitleModal, handleSaveTitle, batchEditTitle } from './modals/edit-title';
@@ -4142,6 +4143,7 @@ function initReaderHoverTopBar() {
     initReaderSelectionHandlers();
     initCapacitorOtaUpdater();
     initPwa();
+    initAppScrollbars();
 
 
     // Attach all functions to window for HTML inline handlers & test compatibility

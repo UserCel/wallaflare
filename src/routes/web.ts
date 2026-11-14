@@ -527,6 +527,7 @@ webRouter.get('/view/:id', (c) => renderWebDashboard(c));
 webRouter.get('/unread', (c) => renderWebDashboard(c));
 webRouter.get('/starred', (c) => renderWebDashboard(c));
 webRouter.get('/archive', (c) => renderWebDashboard(c));
+webRouter.get('/all', (c) => renderWebDashboard(c));
 
 // Root page
 webRouter.get('/', (c) => {
@@ -644,3 +645,119 @@ webRouter.post('/developer/client/delete/:id', (c) => {
   const origin = new URL(c.req.url).origin;
   return c.redirect(`${origin}/developer`, 302);
 });
+
+export function renderNotFoundPage(path: string): string {
+  const safePath = escapeHtmlText(path || '/');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found | Wallaflare</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --border-color: rgba(255, 255, 255, 0.1);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #f97316;
+      --accent-hover: #ea580c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 2.25rem 2rem;
+      text-align: center;
+      box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.55);
+    }
+    .icon-wrap {
+      display: inline-flex;
+      margin-bottom: 1.15rem;
+    }
+    .icon-wrap svg {
+      width: 64px;
+      height: 64px;
+    }
+    .code {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.4rem;
+    }
+    h1 {
+      font-size: 1.55rem;
+      font-weight: 700;
+      margin-bottom: 0.65rem;
+    }
+    p {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      margin-bottom: 1.5rem;
+    }
+    code {
+      display: inline-block;
+      margin-top: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      word-break: break-all;
+    }
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.35rem;
+      background: var(--accent);
+      color: #ffffff;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 0.92rem;
+      font-weight: 600;
+      transition: background-color 0.15s ease, transform 0.15s ease;
+    }
+    .btn-home:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon-wrap">${WALLAFLARE_APP_ICON_SVG}</div>
+    <div class="code">Error 404</div>
+    <h1>Page Not Found</h1>
+    <p>
+      The page you requested does not exist.<br>
+      <code>${safePath}</code>
+    </p>
+    <a href="/" class="btn-home">&larr; Back to Main Page</a>
+  </main>
+</body>
+</html>`;
+}

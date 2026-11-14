@@ -57,6 +57,9 @@
       --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
       --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
       --shadow-lg: 0 20px 30px -10px rgba(0, 0, 0, 0.6);
+      --scrollbar-thumb: rgba(148, 163, 184, 0.32);
+      --scrollbar-thumb-hover: rgba(148, 163, 184, 0.55);
+      --scrollbar-thumb-active: rgba(248, 250, 252, 0.72);
     }
 
     html.is-capacitor-app {
@@ -75,6 +78,9 @@
       --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
       --shadow-sm: 0 2px 4px rgba(0,0,0,0.04);
       --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
+      --scrollbar-thumb: rgba(15, 23, 42, 0.24);
+      --scrollbar-thumb-hover: rgba(15, 23, 42, 0.44);
+      --scrollbar-thumb-active: rgba(15, 23, 42, 0.62);
     }
 
     html.sepia {
@@ -89,6 +95,9 @@
       --accent: #b45309;
       --accent-hover: #92400e;
       --shadow: 0 10px 25px -5px rgba(67, 52, 34, 0.08);
+      --scrollbar-thumb: rgba(92, 77, 60, 0.28);
+      --scrollbar-thumb-hover: rgba(92, 77, 60, 0.48);
+      --scrollbar-thumb-active: rgba(67, 52, 34, 0.68);
     }
 
     html.oled {
@@ -102,6 +111,9 @@
       --text-muted: #64748b;
       --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
       --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+      --scrollbar-thumb: rgba(148, 163, 184, 0.28);
+      --scrollbar-thumb-hover: rgba(148, 163, 184, 0.5);
+      --scrollbar-thumb-active: rgba(241, 245, 249, 0.68);
     }
 
     * {
@@ -1445,22 +1457,64 @@
     .modal > *, .tag-modal > * {
       padding-right: 0.95rem;
     }
-    .modal::-webkit-scrollbar,
-    .tag-modal::-webkit-scrollbar {
-      width: 6px;
-    }
-    .modal::-webkit-scrollbar-track,
-    .tag-modal::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .modal::-webkit-scrollbar-thumb,
-    .tag-modal::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
-    .modal::-webkit-scrollbar-thumb:hover,
-    .tag-modal::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
+    /* Desktop-only App-Native Overlay Scrollbars (unified across Chrome & Firefox) */
+    @media (hover: hover) and (pointer: fine) {
+      html:not(.is-capacitor-app) *:not(pre) {
+        scrollbar-width: none;
+      }
+      html:not(.is-capacitor-app) *:not(pre)::-webkit-scrollbar {
+        display: none;
+      }
+      html:not(.is-capacitor-app) pre {
+        scrollbar-width: thin;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
+      }
+      html:not(.is-capacitor-app) pre::-webkit-scrollbar {
+        height: 8px;
+      }
+      html:not(.is-capacitor-app) pre::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      html:not(.is-capacitor-app) pre::-webkit-scrollbar-thumb {
+        background-color: var(--scrollbar-thumb);
+        border-radius: 999px;
+      }
+      .app-scrollbar-track {
+        position: fixed;
+        width: 12px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.22s ease;
+        z-index: 95;
+        user-select: none;
+      }
+      .app-scrollbar-track.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .app-scrollbar-track.is-modal {
+        z-index: 450;
+      }
+      .app-scrollbar-thumb {
+        position: absolute;
+        top: 0;
+        right: 3px;
+        width: 6px;
+        border-radius: 999px;
+        background-color: var(--scrollbar-thumb);
+        transition: width 0.14s ease, right 0.14s ease, background-color 0.14s ease;
+        cursor: pointer;
+        touch-action: none;
+      }
+      .app-scrollbar-track:hover .app-scrollbar-thumb,
+      .app-scrollbar-track.is-dragging .app-scrollbar-thumb {
+        width: 8px;
+        right: 2px;
+        background-color: var(--scrollbar-thumb-hover);
+      }
+      .app-scrollbar-track.is-dragging .app-scrollbar-thumb {
+        background-color: var(--scrollbar-thumb-active);
+      }
     }
     @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
     .modal-header { display: flex; align-items: center; justify-content: space-between; }
