@@ -1459,6 +1459,9 @@
     }
     /* Desktop-only App-Native Overlay Scrollbars (unified across Chrome & Firefox) */
     @media (hover: hover) and (pointer: fine) {
+      html:not(.is-capacitor-app) .articles-scroll-container {
+        padding-right: 0.8rem;
+      }
       html:not(.is-capacitor-app) *:not(pre) {
         scrollbar-width: none;
       }

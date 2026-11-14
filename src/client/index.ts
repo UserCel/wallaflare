@@ -212,7 +212,9 @@ import {
 
     let allEntries = [];
     let cachedGlobalTags = [];
-    let currentFilter = 'unread';
+    let currentFilter = (typeof window !== 'undefined' && (window.location.pathname === '/starred' || window.location.pathname === '/archive' || window.location.pathname === '/all'))
+      ? window.location.pathname.slice(1)
+      : 'unread';
     let activeArticleId = null;
     let activeKeyboardPane = "list"; // "list" | "reader"
 
@@ -4107,12 +4109,6 @@ function initReaderHoverTopBar() {
         document.cookie = 'wf_auth_token=' + encodeURIComponent(storedToken) + '; Path=/; SameSite=Lax; Max-Age=31536000' + (isHttps ? '; Secure' : '');
       }
     } catch (e) {}
-    initAppearanceSettings();
-    setViewMode(localStorage.getItem('wf_view_mode') || 'list');
-    updateVersionDisplay();
-    renderFromInstantLocalCache();
-    handleRouteState();
-    loadArticles(true);
     function initInfiniteScroll() {
       const scrollContainer = document.getElementById('articlesScrollContainer');
       if (!scrollContainer) return;
@@ -4129,21 +4125,6 @@ function initReaderHoverTopBar() {
         }
       });
     }
-
-    initPullToRefresh();
-    initRefocusRefresh();
-    initInfiniteScroll();
-    setupMobileDrawerSwipeTracking();
-    setupElasticOverscroll(document.getElementById('articlesScrollContainer'), document.getElementById('articlesGrid'), { allowPullDown: false, allowPullUp: true });
-    setupElasticOverscroll(document.getElementById('readerScrollContainer'), document.querySelector('.reader-content-wrap'), { allowPullDown: true, allowPullUp: true });
-    initReaderHoverTopBar();
-    initPaneFocusListeners();
-    initLiveTimestamps();
-    initSelectionDeselectListener();
-    initReaderSelectionHandlers();
-    initCapacitorOtaUpdater();
-    initPwa();
-    initAppScrollbars();
 
 
     // Attach all functions to window for HTML inline handlers & test compatibility
@@ -4488,4 +4469,28 @@ if (typeof window !== "undefined") {
       configurable: true
     });
   } catch (e) {}
+}
+
+// Run startup initialization after all window globals and reactive state properties are bound
+if (typeof document !== "undefined") {
+  initAppearanceSettings();
+  setViewMode(localStorage.getItem('wf_view_mode') || 'list');
+  updateVersionDisplay();
+  renderFromInstantLocalCache();
+  handleRouteState();
+  loadArticles(true);
+  initPullToRefresh();
+  initRefocusRefresh();
+  initInfiniteScroll();
+  setupMobileDrawerSwipeTracking();
+  setupElasticOverscroll(document.getElementById('articlesScrollContainer'), document.getElementById('articlesGrid'), { allowPullDown: false, allowPullUp: true });
+  setupElasticOverscroll(document.getElementById('readerScrollContainer'), document.querySelector('.reader-content-wrap'), { allowPullDown: true, allowPullUp: true });
+  initReaderHoverTopBar();
+  initPaneFocusListeners();
+  initLiveTimestamps();
+  initSelectionDeselectListener();
+  initReaderSelectionHandlers();
+  initCapacitorOtaUpdater();
+  initPwa();
+  initAppScrollbars();
 }
