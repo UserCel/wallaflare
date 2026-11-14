@@ -4255,6 +4255,8 @@ if (typeof window !== "undefined") {
   try { (window as any).handleReaderBack = handleReaderBack; } catch (e) {}
   try { (window as any).handleReaderScroll = handleReaderScroll; } catch (e) {}
   try { (window as any).updateReadingProgress = updateReadingProgress; } catch (e) {}
+  try { (window as any).updateCardReadingProgress = updateCardReadingProgress; } catch (e) {}
+  try { (window as any).getReadingProgressText = getReadingProgressText; } catch (e) {}
   try { (window as any).toggleStar = toggleStar; } catch (e) {}
   try { (window as any).toggleArchive = toggleArchive; } catch (e) {}
   try { (window as any).toggleActiveStar = toggleActiveStar; } catch (e) {}
