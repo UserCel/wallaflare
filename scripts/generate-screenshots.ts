@@ -188,7 +188,7 @@ function buildMockupWrapperHtml(base64Png: string, title = 'Wallaflare Smartphon
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding-top: 38px;
+      padding-top: 44px;
       background: #0f172a;
       overflow: hidden;
     }
@@ -202,11 +202,11 @@ function buildMockupWrapperHtml(base64Png: string, title = 'Wallaflare Smartphon
     /* Dynamic Island / Punch Hole */
     .dynamic-island {
       position: absolute;
-      top: 10px;
+      top: 8px;
       left: 50%;
       transform: translateX(-50%);
-      width: 116px;
-      height: 26px;
+      width: 112px;
+      height: 22px;
       background: #000000;
       border-radius: 20px;
       z-index: 1000;
