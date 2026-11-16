@@ -70,9 +70,16 @@ import {
   updateReadingProgress
 } from './reader/view';
 import {
+  scaleReadingMinutes,
+  syncReadingWpmFromServer
+} from './utils/reading-time';
+import {
   updateSettingsStats,
   setParserEngine,
   updateParserEngineUI,
+  updateReadingWpmUI,
+  previewReadingWpm,
+  setReadingWpmSetting,
   formatTokenTimestamp,
   populateServerConfigInputs,
   loadPersonalTokens,
@@ -1510,6 +1517,11 @@ import {
         if (res.ok) {
           updateOfflineUI(false);
           const data = await res.json();
+          const wpmChanged = syncReadingWpmFromServer(data.reading_wpm);
+          if (wpmChanged) {
+            updateReadingWpmUI();
+            if (typeof filterArticles === 'function') filterArticles();
+          }
 
           // Database Epoch / Reset Watchdog across all connected devices
           const localInstanceId = localStorage.getItem('wf_instance_id');
@@ -2074,7 +2086,7 @@ import {
           ? '<div class="card-tags">' + notesBadgeHtml + tagsListHtml + '</div>'
           : '';
 
-        const totalMin = item.reading_time || 1;
+        const totalMin = scaleReadingMinutes(item.reading_time);
         const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + item.id) || '0');
         const progressPct = Math.round(savedRatio * 100);
         let readingProgressText = totalMin + ' min read';
@@ -2294,7 +2306,7 @@ import {
       const metaParts: string[] = [];
       if (item.domain_name) metaParts.push('<span>' + escapeHtml(item.domain_name) + '</span>');
       if (author) metaParts.push('<span style="font-weight: 500;">by ' + escapeHtml(author) + '</span>');
-      metaParts.push('<span>' + (item.reading_time || 1) + ' min read</span>');
+      metaParts.push('<span>' + scaleReadingMinutes(item.reading_time) + ' min read</span>');
 
       const rawPubDate = item.published_at ? new Date(item.published_at) : null;
       const rawSavedDate = item.created_at ? new Date(item.created_at) : null;
@@ -2540,7 +2552,7 @@ import {
 
     
     function getReadingProgressText(item, savedRatio) {
-      const totalMin = item.reading_time || 1;
+      const totalMin = scaleReadingMinutes(item.reading_time);
       const progressPct = Math.round(savedRatio * 100);
       if (progressPct >= 95) return 'Finished (' + totalMin + 'm)';
       if (progressPct > 0) return Math.max(1, Math.round(totalMin * (1 - savedRatio))) + ' of ' + totalMin + ' min left';
@@ -4382,6 +4394,9 @@ if (typeof window !== "undefined") {
   try { (window as any).updateSettingsStats = updateSettingsStats; } catch (e) {}
   try { (window as any).setParserEngine = setParserEngine; } catch (e) {}
   try { (window as any).updateParserEngineUI = updateParserEngineUI; } catch (e) {}
+  try { (window as any).updateReadingWpmUI = updateReadingWpmUI; } catch (e) {}
+  try { (window as any).previewReadingWpm = previewReadingWpm; } catch (e) {}
+  try { (window as any).setReadingWpmSetting = setReadingWpmSetting; } catch (e) {}
   try { (window as any).openSettingsModal = openSettingsModal; } catch (e) {}
   try { (window as any).switchSettingsTab = switchSettingsTab; } catch (e) {}
   try { (window as any).handleSettingsMobileBack = handleSettingsMobileBack; } catch (e) {}

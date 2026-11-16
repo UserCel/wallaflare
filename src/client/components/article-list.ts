@@ -1,4 +1,5 @@
 import { formatCardDate } from "../utils/format";
+import { scaleReadingMinutes } from "../utils/reading-time";
 import { state } from "../state";
 import { Article } from "../types";
 import { openReader } from "../reader/view";
@@ -127,7 +128,7 @@ export function renderArticlesChunked(entries?: Article[]): void {
             "</div>"
           : "";
 
-      const totalMin = item.reading_time || 1;
+      const totalMin = scaleReadingMinutes(item.reading_time);
       let readingProgressText = totalMin + " min read";
 
       const imgHtml = item.preview_picture

@@ -107,12 +107,14 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
     try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN revision INTEGER NOT NULL DEFAULT 1').run(); } catch {}
 
     schemaEnsured = true;
+    await backfillReadingTimesIfNeeded(db);
   } catch (err) {
     console.error('Error ensuring database schema:', err);
   }
 }
 
 import { EntryRow, WallabagEntry, AnnotationItem, ApiTokenRow, Env } from '../types';
+import { calculateReadingTime } from '../services/extractor';
 
 export interface TagItem {
   id: number;
@@ -1978,4 +1980,85 @@ export async function verifyFeedToken(
 
   // Notice: Master password (AUTH_TOKEN / admin_password) is STRICTLY REJECTED here!
   return false;
+}
+
+export const DEFAULT_READING_WPM = 200;
+export const MIN_READING_WPM = 100;
+export const MAX_READING_WPM = 600;
+
+export function clampReadingWpm(wpm: number): number {
+  if (!Number.isFinite(wpm)) return DEFAULT_READING_WPM;
+  return Math.min(MAX_READING_WPM, Math.max(MIN_READING_WPM, Math.round(wpm)));
+}
+
+/**
+ * Reads the user's configured reading speed (WPM) from the D1 config table,
+ * falling back to 200 WPM if unset or invalid.
+ */
+export async function getReadingWpm(db: D1Database | undefined): Promise<number> {
+  if (!db) return DEFAULT_READING_WPM;
+  const raw = await getConfig(db, 'reading_wpm');
+  if (!raw) return DEFAULT_READING_WPM;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? clampReadingWpm(parsed) : DEFAULT_READING_WPM;
+}
+
+/**
+ * Persists the user's reading speed (WPM) to the D1 config table, clamped to [100, 600].
+ */
+export async function setReadingWpm(db: D1Database, wpm: number): Promise<number> {
+  const clamped = clampReadingWpm(wpm);
+  await setConfig(db, 'reading_wpm', String(clamped));
+  return clamped;
+}
+
+export const READING_TIME_ALGO_VERSION = '2';
+
+/**
+ * One-shot migration that recalculates `reading_time` for existing entries when
+ * upgrading to the hybrid word+character reading-time algorithm (`v2`).
+ */
+export async function backfillReadingTimesIfNeeded(db: D1Database): Promise<number> {
+  if (!db) return 0;
+  try {
+    const currentVersion = await getConfig(db, 'reading_time_algo_version');
+    if (currentVersion === READING_TIME_ALGO_VERSION) return 0;
+
+    const { results } = await db
+      .prepare('SELECT id, content, reading_time FROM entries')
+      .all<{ id: number; content: string; reading_time: number | null }>();
+
+    const updates: Array<{ id: number; readingTime: number }> = [];
+    for (const row of results || []) {
+      const plainText = (row.content || '').replace(/<[^>]+>/g, ' ');
+      const nextTime = calculateReadingTime(plainText);
+      if (nextTime !== (row.reading_time || 1)) {
+        updates.push({ id: row.id, readingTime: nextTime });
+      }
+    }
+
+    if (updates.length > 0) {
+      const nextRev = await bumpSyncRevision(db);
+      const stmtSql = 'UPDATE entries SET reading_time = ?, revision = ? WHERE id = ?';
+      if (typeof (db as any).batch === 'function') {
+        const CHUNK = 100;
+        for (let i = 0; i < updates.length; i += CHUNK) {
+          const batchStmts = updates
+            .slice(i, i + CHUNK)
+            .map((u) => db.prepare(stmtSql).bind(u.readingTime, nextRev, u.id));
+          await (db as any).batch(batchStmts);
+        }
+      } else {
+        for (const u of updates) {
+          await db.prepare(stmtSql).bind(u.readingTime, nextRev, u.id).run();
+        }
+      }
+    }
+
+    await setConfig(db, 'reading_time_algo_version', READING_TIME_ALGO_VERSION);
+    return updates.length;
+  } catch (err) {
+    console.warn('Reading time backfill skipped/failed:', err);
+    return 0;
+  }
 }

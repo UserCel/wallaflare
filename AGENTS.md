@@ -79,7 +79,7 @@
 │   │   ├── reader/            # In-reader engines (annotations, export, typography, search, RSVP speed reader)
 │   │   ├── storage/           # Offline storage engines (IndexedDB library cache, persistent outbox queue)
 │   │   ├── styles/            # index.css — single source of truth for all client CSS (bundled by bundle-client.ts)
-│   │   ├── utils/             # Formatters, DOM helpers, overlay history, and PWA share target
+│   │   ├── utils/             # Formatters, DOM helpers, reading-time scaling, overlay history, and PWA share target
 │   │   └── index.ts           # Client composition root, routing & app shell
 │   ├── index.ts               # Cloudflare Worker entry point (Hono application)
 │   ├── routes/

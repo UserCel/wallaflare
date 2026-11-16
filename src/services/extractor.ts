@@ -15,10 +15,27 @@ export interface ExtractedArticle {
   publishedAt?: string | null;
 }
 
+const CJK_CHAR_REGEX = /[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g;
+
+/**
+ * Calculates estimated reading time in minutes normalized to a 200 WPM baseline.
+ * Blends whitespace word count with standardized 5-char word length so dense
+ * technical prose isn't underrated, and handles CJK scripts separately (~500 chars/min).
+ */
 export function calculateReadingTime(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const wordsPerMinute = 200;
-  return Math.max(1, Math.ceil(words / wordsPerMinute));
+  const normalized = (text || '').trim();
+  if (!normalized) return 1;
+
+  const cjkMatches = normalized.match(CJK_CHAR_REGEX);
+  const cjkCount = cjkMatches ? cjkMatches.length : 0;
+
+  const nonCjkText = cjkCount > 0 ? normalized.replace(CJK_CHAR_REGEX, ' ').trim() : normalized;
+  const words = nonCjkText ? nonCjkText.split(/\s+/).filter(Boolean).length : 0;
+  const nonSpaceChars = nonCjkText ? nonCjkText.replace(/\s+/g, '').length : 0;
+
+  const effectiveWords = words > 0 ? (words + nonSpaceChars / 5) / 2 : 0;
+  const minutes = effectiveWords / 200 + cjkCount / 500;
+  return Math.max(1, Math.ceil(minutes));
 }
 
 export function extractDomain(url: string): string {

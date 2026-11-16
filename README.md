@@ -33,6 +33,9 @@
   - Desktop 3-pane workspace with live search, 5 sort modes, and 3 view densities (List, Magazine Grid, Compact).
   - 1:1 touch swipe drawer and bottom action bars on mobile.
   - 4 themes: **Dark**, **Light**, **Sepia**, and **OLED Black**.
+- **⏱️ Smart Reading Time & Synced Reading Speed**:
+  - Hybrid word + character-length estimator (plus CJK character support) normalized to a 200 WPM baseline in D1.
+  - Configurable personal **Reading Speed (100–600 WPM)** in **Settings > Appearance**, persisted in D1 and synced across devices via `/api/sync`.
 - **🔄 Revision-Based Delta Sync & Offline Outbox**:
   - Monotonic revision tracking transfers only modified articles and deletion tombstones (`deleted_ids`).
   - Durable offline outbox (`IndexedDB`) records mutations offline and syncs sequentially upon reconnection.

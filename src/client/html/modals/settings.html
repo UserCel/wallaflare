@@ -88,6 +88,22 @@
                   <button class="btn btn-outline opt-font-btn" data-font="dyslexic" onclick="setReaderFontFamily('dyslexic')" style="padding: 0.5rem; font-family: 'OpenDyslexic', sans-serif;">Dyslexic</button>
                 </div>
               </div>
+
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                  <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Reading Speed</h4>
+                  <span id="settingsWpmValue" style="font-size: 0.82rem; font-weight: 600; color: var(--accent);">200 WPM</span>
+                </div>
+                <input type="range" id="settingsWpmSlider" min="100" max="600" step="10" value="200" oninput="previewReadingWpm(this.value)" onchange="setReadingWpmSetting(this.value)" style="width: 100%; accent-color: var(--accent); cursor: pointer; margin-bottom: 0.5rem;" />
+                <div id="settingsWpmPresets" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem;">
+                  <button type="button" class="btn btn-outline opt-wpm-btn" data-wpm="150" onclick="setReadingWpmSetting(150)" style="padding: 0.35rem 0.25rem; font-size: 0.78rem;">150</button>
+                  <button type="button" class="btn btn-outline opt-wpm-btn" data-wpm="200" onclick="setReadingWpmSetting(200)" style="padding: 0.35rem 0.25rem; font-size: 0.78rem;">200</button>
+                  <button type="button" class="btn btn-outline opt-wpm-btn" data-wpm="250" onclick="setReadingWpmSetting(250)" style="padding: 0.35rem 0.25rem; font-size: 0.78rem;">250</button>
+                  <button type="button" class="btn btn-outline opt-wpm-btn" data-wpm="300" onclick="setReadingWpmSetting(300)" style="padding: 0.35rem 0.25rem; font-size: 0.78rem;">300</button>
+                  <button type="button" class="btn btn-outline opt-wpm-btn" data-wpm="400" onclick="setReadingWpmSetting(400)" style="padding: 0.35rem 0.25rem; font-size: 0.78rem;">400</button>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.4rem 0 0 0;">Scales read-time estimates to your pace (synced across devices).</p>
+              </div>
             </div>
           </div>
 

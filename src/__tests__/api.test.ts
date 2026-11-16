@@ -1546,6 +1546,63 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(syncData2.entries).toBeUndefined(); // Zero articles transferred over wire
   });
 
+  it("persists reading_wpm via /api/settings and returns it on every /api/sync.json response", async () => {
+    // 1. Default is 200 WPM
+    const getInitial = await app.request('/api/settings', {
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(getInitial.status).toBe(200);
+    expect(await getInitial.json<any>()).toEqual({ reading_wpm: 200 });
+
+    // 2. Update to 320 WPM (and verify clamping)
+    const putRes = await app.request('/api/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ reading_wpm: 320 })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(putRes.status).toBe(200);
+    expect(await putRes.json<any>()).toEqual({ reading_wpm: 320 });
+
+    const clampRes = await app.request('/api/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ reading_wpm: 9999 })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(clampRes.status).toBe(200);
+    expect(await clampRes.json<any>()).toEqual({ reading_wpm: 600 });
+
+    // Restore 320 for sync check
+    await app.request('/api/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TEST_TOKEN}`
+      },
+      body: JSON.stringify({ reading_wpm: 320 })
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+
+    // 3. Full sync returns reading_wpm
+    const syncFull = await app.request('/api/sync.json', {
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const fullData = await syncFull.json<any>();
+    expect(fullData.reading_wpm).toBe(320);
+
+    // 4. up_to_date fast-path sync also returns reading_wpm
+    const syncFast = await app.request(`/api/sync.json?since_rev=${fullData.sync_rev}`, {
+      headers: { 'Authorization': `Bearer ${TEST_TOKEN}` }
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const fastData = await syncFast.json<any>();
+    expect(fastData.up_to_date).toBe(true);
+    expect(fastData.reading_wpm).toBe(320);
+  });
+
   it("propagates deleted article tombstones to delta sync clients", async () => {
     // 1. Create a test entry to delete
     const postRes = await app.request('/api/entries.json', {

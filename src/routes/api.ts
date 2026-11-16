@@ -48,6 +48,8 @@ import {
   verifyApiToken,
   getApiTokens,
   revokeApiToken,
+  getReadingWpm,
+  setReadingWpm,
   renameApiToken,
   deleteApiToken,
   verifyMasterPassword,
@@ -976,7 +978,10 @@ const syncHandler = async (c: any) => {
   const is_archived = query.archive !== undefined ? Number(query.archive) : undefined;
   const is_starred = query.starred !== undefined ? Number(query.starred) : undefined;
 
-  const syncState = await getSyncState(c.env.DB);
+  const [syncState, readingWpm] = await Promise.all([
+    getSyncState(c.env.DB),
+    getReadingWpm(c.env.DB),
+  ]);
   const currentRev = syncState.revision;
   const instanceId = syncState.instance_id;
 
@@ -989,6 +994,7 @@ const syncHandler = async (c: any) => {
       sync_rev: currentRev,
       instance_id: instanceId,
       counts: counts,
+      reading_wpm: readingWpm,
       ota_version: OTA_VERSION,
       ota_checksum: OTA_CHECKSUM,
       koplugin_version: KOPLUGIN_VERSION,
@@ -1032,6 +1038,7 @@ const syncHandler = async (c: any) => {
     page: entriesResult.page,
     limit: entriesResult.limit,
     pages: entriesResult.pages,
+    reading_wpm: readingWpm,
     ota_version: OTA_VERSION,
     ota_checksum: OTA_CHECKSUM,
     koplugin_version: KOPLUGIN_VERSION,
@@ -1042,6 +1049,28 @@ const syncHandler = async (c: any) => {
 
 apiRouter.get('/api/sync', authMiddleware, syncHandler);
 apiRouter.get('/api/sync.json', authMiddleware, syncHandler);
+
+apiRouter.get('/api/settings', authMiddleware, async (c: any) => {
+  const readingWpm = await getReadingWpm(c.env.DB);
+  return c.json({ reading_wpm: readingWpm });
+});
+
+const updateSettingsHandler = async (c: any) => {
+  const body = await c.req.json().catch(() => ({}));
+  if (body.reading_wpm !== undefined) {
+    const num = Number(body.reading_wpm);
+    if (!Number.isFinite(num)) {
+      return c.json({ error: 'reading_wpm must be a valid number' }, 400);
+    }
+    const saved = await setReadingWpm(c.env.DB, num);
+    return c.json({ reading_wpm: saved });
+  }
+  const readingWpm = await getReadingWpm(c.env.DB);
+  return c.json({ reading_wpm: readingWpm });
+};
+
+apiRouter.put('/api/settings', authMiddleware, updateSettingsHandler);
+apiRouter.patch('/api/settings', authMiddleware, updateSettingsHandler);
 
 // -------------------------------------------------------------
 

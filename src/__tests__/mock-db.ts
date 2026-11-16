@@ -156,6 +156,15 @@ export function createMockD1Database() {
               })) as T[]
             };
           }
+          if (query.includes('SELECT id, content, reading_time FROM entries')) {
+            return {
+              results: entries.map(e => ({
+                id: e.id,
+                content: e.content,
+                reading_time: e.reading_time,
+              })) as T[]
+            };
+          }
           if (query.includes('SELECT * FROM entries')) {
             let matched = [...entries];
             if (query.includes('revision > ?')) {
@@ -323,6 +332,7 @@ export function createMockD1Database() {
                   if (c.startsWith('url = ?')) entry.url = boundParams[idx];
                   if (c.startsWith('is_archived = ?')) entry.is_archived = boundParams[idx];
                   if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
+                  if (c.startsWith('reading_time = ?')) entry.reading_time = boundParams[idx];
                   if (c.startsWith('revision = ?')) entry.revision = boundParams[idx];
                 });
                 entry.updated_at = new Date().toISOString();

@@ -8,6 +8,7 @@ import { updateCounts, renderSidebarTags } from "../components/sidebar";
 import { renderArticles, getFilteredEntries, loadMoreRenderedCards } from "../components/article-list";
 import { openReader, closeReader } from "../reader/view";
 import { showToast } from "../components/toast";
+import { syncReadingWpmFromServer } from "../utils/reading-time";
 
 export let isOfflineMode = false;
 
@@ -116,6 +117,7 @@ export async function loadArticles(isBackground: boolean = false): Promise<void>
         if (data.ota_version && typeof (window as any).checkCapacitorOtaFromVersion === "function") {
           (window as any).checkCapacitorOtaFromVersion(data.ota_version);
         }
+        syncReadingWpmFromServer(data.reading_wpm);
         if (Array.isArray(data.entries)) {
           state.allEntries = reconcileDeltaSync(state.allEntries, data, true);
           state.allEntries = deduplicateEntries(state.allEntries);

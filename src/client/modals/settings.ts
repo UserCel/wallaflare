@@ -9,6 +9,12 @@ import { clearIndexedDB } from "../storage/db";
 import { getParserMode, setParserMode, ParserMode } from "../extractor";
 import { escapeHtml } from "../utils/dom";
 import { normalizeUrl, formatCardDate } from "../utils/format";
+import {
+  getReadingWpm,
+  clampReadingWpm,
+  scaleReadingMinutes,
+  saveReadingWpmToServer,
+} from "../utils/reading-time";
 
 let activeSettingsTab = "appearance";
 let lastDataTabSyncTime = 0;
@@ -65,7 +71,7 @@ export function updateSettingsStats(): void {
   const starred = allEntries.filter((e: any) => e.is_starred).length;
   const totalReadingMins = allEntries
     .filter((e: any) => !e.is_archived)
-    .reduce((sum: number, e: any) => sum + (e.reading_time || Math.max(1, Math.round((e.content?.length || 500) / 1000))), 0);
+    .reduce((sum: number, e: any) => sum + scaleReadingMinutes(e.reading_time || Math.max(1, Math.round((e.content?.length || 500) / 1000))), 0);
 
   if (unreadStatEl) unreadStatEl.textContent = String(unread);
   if (starredStatEl) starredStatEl.textContent = String(starred);
@@ -571,6 +577,41 @@ export async function handleRenamePersonalToken(id: number, currentLabel: string
   }
 }
 
+export function updateReadingWpmUI(wpmOverride?: number): void {
+  const currentWpm = wpmOverride !== undefined ? clampReadingWpm(wpmOverride) : getReadingWpm();
+  const valEl = document.getElementById("settingsWpmValue");
+  const sliderEl = document.getElementById("settingsWpmSlider") as HTMLInputElement | null;
+  if (valEl) valEl.textContent = `${currentWpm} WPM`;
+  if (sliderEl) sliderEl.value = String(currentWpm);
+
+  document.querySelectorAll("#settingsWpmPresets .opt-wpm-btn").forEach((btn) => {
+    const preset = Number(btn.getAttribute("data-wpm"));
+    if (preset === currentWpm) {
+      btn.classList.add("btn-primary");
+      btn.classList.remove("btn-outline");
+    } else {
+      btn.classList.remove("btn-primary");
+      btn.classList.add("btn-outline");
+    }
+  });
+}
+
+export function previewReadingWpm(val: string | number): void {
+  updateReadingWpmUI(Number(val));
+}
+
+export async function setReadingWpmSetting(val: string | number): Promise<void> {
+  const parsed = Number(val);
+  const clamped = clampReadingWpm(parsed);
+  updateReadingWpmUI(clamped);
+  await saveReadingWpmToServer(clamped, authFetch);
+  updateSettingsStats();
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  if (typeof w.filterArticles === "function") w.filterArticles();
+  if (typeof w.refreshActiveReaderMeta === "function") w.refreshActiveReaderMeta();
+  showToast(`Reading speed set to ${clamped} WPM`);
+}
+
 export function openSettingsModal(initialTab: string | null = null): void {
   const modal = document.getElementById("settingsModal");
   if (!modal) return;
@@ -591,6 +632,7 @@ export function openSettingsModal(initialTab: string | null = null): void {
   populateServerConfigInputs();
   updateSettingsStats();
   updateParserEngineUI();
+  updateReadingWpmUI();
   const webTip = document.getElementById("siteCookieWebTip");
   if (webTip) webTip.style.display = isCapacitorApp() ? "none" : "block";
 

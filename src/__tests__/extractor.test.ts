@@ -9,6 +9,16 @@ describe('Article Extractor Service', () => {
     // 400 words should be 2 minutes
     const longText = Array(400).fill('word').join(' ');
     expect(calculateReadingTime(longText)).toBe(2);
+
+    // Dense technical words (longer average char length) should yield a higher estimate than short words
+    const shortWords = Array(1000).fill('cat').join(' ');
+    const denseWords = Array(1000).fill('infrastructure').join(' ');
+    expect(calculateReadingTime(denseWords)).toBeGreaterThan(calculateReadingTime(shortWords));
+
+    // CJK characters without spaces (~500 chars/min)
+    const cjkText = '漢'.repeat(1000);
+    expect(calculateReadingTime(cjkText)).toBe(2);
+    expect(calculateReadingTime('')).toBe(1);
   });
 
   it('extracts domain correctly from URLs', () => {
