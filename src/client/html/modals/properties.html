@@ -1,0 +1,13 @@
+<!-- Modal: Article / Selection Properties -->
+  <div class="modal-backdrop" id="propertiesModal" onclick="if(event.target === this) closeModal('propertiesModal')">
+    <div class="modal" style="max-width: 520px; width: 92vw; max-height: 85vh;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="propertiesModalTitle">Properties</h3>
+        <button type="button" class="close-btn" onclick="closeModal('propertiesModal')">&times;</button>
+      </div>
+      <div id="propertiesModalBody" style="display: flex; flex-direction: column; gap: 0.9rem;"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('propertiesModal')">Close</button>
+      </div>
+    </div>
+  </div>

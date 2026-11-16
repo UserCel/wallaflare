@@ -87,6 +87,10 @@ export function generateUnifiedArticleMenuHtml(opts: UnifiedMenuOptions): string
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>' +
         '<span>Re-fetch Content</span>' +
       '</button>' +
+      '<button type="button" class="menu-item" onclick="' + closeFnName + '; openPropertiesModal(' + id + ');">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
+        '<span>Properties</span>' +
+      '</button>' +
       focusModeBtn +
       '<div class="menu-divider"></div>' +
       '<button type="button" class="menu-item menu-item-danger" onclick="' + closeFnName + '; deleteEntryAction(' + id + ');">' +
@@ -129,6 +133,10 @@ export function generateUnifiedArticleMenuHtml(opts: UnifiedMenuOptions): string
     '<button type="button" class="menu-item" onclick="' + closeFnName + '; batchRefetchContent();">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>' +
       '<span>Re-fetch Content</span>' +
+    '</button>' +
+    '<button type="button" class="menu-item" onclick="' + closeFnName + '; openPropertiesModal();">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
+      '<span>Properties</span>' +
     '</button>' +
     '<div class="menu-divider"></div>' +
     '<button type="button" class="menu-item menu-item-danger" onclick="' + closeFnName + '; batchDeleteArticles();">' +
