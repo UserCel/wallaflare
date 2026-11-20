@@ -167,6 +167,7 @@ import {
   handleIngestText
 } from './modals/add-article';
 import { escapeHtml } from './utils/dom';
+import { preservePendingAnnotationsInEntries } from './sync/reconciliation';
 import { formatCardDate, normalizeUrl } from './utils/format';
 import {
   openTagModal,
@@ -1654,8 +1655,9 @@ import {
               showToast('Article not found (deleted on server)', 4000);
             }
           } else {
-            const freshEntries = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : (data._embedded?.items || []));
-            if (freshEntries.length > 0) {
+            const rawFreshEntries = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : (data._embedded?.items || []));
+            if (rawFreshEntries.length > 0) {
+              const freshEntries = preservePendingAnnotationsInEntries(rawFreshEntries, allEntries);
               const freshMap = new Map(freshEntries.map(e => [e.id, e]));
               const merged = [...freshEntries];
               for (const existing of allEntries) {

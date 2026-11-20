@@ -6,6 +6,12 @@ import {
   renderModalHighlightsList,
   formatAnnotationReadable
 } from "../modals/highlights";
+import {
+  registerPendingAnnotationMutation,
+  markPendingAnnotationCommitted,
+  clearPendingAnnotationMutation,
+  migratePendingAnnotationMutation
+} from "../sync/reconciliation";
 
 export let activeSelectionRange: Range | null = null;
 export let activeSelectedQuote: string = "";
@@ -586,9 +592,15 @@ export async function changePopoverHighlightColor(color: string): Promise<void> 
   const allEntries = w.allEntries || [];
   if (!activePopoverAnnotation || !activeArticleId) return;
   const targetAnn = activePopoverAnnotation;
-  const targetAnnId = targetAnn.id;
-  targetAnn.color = color;
+  let targetAnnId = targetAnn.id;
   const item = allEntries.find((e: any) => e.id === activeArticleId);
+  const liveAnn = (item && item.annotations)
+    ? (item.annotations.find((a: any) => String(a.id) === String(targetAnnId)) || targetAnn)
+    : targetAnn;
+  liveAnn.color = color;
+  liveAnn._localEdited = true;
+  if (targetAnn !== liveAnn) targetAnn.color = color;
+  const mutSeq = registerPendingAnnotationMutation(activeArticleId, targetAnnId, { color });
   if (item) {
     applyAnnotationsToReader(item);
     if (typeof w.syncLocalEntriesCache === "function") {
@@ -597,13 +609,23 @@ export async function changePopoverHighlightColor(color: string): Promise<void> 
   }
   closeHighlightPopover();
   try {
+    if (liveAnn._createPromise) {
+      const saved = await liveAnn._createPromise;
+      if (saved && saved.id) {
+        migratePendingAnnotationMutation(targetAnnId, saved.id);
+        targetAnnId = saved.id;
+      }
+    }
     const authFetch = w.authFetch || fetch;
-    await authFetch("/api/annotations/" + targetAnnId + ".json", {
+    const res = await authFetch("/api/annotations/" + targetAnnId + ".json", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ color })
     });
+    const savedPatch = res && typeof res.json === "function" ? await res.json().catch(() => null) : null;
+    markPendingAnnotationCommitted(targetAnnId, mutSeq, savedPatch?.updated_at);
   } catch (e) {
+    clearPendingAnnotationMutation(targetAnnId, mutSeq);
     console.error("[Annotations] Failed to patch annotation color:", e);
   }
 }
@@ -643,6 +665,45 @@ export async function deletePopoverHighlight(): Promise<void> {
       const authFetch = w.authFetch || fetch;
       await authFetch("/api/annotations/" + realId + ".json", { method: "DELETE" });
     } catch (e) {}
+  }
+}
+
+function reconcileCreatedAnnotation(tempId: string, newAnn: any, saved: any, entryId: number): void {
+  if (!saved || !saved.id) return;
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  const liveEntries = w.allEntries || [];
+  const liveItem = liveEntries.find((e: any) => e.id === entryId);
+
+  if (newAnn._localEdited) {
+    newAnn.id = saved.id;
+    newAnn.entry_id = saved.entry_id ?? entryId;
+    if (saved.created_at) newAnn.created_at = saved.created_at;
+    if (saved.updated_at) newAnn.updated_at = saved.updated_at;
+  } else {
+    Object.assign(newAnn, saved);
+  }
+  migratePendingAnnotationMutation(tempId, saved.id);
+
+  if (liveItem) {
+    if (!liveItem.annotations) liveItem.annotations = [];
+    const idx = liveItem.annotations.findIndex((a: any) => a.id === tempId || a.id === saved.id);
+    if (idx >= 0) liveItem.annotations[idx] = newAnn;
+    else liveItem.annotations.push(newAnn);
+  }
+
+  const marks = document.querySelectorAll(`mark[data-annotation-id="${tempId}"]`);
+  marks.forEach(m => (m as HTMLElement).dataset.annotationId = String(saved.id));
+  if (activePopoverAnnotation && activePopoverAnnotation.id === tempId) {
+    activePopoverAnnotation.id = saved.id;
+  }
+  if (activeModalAnnotation && activeModalAnnotation.id === tempId) {
+    activeModalAnnotation.id = saved.id;
+  }
+  if (typeof w.syncLocalEntriesCache === "function") {
+    w.syncLocalEntriesCache(liveEntries, w.cachedGlobalTags, w.serverLibraryCounts);
+  }
+  if (typeof w.filterArticles === "function") {
+    w.filterArticles(false);
   }
 }
 
@@ -703,20 +764,7 @@ export function handleCreateHighlight(color: string = "yellow"): void {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quote, color, text: "", target })
   }).then((res: any) => res.json()).then((saved: any) => {
-    Object.assign(newAnn, saved);
-    const idx = item.annotations.findIndex((a: any) => a.id === tempId || a.id === saved.id);
-    if (idx >= 0) item.annotations[idx] = newAnn;
-    const marks = document.querySelectorAll(`mark[data-annotation-id="${tempId}"]`);
-    marks.forEach(m => (m as HTMLElement).dataset.annotationId = String(saved.id));
-    if (activePopoverAnnotation && activePopoverAnnotation.id === tempId) {
-      activePopoverAnnotation.id = saved.id;
-    }
-    if (typeof w.syncLocalEntriesCache === "function") {
-      w.syncLocalEntriesCache(allEntries, w.cachedGlobalTags, w.serverLibraryCounts);
-    }
-    if (typeof w.filterArticles === "function") {
-      w.filterArticles(false);
-    }
+    reconcileCreatedAnnotation(tempId, newAnn, saved, item.id);
     return saved;
   }).catch(() => null);
 
@@ -799,7 +847,7 @@ export async function handleSaveAnnotationNoteForm(e: Event): Promise<void> {
   if (e) e.preventDefault();
   const w = typeof window !== "undefined" ? (window as any) : {};
   const allEntries = w.allEntries || [];
-  const targetArticleId = w.activeArticleId || (activeModalAnnotation && activeModalAnnotation.entry_id);
+  const targetArticleId = (activeModalAnnotation && activeModalAnnotation.entry_id) || w.activeArticleId;
   if (!targetArticleId) return;
   const item = allEntries.find((entry: any) => entry.id === targetArticleId);
   if (!item) return;
@@ -819,7 +867,7 @@ export async function handleSaveAnnotationNoteForm(e: Event): Promise<void> {
     }
     closeAnnotationNoteModal();
     const tempId = "tmp_" + Date.now();
-    const newAnn = { id: tempId, entry_id: item.id, quote, color, text, target, created_at: new Date().toISOString() };
+    const newAnn: any = { id: tempId, entry_id: item.id, quote, color, text, target, created_at: new Date().toISOString() };
     if (!item.annotations) item.annotations = [];
     item.annotations.push(newAnn);
 
@@ -833,60 +881,72 @@ export async function handleSaveAnnotationNoteForm(e: Event): Promise<void> {
     renderModalHighlightsList();
 
     const authFetch = w.authFetch || fetch;
-    authFetch("/api/annotations/" + item.id + ".json", {
+    newAnn._createPromise = authFetch("/api/annotations/" + item.id + ".json", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ quote, color, text, target })
     }).then((res: any) => res.json()).then((saved: any) => {
-      Object.assign(newAnn, saved);
-      const idx = item.annotations.findIndex((a: any) => a.id === tempId || a.id === saved.id);
-      if (idx >= 0) item.annotations[idx] = newAnn;
-      const marks = document.querySelectorAll(`mark[data-annotation-id="${tempId}"]`);
-      marks.forEach(m => (m as HTMLElement).dataset.annotationId = String(saved.id));
-      if (activePopoverAnnotation && activePopoverAnnotation.id === tempId) {
-        activePopoverAnnotation.id = saved.id;
-      }
-      if (typeof w.syncLocalEntriesCache === "function") {
-        w.syncLocalEntriesCache(allEntries, w.cachedGlobalTags, w.serverLibraryCounts);
-      }
-      if (typeof w.filterArticles === "function") {
-        w.filterArticles(false);
-      }
+      reconcileCreatedAnnotation(tempId, newAnn, saved, item.id);
       renderModalHighlightsList();
-    }).catch(() => {});
+      return saved;
+    }).catch(() => null);
     return;
   }
 
   if (activeModalAnnotation) {
-    const targetAnnId = activeModalAnnotation.id;
+    const modalAnn = activeModalAnnotation;
+    let targetAnnId = modalAnn.id;
+    const liveAnn = (item.annotations || []).find((a: any) => String(a.id) === String(targetAnnId)) || modalAnn;
     const editedQuote = quoteInput ? quoteInput.value.trim() : "";
-    const prevQuote = activeModalAnnotation.quote;
-    activeModalAnnotation.text = text;
-    activeModalAnnotation.color = color;
-    if (editedQuote && editedQuote !== prevQuote) {
-      activeModalAnnotation.quote = editedQuote;
-      if (activeModalAnnotation.target && activeModalAnnotation.target.selector) {
-        activeModalAnnotation.target.selector.exact = editedQuote;
+    const prevQuote = liveAnn.quote;
+
+    const applyLocalEdit = (annObj: any) => {
+      annObj.text = text;
+      annObj.color = color;
+      annObj._localEdited = true;
+      if (editedQuote && editedQuote !== prevQuote) {
+        annObj.quote = editedQuote;
+        if (annObj.target && annObj.target.selector) {
+          annObj.target.selector.exact = editedQuote;
+        }
       }
+    };
+    applyLocalEdit(liveAnn);
+    if (modalAnn !== liveAnn) applyLocalEdit(modalAnn);
+
+    const patchBody: any = { text, color };
+    if (editedQuote && editedQuote !== prevQuote) {
+      patchBody.quote = editedQuote;
     }
-    applyAnnotationsToReader(item);
+    const mutSeq = registerPendingAnnotationMutation(item.id, targetAnnId, patchBody);
+
+    if (w.activeArticleId === item.id) {
+      applyAnnotationsToReader(item);
+    }
     if (typeof w.syncLocalEntriesCache === "function") {
       w.syncLocalEntriesCache(allEntries, w.cachedGlobalTags, w.serverLibraryCounts);
     }
     renderModalHighlightsList();
     closeAnnotationNoteModal();
+
     try {
-      const authFetch = w.authFetch || fetch;
-      const patchBody: any = { text, color };
-      if (editedQuote && editedQuote !== prevQuote) {
-        patchBody.quote = editedQuote;
+      if (liveAnn._createPromise) {
+        const saved = await liveAnn._createPromise;
+        if (saved && saved.id) {
+          migratePendingAnnotationMutation(targetAnnId, saved.id);
+          targetAnnId = saved.id;
+        }
       }
-      await authFetch("/api/annotations/" + targetAnnId + ".json", {
+      const authFetch = w.authFetch || fetch;
+      const res = await authFetch("/api/annotations/" + targetAnnId + ".json", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patchBody)
       });
+      const savedPatch = res && typeof res.json === "function" ? await res.json().catch(() => null) : null;
+      markPendingAnnotationCommitted(targetAnnId, mutSeq, savedPatch?.updated_at);
     } catch (e) {
+      clearPendingAnnotationMutation(targetAnnId, mutSeq);
       console.error("[Annotations] Failed to patch annotation note:", e);
     }
   }
