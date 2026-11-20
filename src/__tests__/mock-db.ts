@@ -334,6 +334,7 @@ export function createMockD1Database() {
                   if (c.startsWith('is_starred = ?')) entry.is_starred = boundParams[idx];
                   if (c.startsWith('reading_time = ?')) entry.reading_time = boundParams[idx];
                   if (c.startsWith('revision = ?')) entry.revision = boundParams[idx];
+                  if (c.startsWith('bookmark = ?')) entry.bookmark = boundParams[idx];
                 });
                 entry.updated_at = new Date().toISOString();
               }

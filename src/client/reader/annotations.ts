@@ -12,6 +12,7 @@ import {
   clearPendingAnnotationMutation,
   migratePendingAnnotationMutation
 } from "../sync/reconciliation";
+import { applyBookmarkMarkerToReader } from "./bookmark";
 
 export let activeSelectionRange: Range | null = null;
 export let activeSelectedQuote: string = "";
@@ -332,6 +333,7 @@ export function applyAnnotationsToReader(item: any): void {
   }
 
   updateHighlightsBadge(annotations.length);
+  applyBookmarkMarkerToReader(item);
 }
 
 export function openHighlightPopover(ann: any, targetEl: HTMLElement): void {
@@ -1104,8 +1106,17 @@ export function initReaderSelectionHandlers(): void {
   });
 }
 
+export function getActiveSelectionInfo(): { quote: string; range: Range | null } {
+  const sel = typeof window !== "undefined" && typeof window.getSelection === "function" ? window.getSelection() : null;
+  const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : activeSelectionRange;
+  const selQuote = sel ? sel.toString().trim() : "";
+  const quote = (selQuote || activeSelectedQuote || (range ? range.toString().trim() : "")).trim();
+  return { quote, range };
+}
+
 if (typeof window !== "undefined") {
   const w = window as any;
+  w.getActiveSelectionInfo = getActiveSelectionInfo;
   w.isRtlText = isRtlText;
   w.getSelectionContext = getSelectionContext;
   w.highlightTextInNode = highlightTextInNode;

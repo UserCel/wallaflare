@@ -22,6 +22,14 @@ export interface Env {
   EPUB_MAX_IMAGES?: string | number;
 }
 
+export interface ArticleBookmark {
+  quote: string;
+  prefix?: string;
+  position?: number;
+  progress?: number;
+  updated_at: string;
+}
+
 export interface EntryRow {
   id: number;
   url: string | null;
@@ -39,6 +47,7 @@ export interface EntryRow {
   published_at?: string;
   revision?: number;
   content_revision?: number;
+  bookmark?: string | null;
 }
 
 export interface WallabagEntry {
@@ -70,6 +79,7 @@ export interface WallabagEntry {
   mimetype?: string;
   text?: string;
   annotations?: any[];
+  bookmark?: ArticleBookmark | null;
   origin_url?: string | null;
   revision?: number;
 }

@@ -24,6 +24,14 @@ export interface Tag {
   count?: number;
 }
 
+export interface ArticleBookmark {
+  quote: string;
+  prefix?: string;
+  position?: number;
+  progress?: number;
+  updated_at: string;
+}
+
 export interface Article {
   id: number;
   title: string;
@@ -45,6 +53,7 @@ export interface Article {
   language?: string;
   reading_progress?: number;
   annotations?: Annotation[];
+  bookmark?: ArticleBookmark | null;
 }
 
 export type FilterType = "unread" | "starred" | "archive" | "all" | "tag";

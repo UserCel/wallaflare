@@ -258,6 +258,60 @@
     .action-btn.active-archive, .btn-icon.active-archive {
       color: var(--success) !important;
     }
+    .action-btn.active-bookmark, .btn-icon.active-bookmark {
+      color: var(--accent) !important;
+    }
+    .action-btn.active-bookmark svg, .btn-icon.active-bookmark svg {
+      fill: var(--accent) !important;
+      stroke: var(--accent) !important;
+    }
+    .reader-bookmark-line {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 1rem 0 0.65rem 0;
+      width: 100%;
+      user-select: none;
+    }
+    .reader-bookmark-line::before,
+    .reader-bookmark-line::after {
+      content: "";
+      flex: 1;
+      height: 1.5px;
+      background: var(--accent);
+      opacity: 0.45;
+    }
+    .reader-bookmark-line::before {
+      flex: 0 0 18px;
+    }
+    .reader-bookmark-marker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      cursor: pointer;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      line-height: 1.2;
+      transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    }
+    .reader-bookmark-marker:hover {
+      background: var(--accent);
+      color: #fff;
+      transform: scale(1.04);
+    }
+    @keyframes wfBookmarkFlash {
+      0% { background-color: rgba(249, 115, 22, 0.28); }
+      100% { background-color: transparent; }
+    }
+    .reader-bookmark-flash {
+      animation: wfBookmarkFlash 1.8s ease-out;
+      border-radius: 4px;
+    }
 
     .brand {
       display: flex;

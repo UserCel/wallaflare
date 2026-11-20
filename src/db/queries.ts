@@ -19,7 +19,8 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         revision INTEGER DEFAULT 1,
-        content_revision INTEGER DEFAULT 1
+        content_revision INTEGER DEFAULT 1,
+        bookmark TEXT
       )`,
       `CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +104,7 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
 
     try { await db.prepare('ALTER TABLE sync_state ADD COLUMN instance_id INTEGER NOT NULL DEFAULT 1').run(); } catch {}
     try { await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE entries ADD COLUMN bookmark TEXT').run(); } catch {}
     try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch {}
     try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN revision INTEGER NOT NULL DEFAULT 1').run(); } catch {}
 
@@ -252,6 +254,15 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
 
   const hashedUrl = row?.url ? sha1Hex(row.url) : null;
 
+  let parsedBookmark = null;
+  if (row?.bookmark) {
+    if (typeof row.bookmark === 'string') {
+      try { parsedBookmark = JSON.parse(row.bookmark); } catch {}
+    } else if (typeof row.bookmark === 'object') {
+      parsedBookmark = row.bookmark;
+    }
+  }
+
   return {
     id: row?.id || 0,
     title: row?.title || 'Untitled',
@@ -284,6 +295,7 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
     mimetype: 'text/html',
     text: plainText,
     annotations: entryAnnotations,
+    bookmark: parsedBookmark,
     origin_url: row?.url || null,
   };
 }
@@ -1005,6 +1017,10 @@ export async function updateEntry(
   if (updates.language !== undefined) {
     setClauses.push('language = ?');
     params.push(updates.language);
+  }
+  if (updates.bookmark !== undefined) {
+    setClauses.push('bookmark = ?');
+    params.push(updates.bookmark);
   }
 
   params.push(id);

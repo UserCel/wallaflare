@@ -1552,6 +1552,21 @@ const patchEntryHandler = async (c: any) => {
   if (body.title !== undefined) updates.title = String(body.title);
   if (body.content !== undefined) updates.content = sanitizeHtmlFragment(String(body.content));
   if (body.tags !== undefined) updates.tags = body.tags;
+  if (body.bookmark !== undefined) {
+    if (body.bookmark === null) {
+      updates.bookmark = null;
+    } else if (typeof body.bookmark === 'string') {
+      updates.bookmark = body.bookmark.trim() ? body.bookmark : null;
+    } else if (typeof body.bookmark === 'object') {
+      updates.bookmark = JSON.stringify({
+        quote: String(body.bookmark.quote || '').slice(0, 300),
+        prefix: body.bookmark.prefix ? String(body.bookmark.prefix).slice(0, 100) : undefined,
+        position: typeof body.bookmark.position === 'number' ? body.bookmark.position : undefined,
+        progress: typeof body.bookmark.progress === 'number' ? body.bookmark.progress : undefined,
+        updated_at: body.bookmark.updated_at ? String(body.bookmark.updated_at) : new Date().toISOString()
+      });
+    }
+  }
 
   const updated = await updateEntry(c.env.DB, id, updates);
   if (!updated) {

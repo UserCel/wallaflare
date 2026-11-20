@@ -107,6 +107,14 @@ export async function processOutboxMutations(): Promise<void> {
           });
           if (res.ok || res.status === 404) success = true;
           else if (res.status >= 400 && res.status < 500) removeOnError = true;
+        } else if (mut.action === "set_bookmark") {
+          const res = await authFetch("/api/entries/" + mut.payload.id + ".json", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bookmark: mut.payload.bookmark ?? null })
+          });
+          if (res.ok || res.status === 404) success = true;
+          else if (res.status >= 400 && res.status < 500) removeOnError = true;
         } else if (mut.action === "add_tag") {
           const res = await authFetch("/api/entries/" + mut.payload.id + "/tags.json", {
             method: "POST",

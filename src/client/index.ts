@@ -168,6 +168,12 @@ import {
 } from './modals/add-article';
 import { escapeHtml } from './utils/dom';
 import { preservePendingAnnotationsInEntries } from './sync/reconciliation';
+import {
+  updateReaderBookmarkUI,
+  handleBookmarkSelection,
+  jumpToActiveBookmark,
+  clearActiveBookmark
+} from './reader/bookmark';
 import { formatCardDate, normalizeUrl } from './utils/format';
 import {
   openTagModal,
@@ -1684,6 +1690,7 @@ import {
             if (activeItem) {
               applyAnnotationsToReader(activeItem);
               updateHighlightsBadge(activeItem);
+              updateReaderBookmarkUI(activeItem);
             }
           }
 
@@ -2396,6 +2403,8 @@ import {
       const archiveBtn = document.getElementById('readerArchiveBtn');
       if (item.is_archived) archiveBtn?.classList.add('active-archive');
       else archiveBtn?.classList.remove('active-archive');
+
+      updateReaderBookmarkUI(item);
 
       // RTL handling
       const isRtl = (item.language && ['he', 'iw', 'ar', 'fa', 'ur', 'yi'].includes(item.language.toLowerCase().split('-')[0])) || isRtlText(item.title + ' ' + (item.text || item.content || ''));
@@ -4308,6 +4317,10 @@ if (typeof window !== "undefined") {
   try { (window as any).closeAnnotationNoteModal = closeAnnotationNoteModal; } catch (e) {}
   try { (window as any).handleSaveAnnotationNoteForm = handleSaveAnnotationNoteForm; } catch (e) {}
   try { (window as any).clearActiveTextSelection = clearActiveTextSelection; } catch (e) {}
+  try { (window as any).handleBookmarkSelection = handleBookmarkSelection; } catch (e) {}
+  try { (window as any).jumpToActiveBookmark = jumpToActiveBookmark; } catch (e) {}
+  try { (window as any).clearActiveBookmark = clearActiveBookmark; } catch (e) {}
+  try { (window as any).updateReaderBookmarkUI = updateReaderBookmarkUI; } catch (e) {}
   try { (window as any).deleteModalAnnotation = deleteModalAnnotation; } catch (e) {}
   try { (window as any).editModalAnnotation = editModalAnnotation; } catch (e) {}
   try { (window as any).copyModalAnnotation = copyModalAnnotation; } catch (e) {}
