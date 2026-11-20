@@ -53,6 +53,10 @@
   - 4-color palette (`🟡`, `🟢`, `🔵`, `🟣`), attached notes, in-memory batching, and Markdown export with highlights (`==text==`) and footnotes (`[^note]`).
   - Interactive KOReader-style word boundary adjustment (`+W` / `-W` for start and end) directly in the floating popover and note editor for typo-free quote resizing without highlight loss.
   - Full bi-directional sync with KOReader: synchronizes highlights, notes, colors, and modified quote selections with Last-Write-Wins conflict resolution.
+- **🔖 Single Per-Article Synced Bookmark**:
+  - Select any text in the reader and tap **Bookmark** in the selection toolbar to mark where you left off (auto-replacing any previous bookmark on that article).
+  - Syncs across devices via Cloudflare D1 and the offline outbox without cluttering your Highlights & Notes.
+  - Displays a clean divider line above the bookmarked paragraph (click to remove) and a top-bar bookmark icon to jump straight back to your spot.
 - **🔑 Zero-Trust Architecture & In-App Password Management**:
   - **Salted PBKDF2 Password Hashing**: Master password is securely hashed in Cloudflare D1 with 100,000 iterations of PBKDF2-SHA256 and per-instance random salts.
   - **Change Password In-App**: Update your master password directly from **Settings > Server & Data** without needing Wrangler CLI or redeploying.

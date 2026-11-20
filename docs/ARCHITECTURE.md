@@ -76,7 +76,15 @@ The frontend is a unified, responsive 3-pane workstation that fluidly adapts bet
 ### 5. Interactive Annotation Selection & Popover Engine
 - **KOReader-Style Word Stepping**: Highlights and notes can be interactively expanded or shrunk word-by-word via `Start: [+W] [-W]` and `End: [-W] [+W]` buttons directly in the reader's highlight popover and note editor modal.
 - **Text-Stream Substring Safety**: Quotes are derived directly from the article's text stream, preventing typos or missing punctuation from breaking DOM matching and causing highlights to vanish.
-- **Two-Way Sync Fidelity**: Word boundary adjustments immediately update W3C selectors (`exact`, `prefix`, `suffix`, and `position`), syncing seamlessly with KOReader and Cloudflare D1.
+- **Two-Way Sync Fidelity & Optimistic Protection**: Word boundary adjustments immediately update W3C selectors (`exact`, `prefix`, `suffix`, and `position`), syncing seamlessly with KOReader and Cloudflare D1. In-flight and recently-committed annotation mutations are protected in `src/client/sync/reconciliation.ts` (`preservePendingAnnotationsInEntries`) so concurrent background syncs cannot revert active edits.
+- **Viewport-Aware Popover & Close on Scroll**: `#highlightPopover` measures available viewport height and flips above the highlight when near the bottom edge, and automatically closes when `#readerScrollContainer` scrolls.
+
+### 6. Single Per-Article Synced Bookmark Engine
+- **Dedicated `entries.bookmark` Column**: Each article stores at most one optional JSON bookmark (`{ quote, prefix, position, progress, updated_at }`), synced via `PATCH /api/entries/:id(.json)`, `/api/sync.json`, and the offline `set_bookmark` outbox action (`src/client/storage/outbox.ts`).
+- **Clear Single-Responsibility UX (`src/client/reader/bookmark.ts`)**:
+  - **Set / Move**: Selecting text in the reader and tapping **Bookmark** in the desktop floating toolbar or mobile contextual header anchors the bookmark (disambiguating repeated words by `prefix` and `position`).
+  - **Jump**: The top-bar `#readerBookmarkBtn` reflects whether a bookmark is set and scrolls directly to it.
+  - **Visual Marker & Remove**: Renders a horizontal divider line (`.reader-bookmark-line`) directly above the bookmarked paragraph; clicking its `Bookmark` pill removes the bookmark.
 
 ---
 
@@ -84,6 +92,8 @@ The frontend is a unified, responsive 3-pane workstation that fluidly adapts bet
 
 All dashboard and backend functionality is covered by automated unit, integration, and E2E test suites:
 - **`src/__tests__/dashboard.test.ts`**: Verifies HTML structure, inline script syntax compilation, typography popover controls, highlights navigator, interactive word-step selection controls, and markdown export engine.
+- **`src/__tests__/annotation-note-update-stress.test.ts`**: Concurrency and jittered-latency stress tests verifying that background syncs and in-flight highlight creations never revert note updates in the UI.
+- **`src/__tests__/bookmark.test.ts`**: Verifies single-per-article bookmark placement, single-word disambiguation, above-paragraph divider rendering/removal, and D1/sync API persistence.
 - **`src/__tests__/api.test.ts`**: Verifies REST endpoints, batch tagging, annotation mutations, and mass delete/star/archive.
 - **`src/__tests__/epub.test.ts`**: Verifies EPUB 3 strict XHTML validation and fflate zip archive packaging.
 - **`src/__tests__/pdf.test.ts`**: Verifies PDF page rendering and metadata generation.
