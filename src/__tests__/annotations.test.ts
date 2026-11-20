@@ -4,7 +4,10 @@ import {
   isRtlText,
   highlightTextInNode,
   applyAnnotationsToReader,
-  adjustAnnotationSelection
+  adjustAnnotationSelection,
+  openHighlightPopover,
+  positionHighlightPopover,
+  initReaderSelectionHandlers
 } from "../client/reader/annotations";
 import {
   updateHighlightsBadge,
@@ -334,6 +337,38 @@ describe("Annotations & In-Reader Highlights Engine Unit Tests", () => {
       const updated = adjustAnnotationSelection(ann, "end", "expand");
       expect(updated).toBe(true);
       expect(ann.quote).toBe("Initial following");
+    });
+  });
+
+  describe("Highlight Popover Positioning & Close on Scroll", () => {
+    it("flips popover above highlight when highlight is near the bottom of the viewport", () => {
+      win.innerWidth = 800;
+      win.innerHeight = 600;
+      const popover = doc.getElementById("highlightPopover");
+      Object.defineProperty(popover, "offsetWidth", { value: 280, configurable: true });
+      Object.defineProperty(popover, "offsetHeight", { value: 200, configurable: true });
+
+      const targetEl = doc.createElement("mark");
+      targetEl.getBoundingClientRect = () => ({ top: 520, bottom: 540, left: 100, right: 200 });
+
+      positionHighlightPopover(popover, targetEl);
+      // Should flip above: 520 - 200 - 6 = 314px
+      expect(popover.style.top).toBe("314px");
+      expect(popover.style.left).toBe("100px");
+    });
+
+    it("closes highlightPopover when readerScrollContainer scrolls", () => {
+      initReaderSelectionHandlers();
+      const popover = doc.getElementById("highlightPopover");
+      const targetEl = doc.createElement("mark");
+      targetEl.getBoundingClientRect = () => ({ top: 100, bottom: 120, left: 50, right: 150 });
+
+      openHighlightPopover({ id: 1, quote: "Hello", text: "Note" }, targetEl);
+      expect(popover.style.display).toBe("block");
+
+      const scrollContainer = doc.getElementById("readerScrollContainer");
+      scrollContainer.dispatchEvent(new win.Event("scroll"));
+      expect(popover.style.display).toBe("none");
     });
   });
 });

@@ -336,6 +336,27 @@ export function applyAnnotationsToReader(item: any): void {
   applyBookmarkMarkerToReader(item);
 }
 
+export function positionHighlightPopover(popover: HTMLElement, targetEl: HTMLElement): void {
+  const rect = targetEl.getBoundingClientRect();
+  const vw = window.innerWidth || 1024;
+  const vh = window.innerHeight || 768;
+  const popWidth = popover.offsetWidth || 280;
+  const popHeight = popover.offsetHeight || 220;
+
+  let top = rect.bottom + 6;
+  if (top + popHeight > vh - 10) {
+    const aboveTop = rect.top - popHeight - 6;
+    if (aboveTop >= 10) {
+      top = aboveTop;
+    } else {
+      top = Math.max(10, vh - popHeight - 10);
+    }
+  }
+  const left = Math.max(10, Math.min(vw - popWidth - 10, rect.left));
+  popover.style.top = top + "px";
+  popover.style.left = left + "px";
+}
+
 export function openHighlightPopover(ann: any, targetEl: HTMLElement): void {
   activePopoverAnnotation = ann;
   const popover = document.getElementById("highlightPopover");
@@ -351,9 +372,7 @@ export function openHighlightPopover(ann: any, targetEl: HTMLElement): void {
   if (noteActionLabel) noteActionLabel.textContent = ann.text ? "Edit Note" : "Add Note";
 
   popover.style.display = "block";
-  const rect = targetEl.getBoundingClientRect();
-  popover.style.top = Math.max(10, rect.bottom + 6) + "px";
-  popover.style.left = Math.max(10, Math.min(window.innerWidth - 290, rect.left)) + "px";
+  positionHighlightPopover(popover, targetEl);
 }
 
 export function closeHighlightPopover(): void {
@@ -558,12 +577,10 @@ export function adjustPopoverSelection(side: "start" | "end", action: "expand" |
   if (success) {
     const quoteEl = document.getElementById("popoverQuoteText");
     if (quoteEl) quoteEl.textContent = activePopoverAnnotation.quote ? ("“" + activePopoverAnnotation.quote + "”") : "";
-    const mark = document.querySelector(`mark[data-annotation-id="${activePopoverAnnotation.id}"]`);
+    const mark = document.querySelector(`mark[data-annotation-id="${activePopoverAnnotation.id}"]`) as HTMLElement | null;
     const popover = document.getElementById("highlightPopover");
     if (mark && popover) {
-      const rect = mark.getBoundingClientRect();
-      popover.style.top = Math.max(10, rect.bottom + 6) + "px";
-      popover.style.left = Math.max(10, Math.min(window.innerWidth - 290, rect.left)) + "px";
+      positionHighlightPopover(popover, mark);
     }
   }
 }
@@ -1104,6 +1121,16 @@ export function initReaderSelectionHandlers(): void {
       closeHighlightPopover();
     }
   });
+
+  const scrollContainer = document.getElementById("readerScrollContainer");
+  if (scrollContainer) {
+    scrollContainer.addEventListener("scroll", () => {
+      const popover = document.getElementById("highlightPopover");
+      if (popover && popover.style.display !== "none") {
+        closeHighlightPopover();
+      }
+    }, { passive: true });
+  }
 }
 
 export function getActiveSelectionInfo(): { quote: string; range: Range | null } {
