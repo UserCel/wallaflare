@@ -1,5 +1,7 @@
 import http from 'http';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { execSync } from 'child_process';
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import puppeteer, { Browser, Page } from "puppeteer";
@@ -20,6 +22,28 @@ describe.skipIf(process.platform === "android" || process.env.SKIP_E2E === "true
     const port = (server.address() as any).port;
 
     let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (!executablePath) {
+      try {
+        const bundled = puppeteer.executablePath();
+        if (bundled && fs.existsSync(bundled)) {
+          executablePath = bundled;
+        }
+      } catch (e) {}
+    }
+    if (!executablePath) {
+      try {
+        const shellRoot = path.join(os.homedir(), ".cache", "puppeteer", "chrome-headless-shell");
+        if (fs.existsSync(shellRoot)) {
+          for (const ver of fs.readdirSync(shellRoot).sort().reverse()) {
+            const candidate = path.join(shellRoot, ver, "chrome-headless-shell-linux64", "chrome-headless-shell");
+            if (fs.existsSync(candidate)) {
+              executablePath = candidate;
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+    }
     if (!executablePath) {
       try {
         const detected = execSync("which google-chrome || which google-chrome-stable || which chromium || which chromium-browser", { encoding: "utf8" }).trim().split("\n")[0];

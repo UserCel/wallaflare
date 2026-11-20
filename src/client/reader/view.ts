@@ -1,4 +1,5 @@
 import { isCapacitorApp } from "../sync/api";
+import { initReadingProgressBar, setReadingProgress } from "./progress";
 
 let isProgressTicking = false;
 let scrollSaveTimer: any = null;
@@ -21,8 +22,7 @@ export function updateReadingProgress(): void {
   if (!container) return;
   const total = container.scrollHeight - container.clientHeight;
   const progress = total > 0 ? Math.min(100, Math.max(0, (container.scrollTop / total) * 100)) : 0;
-  const progressEl = document.getElementById("readingProgress");
-  if (progressEl) progressEl.style.width = progress + "%";
+  setReadingProgress(progress);
 
   const w = typeof window !== "undefined" ? (window as any) : {};
   const activeArticleId = w.activeArticleId;
@@ -44,4 +44,12 @@ if (typeof window !== "undefined") {
   const w = window as any;
   w.setReaderStatusBar = setReaderStatusBar;
   w.updateReadingProgress = updateReadingProgress;
+  w.setReadingProgress = setReadingProgress;
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initReadingProgressBar, { once: true });
+  } else {
+    initReadingProgressBar();
+  }
 }
+
+export { setReadingProgress };

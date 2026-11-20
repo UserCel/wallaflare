@@ -1670,7 +1670,9 @@
     .mobile-nav-divider { height: 1px; background: var(--border-color); margin: 0.35rem 0; }
 
     /* Reading Progress Bar & Toasts */
-    .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); z-index: 250; width: 0%; transition: width 0.08s ease-out; }
+    .reading-progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); z-index: 250; width: 0%; transition: width 0.08s ease-out; pointer-events: none; }
+    .reading-progress-svg { position: fixed; top: 0; left: 0; width: 100%; z-index: 250; display: none; pointer-events: none; overflow: visible; filter: drop-shadow(0 0 4px var(--accent-glow)); }
+    .reading-progress-svg path { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; opacity: 0; transition: stroke-dashoffset 0.08s ease-out, opacity 0.12s ease-out; }
 
     .articles-list-footer-status {
       text-align: center;

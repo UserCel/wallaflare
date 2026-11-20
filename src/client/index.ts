@@ -67,7 +67,8 @@ import {
 } from './reader/typography';
 import {
   setReaderStatusBar,
-  updateReadingProgress
+  updateReadingProgress,
+  setReadingProgress
 } from './reader/view';
 import {
   scaleReadingMinutes,
@@ -2499,10 +2500,7 @@ import {
       }
 
       document.querySelectorAll('.article-card.is-reading').forEach(c => c.classList.remove('is-reading'));
-      const readingProgressEl = document.getElementById('readingProgress');
-      if (readingProgressEl) {
-        readingProgressEl.style.width = '0%';
-      }
+      setReadingProgress(0);
       clearActiveTextSelection();
       closeReaderAppearancePopover();
       closeReaderMoreMenu();

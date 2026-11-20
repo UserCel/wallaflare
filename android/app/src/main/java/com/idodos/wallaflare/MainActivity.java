@@ -21,6 +21,8 @@ public class MainActivity extends BridgeActivity {
     private long lastBackPressTime = 0;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private BroadcastReceiver articleSavedReceiver;
+    private volatile int cachedCornerTopLeft = -1;
+    private volatile int cachedCornerTopRight = -1;
 
     class NativeInterface {
         @JavascriptInterface
@@ -253,6 +255,28 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public String getTopCornerRadii() {
+            // Returns top-left and top-right hardware display corner radii in CSS pixels (Android 12+)
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    android.view.View decor = getWindow() != null ? getWindow().getDecorView() : null;
+                    android.view.WindowInsets wi = decor != null ? decor.getRootWindowInsets() : null;
+                    if (wi != null) {
+                        android.view.RoundedCorner tl = wi.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT);
+                        android.view.RoundedCorner tr = wi.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_RIGHT);
+                        float density = getResources().getDisplayMetrics().density;
+                        cachedCornerTopLeft = tl != null ? Math.round(tl.getRadius() / density) : 0;
+                        cachedCornerTopRight = tr != null ? Math.round(tr.getRadius() / density) : 0;
+                    }
+                    if (cachedCornerTopLeft >= 0 && cachedCornerTopRight >= 0) {
+                        return "{\"tl\":" + cachedCornerTopLeft + ",\"tr\":" + cachedCornerTopRight + "}";
+                    }
+                }
+            } catch (Exception ignored) {}
+            return "{\"tl\":0,\"tr\":0}";
+        }
+
+        @JavascriptInterface
         public void shareBase64File(final String filename, final String base64Data, final String mimeType) {
             mainHandler.post(new Runnable() {
                 @Override
@@ -327,6 +351,18 @@ public class MainActivity extends BridgeActivity {
             if (content != null) {
                 content.setFitsSystemWindows(false);
                 androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        try {
+                            android.view.WindowInsets platformInsets = insets.toWindowInsets();
+                            if (platformInsets != null) {
+                                android.view.RoundedCorner tl = platformInsets.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT);
+                                android.view.RoundedCorner tr = platformInsets.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_RIGHT);
+                                float density = getResources().getDisplayMetrics().density;
+                                cachedCornerTopLeft = tl != null ? Math.round(tl.getRadius() / density) : 0;
+                                cachedCornerTopRight = tr != null ? Math.round(tr.getRadius() / density) : 0;
+                            }
+                        } catch (Exception ignored) {}
+                    }
                     return new androidx.core.view.WindowInsetsCompat.Builder(insets)
                             .setInsets(
                                 androidx.core.view.WindowInsetsCompat.Type.systemBars() |

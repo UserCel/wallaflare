@@ -2,6 +2,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
+function getLatestMtime(dir: string): number {
+  if (!fs.existsSync(dir)) return 0;
+  let latest = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      latest = Math.max(latest, getLatestMtime(full));
+    } else {
+      latest = Math.max(latest, fs.statSync(full).mtimeMs);
+    }
+  }
+  return latest;
+}
+
 async function packageRelease() {
   const rootDir = path.resolve(__dirname, '..');
   const releaseDir = path.resolve(rootDir, 'release-assets');
@@ -15,9 +29,12 @@ async function packageRelease() {
   const webVersion = pkg.version || '1.0.0';
 
   // 2. Read Android version from android/app/build.gradle
-  const gradleContent = fs.readFileSync(path.join(rootDir, 'android/app/build.gradle'), 'utf8');
+  const gradlePath = path.join(rootDir, 'android/app/build.gradle');
+  const gradleContent = fs.readFileSync(gradlePath, 'utf8');
   const androidMatch = gradleContent.match(/versionName\s+["']([^"']+)["']/);
   const androidVersion = androidMatch ? androidMatch[1] : '1.0.0';
+  const codeMatch = gradleContent.match(/versionCode\s+(\d+)/);
+  const androidVersionCode = codeMatch ? Number(codeMatch[1]) : 1;
 
   // 3. Read KOReader version from integrations/koreader/wallaflare.koplugin/_meta.lua
   const metaContent = fs.readFileSync(path.join(rootDir, 'integrations/koreader/wallaflare.koplugin/_meta.lua'), 'utf8');
@@ -61,6 +78,35 @@ async function packageRelease() {
 
   const androidTargetName = `wallaflare-android-v${androidVersion}-web-v${webVersion}-${gitSha}.apk`;
   if (sourceApk && fs.existsSync(sourceApk)) {
+    // Check APK metadata & freshness to catch stale builds
+    const metaPath = path.join(path.dirname(sourceApk), 'output-metadata.json');
+    if (fs.existsSync(metaPath)) {
+      try {
+        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        const el = meta?.elements?.[0];
+        if (el && (el.versionName !== androidVersion || Number(el.versionCode) !== androidVersionCode)) {
+          console.error(
+            `❌ STALE APK: Built APK is v${el.versionName} (${el.versionCode}), but android/app/build.gradle is v${androidVersion} (${androidVersionCode}).`
+          );
+          console.error(`   Run 'npm run build:apk:release' before packaging.`);
+          process.exit(1);
+        }
+      } catch {}
+    }
+
+    const apkMtime = fs.statSync(sourceApk).mtimeMs;
+    const wwwIndex = path.join(rootDir, 'www/index.html');
+    const javaDir = path.join(rootDir, 'android/app/src/main/java');
+    const newestSourceMtime = Math.max(
+      fs.statSync(gradlePath).mtimeMs,
+      fs.existsSync(wwwIndex) ? fs.statSync(wwwIndex).mtimeMs : 0,
+      getLatestMtime(javaDir)
+    );
+    if (newestSourceMtime > apkMtime) {
+      console.warn(`⚠️  STALE APK WARNING: Source files or web bundle changed after ${path.basename(sourceApk)} was built.`);
+      console.warn(`   Run 'npm run build:apk:release' to include the latest changes.`);
+    }
+
     fs.copyFileSync(sourceApk, path.join(releaseDir, androidTargetName));
     fs.copyFileSync(sourceApk, path.join(releaseDir, 'wallaflare.apk'));
     console.log(`✓ Created ${androidTargetName} & wallaflare.apk`);
