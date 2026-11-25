@@ -1,4 +1,4 @@
-import { formatCardDate } from "../utils/format";
+import { formatCardDate, extractPlainExcerpt } from "../utils/format";
 import { scaleReadingMinutes } from "../utils/reading-time";
 import { state } from "../state";
 import { Article } from "../types";
@@ -92,15 +92,7 @@ export function renderArticlesChunked(entries?: Article[]): void {
         (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : "");
       const author = rawAuthor && rawAuthor !== "wallaflare" && rawAuthor !== "Unknown" ? rawAuthor : "";
       const dateInfo = formatCardDate(item.created_at);
-      const rawContentText =
-        item.text ||
-        item.excerpt ||
-        (item.content ? item.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
-      const excerpt = rawContentText
-        ? rawContentText.length > 160
-          ? rawContentText.slice(0, 160) + "..."
-          : rawContentText
-        : "No preview available";
+      const excerpt = extractPlainExcerpt(item, 160) || "No preview available";
       const isChecked = state.selectedArticleIds.has(item.id);
       const isReading = state.activeArticleId === item.id;
 

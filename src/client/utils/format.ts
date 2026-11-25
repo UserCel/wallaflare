@@ -63,3 +63,32 @@ export function formatCardDate(dateInput?: string | number | Date | null): { lab
     tooltip
   };
 }
+
+/**
+ * Extracts a clean plain-text preview excerpt from an entry's excerpt, text, or HTML content.
+ */
+export function extractPlainExcerpt(item: any, maxLen: number = 160, addEllipsis: boolean = true): string {
+  if (!item) return "";
+  const rawExcerpt =
+    typeof item.excerpt === "string" && !item.excerpt.includes('{"parts":')
+      ? item.excerpt.trim()
+      : "";
+  const raw =
+    rawExcerpt ||
+    (typeof item.text === "string" ? item.text.trim() : "") ||
+    (typeof item.content === "string"
+      ? item.content
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&quot;/g, '"')
+          .replace(/\{"parts":[\s\S]*?\}\}\]\}/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+      : "");
+  if (!raw) return "";
+  if (maxLen > 0 && raw.length > maxLen) {
+    return addEllipsis ? raw.slice(0, maxLen) + "..." : raw.slice(0, maxLen);
+  }
+  return raw;
+}

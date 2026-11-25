@@ -69,6 +69,7 @@ export function matchesArticleSearch(entry: any, rawQuery: string): boolean {
     entry.title || "",
     entry.domain_name || "",
     entry.author || "",
+    entry.excerpt || "",
     entry.text || "",
     entryTags.join(" "),
     annText,

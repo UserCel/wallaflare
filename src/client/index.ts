@@ -180,7 +180,7 @@ import {
   jumpToActiveBookmark,
   clearActiveBookmark
 } from './reader/bookmark';
-import { formatCardDate, normalizeUrl } from './utils/format';
+import { formatCardDate, normalizeUrl, extractPlainExcerpt } from './utils/format';
 import {
   openTagModal,
   closeTagModal,
@@ -1639,6 +1639,13 @@ import {
                 }
               }
             }
+            // Self-heal legacy wf_cached_articles entries that had content/text stripped without an excerpt
+            if (allEntries.length > 0 && allEntries.some(e => e && !e.content && !e.text && !e.excerpt) && !(window as any)._wfExcerptBackfillDone) {
+              (window as any)._wfExcerptBackfillDone = true;
+              currentSyncRev = 0;
+              isLoadingArticles = false;
+              loadArticles(true, true);
+            }
             return;
           }
 
@@ -1908,6 +1915,27 @@ import {
           const parsed = JSON.parse(fastArticles);
           if (Array.isArray(parsed) && parsed.length > 0 && allEntries.length === 0) {
             allEntries = sortEntriesLocally(parsed, currentSortOrder || 'newest');
+            const missingPreviews = allEntries.some((e: any) => e && !e.excerpt && !e.text && !e.content);
+            if (missingPreviews) {
+              loadEntriesFromIndexedDB().then((idbEntries: any[]) => {
+                if (Array.isArray(idbEntries) && idbEntries.length > 0) {
+                  const idbMap = new Map(idbEntries.map((item: any) => [item.id, item]));
+                  let updated = false;
+                  allEntries = allEntries.map((item: any) => {
+                    const full = idbMap.get(item.id);
+                    if (full && (full.content || full.text || full.excerpt)) {
+                      updated = true;
+                      return { ...item, ...full, excerpt: extractPlainExcerpt(full, 200, false) };
+                    }
+                    return item;
+                  });
+                  if (updated) {
+                    syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+                    filterArticles();
+                  }
+                }
+              }).catch(() => {});
+            }
           }
         }
         const fastTags = localStorage.getItem('wf_cached_tags');
@@ -1989,8 +2017,9 @@ import {
         if (entries !== undefined) {
           const lightEntries = (entries || []).map((e: any) => {
             if (!e) return e;
+            const excerpt = extractPlainExcerpt(e, 200, false);
             const { content: _c, text: _t, ...meta } = e;
-            return meta;
+            return excerpt ? { ...meta, excerpt } : meta;
           });
           localStorage.setItem('wf_cached_articles', JSON.stringify(lightEntries));
         }
@@ -2144,8 +2173,7 @@ import {
         const rawAuthor = item.author || (Array.isArray(item.published_by) && item.published_by.length > 0 ? item.published_by[0] : '');
         const author = (rawAuthor && rawAuthor !== 'wallaflare' && rawAuthor !== 'Unknown') ? rawAuthor : '';
         const dateInfo = formatCardDate(item.created_at);
-        const rawContentText = (item.excerpt && !item.excerpt.includes("{\"parts\":")) ? item.excerpt : (item.text || (item.content ? item.content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ").replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"').replace(/\{"parts":[\s\S]*?\}\}\]\}/g, " ").replace(/\s+/g, " ").trim() : ""));
-        const excerpt = rawContentText ? (rawContentText.length > 160 ? rawContentText.slice(0, 160) + "..." : rawContentText) : "No preview available";
+        const excerpt = extractPlainExcerpt(item, 160) || "No preview available";
         const isChecked = selectedArticleIds.has(item.id);
         const isReading = activeArticleId === item.id;
 
