@@ -675,7 +675,10 @@ const getAnnotationsHandler = async (c: any) => {
     return c.json({ error: 'Invalid entry ID' }, 400);
   }
   const annotations = await getEntryAnnotations(c.env.DB, entryId);
-  return c.json(annotations);
+  return c.json({
+    total: annotations.length,
+    rows: annotations,
+  });
 };
 
 const createAnnotationHandler = async (c: any) => {
@@ -933,6 +936,7 @@ apiRouter.get('/api/entries/exists.json', authMiddleware, checkExistsHandler);
 // -------------------------------------------------------------
 const getEntriesHandler = async (c: any) => {
   const query = c.req.query();
+  const detail: 'full' | 'metadata' = query.detail === 'metadata' ? 'metadata' : 'full';
   
   const filter: any = {
     page: query.page ? Number(query.page) : 1,
@@ -941,31 +945,50 @@ const getEntriesHandler = async (c: any) => {
     sort: (query.sort as any) || 'created',
     search: query.search || undefined,
     domain_name: query.domain_name || undefined,
-    since: query.since !== undefined ? query.since : undefined,
+    since: query.since !== undefined && query.since !== '' ? query.since : undefined,
     tags: query.tags || query.tag || undefined,
   };
 
-  if (query.archive !== undefined) {
+  if (query.archive !== undefined && query.archive !== '') {
     filter.is_archived = Number(query.archive);
   }
-  if (query.starred !== undefined) {
+  if (query.starred !== undefined && query.starred !== '') {
     filter.is_starred = Number(query.starred);
   }
 
   const result = await getEntries(c.env.DB, filter);
+  const buildPageHref = (targetPage: number) => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(query)) {
+      if (v !== undefined && v !== '') sp.set(k, String(v));
+    }
+    sp.set('page', String(targetPage));
+    sp.set('perPage', String(result.limit));
+    return `/api/entries.json?${sp.toString()}`;
+  };
+
+  const links: Record<string, { href: string }> = {
+    self: { href: buildPageHref(result.page) },
+    first: { href: buildPageHref(1) },
+    last: { href: buildPageHref(result.pages) },
+  };
+  if (result.page > 1) {
+    links.previous = { href: buildPageHref(result.page - 1) };
+  }
+  if (result.page < result.pages) {
+    links.next = { href: buildPageHref(result.page + 1) };
+  }
+
+  const username = c.env?.USERNAME || 'wallaflare';
 
   return c.json({
     page: result.page,
     limit: result.limit,
     pages: result.pages,
     total: result.total,
-    _links: {
-      self: { href: `/api/entries.json?page=${result.page}&perPage=${result.limit}` },
-      first: { href: `/api/entries.json?page=1&perPage=${result.limit}` },
-      last: { href: `/api/entries.json?page=${result.pages}&perPage=${result.limit}` },
-    },
+    _links: links,
     _embedded: {
-      items: result.entries.map(e => entryRowToWallabag(e)),
+      items: result.entries.map(e => entryRowToWallabag(e, undefined, detail, username)),
     },
   });
 };
@@ -1743,7 +1766,7 @@ apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
     server_url: origin,
     client_id: 'wallaflare',
     client_secret: clientSecret,
-    username: 'wallaflare',
+    username: c.env?.USERNAME || 'wallaflare',
     has_read_token: Boolean(c.env?.READ_TOKEN),
   });
 });
@@ -1881,7 +1904,7 @@ apiRouter.get('/api/feed-token', authMiddleware, async (c) => {
     feed_token: feedToken,
     opds_url: `${origin}/opds?token=${feedToken}`,
     rss_urls: {
-      all: `${origin}/feed/all/${feedToken}/rss.xml`,
+      all: `${origin}/feed/all?token=${feedToken}`,
       unread: `${origin}/feed/unread?token=${feedToken}`,
       starred: `${origin}/feed/starred?token=${feedToken}`,
       archive: `${origin}/feed/archive?token=${feedToken}`
@@ -1913,7 +1936,7 @@ apiRouter.post('/api/feed-token', authMiddleware, async (c) => {
     feed_token: finalToken,
     opds_url: `${origin}/opds?token=${finalToken}`,
     rss_urls: {
-      all: `${origin}/feed/all/${finalToken}/rss.xml`,
+      all: `${origin}/feed/all?token=${finalToken}`,
       unread: `${origin}/feed/unread?token=${finalToken}`,
       starred: `${origin}/feed/starred?token=${finalToken}`,
       archive: `${origin}/feed/archive?token=${finalToken}`

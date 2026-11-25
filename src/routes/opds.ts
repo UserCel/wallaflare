@@ -55,7 +55,8 @@ export function extractOpdsToken(c: Context<{ Bindings: Env }>): string | null {
           if (pass.length > 0) {
             return pass;
           }
-          return null;
+          const user = decoded.substring(0, colonIdx).trim();
+          return user.length > 0 && user.toLowerCase() !== 'wallaflare' ? user : null;
         }
         const token = decoded.trim();
         return token.length > 0 ? token : null;
@@ -237,7 +238,7 @@ async function handleAcquisitionFeed(
     tag: filter.tag,
     search: filter.search,
     page,
-    limit,
+    perPage: limit,
     sort: 'created',
     order: 'desc',
   });

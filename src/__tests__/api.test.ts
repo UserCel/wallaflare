@@ -1902,9 +1902,9 @@ describe("Annotations & Highlights API (W3C + Wallabag v2)", () => {
 
     expect(res.status).toBe(200);
     const data = await res.json<any>();
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBeGreaterThan(0);
-    expect(data[0].quote).toBe("First highlight");
+    expect(data.total).toBeGreaterThan(0);
+    expect(Array.isArray(data.rows)).toBe(true);
+    expect(data.rows[0].quote).toBe("First highlight");
   });
 
   it("updates annotation note, color, and selected quote on PATCH /api/annotations/:id.json", async () => {
@@ -2170,5 +2170,31 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
       body: JSON.stringify({ url: "not-a-valid-url" }),
     }, { DB: mockDb, AUTH_TOKEN: SECRET });
     expect(res.status).toBe(400);
+  });
+
+  it("supports detail=metadata, empty archive= filter, HAL next/previous links, and env.USERNAME", async () => {
+    for (let i = 1; i <= 3; i++) {
+      await app.request("/api/entries.json", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: `https://example.com/meta-${i}`,
+          title: `Meta ${i}`,
+          content: "<p>Heavy HTML body content</p>",
+        }),
+      }, { DB: mockDb, AUTH_TOKEN: SECRET, USERNAME: "customuser" });
+    }
+
+    const res = await app.request("/api/entries.json?detail=metadata&archive=&page=1&perPage=2", {
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET, USERNAME: "customuser" });
+    expect(res.status).toBe(200);
+    const body = await res.json<any>();
+    expect(body._embedded.items).toHaveLength(2);
+    expect(body._embedded.items[0].content).toBe("");
+    expect(body._embedded.items[0].text).toBe("");
+    expect(body._embedded.items[0].user_name).toBe("customuser");
+    expect(body._links.next?.href).toContain("page=2");
+    expect(body._links.next?.href).toContain("detail=metadata");
   });
 });

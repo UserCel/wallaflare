@@ -202,7 +202,7 @@ describe('D1 Master Password & Dedicated Feed Token Vault', () => {
       const getJson = await getRes.json();
       expect(getJson.feed_token).toBe(defaultToken);
       expect(getJson.opds_url).toContain(`/opds?token=${defaultToken}`);
-      expect(getJson.rss_urls.all).toContain(`/feed/all/${defaultToken}/rss.xml`);
+      expect(getJson.rss_urls.all).toContain(`/feed/all?token=${defaultToken}`);
 
       // 3. POST /api/feed-token allows customizing token for e-ink devices (e.g. Xteink)
       const customRes = await app.request('/api/feed-token', {

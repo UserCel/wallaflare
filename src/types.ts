@@ -16,6 +16,7 @@ export interface Env {
   DB: D1Database;
   AUTH_TOKEN?: string;
   CLIENT_SECRET?: string;
+  USERNAME?: string;
   APP_NAME?: string;
   JWT_SECRET?: string;
   READ_TOKEN?: string;

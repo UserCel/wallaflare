@@ -48,7 +48,8 @@ export function extractFeedToken(c: Context<{ Bindings: Env }>): string | null {
         if (colonIdx !== -1) {
           const pass = decoded.substring(colonIdx + 1).trim();
           if (pass.length > 0) return pass;
-          return null;
+          const user = decoded.substring(0, colonIdx).trim();
+          return user.length > 0 && user.toLowerCase() !== 'wallaflare' ? user : null;
         }
         const token = decoded.trim();
         return token.length > 0 ? token : null;
@@ -218,6 +219,7 @@ feedRouter.get('/feed/archive.rss', (c) => handleFeedRequest(c, 'archive'));
 feedRouter.get('/feed/all', (c) => handleFeedRequest(c, 'all'));
 feedRouter.get('/feed/all.xml', (c) => handleFeedRequest(c, 'all'));
 feedRouter.get('/feed/all.rss', (c) => handleFeedRequest(c, 'all'));
+feedRouter.get('/feed/all/:token/rss.xml', (c) => handleFeedRequest(c, 'all'));
 
 feedRouter.get('/feed/tags/:tag', (c) => handleFeedRequest(c, 'tag', c.req.param('tag')));
 

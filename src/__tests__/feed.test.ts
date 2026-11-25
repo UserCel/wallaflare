@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import app from '../index';
 import { EntryRow } from '../types';
+import { createMockD1Database as createSharedMockDb } from './mock-db';
 
 function createMockD1Database() {
   let entries: EntryRow[] = [];
@@ -313,5 +314,52 @@ describe('RSS 2.0 Feed Syndication (/feed)', () => {
     });
 
     expect(lockedRes.status).toBe(429);
+  });
+
+  it('splits CDATA ]]> safely, guards invalid dates, supports Basic Auth token:, and returns working /api/feed-token URLs', async () => {
+    const AUTH_TOKEN = 'admin-pass';
+    const READ_TOKEN = 'feed-secret-999';
+    const mockDb = createSharedMockDb();
+    mockDb._entries.push({
+      id: 1,
+      url: 'https://example.com/cdata',
+      title: 'CDATA & Control \u0001 Test',
+      content: '<p>Before ]]> After</p>',
+      preview_picture: null,
+      domain_name: 'example.com',
+      reading_time: 1,
+      language: 'en',
+      author: null,
+      published_at: 'invalid-date',
+      is_archived: 0,
+      is_starred: 0,
+      created_at: 'invalid-date',
+      updated_at: new Date().toISOString(),
+    });
+
+    const rssRes = await app.request('/feed/all', {
+      headers: { Authorization: 'Basic ' + Buffer.from(`${READ_TOKEN}:`).toString('base64') },
+    }, { DB: mockDb as any, READ_TOKEN, AUTH_TOKEN });
+    expect(rssRes.status).toBe(200);
+    const xml = await rssRes.text();
+    expect(xml).toContain(']]]]><![CDATA[>');
+    expect(xml).not.toContain(']]&gt;');
+    expect(xml).not.toContain('Invalid Date');
+    expect(xml).not.toContain('\u0001');
+
+    const tokenRes = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'password', username: 'wallaflare', password: AUTH_TOKEN }),
+    }, { DB: mockDb as any, AUTH_TOKEN });
+    const { access_token } = await tokenRes.json<any>();
+
+    const feedTokenRes = await app.request('/api/feed-token', {
+      headers: { Authorization: `Bearer ${access_token}` },
+    }, { DB: mockDb as any, AUTH_TOKEN, READ_TOKEN });
+    const feedTokenData = await feedTokenRes.json<any>();
+    const allFeedPath = new URL(feedTokenData.rss_urls.all).pathname + new URL(feedTokenData.rss_urls.all).search;
+    const followRes = await app.request(allFeedPath, {}, { DB: mockDb as any, AUTH_TOKEN, READ_TOKEN });
+    expect(followRes.status).toBe(200);
   });
 });

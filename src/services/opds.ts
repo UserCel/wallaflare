@@ -4,11 +4,18 @@ import { TagItem } from '../db/queries';
 export function xmlEscape(str: string | null | undefined): string {
   if (!str) return '';
   return str
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function safeIsoDate(raw: string | null | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? fallback : d.toISOString();
 }
 
 export function stripHtml(html: string | null | undefined): string {
@@ -47,7 +54,7 @@ export interface OpdsAcquisitionOptions {
 
 export function formatTokenQuery(token?: string | null, prefixWithAmp: boolean = false): string {
   if (!token) return '';
-  return prefixWithAmp ? `&amp;token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
+  return prefixWithAmp ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
 }
 
 /**
@@ -205,29 +212,29 @@ export function generateAcquisitionFeedXml(options: OpdsAcquisitionOptions): str
   // Build pagination links
   const paginationLinks: string[] = [];
 
-  const selfUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&amp;' : '?'}page=${page}${tokenAppend}`;
+  const selfUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&' : '?'}page=${page}${tokenAppend}`;
   paginationLinks.push(`  <link rel="self" href="${xmlEscape(selfUrl)}" type="application/atom+xml;profile=opds-catalog;kind=acquisition" />`);
-  paginationLinks.push(`  <link rel="start" href="${xmlEscape(baseUrl)}/opds${tokenQuery}" type="application/atom+xml;profile=opds-catalog;kind=navigation" />`);
-  paginationLinks.push(`  <link rel="up" href="${xmlEscape(baseUrl)}/opds${tokenQuery}" type="application/atom+xml;profile=opds-catalog;kind=navigation" />`);
-  paginationLinks.push(`  <link rel="search" href="${xmlEscape(baseUrl)}/opds/opensearch.xml${tokenQuery}" type="application/opensearchdescription+xml" />`);
+  paginationLinks.push(`  <link rel="start" href="${xmlEscape(baseUrl + '/opds' + tokenQuery)}" type="application/atom+xml;profile=opds-catalog;kind=navigation" />`);
+  paginationLinks.push(`  <link rel="up" href="${xmlEscape(baseUrl + '/opds' + tokenQuery)}" type="application/atom+xml;profile=opds-catalog;kind=navigation" />`);
+  paginationLinks.push(`  <link rel="search" href="${xmlEscape(baseUrl + '/opds/opensearch.xml' + tokenQuery)}" type="application/opensearchdescription+xml" />`);
 
   if (page > 1) {
-    const firstUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&amp;' : '?'}page=1${tokenAppend}`;
-    const prevUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&amp;' : '?'}page=${page - 1}${tokenAppend}`;
+    const firstUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&' : '?'}page=1${tokenAppend}`;
+    const prevUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&' : '?'}page=${page - 1}${tokenAppend}`;
     paginationLinks.push(`  <link rel="first" href="${xmlEscape(firstUrl)}" type="application/atom+xml;profile=opds-catalog;kind=acquisition" />`);
     paginationLinks.push(`  <link rel="previous" href="${xmlEscape(prevUrl)}" type="application/atom+xml;profile=opds-catalog;kind=acquisition" />`);
   }
 
   if (page < totalPages) {
-    const nextUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&amp;' : '?'}page=${page + 1}${tokenAppend}`;
-    const lastUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&amp;' : '?'}page=${totalPages}${tokenAppend}`;
+    const nextUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&' : '?'}page=${page + 1}${tokenAppend}`;
+    const lastUrl = `${baseUrl}${feedPath}${feedPath.includes('?') ? '&' : '?'}page=${totalPages}${tokenAppend}`;
     paginationLinks.push(`  <link rel="next" href="${xmlEscape(nextUrl)}" type="application/atom+xml;profile=opds-catalog;kind=acquisition" />`);
     paginationLinks.push(`  <link rel="last" href="${xmlEscape(lastUrl)}" type="application/atom+xml;profile=opds-catalog;kind=acquisition" />`);
   }
 
   const entriesXml = entries.map((entry) => {
-    const updated = entry.updated_at ? new Date(entry.updated_at).toISOString() : now;
-    const published = entry.published_at ? new Date(entry.published_at).toISOString() : (entry.created_at ? new Date(entry.created_at).toISOString() : now);
+    const updated = safeIsoDate(entry.updated_at, now);
+    const published = entry.published_at ? safeIsoDate(entry.published_at, now) : safeIsoDate(entry.created_at, now);
     const author = entry.author || entry.domain_name || appName;
     const readingTime = entry.reading_time ? `${entry.reading_time} min read` : '';
     const domain = entry.domain_name ? `From: ${entry.domain_name}` : '';

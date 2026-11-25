@@ -235,23 +235,31 @@ export function sha1Hex(str: string): string {
   return `${toHex(h0)}${toHex(h1)}${toHex(h2)}${toHex(h3)}${toHex(h4)}`;
 }
 
-export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): WallabagEntry {
+export function entryRowToWallabag(
+  row: EntryRow,
+  tags: TagItem[] = [],
+  detail: 'full' | 'metadata' = 'full',
+  username: string = 'wallaflare'
+): WallabagEntry {
   const createdAt = formatRfc3339(row?.created_at);
   const updatedAt = formatRfc3339(row?.updated_at);
   const publishedAt = row?.published_at ? formatRfc3339(row.published_at) : null;
-  let plainText = (row?.content || '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\{"parts":[\s\S]*?\}\}\]\}/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const isMetadataOnly = detail === 'metadata';
+  let plainText = isMetadataOnly
+    ? ''
+    : (row?.content || '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\{"parts":[\s\S]*?\}\}\]\}/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
   const rawAnnotations = (row as any)?.annotations || [];
   const entryAnnotations = Array.isArray(rawAnnotations)
@@ -295,12 +303,12 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
     hashed_url: hashedUrl,
     given_url: row?.url || null,
     hashed_given_url: hashedUrl,
-    content: row?.content || '',
+    content: isMetadataOnly ? '' : (row?.content || ''),
     is_archived: row?.is_archived ? 1 : 0,
     archived_at: row?.is_archived ? updatedAt : null,
     is_starred: row?.is_starred ? 1 : 0,
     starred_at: row?.is_starred ? updatedAt : null,
-    user_name: 'wallaflare',
+    user_name: username || 'wallaflare',
     revision: Number(row?.revision || 1),
     content_revision: Number(row?.content_revision || 1),
     user_email: 'user@wallaflare.local',
@@ -717,13 +725,18 @@ export async function getEntries(
     }
   }
 
-  // Handle since parameter: ignore 0 / empty, handle numeric unix timestamps
+  // Handle since parameter: ignore 0 / empty, handle numeric unix timestamps & non-UTC ISO offsets
   if (filter.since !== undefined && filter.since !== '' && filter.since !== '0' && filter.since !== 0) {
     let sinceIso = String(filter.since);
     const num = Number(filter.since);
     if (!isNaN(num) && num > 0) {
       const ms = num < 10000000000 ? num * 1000 : num;
       sinceIso = new Date(ms).toISOString();
+    } else {
+      const parsedDate = new Date(sinceIso);
+      if (!isNaN(parsedDate.getTime())) {
+        sinceIso = parsedDate.toISOString();
+      }
     }
     conditions.push('updated_at >= ?');
     params.push(sinceIso);

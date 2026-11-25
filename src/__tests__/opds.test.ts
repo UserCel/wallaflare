@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import app from '../index';
 import { EntryRow } from '../types';
+import { createMockD1Database as createSharedMockDb } from './mock-db';
 
 function createMockD1Database() {
   let entries: EntryRow[] = [];
@@ -533,5 +534,43 @@ describe('OPDS 1.2 Catalog Engine (KOReader & Crosspoint Compatibility)', () => 
       AUTH_TOKEN: AUTH_SECRET,
     });
     expect(goodRes.status).toBe(200);
+  });
+
+  it('does not double-escape &amp;amp; in pagination links, honors ?limit=, supports Basic Auth token:, and strips control chars/bad dates', async () => {
+    const AUTH_SECRET = 'admin-secret';
+    const READ_SECRET = 'opds_token_123';
+    const mockDb = createSharedMockDb();
+    for (let i = 1; i <= 7; i++) {
+      mockDb._entries.push({
+        id: i,
+        url: `https://example.com/opds-${i}`,
+        title: `Title & <Tag> ${i}\u0007`,
+        content: `<p>Body ${i}</p>`,
+        preview_picture: null,
+        domain_name: 'example.com',
+        reading_time: 1,
+        language: 'en',
+        author: null,
+        published_at: 'not-a-date',
+        is_archived: 0,
+        is_starred: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    const res = await app.request('/opds/unread?limit=5&page=1', {
+      headers: { Authorization: 'Basic ' + Buffer.from(`${READ_SECRET}:`).toString('base64') },
+    }, {
+      DB: mockDb as any,
+      READ_TOKEN: READ_SECRET,
+      AUTH_TOKEN: AUTH_SECRET,
+    });
+    expect(res.status).toBe(200);
+    const xml = await res.text();
+    expect(xml).not.toContain('&amp;amp;');
+    expect(xml).not.toContain('\u0007');
+    expect(xml).toContain('<opensearch:itemsPerPage>5</opensearch:itemsPerPage>');
+    expect((xml.match(/<entry>/g) || []).length).toBe(5);
   });
 });

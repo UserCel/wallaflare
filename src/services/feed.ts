@@ -14,6 +14,7 @@ export interface RssFeedOptions {
 function xmlEscape(str: string | null | undefined): string {
   if (!str) return '';
   return str
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -23,7 +24,15 @@ function xmlEscape(str: string | null | undefined): string {
 
 function stripCdata(content: string | null | undefined): string {
   if (!content) return '';
-  return content.replace(/\]\]>/g, ']]&gt;');
+  return content
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\]\]>/g, ']]]]><![CDATA[>');
+}
+
+function safeRfcDate(raw: string | null | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? fallback : d.toUTCString();
 }
 
 function stripHtml(html: string | null | undefined): string {
@@ -58,8 +67,8 @@ export function generateRssFeedXml(options: RssFeedOptions): string {
 
   const itemsXml = entries.map((entry) => {
     const pubDate = entry.created_at
-      ? new Date(entry.created_at).toUTCString()
-      : (entry.published_at ? new Date(entry.published_at).toUTCString() : nowRfc);
+      ? safeRfcDate(entry.created_at, nowRfc)
+      : safeRfcDate(entry.published_at, nowRfc);
 
     const title = entry.title || 'Untitled';
     const link = entry.url || `${baseUrl}/read/${entry.id}`;
