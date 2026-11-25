@@ -52,6 +52,24 @@ export const SITE_RULES: SiteRule[] = [
       });
     },
   },
+  {
+    domain: /substack\.com/i,
+    cleanDom: (doc) => {
+      doc.querySelectorAll('.subscription-widget-wrap, .subscribe-widget, .button-wrapper, .post-ufi').forEach((el: any) => el.remove());
+    },
+  },
+  {
+    domain: /medium\.com/i,
+    cleanDom: (doc) => {
+      doc.querySelectorAll('.meteredContent, button[aria-label*="clap"], .pw-multi-vote-icon').forEach((el: any) => el.remove());
+    },
+  },
+  {
+    domain: /github\.com/i,
+    cleanDom: (doc) => {
+      doc.querySelectorAll('.anchor, .zeroclipboard-container, clipboard-copy').forEach((el: any) => el.remove());
+    },
+  },
 ];
 
 export function applySiteSpecificRules(doc: any, domain: string): void {

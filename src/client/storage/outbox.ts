@@ -141,6 +141,13 @@ export async function processOutboxMutations(): Promise<void> {
             body: JSON.stringify({ reading_progress: mut.payload.reading_progress ?? 0 })
           });
           handleResponseStatus(res);
+        } else if (mut.action === "create_url") {
+          const res = await authFetch("/api/entries.json", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: mut.payload.url, title: mut.payload.title })
+          });
+          handleResponseStatus(res);
         } else if (mut.action === "add_tag") {
           const res = await authFetch("/api/entries/" + mut.payload.id + "/tags.json", {
             method: "POST",

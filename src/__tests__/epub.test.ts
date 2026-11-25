@@ -269,6 +269,19 @@ describe('EPUB 3 Generator', () => {
     expect(imageFiles.length).toBe(1);
     expect(imageFiles).toContain('OEBPS/images/cover.png');
   }, 15000);
+
+  it('strips invalid XML attribute names for strict EPUB3 XHTML compliance', async () => {
+    const epubData = await generateEpub({
+      id: 889,
+      title: 'Invalid Attrs',
+      content: '<p data-valid="1" 123bad="x">Clean paragraph</p>',
+      language: 'en',
+    });
+    const unzipped = unzipSync(epubData);
+    const xhtml = new TextDecoder().decode(unzipped['OEBPS/content.xhtml']);
+    expect(xhtml).toContain('data-valid="1"');
+    expect(xhtml).not.toContain('123bad');
+  });
 });
 
 

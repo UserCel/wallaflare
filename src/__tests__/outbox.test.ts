@@ -96,4 +96,14 @@ describe('Offline Outbox Queue (src/client/storage/outbox.ts)', () => {
     await Promise.all([p1, p2]);
     expect(getPendingMutations()).toEqual([]);
   });
+
+  it('dispatches create_url offline queued URLs via POST /api/entries.json', async () => {
+    const spy = vi.spyOn(api, 'authFetch').mockResolvedValue(new Response('{}', { status: 200 }));
+    savePendingMutations([
+      { id: 'm_url', action: 'create_url', payload: { url: 'https://example.com/offline-save' }, createdAt: 1, retryCount: 0 },
+    ]);
+    await processOutboxMutations();
+    expect(spy).toHaveBeenCalledWith('/api/entries.json', expect.objectContaining({ method: 'POST' }));
+    expect(getPendingMutations()).toEqual([]);
+  });
 });

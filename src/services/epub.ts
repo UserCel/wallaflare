@@ -39,7 +39,7 @@ export interface DigestOptions {
 }
 
 export const DEFAULT_EPUB_MAX_IMAGES = 20;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB per image
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB per image (Worker memory safety)
 const IMAGE_FETCH_TIMEOUT_MS = 4500; // 4.5s per image
 
 export function isRtlLanguage(lang?: string | null, textSample?: string | null): boolean {
@@ -84,6 +84,7 @@ function serializeNodeToXhtml(node: any, out: string[]) {
     if (attrs && attrs.length > 0) {
       for (let i = 0; i < attrs.length; i++) {
         const attr = attrs[i];
+        if (!attr?.name || !/^[a-zA-Z_:][a-zA-Z0-9_.:-]*$/.test(attr.name)) continue;
         out.push(' ', attr.name, '="', escapeXml(attr.value || ''), '"');
       }
     }
@@ -245,6 +246,9 @@ async function fetchImageBytes(
     clearTimeout(timeoutId);
 
     if (!res.ok) return null;
+
+    const declaredLen = Number(res.headers.get('content-length') || 0);
+    if (declaredLen > MAX_IMAGE_BYTES) return null;
 
     const ct = (res.headers.get('content-type') || '').toLowerCase();
     const pathname = (() => { try { return new URL(targetUrl).pathname.toLowerCase(); } catch { return ''; } })();

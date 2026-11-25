@@ -91,6 +91,17 @@ export async function handleIngestUrl(e?: Event): Promise<void> {
   if (!url) return;
   url = normalizeUrl(url);
 
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    const w = typeof window !== "undefined" ? (window as any) : {};
+    if (typeof w.enqueueMutation === "function") {
+      w.enqueueMutation("create_url", { url });
+    }
+    closeModal("addUrlModal");
+    if (input) input.value = "";
+    showToast("Offline — queued URL for sync when back online");
+    return;
+  }
+
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Extracting...";

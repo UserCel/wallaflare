@@ -106,4 +106,16 @@ describe('Site-Specific Cleaning Rules & CSS Hidden Element Stripping', () => {
     expect(res.content).toContain('The dragon unleashed a roaring wave of flames');
     expect(res.content).not.toContain('This story is taken from Scribble Hub');
   });
+
+  it('cleans Substack subscribe widgets and GitHub anchor/clipboard chrome', () => {
+    const substackHtml = `<article><h1>Substack Post</h1><p>Real newsletter essay paragraph with enough words.</p><div class="subscription-widget-wrap"><button>Subscribe</button></div></article>`;
+    const subRes = extractArticleFromHtml(substackHtml, 'https://writer.substack.com/p/essay');
+    expect(subRes.content).toContain('Real newsletter essay');
+    expect(subRes.content).not.toContain('subscription-widget-wrap');
+
+    const ghHtml = `<article><h1><a class="anchor" href="#readme">#</a>README</h1><p>Repository documentation text for testing.</p><div class="zeroclipboard-container">Copy</div></article>`;
+    const ghRes = extractArticleFromHtml(ghHtml, 'https://github.com/org/repo');
+    expect(ghRes.content).toContain('Repository documentation');
+    expect(ghRes.content).not.toContain('zeroclipboard-container');
+  });
 });
