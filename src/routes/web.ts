@@ -548,8 +548,8 @@ function renderWallabagDeveloperPage(c: any, env: Env, clientSecret: string, isA
           ${renderTokensListHtml(tokens)}
         </ul>
 
-        <a href="/?settings=integrations" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); text-decoration: none; font-size: 0.82rem; font-weight: 500; transition: all 0.15s ease;">
-          <span>Manage in Settings &rarr; Apps &amp; Sync &rarr;</span>
+        <a href="/?settings=security" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); text-decoration: none; font-size: 0.82rem; font-weight: 500; transition: all 0.15s ease;">
+          <span>Manage in Settings &rarr; Access &amp; Security &rarr;</span>
         </a>
       </div>
       <div class="footer-link">

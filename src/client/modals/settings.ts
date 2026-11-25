@@ -704,7 +704,7 @@ export function switchSettingsTab(tabName: string, activateMobile: boolean = tru
         }).catch(() => {});
       }
     }
-  } else if (activeSettingsTab === "integrations") {
+  } else if (activeSettingsTab === "security") {
     loadPersonalTokens();
   }
 
@@ -730,11 +730,12 @@ export function switchSettingsTab(tabName: string, activateMobile: boolean = tru
   }
 
   const titles: Record<string, string> = {
-    appearance: "Theme & Appearance",
-    cookies: "Cookie Vault & Paywalls",
-    integrations: "Apps & KOReader Sync",
-    tags: "Tag Management",
-    data: "Server & Data",
+    appearance: "Reading & Display",
+    integrations: "Apps & Feeds",
+    security: "Access & Security",
+    cookies: "Cookie Vault",
+    tags: "Tag Manager",
+    data: "Library & Data",
     about: "About & Updates"
   };
 

@@ -22,17 +22,22 @@
         <nav class="settings-nav-pane" id="settingsNavPane">
           <button type="button" class="settings-nav-item active" data-tab="appearance" onclick="switchSettingsTab('appearance')">
             <span class="settings-nav-icon">🎨</span>
-            <span class="settings-nav-label">Appearance</span>
+            <span class="settings-nav-label">Reading &amp; Display</span>
+            <span class="settings-nav-chevron">›</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-tab="integrations" onclick="switchSettingsTab('integrations')">
+            <span class="settings-nav-icon">📱</span>
+            <span class="settings-nav-label">Apps &amp; Feeds</span>
+            <span class="settings-nav-chevron">›</span>
+          </button>
+          <button type="button" class="settings-nav-item" data-tab="security" onclick="switchSettingsTab('security')">
+            <span class="settings-nav-icon">🔐</span>
+            <span class="settings-nav-label">Access &amp; Security</span>
             <span class="settings-nav-chevron">›</span>
           </button>
           <button type="button" class="settings-nav-item" data-tab="cookies" onclick="switchSettingsTab('cookies')">
             <span class="settings-nav-icon">🍪</span>
             <span class="settings-nav-label">Cookie Vault</span>
-            <span class="settings-nav-chevron">›</span>
-          </button>
-          <button type="button" class="settings-nav-item" data-tab="integrations" onclick="switchSettingsTab('integrations')">
-            <span class="settings-nav-icon">📱</span>
-            <span class="settings-nav-label">Apps &amp; Sync</span>
             <span class="settings-nav-chevron">›</span>
           </button>
           <button type="button" class="settings-nav-item" data-tab="tags" onclick="switchSettingsTab('tags')">
@@ -41,8 +46,8 @@
             <span class="settings-nav-chevron">›</span>
           </button>
           <button type="button" class="settings-nav-item" data-tab="data" onclick="switchSettingsTab('data')">
-            <span class="settings-nav-icon">⚡</span>
-            <span class="settings-nav-label">Server &amp; Data</span>
+            <span class="settings-nav-icon">💾</span>
+            <span class="settings-nav-label">Library &amp; Data</span>
             <span class="settings-nav-chevron">›</span>
           </button>
           <button type="button" class="settings-nav-item" data-tab="about" onclick="switchSettingsTab('about')">
@@ -54,7 +59,7 @@
 
         <!-- Right Pane: Panels -->
         <div class="settings-content-pane" id="settingsContentPane">
-          <!-- 1. Appearance Panel -->
+          <!-- 1. Reading & Display Panel -->
           <div class="settings-panel active" id="settingsPanel-appearance">
             <div style="display: flex; flex-direction: column; gap: 1.25rem;">
               <div>
@@ -105,56 +110,43 @@
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.4rem 0 0 0;">Scales read-time estimates to your pace (synced across devices).</p>
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color);">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
                 <div>
                   <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Sync Reading Progress</h4>
                   <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">When disabled, scroll progress stays 100% local to this device with zero server sync.</p>
                 </div>
                 <input type="checkbox" id="settingsProgressSyncToggle" onchange="toggleReadingProgressSync(this.checked)" style="width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0;" />
               </div>
-            </div>
-          </div>
 
-          <!-- 2. Cookie Vault Panel -->
-          <div class="settings-panel" id="settingsPanel-cookies" style="display: none;">
-            <div style="display: flex; flex-direction: column; gap: 1.1rem;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem;">
-                <div>
-                  <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Paywall &amp; Session Cookie Vault</h4>
-                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Synchronize authenticated cookies for paywalled sites (Substack, Medium, GitHub, private blogs).</p>
+              <div style="padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Content Extraction Engine</h4>
+                <div id="settingsParserBtns" style="display: flex; gap: 0.5rem;">
+                  <button class="btn btn-outline opt-parser-btn" data-parser="auto" onclick="setParserEngine('auto')" style="flex: 1; padding: 0.5rem;">
+                    <span>⚡ Auto</span>
+                    <span class="parser-subtext" style="font-size: 0.68rem; opacity: 0.8;">Recommended</span>
+                  </button>
+                  <button class="btn btn-outline opt-parser-btn" data-parser="device" onclick="setParserEngine('device')" style="flex: 1; padding: 0.5rem;">
+                    <span>📱 Device</span>
+                    <span class="parser-subtext" style="font-size: 0.68rem; opacity: 0.8;">Phone only</span>
+                  </button>
+                  <button class="btn btn-outline opt-parser-btn" data-parser="server" onclick="setParserEngine('server')" style="flex: 1; padding: 0.5rem;">
+                    <span>☁️ Server</span>
+                    <span class="parser-subtext" style="font-size: 0.68rem; opacity: 0.8;">Worker edge</span>
+                  </button>
                 </div>
-                <button class="btn btn-primary" onclick="openAddSiteCookieDialog()" style="padding: 0.4rem 0.8rem; font-size: 0.82rem; white-space: nowrap; flex-shrink: 0;">+ Add Site</button>
-              </div>
-
-              <div id="siteCookieWebTip" style="font-size: 0.76rem; color: var(--text-secondary); background: var(--bg-primary); padding: 0.6rem 0.8rem; border-radius: var(--radius-md); border-left: 3px solid var(--accent); display: none;">
-                💡 On the Wallaflare Android app, you can easily log in to paywalled sites via the built-in automated login WebView without manually extracting cookies.
-              </div>
-
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Configured Sites:</span>
-                <div style="display: flex; gap: 0.4rem;">
-                  <button class="btn btn-outline" style="padding: 2px 7px; font-size: 0.72rem;" onclick="loadSiteCookies(true)">Refresh</button>
-                  <button class="btn btn-outline" style="padding: 2px 7px; font-size: 0.72rem; color: var(--danger);" onclick="handleClearAllSiteCookies()">Clear All</button>
-                </div>
-              </div>
-
-              <div id="settingsSiteCookieList" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 280px; overflow-y: auto;">
-                <div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.82rem;">No site session cookies stored yet.</div>
+                <div id="settingsParserEngineDesc" style="font-size: 0.76rem; color: var(--text-muted); margin-top: 0.35rem;"></div>
               </div>
             </div>
           </div>
 
-          <!-- 3. Integrations & Apps Panel -->
+          <!-- 2. Apps & Feeds Panel -->
           <div class="settings-panel" id="settingsPanel-integrations" style="display: none;">
-            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
               <!-- KOReader Native Plugin -->
-              <div style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.08), rgba(249, 115, 22, 0.02)); border: 1px solid rgba(249, 115, 22, 0.25); border-radius: var(--radius-md); padding: 0.95rem 1.1rem; margin-bottom: 0.25rem;">
+              <div style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.08), rgba(249, 115, 22, 0.02)); border: 1px solid rgba(249, 115, 22, 0.25); border-radius: var(--radius-md); padding: 0.95rem 1.1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap;">
                   <div style="flex: 1; min-width: 200px;">
-                    <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                      <span>📖 KOReader Native Plugin</span>
-                      <span style="font-size: 0.68rem; background: var(--color-primary); color: #fff; padding: 1px 6px; border-radius: 9999px; font-weight: 600;">NEW</span>
-                    </h4>
+                    <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">📖 KOReader Native Plugin</h4>
                     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
                       Revision-based delta sync, offline reading, and <strong>automatic deletion of removed articles</strong> on Kindle, Kobo, Android, and Linux e-readers.
                     </p>
@@ -165,27 +157,33 @@
                   </a>
                 </div>
               </div>
+
+              <!-- Dedicated Read Token -->
               <div>
-                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">📖 Dedicated Read Token (OPDS &amp; RSS)</h4>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Isolated read-only token for e-ink readers (KOReader, Xteink) and RSS apps. Protects your master password from URL exposure.</p>
-                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
-                  <div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-                      <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">Active Feed Token</label>
-                      <div style="display: flex; gap: 0.35rem;">
-                        <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="handleCustomizeFeedToken()">Edit Token</button>
-                        <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="handleRegenerateFeedToken()">Regenerate</button>
-                      </div>
+                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">🔑 Dedicated Read Token (OPDS &amp; RSS)</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.55rem 0;">Isolated read-only token for e-ink readers (KOReader, Crosspoint, Xteink) and RSS apps. Protects your master password from URL exposure.</p>
+                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">Active Feed Token</label>
+                    <div style="display: flex; gap: 0.35rem;">
+                      <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="handleCustomizeFeedToken()">Edit Token</button>
+                      <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="handleRegenerateFeedToken()">Regenerate</button>
                     </div>
-                    <div class="code-box" id="activeFeedTokenDisplay" style="word-break: break-all; font-size: 0.82rem; padding: 0.45rem 0.75rem; font-family: monospace; font-weight: 600; color: var(--accent);">Loading...</div>
                   </div>
+                  <div class="code-box" id="activeFeedTokenDisplay" style="word-break: break-all; font-size: 0.82rem; padding: 0.45rem 0.75rem; font-family: monospace; font-weight: 600; color: var(--accent);">Loading...</div>
                 </div>
               </div>
 
-              <div>
-                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">OPDS 1.2 Book Catalog</h4>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Browse and download articles as EPUBs on <strong>KOReader</strong>, <strong>Crosspoint</strong>, and e-ink e-readers.</p>
-                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+              <!-- Collapsible OPDS 1.2 Book Catalog -->
+              <details class="settings-collapsible">
+                <summary class="settings-collapsible-summary">
+                  <div>
+                    <div class="settings-collapsible-title">📚 OPDS 1.2 Book Catalog</div>
+                    <div class="settings-collapsible-subtitle">Browse and download EPUBs on KOReader, Crosspoint, and e-ink readers</div>
+                  </div>
+                  <span class="settings-collapsible-chevron">›</span>
+                </summary>
+                <div class="settings-collapsible-body">
                   <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
                       <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">OPDS Catalog URL</label>
@@ -203,13 +201,18 @@
                     <div id="syncOpdsCredentialsHelp" style="font-size: 0.73rem; color: var(--text-secondary); margin-top: 0.35rem; line-height: 1.4;"></div>
                   </div>
                 </div>
-              </div>
+              </details>
 
-              
-              <div>
-                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">RSS 2.0 &amp; Atom Feeds</h4>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Subscribe to your saved articles in <strong>NetNewsWire</strong>, <strong>Reeder</strong>, <strong>Feedly</strong>, or any RSS aggregator:</p>
-                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+              <!-- Collapsible RSS 2.0 & Atom Feeds -->
+              <details class="settings-collapsible">
+                <summary class="settings-collapsible-summary">
+                  <div>
+                    <div class="settings-collapsible-title">📡 RSS 2.0 &amp; Atom Feeds</div>
+                    <div class="settings-collapsible-subtitle">Subscribe in NetNewsWire, Reeder, Feedly, or any RSS aggregator</div>
+                  </div>
+                  <span class="settings-collapsible-chevron">›</span>
+                </summary>
+                <div class="settings-collapsible-body">
                   <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
                       <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">Unread Articles Feed</label>
@@ -232,12 +235,18 @@
                     <div class="code-box" id="syncRssArchiveUrl" style="word-break: break-all; font-size: 0.82rem; padding: 0.45rem 0.75rem; color: var(--text-muted);"></div>
                   </div>
                 </div>
-              </div>
+              </details>
 
-              <div>
-                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">KOReader &amp; Wallabag 2-Way Sync</h4>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0;">Enter these parameters into the <strong>KOReader Wallabag Plugin</strong> (Tools &gt; Wallabag &gt; Settings) or official Wallabag mobile app for 2-way read sync:</p>
-                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+              <!-- Collapsible Wallabag v2 API / 2-Way Sync -->
+              <details class="settings-collapsible">
+                <summary class="settings-collapsible-summary">
+                  <div>
+                    <div class="settings-collapsible-title">🔄 Wallabag v2 2-Way Sync Credentials</div>
+                    <div class="settings-collapsible-subtitle">For official Wallabag apps, Wallabagger, or KOReader's built-in Wallabag plugin</div>
+                  </div>
+                  <span class="settings-collapsible-chevron">›</span>
+                </summary>
+                <div class="settings-collapsible-body">
                   <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
                       <label style="font-weight: 600; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase;">1. Server URL</label>
@@ -276,19 +285,24 @@
                     <div class="code-box" style="color: var(--text-muted); font-size: 0.82rem; padding: 0.45rem 0.75rem;">Your Master Password</div>
                   </div>
                 </div>
-              </div>
+              </details>
+            </div>
+          </div>
 
+          <!-- 3. Access & Security Panel -->
+          <div class="settings-panel" id="settingsPanel-security" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
               <div>
                 <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
                   <span>🔑 Personal Access Tokens (PAT)</span>
                 </h4>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem 0; line-height: 1.4;">
-                  Generate dedicated API tokens for third-party apps, custom scripts, or the <strong>KOReader Wallabag Plugin</strong> (which requires an Access Token).
+                  Generate dedicated API tokens for third-party apps, custom scripts, or the <strong>KOReader plugin</strong>.
                 </p>
 
                 <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.75rem;">
                   <form onsubmit="event.preventDefault(); handleCreatePersonalToken();" style="display: flex; gap: 0.5rem; align-items: center;">
-                    <input type="text" id="newPatLabelInput" class="input" placeholder="Token label (e.g. KOReader Wallabag, FeedMe)..." style="flex: 1; font-size: 0.82rem; padding: 0.45rem 0.75rem;" />
+                    <input type="text" id="newPatLabelInput" class="input" placeholder="Token label (e.g. KOReader, FeedMe)..." style="flex: 1; font-size: 0.82rem; padding: 0.45rem 0.75rem;" />
                     <button type="submit" id="generatePatBtn" class="btn btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.82rem; white-space: nowrap;">Generate Token</button>
                   </form>
 
@@ -306,134 +320,6 @@
 
                   <div id="patTokensContainer" style="display: flex; flex-direction: column; gap: 0.45rem;">
                     <div style="font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.5rem;">Loading active tokens...</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. Tag Management Panel -->
-          <div class="settings-panel" id="settingsPanel-tags" style="display: none;">
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
-              <div>
-                <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Global Tag Manager</h4>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Create tags, organize library labels, and clean up orphaned tags.</p>
-              </div>
-
-              <form onsubmit="event.preventDefault(); submitCreateGlobalTag('settingsNewGlobalTagInput');" style="display: flex; gap: 0.5rem;">
-                <input type="text" id="settingsNewGlobalTagInput" class="input" placeholder="Create new tag (e.g. tech, novel, reading)..." style="flex: 1;" />
-                <button type="submit" class="btn btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.85rem; white-space: nowrap;">Create Tag</button>
-              </form>
-
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span id="settingsGlobalTagCountLabel" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 500;"></span>
-                <button class="btn btn-outline" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;" onclick="cleanupUnusedTags()">Delete Unused Tags</button>
-              </div>
-
-              <div id="settingsGlobalTagListContainer" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.25rem;"></div>
-            </div>
-          </div>
-
-          <!-- 5. Server & Data Panel -->
-          <div class="settings-panel" id="settingsPanel-data" style="display: none;">
-            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-              <div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Library Reading Overview</h4>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: var(--bg-primary); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                  <div style="text-align: center;">
-                    <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="settingsStatUnread">0</div>
-                    <div style="font-size: 0.72rem; color: var(--text-muted);">Unread Articles</div>
-                  </div>
-                  <div style="text-align: center;">
-                    <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="settingsStatStarred">0</div>
-                    <div style="font-size: 0.72rem; color: var(--text-muted);">Starred</div>
-                  </div>
-                  <div style="text-align: center;">
-                    <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="settingsStatReadingTime">0m</div>
-                    <div style="font-size: 0.72rem; color: var(--text-muted);">Reading Time Left</div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Content Extraction Engine</h4>
-                <div id="settingsParserBtns" style="display: flex; gap: 0.5rem;">
-                  <button class="btn btn-outline opt-parser-btn" data-parser="auto" onclick="setParserEngine('auto')" style="flex: 1; padding: 0.5rem;">
-                    <span>⚡ Auto</span>
-                    <span class="parser-subtext" style="font-size: 0.68rem; opacity: 0.8;">Recommended</span>
-                  </button>
-                  <button class="btn btn-outline opt-parser-btn" data-parser="device" onclick="setParserEngine('device')" style="flex: 1; padding: 0.5rem;">
-                    <span>📱 Device</span>
-                    <span class="parser-subtext" style="font-size: 0.68rem; opacity: 0.8;">Phone only</span>
-                  </button>
-                  <button class="btn btn-outline opt-parser-btn" data-parser="server" onclick="setParserEngine('server')" style="flex: 1; padding: 0.5rem;">
-                    <span>☁️ Server</span>
-                    <span class="parser-subtext" style="font-size: 0.68rem; opacity: 0.8;">Worker edge</span>
-                  </button>
-                </div>
-                <div id="settingsParserEngineDesc" style="font-size: 0.76rem; color: var(--text-muted); margin-top: 0.35rem;"></div>
-              </div>
-
-              <div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Sync Status &amp; Cloudflare D1</h4>
-                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Local Device Articles</span>
-                    <span id="statsLocalArticles" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">--</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Cloudflare D1 Server</span>
-                    <span id="statsServerArticles" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">--</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Sync Status</span>
-                    <span id="statsSyncComparison" style="font-size: 0.85rem; font-weight: 600; color: var(--accent);">--</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Current Sync Revision</span>
-                    <span id="statsSyncRevision" style="font-size: 0.82rem; font-family: monospace; font-weight: 600; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">Rev 1</span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Database Synchronization</h4>
-                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); padding: 0.75rem 0.9rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                  <div>
-                    <div style="font-size: 0.88rem; font-weight: 600;">Reconcile Local Storage</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Clears cached articles and re-syncs fresh state from Cloudflare D1.</div>
-                  </div>
-                  <button class="btn btn-outline" onclick="reconcileDatabase()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Reconcile &amp; Sync</button>
-                </div>
-              </div>
-
-              <div>
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Import &amp; Library Backup</h4>
-                <div style="background: var(--bg-primary); padding: 0.85rem 0.9rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
-                  <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
-                    Import from Pocket CSV, Wallabag JSON, Instapaper CSV, Netscape Bookmarks HTML, or a Wallaflare JSON backup.
-                  </div>
-                  <input type="file" id="libraryImportFileInput" accept=".json,.csv,.html,.htm" onchange="handleLibraryImportInput(event)" style="display: none;" />
-                  <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                    <button type="button" class="btn btn-primary" onclick="triggerLibraryImport()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Import Library</button>
-                    <button type="button" class="btn btn-outline" onclick="exportFullLibraryBackupJson()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Backup Library (JSON)</button>
-                    <button type="button" class="btn btn-outline" onclick="exportAllHighlightsMarkdown()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Export All Highlights (MD)</button>
-                  </div>
-                </div>
-              </div>
-
-              <div id="serverConnectionSettingsRow" style="display: none; flex-direction: column; gap: 0.6rem;">
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">App Server Endpoint</h4>
-                <div style="background: var(--bg-primary); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
-                  <div>
-                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Server URL</label>
-                    <input type="url" id="settingsServerUrlInput" class="input" placeholder="https://<your-subdomain>.workers.dev" style="width: 100%; font-size: 0.82rem;" />
-                  </div>
-                  <div>
-                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Master Password or Device Token</label>
-                    <input type="password" id="settingsServerTokenInput" class="input" placeholder="Master password or device token" style="width: 100%; font-size: 0.82rem;" />
-                  </div>
-                  <div style="display: flex; justify-content: flex-end;">
-                    <button class="btn btn-primary" onclick="handleSaveServerConnection(event)" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Save Connection</button>
                   </div>
                 </div>
               </div>
@@ -463,6 +349,141 @@
                   </form>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- 4. Cookie Vault Panel -->
+          <div class="settings-panel" id="settingsPanel-cookies" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 1.1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem;">
+                <div>
+                  <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Paywall &amp; Session Cookie Vault</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Synchronize authenticated cookies for paywalled sites (Substack, Medium, GitHub, private blogs).</p>
+                </div>
+                <button class="btn btn-primary" onclick="openAddSiteCookieDialog()" style="padding: 0.4rem 0.8rem; font-size: 0.82rem; white-space: nowrap; flex-shrink: 0;">+ Add Site</button>
+              </div>
+
+              <div id="siteCookieWebTip" style="font-size: 0.76rem; color: var(--text-secondary); background: var(--bg-primary); padding: 0.6rem 0.8rem; border-radius: var(--radius-md); border-left: 3px solid var(--accent); display: none;">
+                💡 On the Wallaflare Android app, you can easily log in to paywalled sites via the built-in automated login WebView without manually extracting cookies.
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Configured Sites:</span>
+                <div style="display: flex; gap: 0.4rem;">
+                  <button class="btn btn-outline" style="padding: 2px 7px; font-size: 0.72rem;" onclick="loadSiteCookies(true)">Refresh</button>
+                  <button class="btn btn-outline" style="padding: 2px 7px; font-size: 0.72rem; color: var(--danger);" onclick="handleClearAllSiteCookies()">Clear All</button>
+                </div>
+              </div>
+
+              <div id="settingsSiteCookieList" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 280px; overflow-y: auto;">
+                <div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.82rem;">No site session cookies stored yet.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Tag Management Panel -->
+          <div class="settings-panel" id="settingsPanel-tags" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div>
+                <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Global Tag Manager</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Create tags, organize library labels, and clean up orphaned tags.</p>
+              </div>
+
+              <form onsubmit="event.preventDefault(); submitCreateGlobalTag('settingsNewGlobalTagInput');" style="display: flex; gap: 0.5rem;">
+                <input type="text" id="settingsNewGlobalTagInput" class="input" placeholder="Create new tag (e.g. tech, novel, reading)..." style="flex: 1;" />
+                <button type="submit" class="btn btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.85rem; white-space: nowrap;">Create Tag</button>
+              </form>
+
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="settingsGlobalTagCountLabel" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 500;"></span>
+                <button class="btn btn-outline" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;" onclick="cleanupUnusedTags()">Delete Unused Tags</button>
+              </div>
+
+              <div id="settingsGlobalTagListContainer" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.25rem;"></div>
+            </div>
+          </div>
+
+          <!-- 6. Library & Data Panel -->
+          <div class="settings-panel" id="settingsPanel-data" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <div>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Library Reading Overview</h4>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: var(--bg-primary); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                  <div style="text-align: center;">
+                    <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="settingsStatUnread">0</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted);">Unread Articles</div>
+                  </div>
+                  <div style="text-align: center;">
+                    <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="settingsStatStarred">0</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted);">Starred</div>
+                  </div>
+                  <div style="text-align: center;">
+                    <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="settingsStatReadingTime">0m</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted);">Reading Time Left</div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Import &amp; Library Backup</h4>
+                <div style="background: var(--bg-primary); padding: 0.85rem 0.9rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+                  <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                    Import from Pocket CSV, Wallabag JSON, Instapaper CSV, Netscape Bookmarks HTML, or a Wallaflare JSON backup.
+                  </div>
+                  <input type="file" id="libraryImportFileInput" accept=".json,.csv,.html,.htm" onchange="handleLibraryImportInput(event)" style="display: none;" />
+                  <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <button type="button" class="btn btn-primary" onclick="triggerLibraryImport()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Import Library</button>
+                    <button type="button" class="btn btn-outline" onclick="exportFullLibraryBackupJson()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Backup Library (JSON)</button>
+                    <button type="button" class="btn btn-outline" onclick="exportAllHighlightsMarkdown()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Export All Highlights (MD)</button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Sync Status &amp; Reconcile</h4>
+                <div style="background: var(--bg-primary); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Local Device Articles</span>
+                    <span id="statsLocalArticles" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">--</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Cloudflare D1 Server</span>
+                    <span id="statsServerArticles" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">--</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Sync Status</span>
+                    <span id="statsSyncComparison" style="font-size: 0.85rem; font-weight: 600; color: var(--accent);">--</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Current Sync Revision</span>
+                    <span id="statsSyncRevision" style="font-size: 0.82rem; font-family: monospace; font-weight: 600; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">Rev 1</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding-top: 0.15rem;">
+                    <div>
+                      <div style="font-size: 0.84rem; font-weight: 600;">Reconcile Local Storage</div>
+                      <div style="font-size: 0.74rem; color: var(--text-muted);">Clears local cache and re-syncs fresh state from Cloudflare D1.</div>
+                    </div>
+                    <button class="btn btn-outline" onclick="reconcileDatabase()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; white-space: nowrap;">Reconcile &amp; Sync</button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="serverConnectionSettingsRow" style="display: none; flex-direction: column; gap: 0.6rem;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">App Server Endpoint</h4>
+                <div style="background: var(--bg-primary); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+                  <div>
+                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Server URL</label>
+                    <input type="url" id="settingsServerUrlInput" class="input" placeholder="https://<your-subdomain>.workers.dev" style="width: 100%; font-size: 0.82rem;" />
+                  </div>
+                  <div>
+                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.2rem;">Master Password or Device Token</label>
+                    <input type="password" id="settingsServerTokenInput" class="input" placeholder="Master password or device token" style="width: 100%; font-size: 0.82rem;" />
+                  </div>
+                  <div style="display: flex; justify-content: flex-end;">
+                    <button class="btn btn-primary" onclick="handleSaveServerConnection(event)" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Save Connection</button>
+                  </div>
+                </div>
+              </div>
 
               <div>
                 <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600; color: var(--danger);">Danger Zone</h4>
@@ -479,7 +500,7 @@
             </div>
           </div>
 
-          <!-- 6. About & Updates Panel -->
+          <!-- 7. About & Updates Panel -->
           <div class="settings-panel" id="settingsPanel-about" style="display: none;">
             <div style="display: flex; flex-direction: column; gap: 1.2rem;">
               <div style="display: flex; align-items: center; gap: 0.85rem; background: var(--bg-primary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
@@ -500,7 +521,6 @@
                 <a href="https://github.com/UserCel/wallaflare" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="flex: 1; text-decoration: none; justify-content: center; font-size: 0.82rem; padding: 0.5rem;">
                   ⭐ GitHub Repo
                 </a>
-                
               </div>
             </div>
           </div>
