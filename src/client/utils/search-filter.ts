@@ -1,3 +1,52 @@
+function matchSingleToken(entry: any, lower: string, entryTags: string[], anns: any[], searchable: string): boolean {
+  if (lower.startsWith("tag:")) {
+    const target = lower.slice(4).replace(/^#+/, "");
+    if (!target) return true;
+    return entryTags.some((t) => t === target || t.includes(target));
+  }
+
+  if (lower.startsWith("domain:") || lower.startsWith("site:")) {
+    const target = lower.startsWith("domain:") ? lower.slice(7) : lower.slice(5);
+    if (!target) return true;
+    const dom = String(entry.domain_name || "").toLowerCase();
+    return dom.includes(target);
+  }
+
+  if (lower === "is:unread") {
+    return !entry.is_archived;
+  }
+
+  if (lower === "is:archived" || lower === "is:read") {
+    return Boolean(entry.is_archived);
+  }
+
+  if (lower === "is:starred") {
+    return Boolean(entry.is_starred);
+  }
+
+  if (lower === "is:untagged") {
+    return entryTags.length === 0;
+  }
+
+  if (lower === "is:annotated" || lower === "has:highlights") {
+    return anns.length > 0;
+  }
+
+  if (lower.startsWith("time:<")) {
+    const maxMin = Number(lower.slice(6));
+    if (!isNaN(maxMin) && Number(entry.reading_time || 1) >= maxMin) return false;
+    return true;
+  }
+
+  if (lower.startsWith("time:>")) {
+    const minMin = Number(lower.slice(6));
+    if (!isNaN(minMin) && Number(entry.reading_time || 1) <= minMin) return false;
+    return true;
+  }
+
+  return searchable.includes(lower);
+}
+
 export function matchesArticleSearch(entry: any, rawQuery: string): boolean {
   const q = (rawQuery || "").trim();
   if (!q) return true;
@@ -29,45 +78,10 @@ export function matchesArticleSearch(entry: any, rawQuery: string): boolean {
 
   for (const tok of tokens) {
     const lower = tok.toLowerCase();
-
-    if (lower.startsWith("tag:")) {
-      const target = lower.slice(4).replace(/^#+/, "");
-      if (!target) continue;
-      if (!entryTags.some((t) => t === target || t.includes(target))) return false;
-      continue;
-    }
-
-    if (lower.startsWith("domain:")) {
-      const target = lower.slice(7);
-      if (!target) continue;
-      const dom = String(entry.domain_name || "").toLowerCase();
-      if (!dom.includes(target)) return false;
-      continue;
-    }
-
-    if (lower === "is:untagged") {
-      if (entryTags.length > 0) return false;
-      continue;
-    }
-
-    if (lower === "is:annotated") {
-      if (anns.length === 0) return false;
-      continue;
-    }
-
-    if (lower.startsWith("time:<")) {
-      const maxMin = Number(lower.slice(6));
-      if (!isNaN(maxMin) && Number(entry.reading_time || 1) >= maxMin) return false;
-      continue;
-    }
-
-    if (lower.startsWith("time:>")) {
-      const minMin = Number(lower.slice(6));
-      if (!isNaN(minMin) && Number(entry.reading_time || 1) <= minMin) return false;
-      continue;
-    }
-
-    if (!searchable.includes(lower)) return false;
+    const isNegated = lower.startsWith("-") && lower.length > 1;
+    const term = isNegated ? lower.slice(1) : lower;
+    const matched = matchSingleToken(entry, term, entryTags, anns, searchable);
+    if (isNegated ? matched : !matched) return false;
   }
 
   return true;

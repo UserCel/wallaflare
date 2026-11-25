@@ -10,6 +10,8 @@ describe('Client-Side Search Operators & Metadata Matching', () => {
       author: 'Jane Doe',
       text: 'Workers and D1 SQLite.',
       reading_time: 4,
+      is_archived: 0,
+      is_starred: 1,
       tags: [{ label: 'Cloudflare', slug: 'cloudflare' }, { label: 'SQLite', slug: 'sqlite' }],
       annotations: [{ quote: 'D1 SQLite', text: 'Great edge database note' }],
     },
@@ -20,6 +22,8 @@ describe('Client-Side Search Operators & Metadata Matching', () => {
       author: 'Alan Turing',
       text: 'Consensus protocols and Raft.',
       reading_time: 22,
+      is_archived: 1,
+      is_starred: 0,
       tags: [],
       annotations: [],
     },
@@ -31,13 +35,25 @@ describe('Client-Side Search Operators & Metadata Matching', () => {
     expect(sample.filter(e => matchesArticleSearch(e, 'sqlite')).map(e => e.id)).toEqual([1]);
   });
 
-  it('supports tag:, multi-tag AND, domain:, is:untagged, is:annotated, time:<N, time:>N', () => {
+  it('supports tag:, multi-tag AND, domain:, site:, is:untagged, is:annotated, has:highlights, time:<N, time:>N', () => {
     expect(sample.filter(e => matchesArticleSearch(e, 'tag:cloudflare tag:sqlite')).map(e => e.id)).toEqual([1]);
     expect(sample.filter(e => matchesArticleSearch(e, 'tag:cloudflare tag:missing')).map(e => e.id)).toEqual([]);
     expect(sample.filter(e => matchesArticleSearch(e, 'domain:arxiv.org')).map(e => e.id)).toEqual([2]);
+    expect(sample.filter(e => matchesArticleSearch(e, 'site:cloudflare.com')).map(e => e.id)).toEqual([1]);
     expect(sample.filter(e => matchesArticleSearch(e, 'is:untagged')).map(e => e.id)).toEqual([2]);
     expect(sample.filter(e => matchesArticleSearch(e, 'is:annotated')).map(e => e.id)).toEqual([1]);
+    expect(sample.filter(e => matchesArticleSearch(e, 'has:highlights')).map(e => e.id)).toEqual([1]);
     expect(sample.filter(e => matchesArticleSearch(e, 'time:<10')).map(e => e.id)).toEqual([1]);
     expect(sample.filter(e => matchesArticleSearch(e, 'time:>15')).map(e => e.id)).toEqual([2]);
+  });
+
+  it('supports is:unread, is:archived, is:read, is:starred, and negation (-)', () => {
+    expect(sample.filter(e => matchesArticleSearch(e, 'is:unread')).map(e => e.id)).toEqual([1]);
+    expect(sample.filter(e => matchesArticleSearch(e, 'is:archived')).map(e => e.id)).toEqual([2]);
+    expect(sample.filter(e => matchesArticleSearch(e, 'is:read')).map(e => e.id)).toEqual([2]);
+    expect(sample.filter(e => matchesArticleSearch(e, 'is:starred')).map(e => e.id)).toEqual([1]);
+    expect(sample.filter(e => matchesArticleSearch(e, '-is:archived')).map(e => e.id)).toEqual([1]);
+    expect(sample.filter(e => matchesArticleSearch(e, '-tag:cloudflare')).map(e => e.id)).toEqual([2]);
+    expect(sample.filter(e => matchesArticleSearch(e, 'is:unread -raft')).map(e => e.id)).toEqual([1]);
   });
 });
