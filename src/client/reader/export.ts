@@ -540,6 +540,77 @@ export async function handleBatchExportJson(): Promise<void> {
   if (typeof w.clearArticleSelection === "function") w.clearArticleSelection();
 }
 
+export async function exportFullLibraryBackupJson(): Promise<void> {
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  let items: any[] = Array.isArray(w.allEntries) ? [...w.allEntries] : [];
+  if (items.length === 0) {
+    try {
+      let page = 1;
+      let pages = 1;
+      while (page <= pages) {
+        const res = await authFetch("/api/entries.json?page=" + page + "&perPage=100");
+        if (!res.ok) break;
+        const data = await res.json();
+        const batch = Array.isArray(data?._embedded?.items) ? data._embedded.items : [];
+        items.push(...batch);
+        pages = Number(data?.pages || 1);
+        page++;
+      }
+    } catch {}
+  }
+
+  if (items.length === 0) {
+    showToast("No articles available to back up");
+    return;
+  }
+
+  const dateTag = new Date().toISOString().slice(0, 10);
+  const payload = {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    total: items.length,
+    entries: items,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  await shareOrDownloadBlob(blob, `wallaflare-backup-${dateTag}.json`, "application/json");
+  showToast(`✓ Backed up ${items.length} article(s)`);
+}
+
+export async function exportAllHighlightsMarkdown(): Promise<void> {
+  const w = typeof window !== "undefined" ? (window as any) : {};
+  const allEntries: any[] = Array.isArray(w.allEntries) ? w.allEntries : [];
+  const annotated = allEntries.filter((e: any) => Array.isArray(e?.annotations) && e.annotations.length > 0);
+  if (annotated.length === 0) {
+    showToast("No highlights or notes found in library");
+    return;
+  }
+
+  const lines: string[] = [
+    "# Wallaflare Highlights & Notes",
+    "",
+    `*Exported on ${new Date().toISOString()}*`,
+    "",
+  ];
+  for (const item of annotated) {
+    lines.push(`## ${item.title || "Untitled"}`);
+    if (item.url) lines.push(`Source: ${item.url}`);
+    lines.push("");
+    for (const ann of item.annotations) {
+      if (ann.quote) {
+        lines.push(`> ==${String(ann.quote).trim()}==`);
+        if (ann.text) lines.push(`> *Note:* ${String(ann.text).trim()}`);
+        lines.push("");
+      }
+    }
+    lines.push("---", "");
+  }
+
+  const dateTag = new Date().toISOString().slice(0, 10);
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+  await shareOrDownloadBlob(blob, `wallaflare-highlights-${dateTag}.md`, "text/markdown");
+  showToast(`✓ Exported highlights from ${annotated.length} article(s)`);
+}
+
 // Attach to window for global access & HTML inline event handlers
 if (typeof window !== "undefined") {
   const w = window as any;
@@ -558,4 +629,6 @@ if (typeof window !== "undefined") {
   w.handleBatchExportMarkdown = handleBatchExportMarkdown;
   w.handleBatchExportPdf = handleBatchExportPdf;
   w.handleBatchExportJson = handleBatchExportJson;
+  w.exportFullLibraryBackupJson = exportFullLibraryBackupJson;
+  w.exportAllHighlightsMarkdown = exportAllHighlightsMarkdown;
 }

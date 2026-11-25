@@ -406,6 +406,21 @@
                 </div>
               </div>
 
+              <div>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">Import &amp; Library Backup</h4>
+                <div style="background: var(--bg-primary); padding: 0.85rem 0.9rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">
+                  <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                    Import from Pocket CSV, Wallabag JSON, Instapaper CSV, Netscape Bookmarks HTML, or a Wallaflare JSON backup.
+                  </div>
+                  <input type="file" id="libraryImportFileInput" accept=".json,.csv,.html,.htm" onchange="handleLibraryImportInput(event)" style="display: none;" />
+                  <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <button type="button" class="btn btn-primary" onclick="triggerLibraryImport()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Import Library</button>
+                    <button type="button" class="btn btn-outline" onclick="exportFullLibraryBackupJson()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Backup Library (JSON)</button>
+                    <button type="button" class="btn btn-outline" onclick="exportAllHighlightsMarkdown()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Export All Highlights (MD)</button>
+                  </div>
+                </div>
+              </div>
+
               <div id="serverConnectionSettingsRow" style="display: none; flex-direction: column; gap: 0.6rem;">
                 <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 600;">App Server Endpoint</h4>
                 <div style="background: var(--bg-primary); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.65rem;">

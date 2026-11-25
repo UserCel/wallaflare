@@ -58,7 +58,7 @@ import {
   getOrCreateFeedToken,
   setFeedToken
 } from '../db/queries';
-import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain, sanitizeHtmlFragment, escapeHtmlText } from '../services/extractor';
+import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain, sanitizeHtmlFragment, escapeHtmlText, calculateReadingTime } from '../services/extractor';
 import { generateEpub, generateDigestEpub } from '../services/epub';
 import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
 
@@ -1320,6 +1320,92 @@ const postEntryHandler = async (c: any) => {
 
 apiRouter.post('/api/entries', authMiddleware, postEntryHandler);
 apiRouter.post('/api/entries.json', authMiddleware, postEntryHandler);
+
+// -------------------------------------------------------------
+// Chunked Library Import: POST /api/import/batch
+// -------------------------------------------------------------
+apiRouter.post('/api/import/batch', authMiddleware, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const items = Array.isArray(body.items) ? body.items : null;
+  if (!items || items.length === 0) {
+    return c.json({ error: 'items array is required' }, 400);
+  }
+  if (items.length > 50) {
+    return c.json({ error: 'Maximum 50 items per import batch' }, 400);
+  }
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const raw of items) {
+    if (!raw || typeof raw !== 'object') {
+      skipped++;
+      continue;
+    }
+
+    const rawUrl = raw.url ? String(raw.url).trim() : '';
+    let validUrl: string | null = null;
+    let domainName = 'direct-input';
+
+    if (rawUrl) {
+      try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          validUrl = parsed.toString();
+          domainName = parsed.hostname;
+        }
+      } catch {}
+    }
+
+    if (validUrl) {
+      const existing = await getEntryByUrl(c.env.DB, validUrl);
+      if (existing) {
+        skipped++;
+        continue;
+      }
+    }
+
+    const title = raw.title ? String(raw.title).trim() : (validUrl || 'Untitled Imported Article');
+    const rawContent = raw.content ? String(raw.content) : '';
+    const content = rawContent.trim()
+      ? sanitizeHtmlFragment(rawContent)
+      : (validUrl ? `<p><a href="${escapeHtmlText(validUrl)}">${escapeHtmlText(validUrl)}</a></p>` : '<p>Imported note</p>');
+
+    const created = await createEntry(c.env.DB, {
+      url: validUrl || undefined,
+      title,
+      content,
+      domain_name: raw.domain_name ? String(raw.domain_name) : domainName,
+      preview_picture: raw.preview_picture ? String(raw.preview_picture) : null,
+      author: raw.author ? String(raw.author) : null,
+      published_at: raw.published_at ? String(raw.published_at) : null,
+      reading_time: raw.reading_time ? Number(raw.reading_time) : calculateReadingTime(content.replace(/<[^>]+>/g, ' ')),
+      language: raw.language ? String(raw.language) : 'en',
+      is_archived: raw.is_archived ? 1 : 0,
+      is_starred: raw.is_starred ? 1 : 0,
+      tags: Array.isArray(raw.tags)
+        ? raw.tags.map((t: any) => (typeof t === 'string' ? t : (t?.label || t?.slug || ''))).filter(Boolean)
+        : raw.tags,
+    });
+
+    if (Array.isArray(raw.annotations) && raw.annotations.length > 0) {
+      for (const ann of raw.annotations) {
+        if (!ann || !ann.quote) continue;
+        await createAnnotation(c.env.DB, created.id, {
+          quote: String(ann.quote),
+          text: ann.text ? String(ann.text) : '',
+          color: ann.color ? String(ann.color) : 'yellow',
+          ranges: Array.isArray(ann.ranges) ? ann.ranges : [],
+          target: ann.target,
+        });
+      }
+    }
+
+    imported++;
+  }
+
+  return c.json({ success: true, imported, skipped, total: items.length });
+});
 
 // -------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
 import { isEmptyOrStubContent, renderEmptyArticleFallback } from './reader/empty-fallback';
 import { getEffectiveRestoreProgress, syncReadingProgressIfEnabled, getCurrentReaderScrollRatio, initReadingProgressSyncListeners } from './reader/progress-sync';
+import './modals/import';
 import { showToast, hideToast } from './components/toast';
 import { openModal, closeModal } from './modals/manager';
 import {
