@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import app from '../index';
 import { sanitizeHtmlFragment, sanitizeArticleDom, parseHtmlIsomorphic, escapeHtmlText, extractArticleFromUrl } from '../services/extractor';
+import { createMockD1Database } from './mock-db';
 
 function createNoopDb() {
   const apiTokens: any[] = [];
@@ -224,5 +225,102 @@ describe('Server-side article fetch limits', () => {
 
   it('rejects non-http(s) protocols', async () => {
     await expect(extractArticleFromUrl('file:///etc/passwd')).rejects.toThrow(/protocol/i);
+  });
+});
+
+describe('Phase 1 P0 Security Hardening', () => {
+  const SECRET = 'super-secret-master-pass';
+  let mockDb: any;
+
+  beforeEach(() => {
+    mockDb = createMockD1Database();
+  });
+
+  it('rejects client_credentials when given only env.CLIENT_SECRET', async () => {
+    const res = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials&client_id=wallaflare&client_secret=leaked-client-secret',
+    }, {
+      DB: mockDb,
+      AUTH_TOKEN: SECRET,
+      CLIENT_SECRET: 'leaked-client-secret',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts lowercase "bearer <token>" Authorization header (RFC 6750)', async () => {
+    const loginRes = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'password', username: 'wallaflare', password: SECRET }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const { access_token } = await loginRes.json<any>();
+
+    const apiRes = await app.request('/api/entries.json', {
+      headers: { Authorization: `bearer ${access_token}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(apiRes.status).toBe(200);
+  });
+
+  it('rotates refresh_token without accumulating orphaned tokens in api_tokens', async () => {
+    const loginRes = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'password', username: 'wallaflare', password: SECRET }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const first = await loginRes.json<any>();
+    const initialCount = mockDb._apiTokens.length;
+
+    const refreshRes = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: first.refresh_token }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(refreshRes.status).toBe(200);
+    const second = await refreshRes.json<any>();
+    expect(second.access_token).not.toBe(first.access_token);
+    expect(mockDb._apiTokens.length).toBe(initialCount);
+  });
+
+  it('rate-limits POST /api/admin/reset-database on repeated wrong master passwords', async () => {
+    const loginRes = await app.request('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'password', username: 'wallaflare', password: SECRET }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const { access_token } = await loginRes.json<any>();
+
+    for (let i = 0; i < 5; i++) {
+      const r = await app.request('/api/admin/reset-database', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json', 'CF-Connecting-IP': '10.0.0.99' },
+        body: JSON.stringify({ password: 'wrong' }),
+      }, { DB: mockDb, AUTH_TOKEN: SECRET });
+      expect([401, 429]).toContain(r.status);
+    }
+
+    const locked = await app.request('/api/admin/reset-database', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json', 'CF-Connecting-IP': '10.0.0.99' },
+      body: JSON.stringify({ password: 'wrong' }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(locked.status).toBe(429);
+  });
+
+  it('strips svg, math, template, data:image/svg+xml, srcset schemes, and inline styles', () => {
+    const out = sanitizeHtmlFragment(
+      '<svg onload="alert(1)"><use href="data:image/svg+xml,<svg/>"></use></svg>' +
+      '<math><mtext>x</mtext></math>' +
+      '<template><script>1</script></template>' +
+      '<img srcset="javascript:alert(1) 1x">' +
+      '<p style="position:fixed;inset:0">text</p>'
+    );
+    expect(out).not.toContain('<svg');
+    expect(out).not.toContain('<math');
+    expect(out).not.toContain('<template');
+    expect(out).not.toContain('srcset');
+    expect(out).not.toContain('style=');
+    expect(out).toContain('<p>text</p>');
   });
 });

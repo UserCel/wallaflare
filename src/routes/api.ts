@@ -101,8 +101,8 @@ export const authMiddleware = async (c: any, next: any) => {
   const authHeader = c.req.header('Authorization');
   let token = '';
 
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7).trim();
+  if (authHeader && /^bearer\s+/i.test(authHeader)) {
+    token = authHeader.replace(/^bearer\s+/i, '').trim();
   } else {
     token = c.req.query('access_token') || c.req.query('token') || '';
   }
@@ -336,6 +336,7 @@ const oauthTokenHandler = async (c: any) => {
   const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
   const expectedClientSecret = getClientSecret(c.env);
 
+  let refreshTokenRowId: number | null = null;
   if (isConfigured) {
     let isMatch = false;
 
@@ -351,16 +352,17 @@ const oauthTokenHandler = async (c: any) => {
       const isSecretValid = !clientSecret || Boolean(isPasswordValid) || timingSafeCompare(clientSecret, expectedClientSecret) || (c.env.AUTH_TOKEN && timingSafeCompare(clientSecret, c.env.AUTH_TOKEN)) || timingSafeCompare(clientSecret, 'wallaflare');
       isMatch = Boolean(isUserValid && isPasswordValid && isSecretValid);
     } else if (grantType === 'client_credentials') {
-      const explicitClientSecret = c.env.CLIENT_SECRET;
-      const passCheck = await verifyMasterPassword(c.env.DB, c.env, clientSecret);
-      isMatch = Boolean(
-        clientSecret &&
-        (passCheck.valid || (explicitClientSecret && timingSafeCompare(clientSecret, explicitClientSecret)))
-      );
+      // Never accept public CLIENT_SECRET as an authentication credential; require master password.
+      const candidate = password || clientSecret;
+      const passCheck = await verifyMasterPassword(c.env.DB, c.env, candidate);
+      isMatch = Boolean(candidate && passCheck.valid);
     } else if (grantType === 'refresh_token') {
       const refreshToken = String(c.req.query('refresh_token') || body.refresh_token || '');
       const tokenCheck = await verifyApiToken(c.env.DB, refreshToken);
       isMatch = tokenCheck.valid;
+      if (tokenCheck.valid && tokenCheck.tokenRow?.id) {
+        refreshTokenRowId = Number(tokenCheck.tokenRow.id);
+      }
     } else {
       const candidate = password || clientSecret;
       const passCheck = await verifyMasterPassword(c.env.DB, c.env, candidate);
@@ -390,6 +392,15 @@ const oauthTokenHandler = async (c: any) => {
 
   // Issue real cryptographic token into api_tokens table
   const label = parseOAuthClientLabel(c.req.header('user-agent') || '', deviceName);
+
+  // Rotate refresh_token in place (revoke old token so refresh doesn't leak unbounded tokens)
+  if (grantType === 'refresh_token' && refreshTokenRowId && c.env.DB) {
+    try {
+      await c.env.DB.prepare('DELETE FROM api_tokens WHERE id = ?').bind(refreshTokenRowId).run();
+    } catch {
+      // Ignore if table doesn't exist
+    }
+  }
 
   // Prune any ephemeral test-probe tokens created for the exact same client in the last 2 minutes
   // (e.g. Wallabag Android App runs TestConnectionTask probe immediately followed by SaveConfigurationTask)
@@ -552,8 +563,8 @@ apiRouter.post('/api/auth/verify', async (c: any) => {
 
   let token = '';
   const authHeader = c.req.header('Authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7).trim();
+  if (authHeader && /^bearer\s+/i.test(authHeader)) {
+    token = authHeader.replace(/^bearer\s+/i, '').trim();
   } else {
     const body = await c.req.json().catch(() => ({}));
     token = body.token || body.password || '';
@@ -1732,6 +1743,19 @@ apiRouter.get('/api/client-info', authMiddleware, async (c: any) => {
 // Database Reset / Wipe Endpoint: POST /api/admin/reset-database(.json)
 // -------------------------------------------------------------
 const resetDatabaseHandler = async (c: any) => {
+  const rateLimitKey = `reset:${getClientIp(c)}`;
+  if (c.env.DB) {
+    const rateLimit = await checkAuthRateLimit(c.env.DB, rateLimitKey);
+    if (!rateLimit.allowed) {
+      return c.json({
+        error: 'rate_limited',
+        message: `Too many failed attempts. Locked out for ${rateLimit.remaining_minutes || 15} minutes.`,
+        locked: true,
+        remaining_minutes: rateLimit.remaining_minutes || 15
+      }, 429);
+    }
+  }
+
   let body: any = {};
   const contentType = c.req.header('Content-Type') || '';
   if (contentType.includes('application/json')) {
@@ -1747,7 +1771,16 @@ const resetDatabaseHandler = async (c: any) => {
   if (isConfigured) {
     const passCheck = await verifyMasterPassword(c.env.DB, c.env, providedToken);
     if (!passCheck.valid) {
+      if (c.env.DB) {
+        const failure = await recordFailedAuthAttempt(c.env.DB, rateLimitKey);
+        if (failure.locked) {
+          return c.json({ error: 'Too many failed attempts. Locked out for 15 minutes.' }, 429);
+        }
+      }
       return c.json({ error: 'Invalid authentication token / password' }, 401);
+    }
+    if (c.env.DB) {
+      await resetAuthRateLimit(c.env.DB, rateLimitKey);
     }
   }
 

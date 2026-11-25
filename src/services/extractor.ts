@@ -108,9 +108,10 @@ export function sanitizeArticleDom(doc: any): void {
 
   // 1. Remove dangerous executable and embedding elements
   const dangerousTags = [
-    'script', 'iframe', 'object', 'embed', 'applet', 'link', 
-    'meta', 'form', 'input', 'button', 'select', 'textarea', 
-    'frame', 'frameset', 'noscript', 'style', 'base'
+    'script', 'iframe', 'object', 'embed', 'applet', 'link',
+    'meta', 'form', 'input', 'button', 'select', 'textarea',
+    'frame', 'frameset', 'noscript', 'style', 'base',
+    'svg', 'math', 'template', 'foreignobject'
   ];
   dangerousTags.forEach(tag => {
     doc.querySelectorAll(tag).forEach((el: any) => el.remove());
@@ -125,9 +126,22 @@ export function sanitizeArticleDom(doc: any): void {
     el.removeAttribute('about');
   });
 
-  // 2. Strip all inline JavaScript event handlers (on*) and dangerous URL schemes
+  // 2. Strip all inline JavaScript event handlers (on*), inline styles, and dangerous URL schemes
+  const isDangerousUrl = (raw: string, allowRasterDataUri: boolean): boolean => {
+    const normalized = raw.replace(/[\u0000-\u0020\u00a0]+/g, '');
+    if (/^(javascript|vbscript):/i.test(normalized)) return true;
+    if (/^data:/i.test(normalized)) {
+      if (allowRasterDataUri && /^data:image\/(png|jpe?g|gif|webp|avif);base64,/i.test(normalized)) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  };
+
   const allElements = doc.querySelectorAll('*');
   allElements.forEach((el: any) => {
+    const tagName = (el.tagName || '').toLowerCase();
     const attrs = Array.from(el.attributes || []) as any[];
     attrs.forEach(attr => {
       if (attr && attr.name && attr.name.toLowerCase().startsWith('on')) {
@@ -135,16 +149,33 @@ export function sanitizeArticleDom(doc: any): void {
       }
     });
 
-    // Attributes that can load/execute content outright
+    // Attributes that can load/execute content or redress UI
     el.removeAttribute('srcdoc');
     el.removeAttribute('formaction');
+    el.removeAttribute('style');
 
     // Browsers ignore ASCII whitespace/control chars inside a URL scheme ("java\tscript:"),
     // so normalise before testing.
     for (const urlAttr of ['href', 'src', 'xlink:href', 'action', 'poster']) {
       const value = el.getAttribute(urlAttr);
-      if (value && /^(javascript|vbscript|data:text\/html)/i.test(value.replace(/[\u0000-\u0020\u00a0]+/g, ''))) {
-        el.removeAttribute(urlAttr);
+      if (value) {
+        const allowRasterData = urlAttr === 'src' && (tagName === 'img' || tagName === 'source');
+        if (isDangerousUrl(value, allowRasterData)) {
+          el.removeAttribute(urlAttr);
+        }
+      }
+    }
+
+    const srcset = el.getAttribute('srcset');
+    if (srcset) {
+      const allowRasterData = tagName === 'img' || tagName === 'source';
+      const candidates = srcset.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const hasDangerous = candidates.some((c: string) => {
+        const urlPart = c.split(/\s+/)[0] || '';
+        return isDangerousUrl(urlPart, allowRasterData);
+      });
+      if (hasDangerous) {
+        el.removeAttribute('srcset');
       }
     }
   });
@@ -599,13 +630,13 @@ export function markdownToHtml(md: string): string {
   // 8. Images and Links
   // Images: ![alt](url "title")
   text = text.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_match, alt, src, title) => {
-    const titleAttr = title ? ` title="${title}"` : '';
-    return `<img src="${src}" alt="${alt}"${titleAttr}>`;
+    const titleAttr = title ? ` title="${escapeHtmlText(title)}"` : '';
+    return `<img src="${escapeHtmlText(src)}" alt="${escapeHtmlText(alt)}"${titleAttr}>`;
   });
   // Links: [text](url "title")
   text = text.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_match, linkText, href, title) => {
-    const titleAttr = title ? ` title="${title}"` : '';
-    return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleAttr}>${linkText}</a>`;
+    const titleAttr = title ? ` title="${escapeHtmlText(title)}"` : '';
+    return `<a href="${escapeHtmlText(href)}" target="_blank" rel="noopener noreferrer"${titleAttr}>${linkText}</a>`;
   });
 
   // 9. Inline styles

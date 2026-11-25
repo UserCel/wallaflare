@@ -620,6 +620,14 @@ webRouter.get('/developer', async (c) => {
 });
 
 webRouter.get('/developer/client/create', async (c) => {
+  const isAuthed = await validateSessionToken(c, c.env);
+  const ua = c.req.header('user-agent') || '';
+  const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
+  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
+  if (!isAuthed && isConfigured && !isAppClient) {
+    const origin = new URL(c.req.url).origin;
+    return c.redirect(`${origin}/login`, 302);
+  }
   const clientSecret = getClientSecret(c.env);
   return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret, true));
 });

@@ -1154,7 +1154,9 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     expect(okhttpHtml).toContain("wallaflare");
 
     // 2. Client registration scraper accessing /developer/client/create
-    const createRes = await app.request("/developer/client/create", {}, {
+    const createRes = await app.request("/developer/client/create", {
+      headers: { "User-Agent": "okhttp/4.9.2" }
+    }, {
       DB: mockDb,
       AUTH_TOKEN: SECRET,
     });
