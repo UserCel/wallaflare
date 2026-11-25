@@ -34,7 +34,7 @@ local Annotations = package.loaded["annotations"] or dofile(plugin_dir .. "/anno
 local Wallaflare = WidgetContainer:extend{
     name = "wallaflare",
     is_doc_only = false,
-    version = "1.1.0",
+    version = "1.1.1",
 }
 
 local function getPluginDir()
