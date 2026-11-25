@@ -31,6 +31,7 @@ import {
   updateVersionDisplay,
   syncNativeServerConfig
 } from './native/ota';
+import { handleAndroidSharedText, drainNativePendingIntents } from './native/capacitor';
 import {
   OUTBOX_STORAGE_KEY,
   getPendingMutations,
@@ -1973,8 +1974,10 @@ import {
           console.warn('Error polling native pending saved articles:', e);
         }
       }
+      drainNativePendingIntents();
     }
     window.checkNativePendingSavedArticles = checkNativePendingSavedArticles;
+    window.handleAndroidSharedText = handleAndroidSharedText;
 
     window.refreshArticlesSilently = function() {
       checkNativePendingSavedArticles();

@@ -23,6 +23,8 @@ public class MainActivity extends BridgeActivity {
     private BroadcastReceiver articleSavedReceiver;
     private volatile int cachedCornerTopLeft = -1;
     private volatile int cachedCornerTopRight = -1;
+    private volatile long pendingOpenReaderId = -1;
+    private volatile String pendingSharedText = null;
 
     class NativeInterface {
         @JavascriptInterface
@@ -237,6 +239,24 @@ public class MainActivity extends BridgeActivity {
                     return json;
                 }
                 return "";
+            }
+        }
+
+        @JavascriptInterface
+        public long pollPendingOpenReaderId() {
+            synchronized (MainActivity.class) {
+                long id = pendingOpenReaderId;
+                pendingOpenReaderId = -1;
+                return id;
+            }
+        }
+
+        @JavascriptInterface
+        public String pollPendingSharedText() {
+            synchronized (MainActivity.class) {
+                String text = pendingSharedText;
+                pendingSharedText = null;
+                return text != null ? text : "";
             }
         }
 
@@ -473,16 +493,19 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void openArticleInReader(final long articleId) {
+        synchronized (MainActivity.class) {
+            pendingOpenReaderId = articleId;
+        }
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().postDelayed(new Runnable() {
+            getBridge().getWebView().post(new Runnable() {
                 @Override
                 public void run() {
                     getBridge().getWebView().evaluateJavascript(
-                        "(function() { if (window.openReader) { window.openReader(" + articleId + "); } else { window.location.href = '/read/" + articleId + "'; } })()",
+                        "(function() { if (window.openReader && window.AndroidNative && window.AndroidNative.pollPendingOpenReaderId) { var id = window.AndroidNative.pollPendingOpenReaderId(); if (id > 0) window.openReader(id); } })()",
                         null
                     );
                 }
-            }, 350);
+            });
         }
     }
 
@@ -516,17 +539,15 @@ public class MainActivity extends BridgeActivity {
                 && "text/plain".equals(intent.getType())) {
             String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
             if (sharedText != null && !sharedText.trim().isEmpty()) {
-                final String safeText = sharedText
-                    .replace("\\", "\\\\")
-                    .replace("'", "\\'")
-                    .replace("\n", "\\n")
-                    .replace("\r", "");
+                synchronized (MainActivity.class) {
+                    pendingSharedText = sharedText;
+                }
                 if (getBridge() != null && getBridge().getWebView() != null) {
                     getBridge().getWebView().post(new Runnable() {
                         @Override
                         public void run() {
                             getBridge().getWebView().evaluateJavascript(
-                                "window.handleAndroidSharedText && window.handleAndroidSharedText('" + safeText + "');",
+                                "(function() { if (window.handleAndroidSharedText && window.AndroidNative && window.AndroidNative.pollPendingSharedText) { var txt = window.AndroidNative.pollPendingSharedText(); if (txt) window.handleAndroidSharedText(txt); } })()",
                                 null
                             );
                         }

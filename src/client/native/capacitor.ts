@@ -81,9 +81,40 @@ export function initCapacitorBridge(): void {
   checkNativePendingSavedArticles();
 }
 
+export function drainNativePendingIntents(): void {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+  const nativeBridge = w.AndroidNative;
+  if (!nativeBridge) return;
+
+  if (typeof nativeBridge.pollPendingOpenReaderId === "function" && typeof w.openReader === "function") {
+    try {
+      const articleId = Number(nativeBridge.pollPendingOpenReaderId());
+      if (articleId > 0) {
+        w.openReader(articleId);
+      }
+    } catch (e) {
+      console.warn("Failed to poll pending open reader ID:", e);
+    }
+  }
+
+  if (typeof nativeBridge.pollPendingSharedText === "function") {
+    try {
+      const sharedText = String(nativeBridge.pollPendingSharedText() || "");
+      if (sharedText.trim()) {
+        const handler = typeof w.handleAndroidSharedText === "function" ? w.handleAndroidSharedText : handleAndroidSharedText;
+        void handler(sharedText);
+      }
+    } catch (e) {
+      console.warn("Failed to poll pending shared text:", e);
+    }
+  }
+}
+
 export function handleAndroidBackButton(): void {
-  if (typeof (window as any).handleAndroidBackButton === "function") {
-    const handled = (window as any).handleAndroidBackButton();
+  const winBack = (window as any).handleAndroidBackButton;
+  if (typeof winBack === "function" && winBack !== handleAndroidBackButton) {
+    const handled = winBack();
     if (handled) return;
   }
 
@@ -105,32 +136,25 @@ export function handleAndroidBackButton(): void {
 }
 
 export async function checkNativePendingSavedArticles(): Promise<void> {
-  if (!isCapacitorApp() || typeof (window as any).Capacitor === "undefined") return;
-  const NativePlugin = (window as any).Capacitor.Plugins?.WallaflareNativePlugin || (window as any).Capacitor.Plugins?.WallaflareNative;
-  if (!NativePlugin || !NativePlugin.getPendingSharedUrls) return;
-
-  try {
-    const res = await NativePlugin.getPendingSharedUrls();
-    if (res && Array.isArray(res.urls) && res.urls.length > 0) {
-      for (const url of res.urls) {
-        await saveArticleWithFallback(url);
+  if (typeof window === "undefined") return;
+  const w = window as any;
+  const nativeBridge = w.AndroidNative;
+  if (nativeBridge && (typeof nativeBridge.pollPendingSavedArticles === "function" || typeof nativeBridge.pollPendingSavedArticle === "function")) {
+    try {
+      const raw = typeof nativeBridge.pollPendingSavedArticles === "function"
+        ? nativeBridge.pollPendingSavedArticles()
+        : nativeBridge.pollPendingSavedArticle();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof w.prependSavedArticles === "function") {
+          w.prependSavedArticles(parsed);
+        } else if (Array.isArray(parsed)) {
+          prependSavedArticles(parsed);
+        }
       }
-      showToast(`Imported ${res.urls.length} shared article(s)!`);
-      if (typeof NativePlugin.clearPendingSharedUrls === "function") {
-        await NativePlugin.clearPendingSharedUrls();
-      }
-      if ((window as any).loadArticles) (window as any).loadArticles(false);
+    } catch (e) {
+      console.warn("Failed to poll native pending saved articles:", e);
     }
-  } catch (e) {
-    console.warn("Failed to process shared URLs:", e);
   }
-}
-
-if (typeof window !== "undefined") {
-  (window as any).prependSavedArticles = prependSavedArticles;
-  (window as any).prependSavedArticle = prependSavedArticle;
-  (window as any).checkNativePendingSavedArticles = checkNativePendingSavedArticles;
-  (window as any).refreshArticlesSilently = refreshArticlesSilently;
-  (window as any).pollPendingSavedArticles = pollPendingSavedArticles;
-  (window as any).handleAndroidSharedText = handleAndroidSharedText;
+  drainNativePendingIntents();
 }

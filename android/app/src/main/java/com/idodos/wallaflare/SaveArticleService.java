@@ -68,7 +68,7 @@ public class SaveArticleService extends Service {
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(12000);
             conn.setReadTimeout(18000);
-            conn.setInstanceFollowRedirects(true);
+            conn.setInstanceFollowRedirects(false);
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0 Wallaflare/1.0");
             conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
             conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
@@ -77,7 +77,7 @@ public class SaveArticleService extends Service {
             conn.setRequestProperty("Sec-Fetch-Site", "cross-site");
 
             try {
-                String cookies = WallaflareNativePlugin.getCookiesForUrl(this, urlString);
+                String cookies = WallaflareNativePlugin.getCookiesForUrl(this, url.toString());
                 if (cookies != null && !cookies.isEmpty()) {
                     conn.setRequestProperty("Cookie", cookies);
                 }
@@ -85,8 +85,9 @@ public class SaveArticleService extends Service {
 
             int status = conn.getResponseCode();
             int redirects = 0;
-            while ((status == HttpURLConnection.HTTP_MOVED_TEMP || 
-                    status == HttpURLConnection.HTTP_MOVED_PERM || 
+            while ((status == HttpURLConnection.HTTP_MOVED_TEMP ||
+                    status == HttpURLConnection.HTTP_MOVED_PERM ||
+                    status == HttpURLConnection.HTTP_SEE_OTHER ||
                     status == 307 || status == 308) && redirects < 5) {
                 String newUrl = conn.getHeaderField("Location");
                 if (newUrl != null && !newUrl.isEmpty()) {
@@ -96,9 +97,19 @@ public class SaveArticleService extends Service {
                     conn.setRequestMethod("GET");
                     conn.setConnectTimeout(12000);
                     conn.setReadTimeout(18000);
+                    conn.setInstanceFollowRedirects(false);
                     conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0 Wallaflare/1.0");
                     conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
                     conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+                    conn.setRequestProperty("Sec-Fetch-Dest", "document");
+                    conn.setRequestProperty("Sec-Fetch-Mode", "navigate");
+                    conn.setRequestProperty("Sec-Fetch-Site", "cross-site");
+                    try {
+                        String redirectCookies = WallaflareNativePlugin.getCookiesForUrl(this, url.toString());
+                        if (redirectCookies != null && !redirectCookies.isEmpty()) {
+                            conn.setRequestProperty("Cookie", redirectCookies);
+                        }
+                    } catch (Exception ignored) {}
                     status = conn.getResponseCode();
                     redirects++;
                 } else {
@@ -200,7 +211,7 @@ public class SaveArticleService extends Service {
 
                 // Buffer newly saved article in synchronized SharedPreferences queue for 0ms instant display in main app
                 if (articleId > 0) {
-                    synchronized (SaveArticleService.class) {
+                    synchronized (MainActivity.class) {
                         String existingQueueStr = sharedPrefs.getString("pending_saved_articles_json", "[]");
                         try {
                             JSONArray queue = new JSONArray(existingQueueStr);
