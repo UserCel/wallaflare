@@ -686,6 +686,60 @@ export async function deleteTag(db: D1Database, tagIdOrSlug: number | string): P
   return deleted;
 }
 
+export async function renameOrMergeTag(
+  db: D1Database,
+  tagId: number,
+  opts: { label?: string; merge_into_id?: number }
+): Promise<{ success: boolean; tag?: TagItem; merged_into_id?: number }> {
+  const existing = await db.prepare('SELECT id, label, slug FROM tags WHERE id = ? LIMIT 1').bind(tagId).first<TagItem>();
+  if (!existing) return { success: false };
+
+  let targetId: number | null = opts.merge_into_id ? Number(opts.merge_into_id) : null;
+  let newLabel = opts.label ? String(opts.label).trim().replace(/^#+/, '') : '';
+  let newSlug = newLabel ? slugify(newLabel) : '';
+
+  if (!targetId && newSlug) {
+    const conflict = await db.prepare('SELECT id, label, slug FROM tags WHERE slug = ? LIMIT 1').bind(newSlug).first<TagItem>();
+    if (conflict && conflict.id !== tagId) {
+      targetId = conflict.id;
+    }
+  }
+
+  const affectedRes = await db.prepare('SELECT entry_id FROM entry_tags WHERE tag_id = ?').bind(tagId).all<{ entry_id: number }>();
+  const affectedIds = (affectedRes.results || []).map(r => r.entry_id);
+
+  if (targetId && targetId !== tagId) {
+    const targetTag = await db.prepare('SELECT id, label, slug FROM tags WHERE id = ? LIMIT 1').bind(targetId).first<TagItem>();
+    if (!targetTag) return { success: false };
+    for (const entryId of affectedIds) {
+      await db.prepare('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)').bind(entryId, targetId).run();
+    }
+    await db.prepare('DELETE FROM entry_tags WHERE tag_id = ?').bind(tagId).run();
+    await db.prepare('DELETE FROM tags WHERE id = ?').bind(tagId).run();
+    if (affectedIds.length > 0) {
+      const newRev = await bumpSyncRevision(db);
+      const now = new Date().toISOString();
+      for (const chunk of chunkArray(affectedIds, 80)) {
+        const ph = chunk.map(() => '?').join(',');
+        await db.prepare(`UPDATE entries SET updated_at = ?, revision = ? WHERE id IN (${ph})`).bind(now, newRev, ...chunk).run();
+      }
+    }
+    return { success: true, tag: targetTag, merged_into_id: targetId };
+  }
+
+  if (!newLabel || !newSlug) return { success: false };
+  await db.prepare('UPDATE tags SET label = ?, slug = ? WHERE id = ?').bind(newLabel, newSlug, tagId).run();
+  if (affectedIds.length > 0) {
+    const newRev = await bumpSyncRevision(db);
+    const now = new Date().toISOString();
+    for (const chunk of chunkArray(affectedIds, 80)) {
+      const ph = chunk.map(() => '?').join(',');
+      await db.prepare(`UPDATE entries SET updated_at = ?, revision = ? WHERE id IN (${ph})`).bind(now, newRev, ...chunk).run();
+    }
+  }
+  return { success: true, tag: { id: tagId, label: newLabel, slug: newSlug } };
+}
+
 export async function getEntries(
   db: D1Database,
   filter: GetEntriesFilter = {}
@@ -861,9 +915,31 @@ export async function getEntriesByIds(db: D1Database, ids: number[]): Promise<En
   return ids.map(id => rowMap.get(id)).filter(Boolean) as EntryRow[];
 }
 
+export function canonicalizeUrl(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl.trim());
+    u.hash = '';
+    const trackingParams = ['fbclid', 'gclid', 'mc_cid', 'mc_eid', 'igshid'];
+    for (const key of Array.from(u.searchParams.keys())) {
+      if (key.toLowerCase().startsWith('utm_') || trackingParams.includes(key.toLowerCase())) {
+        u.searchParams.delete(key);
+      }
+    }
+    return u.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 export async function getEntryByUrl(db: D1Database, url: string): Promise<EntryRow | null> {
   const query = 'SELECT * FROM entries WHERE url = ? LIMIT 1';
-  const entry = await db.prepare(query).bind(url).first<EntryRow>();
+  let entry = await db.prepare(query).bind(url).first<EntryRow>();
+  if (!entry) {
+    const canonical = canonicalizeUrl(url);
+    if (canonical && canonical !== url) {
+      entry = await db.prepare(query).bind(canonical).first<EntryRow>();
+    }
+  }
   if (entry) {
     (entry as any).tags = await getEntryTags(db, entry.id);
     (entry as any).annotations = await getEntryAnnotations(db, entry.id);
@@ -1472,11 +1548,15 @@ export async function ensureSyncRevisionTables(db: D1Database): Promise<void> {
 export async function bumpSyncRevision(db: D1Database): Promise<number> {
   await ensureSyncRevisionTables(db);
   try {
-    await db.prepare(`
+    const returned = await db.prepare(`
       UPDATE sync_state 
       SET revision = revision + 1, updated_at = datetime('now') 
       WHERE id = 1
-    `).run();
+      RETURNING revision
+    `).first<{ revision: number }>();
+    if (returned?.revision) {
+      return returned.revision;
+    }
     const res = await db.prepare('SELECT revision FROM sync_state WHERE id = 1').first<{ revision: number }>();
     return res?.revision || 2;
   } catch (e) {

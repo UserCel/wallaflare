@@ -4,12 +4,15 @@ import {
   createEntry,
   getEntries,
   getEntriesByIds,
+  getEntryByUrl,
+  canonicalizeUrl,
   updateEntry,
   updateEntriesBatch,
   deleteEntriesBatch,
   addTagsToEntry,
   addTagsToEntriesBatch,
   deleteTag,
+  renameOrMergeTag,
   createAnnotation,
   updateAnnotation,
   entryRowToWallabag,
@@ -142,5 +145,19 @@ describe('D1 Queries & Scale Edge Cases', () => {
     const active = await createApiToken(db, 'Active Device', 'wfl_tok_');
     const checkActive = await verifyApiToken(db, active.token);
     expect(checkActive.valid).toBe(true);
+  });
+
+  it('canonicalizes tracking params in getEntryByUrl and merges tags cleanly in renameOrMergeTag', async () => {
+    await createEntry(db, { url: 'https://example.com/post?id=1', title: 'Clean', content: '<p>x</p>' });
+    const found = await getEntryByUrl(db, 'https://example.com/post?id=1&utm_source=hn&fbclid=123#top');
+    expect(found?.title).toBe('Clean');
+    expect(canonicalizeUrl('https://example.com/a?utm_medium=email#sec')).toBe('https://example.com/a');
+
+    const e2 = await createEntry(db, { url: 'https://example.com/m2', title: 'Merge', content: '<p>y</p>' });
+    const allTags = await addTagsToEntry(db, e2.id, ['js', 'javascript']);
+    expect(allTags.length).toBe(2);
+    const merged = await renameOrMergeTag(db, allTags[0].id, { merge_into_id: allTags[1].id });
+    expect(merged.success).toBe(true);
+    expect(merged.merged_into_id).toBe(allTags[1].id);
   });
 });

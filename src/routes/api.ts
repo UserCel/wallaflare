@@ -28,6 +28,7 @@ import {
   addTagsToEntry,
   removeTagFromEntry,
   deleteTag,
+  renameOrMergeTag,
   getLibraryCounts,
   getSiteCookies,
   getSiteCookieForDomain,
@@ -60,6 +61,7 @@ import {
 } from '../db/queries';
 import { extractArticleFromUrl, extractArticleFromHtml, extractCoverImageFromUrl, extractDomain, sanitizeHtmlFragment, escapeHtmlText, calculateReadingTime } from '../services/extractor';
 import { generateEpub, generateDigestEpub } from '../services/epub';
+import { generatePdf } from '../services/pdf';
 import { getClientSecret, createSessionToken, validateSessionToken } from '../services/auth';
 
 
@@ -813,6 +815,40 @@ const deleteGlobalTagHandler = async (c: any) => {
 apiRouter.delete('/api/tags/:id', authMiddleware, deleteGlobalTagHandler);
 apiRouter.delete('/api/tags/:id.json', authMiddleware, deleteGlobalTagHandler);
 
+const patchGlobalTagHandler = async (c: any) => {
+  const rawId = c.req.param('id').replace(/\.json$/, '');
+  const tagId = Number(rawId);
+  if (isNaN(tagId) || tagId <= 0) return c.json({ error: 'Invalid Tag ID' }, 400);
+  const body = await c.req.json().catch(() => ({}));
+  const res = await renameOrMergeTag(c.env.DB, tagId, {
+    label: body.label !== undefined ? String(body.label) : undefined,
+    merge_into_id: body.merge_into_id !== undefined ? Number(body.merge_into_id) : undefined,
+  });
+  if (!res.success) return c.json({ error: 'Tag not found or invalid update' }, 404);
+  return c.json(res);
+};
+
+apiRouter.patch('/api/tags/:id', authMiddleware, patchGlobalTagHandler);
+apiRouter.patch('/api/tags/:id.json', authMiddleware, patchGlobalTagHandler);
+
+const deleteTagByLabelHandler = async (c: any) => {
+  let tagLabel = c.req.query('tag') || '';
+  if (!tagLabel) {
+    const body = await c.req.json().catch(() => ({}));
+    tagLabel = body.tag || '';
+  }
+  const clean = String(tagLabel).trim();
+  if (!clean) return c.json({ error: 'Missing tag parameter' }, 400);
+  const ok = await deleteTag(c.env.DB, clean);
+  if (!ok) return c.json({ error: 'Tag not found' }, 404);
+  return c.json({ success: true, tag: clean });
+};
+
+apiRouter.delete('/api/tag/label', authMiddleware, deleteTagByLabelHandler);
+apiRouter.delete('/api/tag/label.json', authMiddleware, deleteTagByLabelHandler);
+apiRouter.delete('/api/tags/label', authMiddleware, deleteTagByLabelHandler);
+apiRouter.delete('/api/tags/label.json', authMiddleware, deleteTagByLabelHandler);
+
 const getEntryTagsHandler = async (c: any) => {
   const id = Number(c.req.param('id').replace(/\.json$/, ''));
   if (isNaN(id)) return c.json({ error: 'Invalid Entry ID' }, 400);
@@ -1453,6 +1489,8 @@ const batchDeleteEntriesHandler = async (c: any) => {
 
 apiRouter.delete('/api/entries/list', authMiddleware, batchDeleteEntriesHandler);
 apiRouter.delete('/api/entries/list.json', authMiddleware, batchDeleteEntriesHandler);
+apiRouter.delete('/api/entries/lists', authMiddleware, batchDeleteEntriesHandler);
+apiRouter.delete('/api/entries/lists.json', authMiddleware, batchDeleteEntriesHandler);
 
 // -------------------------------------------------------------
 // Mass Update Entries (Star/Archive): PATCH /api/entries/list(.json)
@@ -1843,6 +1881,93 @@ const exportEpubHandler = async (c: any) => {
 };
 
 apiRouter.get('/api/entries/:id/export.epub', authMiddleware, exportEpubHandler);
+
+const exportFormattedEntryHandler = (format: 'pdf' | 'txt' | 'json') => async (c: any) => {
+  const id = Number(c.req.param('id'));
+  if (isNaN(id)) return c.json({ error: 'Invalid ID' }, 400);
+
+  const entry = await getEntryById(c.env.DB, id);
+  if (!entry) return c.json({ error: 'Entry not found' }, 404);
+
+  const rawTitle = (entry.title || `article_${entry.id}`).replace(/[^\w\s.-]/g, '').trim().replace(/\s+/g, '_') || `article_${entry.id}`;
+
+  if (format === 'pdf') {
+    const pdfBytes = await generatePdf({
+      title: entry.title || 'Untitled',
+      content: entry.content || '',
+      url: entry.url,
+      domain_name: entry.domain_name,
+      preview_picture: entry.preview_picture,
+      reading_time: entry.reading_time,
+      created_at: entry.created_at,
+      published_at: entry.published_at || null,
+      author: entry.author || null,
+      tags: (entry as any).tags,
+    });
+    return new Response(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${rawTitle}.pdf"`,
+      },
+    });
+  }
+
+  if (format === 'txt') {
+    const plain = (entry.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const txt = `${entry.title || 'Untitled'}\n${entry.url || ''}\n\n${plain}\n`;
+    return new Response(txt, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${rawTitle}.txt"`,
+      },
+    });
+  }
+
+  const payload = entryRowToWallabag(entry, undefined, 'full', c.env?.USERNAME || 'wallaflare');
+  return new Response(JSON.stringify(payload, null, 2), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${rawTitle}.json"`,
+    },
+  });
+};
+
+apiRouter.get('/api/entries/:id/export.pdf', authMiddleware, exportFormattedEntryHandler('pdf'));
+apiRouter.get('/api/entries/:id/export.txt', authMiddleware, exportFormattedEntryHandler('txt'));
+apiRouter.get('/api/entries/:id/export.json', authMiddleware, exportFormattedEntryHandler('json'));
+
+const getUserHandler = (c: any) => {
+  const username = c.env?.USERNAME || 'wallaflare';
+  const now = new Date().toISOString();
+  return c.json({
+    id: 1,
+    username,
+    email: 'user@wallaflare.local',
+    name: username,
+    created_at: now,
+    updated_at: now,
+    default_client: 'wallaflare',
+  });
+};
+apiRouter.get('/api/user', authMiddleware, getUserHandler);
+apiRouter.get('/api/user.json', authMiddleware, getUserHandler);
+
+const getConfigHandler = async (c: any) => {
+  const [feedToken, readingWpm] = await Promise.all([
+    getOrCreateFeedToken(c.env.DB, c.env),
+    getReadingWpm(c.env.DB),
+  ]);
+  return c.json({
+    feed_token: feedToken,
+    feed_limit: 50,
+    reading_speed: readingWpm,
+  });
+};
+apiRouter.get('/api/config', authMiddleware, getConfigHandler);
+apiRouter.get('/api/config.json', authMiddleware, getConfigHandler);
 
 
 

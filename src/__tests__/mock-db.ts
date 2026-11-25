@@ -197,14 +197,19 @@ export function createMockD1Database() {
             const found = annotations.find(a => a.id === id);
             return (found || null) as T;
           }
-          if (query.includes('FROM tags WHERE slug = ?')) {
-            const slug = boundParams[0];
-            const found = tags.find(t => t.slug === slug);
+          if (query.includes('FROM tags WHERE id = ?')) {
+            const id = Number(boundParams[0]);
+            const found = tags.find(t => t.id === id);
             return (found || null) as T;
           }
           if (query.includes('FROM tags WHERE slug = ? OR label = ?')) {
             const val = boundParams[0];
             const found = tags.find(t => t.slug === val || t.label === val);
+            return (found || null) as T;
+          }
+          if (query.includes('FROM tags WHERE slug = ?')) {
+            const slug = boundParams[0];
+            const found = tags.find(t => t.slug === slug);
             return (found || null) as T;
           }
           if (query.includes('FROM api_tokens')) {
@@ -421,6 +426,18 @@ export function createMockD1Database() {
               tags.push({ id: autoTagId++, label, slug });
             }
             return { meta: { changes: 1 } };
+          }
+          if (query.includes('UPDATE tags SET label = ?, slug = ? WHERE id = ?')) {
+            const label = String(boundParams[0]);
+            const slug = String(boundParams[1]);
+            const id = Number(boundParams[2]);
+            const tag = tags.find(t => t.id === id);
+            if (tag) {
+              tag.label = label;
+              tag.slug = slug;
+              return { meta: { changes: 1 } };
+            }
+            return { meta: { changes: 0 } };
           }
           if (query.includes('INSERT OR IGNORE INTO entry_tags')) {
             const entryId = Number(boundParams[0]);

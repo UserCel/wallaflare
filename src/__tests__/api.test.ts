@@ -2197,4 +2197,66 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
     expect(body._links.next?.href).toContain("page=2");
     expect(body._links.next?.href).toContain("detail=metadata");
   });
+
+  it("supports Wallabag v2 /api/user, /api/config, DELETE /api/tag/label, DELETE /api/entries/lists, PATCH /api/tags/:id, and /export.{pdf,txt,json}", async () => {
+    const userRes = await app.request("/api/user.json", {
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET, USERNAME: "alice" });
+    expect(userRes.status).toBe(200);
+    expect((await userRes.json<any>()).username).toBe("alice");
+
+    const cfgRes = await app.request("/api/config.json", {
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(cfgRes.status).toBe(200);
+    expect((await cfgRes.json<any>()).feed_limit).toBe(50);
+
+    const createRes = await app.request("/api/entries.json", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "https://example.com/exp", title: "Export Me", content: "<p>Hello Export</p>", tags: "oldtag" }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    const created = await createRes.json<any>();
+    const tagId = created.tags[0].id;
+
+    const renameRes = await app.request(`/api/tags/${tagId}.json`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ label: "renamedtag" }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(renameRes.status).toBe(200);
+    expect((await renameRes.json<any>()).tag.slug).toBe("renamedtag");
+
+    const txtRes = await app.request(`/api/entries/${created.id}/export.txt`, {
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(txtRes.status).toBe(200);
+    expect(await txtRes.text()).toContain("Hello Export");
+
+    const jsonRes = await app.request(`/api/entries/${created.id}/export.json`, {
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(jsonRes.status).toBe(200);
+    expect((await jsonRes.json<any>()).id).toBe(created.id);
+
+    const pdfRes = await app.request(`/api/entries/${created.id}/export.pdf`, {
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(pdfRes.status).toBe(200);
+    expect(pdfRes.headers.get("Content-Type")).toBe("application/pdf");
+
+    const delLabelRes = await app.request("/api/tag/label.json?tag=renamedtag", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(delLabelRes.status).toBe(200);
+
+    const delListsRes = await app.request("/api/entries/lists.json", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [created.id] }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(delListsRes.status).toBe(200);
+    expect((await delListsRes.json<any>()).count).toBe(1);
+  });
 });
