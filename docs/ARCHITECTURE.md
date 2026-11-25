@@ -68,10 +68,12 @@ The frontend is a unified, responsive 3-pane workstation that fluidly adapts bet
   - `OLED`: Absolute true pitch black `#000000` for battery preservation on AMOLED screens
 - **Quick Swatch Bar**: 4 circular theme swatch buttons at the bottom of the sidebar and mobile drawer.
 - **Settings Modal (`#settingsModal`)**: Groups all configuration options:
-  - 🎨 **Theme & Appearance**: Swatches and default font family.
-  - ⚡ **Sync & Integrations**: KOReader setup and Server connection credentials.
-  - 🛠️ **Tools & Content**: Tag Manager and Add Custom Text modal.
-  - ℹ️ **Session & About**: Version info and Logout.
+  - 🎨 **Appearance**: Themes, font family, Reading Speed (WPM), and opt-in **Sync Reading Progress** toggle (`wf_sync_reading_progress`, disabled by default).
+  - 🍪 **Cookie Vault**: Per-domain session cookies for paywalled sites.
+  - 📱 **Apps & Sync**: KOReader plugin (`v1.1.1`), OPDS 1.2 & RSS feeds, and Personal Access Tokens.
+  - 🏷️ **Tag Manager**: Global tag list, rename/merge (`PATCH /api/tags/:id`), and unused tag cleanup.
+  - ⚡ **Server & Data**: Library stats, extraction engine mode, **Import Library** (Pocket CSV, Wallabag JSON, Instapaper CSV, Netscape Bookmarks HTML, Wallaflare JSON), **Backup Library (JSON)**, **Export All Highlights (MD)**, reconcile, and master password management.
+  - ℹ️ **About & Updates**: Version info and Logout.
 
 ### 5. Interactive Annotation Selection & Popover Engine
 - **KOReader-Style Word Stepping**: Highlights and notes can be interactively expanded or shrunk word-by-word via `Start: [+W] [-W]` and `End: [-W] [+W]` buttons directly in the reader's highlight popover and note editor modal.
@@ -160,4 +162,11 @@ All dashboard and backend functionality is covered by automated unit, integratio
   - `GET /api/entries/digest.epub?ids=1,2,3` or `?filter=unread|starred&limit=30` compiles an on-the-fly multi-article EPUB stream directly from Cloudflare D1.
   - OPDS 1.2 catalog offers one-tap acquisition (`📖 Unread Digest (EPUB Anthology)`).
   - KOReader plugin menu features `Download Unread Digest` to download and read compiled digests with one click.
+
+### 9. Offline Resilience, Search Operators & Import/Export
+- **PWA App-Shell Caching (`/sw.js`)**: Precaches `/`, manifest, and icons with network-first navigation fallback, while IndexedDB (`src/client/storage/db.ts`) stores full article HTML and `localStorage` keeps only lightweight metadata.
+- **Durable Outbox (`src/client/storage/outbox.ts`)**: Persists `retryCount` and exponential backoff (`nextRetryAt`), retains `401`/`429` items without silent data loss, moves >10-retry failures to `wf_dead_letter_mutations`, coalesces `set_reading_progress` updates, and queues `create_url` saves when offline.
+- **Client-Side Search Operators (`src/client/utils/search-filter.ts`)**: Supports `tag:` (AND semantics), `domain:`, `is:untagged`, `is:annotated`, `time:<N`, `time:>N`, and free-text matching across titles, authors, tags, and highlight quotes/notes with zero D1 overhead.
+- **Client-Parsed Chunked Import (`src/client/modals/import.ts`)**: Normalizes Wallabag JSON, Pocket/Instapaper CSV, Netscape Bookmarks HTML, and Wallaflare JSON backups in the browser and uploads in 25-item chunks to `POST /api/import/batch`.
+- **Failed-Extraction Recovery (`src/client/reader/empty-fallback.ts`)**: Renders an inline recovery card (Re-fetch, Site Cookies, Open Original, Paste Text) whenever an article has empty/stub content.
 

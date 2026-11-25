@@ -74,12 +74,12 @@
 │   ├── client/                # Isomorphic Web UI Source Tree
 │   │   ├── components/        # Extracted UI components (sidebar, toast, article cards)
 │   │   ├── html/              # Modular HTML component templates (workspace, modals, overlays)
-│   │   ├── modals/            # Modular modal dialogs (add, confirm, edit-title, tags, settings, highlights)
+│   │   ├── modals/            # Modular modal dialogs (add, confirm, edit-title, import, tags, settings, highlights)
 │   │   ├── native/            # Capacitor & Android native bridges (OTA updater, share intent, native config)
-│   │   ├── reader/            # In-reader engines (annotations, export, typography, search, RSVP speed reader)
-│   │   ├── storage/           # Offline storage engines (IndexedDB library cache, persistent outbox queue)
+│   │   ├── reader/            # In-reader engines (annotations, bookmark, empty-fallback, export, progress-sync, search, speed-read, typography)
+│   │   ├── storage/           # Offline storage engines (IndexedDB library cache, persistent outbox queue with backoff)
 │   │   ├── styles/            # index.css — single source of truth for all client CSS (bundled by bundle-client.ts)
-│   │   ├── utils/             # Formatters, DOM helpers, reading-time scaling, overlay history, and PWA share target
+│   │   ├── utils/             # Formatters, DOM helpers, search-filter operators, reading-time scaling, overlay history, and PWA share target
 │   │   └── index.ts           # Client composition root, routing & app shell
 │   ├── index.ts               # Cloudflare Worker entry point (Hono application)
 │   ├── routes/

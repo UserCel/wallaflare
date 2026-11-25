@@ -30,15 +30,19 @@
 - **⚡ Serverless Edge Architecture**: Runs entirely on Cloudflare Workers and Cloudflare D1 (SQLite) with sub-millisecond cold starts and generous free-tier limits.
 - **📱 Universal Wallabag v2 API**: 100% compatible with **KOReader** (E-ink Kindle/Kobo), the official **Wallabag Android App**, and **Wallabagger** browser extensions.
 - **🖥️ Isomorphic 3-Pane Dashboard**:
-  - Desktop 3-pane workspace with live search, 5 sort modes, and 3 view densities (List, Magazine Grid, Compact).
-  - 1:1 touch swipe drawer and bottom action bars on mobile.
+  - Desktop 3-pane workspace with live client-side search (`tag:`, `domain:`, `is:untagged`, `is:annotated`, `time:<N`, `time:>N`, plus author/tag/highlight matching), 5 sort modes, and 3 view densities (List, Magazine Grid, Compact).
+  - Power-user keyboard shortcuts (`j`/`k`, `v`, `b`, `h`, `1`–`4`, `e`/`a`, `s`/`l`, `t`, `r`, `f`, `/`, `?`), 1:1 touch swipe drawer and bottom action bars on mobile, and accessibility support (`:focus-visible`, ARIA labels, `prefers-reduced-motion`).
   - 4 themes: **Dark**, **Light**, **Sepia**, and **OLED Black**.
-- **⏱️ Smart Reading Time & Synced Reading Speed**:
+- **📦 Import, Full-Library Backup & Multi-Format Export**:
+  - Client-parsed chunked import (`POST /api/import/batch`) supporting **Pocket CSV**, **Wallabag JSON**, **Instapaper CSV**, **Netscape Bookmarks HTML**, and **Wallaflare JSON backups**.
+  - One-click **Backup Library (JSON)**, **Export All Highlights (Markdown)**, and single/batch **EPUB 3**, **PDF**, **Markdown**, and **TXT/JSON** exports.
+- **⏱️ Smart Reading Time, Synced Reading Speed & Optional Progress Sync**:
   - Hybrid word + character-length estimator (plus CJK character support) normalized to a 200 WPM baseline in D1.
   - Configurable personal **Reading Speed (100–600 WPM)** in **Settings > Appearance**, persisted in D1 and synced across devices via `/api/sync`.
-- **🔄 Revision-Based Delta Sync & Offline Outbox**:
-  - Monotonic revision tracking transfers only modified articles and deletion tombstones (`deleted_ids`).
-  - Durable offline outbox (`IndexedDB`) records mutations offline and syncs sequentially upon reconnection.
+  - Opt-in **Sync Reading Progress** toggle in **Settings > Appearance** (disabled by default for zero extra server writes; when enabled, syncs scroll progress on exit/backgrounding).
+- **🔄 Revision-Based Delta Sync & Resilient Offline PWA**:
+  - Multi-page monotonic revision tracking transfers only modified articles and deletion tombstones (`deleted_ids`).
+  - Service Worker (`/sw.js`) caches the PWA app shell for offline boot, IndexedDB stores full article HTML, and the durable outbox queue supports exponential backoff, dead-letter recovery, and offline URL queuing.
 - **🍪 Authenticated Scraping & Session Cookie Vault**:
   - Native in-app WebView login and cookie sync for paywalled / login-required sites (Substack, Medium, GitHub, private repos).
   - Server-side D1 cookie vault and on-device scraping with deterministic re-injection.
@@ -173,7 +177,7 @@ Wallaflare is a fully certified W3C Progressive Web App installable on desktop (
 
 - **Standalone App Experience**: Installable via your browser's install prompt or menu (**Install Wallaflare** / **Add to Dock**) with dark splash screens and zero browser chrome.
 - **Web Share Target**: On supported browsers (Chrome, Edge), sharing a link or text to Wallaflare directly opens `/share-target` and automatically ingests the shared article into your library.
-- **Offline Shell**: Service Worker (`/sw.js`) caches application assets for instant launches.
+- **Offline Shell**: Service Worker (`/sw.js`) caches the PWA app shell (`/`, manifest, icons) with network-first navigation fallback so installed PWAs boot offline directly into your IndexedDB library.
 
 ---
 
