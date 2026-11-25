@@ -406,7 +406,8 @@ export async function handleBatchExportEpub(): Promise<void> {
       }
 
       if (u8) {
-        const safeName = (item.title || ("article-" + id)).replace(/[/\\:*?"<>|]/g, "").trim() + ".epub";
+        const baseName = (item.title || ("article-" + id)).replace(/[/\\:*?"<>|]/g, "").trim() || ("article-" + id);
+        const safeName = `${baseName}_${id}.epub`;
         zipFiles[safeName] = u8;
       }
     }
@@ -454,14 +455,38 @@ export async function handleBatchExportMarkdown(): Promise<void> {
     for (const id of ids) {
       const item = allEntries.find((e: any) => e.id === id);
       if (!item) continue;
-      const bodyMd = htmlToMarkdown(item.content || item.text || "");
-      const mdContent = "# " + (item.title || "Untitled") + "\n\n" +
-        "- **Source:** " + (item.url || "N/A") + "\n" +
-        "- **Author:** " + (item.author || "N/A") + "\n" +
-        "- **Date:** " + (item.created_at || new Date().toISOString()) + "\n\n" +
-        "---\n\n" +
-        bodyMd;
-      const safeName = (item.title || ("article-" + id)).replace(/[/\\:*?"<>|]/g, "").trim() + ".md";
+      const nl = "\n";
+      const nl2 = "\n\n";
+      const title = item.title || "Untitled";
+      const tagLabels = Array.isArray(item.tags)
+        ? item.tags.map((t: any) => (typeof t === "string" ? t : (t.label || t.slug || ""))).filter(Boolean)
+        : [];
+      const fmLines = [
+        "---",
+        'title: "' + String(title).replace(/"/g, '\\"') + '"',
+        'url: "' + String(item.url || "") + '"',
+        'author: "' + String(item.author || "Unknown").replace(/"/g, '\\"') + '"',
+        'date: "' + String(item.created_at || new Date().toISOString()) + '"',
+      ];
+      if (tagLabels.length > 0) {
+        fmLines.push("tags: [" + tagLabels.map((t: string) => '"' + t.replace(/"/g, '\\"') + '"').join(", ") + "]");
+      }
+      fmLines.push("---", "");
+      let bodyMd = htmlToMarkdown(item.content || item.text || "");
+      const anns = Array.isArray(item.annotations) ? item.annotations : [];
+      if (anns.length > 0) {
+        bodyMd += nl2 + "## Highlights & Notes" + nl2;
+        for (const ann of anns) {
+          if (ann.quote) {
+            bodyMd += "> ==" + String(ann.quote).trim() + "==" + nl;
+            if (ann.text) bodyMd += "> *Note:* " + String(ann.text).trim() + nl;
+            bodyMd += nl;
+          }
+        }
+      }
+      const mdContent = fmLines.join(nl) + "# " + title + nl2 + bodyMd;
+      const baseName = title.replace(/[/\\:*?"<>|]/g, "").trim() || ("article-" + id);
+      const safeName = `${baseName}_${id}.md`;
       zipFiles[safeName] = strToU8(mdContent);
     }
 

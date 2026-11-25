@@ -1,20 +1,21 @@
 import { state } from "../state";
 import { getFilteredEntries } from "../components/article-list";
 import { openReader, closeReader } from "../reader/view";
-import { toggleReaderFocusMode } from "../reader/typography";
 import { $id } from "./dom";
+
+export function isEditableElement(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return (el as HTMLElement).isContentEditable || el.getAttribute("contenteditable") === "true";
+}
 
 export function initKeyboardShortcuts(): void {
   if (typeof document === "undefined") return;
 
   document.addEventListener("keydown", (e: KeyboardEvent) => {
-    const activeEl = document.activeElement;
-    const isTyping =
-      activeEl &&
-      (activeEl.tagName === "INPUT" ||
-        activeEl.tagName === "TEXTAREA" ||
-        activeEl.getAttribute("contenteditable") === "true");
-    if (isTyping) return;
+    if (isEditableElement(document.activeElement)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const openModalEl = document.querySelector(".modal-overlay.open");
     if (openModalEl) {
@@ -39,8 +40,8 @@ export function initKeyboardShortcuts(): void {
     }
 
     if (e.key === "f" || e.key === "F") {
-      if (state.activeArticleId) {
-        toggleReaderFocusMode();
+      if (state.activeArticleId && typeof (window as any).toggleReaderFocusMode === "function") {
+        (window as any).toggleReaderFocusMode();
       }
       return;
     }

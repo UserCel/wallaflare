@@ -46,6 +46,7 @@ export function checkNativeApkVersion(minNative: string): void {
 }
 
 export async function checkCapacitorOtaFromVersion(serverVer: string, minNative?: string): Promise<void> {
+  if (minNative) checkNativeApkVersion(minNative);
   if (!isCapacitorApp() || isDownloadingOta || !serverVer) return;
   const w = typeof window !== "undefined" ? (window as any) : {};
   const updater = w.Capacitor?.Plugins?.CapacitorUpdater;

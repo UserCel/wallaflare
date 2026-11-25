@@ -1,7 +1,16 @@
 import { authFetch } from "../sync/api";
 
 export const OUTBOX_STORAGE_KEY = "wf_pending_mutations";
+export const DEAD_LETTER_STORAGE_KEY = "wf_dead_letter_mutations";
 let isProcessingOutbox = false;
+
+function notifyOutboxChanged(count: number): void {
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+    try {
+      window.dispatchEvent(new CustomEvent("wf:outbox-changed", { detail: { count } }));
+    } catch {}
+  }
+}
 
 export function getPendingMutations(): any[] {
   try {
@@ -16,8 +25,10 @@ export function savePendingMutations(mutations: any[]): void {
   try {
     if (!mutations || mutations.length === 0) {
       localStorage.removeItem(OUTBOX_STORAGE_KEY);
+      notifyOutboxChanged(0);
     } else {
       localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(mutations));
+      notifyOutboxChanged(mutations.length);
     }
   } catch (e) {
     console.warn("Failed to save pending mutations to storage:", e);
@@ -50,101 +61,102 @@ export async function processOutboxMutations(): Promise<void> {
       const currentQueue = getPendingMutations();
       if (currentQueue.length === 0) break;
       const mut = currentQueue[0];
+      if (mut.nextRetryAt && Date.now() < Number(mut.nextRetryAt)) {
+        break;
+      }
 
       let success = false;
       let removeOnError = false;
+      let authOrRateBlocked = false;
+      const handleResponseStatus = (res: Response) => {
+        if (res.ok || res.status === 404) {
+          success = true;
+        } else if (res.status === 401 || res.status === 429) {
+          authOrRateBlocked = true;
+        } else if (res.status >= 400 && res.status < 500) {
+          removeOnError = true;
+        }
+      };
 
       try {
         if (mut.action === "delete") {
           const res = await authFetch("/api/entries/" + mut.payload.id + ".json", { method: "DELETE" });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "batch_delete") {
           const res = await authFetch("/api/entries/list.json", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ids: mut.payload.ids })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "toggle_star") {
           const res = await authFetch("/api/entries/" + mut.payload.id + ".json", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ starred: mut.payload.is_starred })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "batch_star") {
           const res = await authFetch("/api/entries/list.json", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ids: mut.payload.ids, starred: mut.payload.starred })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "toggle_archive") {
           const res = await authFetch("/api/entries/" + mut.payload.id + ".json", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ archive: mut.payload.is_archived })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "batch_archive") {
           const res = await authFetch("/api/entries/list.json", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ids: mut.payload.ids, archive: mut.payload.archive })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "edit_title") {
           const res = await authFetch("/api/entries/" + mut.payload.id + ".json", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title: mut.payload.title })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "set_bookmark") {
           const res = await authFetch("/api/entries/" + mut.payload.id + ".json", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ bookmark: mut.payload.bookmark ?? null })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "add_tag") {
           const res = await authFetch("/api/entries/" + mut.payload.id + "/tags.json", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tags: mut.payload.tag })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "remove_tag") {
           const res = await authFetch("/api/entries/" + mut.payload.id + "/tags/" + encodeURIComponent(mut.payload.tag) + ".json", {
             method: "DELETE"
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "batch_add_tag") {
           const res = await authFetch("/api/entries/tags/lists.json", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ entries: mut.payload.ids, tags: mut.payload.tag })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else if (mut.action === "batch_remove_tag") {
           const res = await authFetch("/api/entries/tags/lists.json", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ entries: mut.payload.ids, tag: mut.payload.tag })
           });
-          if (res.ok || res.status === 404) success = true;
-          else if (res.status >= 400 && res.status < 500) removeOnError = true;
+          handleResponseStatus(res);
         } else {
           success = true;
         }
@@ -152,16 +164,32 @@ export async function processOutboxMutations(): Promise<void> {
         break;
       }
 
+      if (authOrRateBlocked) {
+        break;
+      }
+
       if (success || removeOnError) {
         const updated = getPendingMutations().filter(m => m.id !== mut.id);
         savePendingMutations(updated);
       } else {
-        mut.retryCount = (mut.retryCount || 0) + 1;
-        if (mut.retryCount > 10) {
+        const nextRetryCount = (mut.retryCount || 0) + 1;
+        if (nextRetryCount > 10) {
+          try {
+            const deadRaw = localStorage.getItem(DEAD_LETTER_STORAGE_KEY);
+            const deadList = deadRaw ? JSON.parse(deadRaw) : [];
+            deadList.push({ ...mut, retryCount: nextRetryCount, failedAt: Date.now() });
+            localStorage.setItem(DEAD_LETTER_STORAGE_KEY, JSON.stringify(deadList.slice(-50)));
+          } catch {}
           const updated = getPendingMutations().filter(m => m.id !== mut.id);
           savePendingMutations(updated);
+        } else {
+          const backoffMs = Math.min(300_000, Math.pow(2, nextRetryCount) * 1000);
+          const updated = getPendingMutations().map(m =>
+            m.id === mut.id ? { ...m, retryCount: nextRetryCount, nextRetryAt: Date.now() + backoffMs } : m
+          );
+          savePendingMutations(updated);
+          break;
         }
-        break;
       }
     }
   } finally {

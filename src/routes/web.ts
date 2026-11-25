@@ -36,22 +36,61 @@ const WALLAFLARE_APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox
   <rect x="60" y="57" width="7" height="2.5" rx="1.25" fill="#64748b"/>
 </svg>`;
 
+const SW_CACHE_NAME = 'wallaflare-shell-v1';
 const serviceWorkerJs = `
+const CACHE_NAME = '${SW_CACHE_NAME}';
+const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.ico', '/img/icon-192.png'];
+
 self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k.startsWith('wallaflare-shell-') && k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/opds') || url.pathname.startsWith('/feed')) {
     return;
   }
+
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok && url.pathname === '/') {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put('/', clone)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match('/').then((cached) => cached || Response.error()))
+    );
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request).catch(() => Response.error())
+    caches.match(req).then((cached) => {
+      const net = fetch(req).then((res) => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(req, clone)).catch(() => {});
+        }
+        return res;
+      }).catch(() => cached || Response.error());
+      return cached || net;
+    })
   );
 });
 `;
@@ -95,6 +134,7 @@ webRouter.get('/download/wallaflare.koplugin.zip', (c) => {
 
 webRouter.get('/sw.js', (c) => {
   c.header('Content-Type', 'application/javascript; charset=utf-8');
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   c.header('Service-Worker-Allowed', '/');
   return c.body(serviceWorkerJs);
 });

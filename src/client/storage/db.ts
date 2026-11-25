@@ -34,12 +34,21 @@ export function deduplicateEntries(entries: any[]): any[] {
   return result;
 }
 
+function awaitTx(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error("IndexedDB transaction error"));
+    tx.onabort = () => reject(tx.error || new Error("IndexedDB transaction aborted"));
+  });
+}
+
 export async function clearIndexedDB(): Promise<void> {
   try {
     const db = await openIndexedDB();
     if (!db) return;
     const tx = db.transaction(STORE_ENTRIES, "readwrite");
     tx.objectStore(STORE_ENTRIES).clear();
+    await awaitTx(tx);
   } catch {}
 }
 
@@ -49,7 +58,7 @@ export async function saveEntriesToIndexedDB(entries: any[]): Promise<void> {
     if (!db) return;
     const tx = db.transaction(STORE_ENTRIES, "readwrite");
     const store = tx.objectStore(STORE_ENTRIES);
-    await store.clear();
+    store.clear();
     if (Array.isArray(entries)) {
       for (const item of entries) {
         if (item && item.id) {
@@ -57,6 +66,7 @@ export async function saveEntriesToIndexedDB(entries: any[]): Promise<void> {
         }
       }
     }
+    await awaitTx(tx);
   } catch (err) {
     console.warn("Failed saving to IndexedDB:", err);
   }
@@ -68,6 +78,7 @@ export async function deleteEntryFromIndexedDB(id: number | string): Promise<voi
     if (!db) return;
     const tx = db.transaction(STORE_ENTRIES, "readwrite");
     tx.objectStore(STORE_ENTRIES).delete(id);
+    await awaitTx(tx);
   } catch {}
 }
 

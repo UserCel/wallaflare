@@ -14,8 +14,16 @@ export function initPwa(): void {
     window.addEventListener("load", () => {
       navigator.serviceWorker
         .register("/sw.js")
-        .then(() => {
-          // Service worker registered successfully
+        .then((reg) => {
+          reg.addEventListener("updatefound", () => {
+            const newWorker = reg.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener("statechange", () => {
+              if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                showToast("App updated — reload to use the latest version", false, 5000);
+              }
+            });
+          });
         })
         .catch((err) => {
           console.warn("PWA Service Worker registration failed:", err);

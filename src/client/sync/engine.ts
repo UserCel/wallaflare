@@ -145,32 +145,3 @@ export async function loadArticles(isBackground: boolean = false): Promise<void>
   }
 }
 
-export function initPullToRefresh(): void {
-  const container = document.getElementById("articlesScrollContainer");
-  if (!container) return;
-
-  let startY = 0;
-  let isPulling = false;
-
-  container.addEventListener("touchstart", (e) => {
-    if (container.scrollTop === 0) {
-      startY = e.touches[0].clientY;
-      isPulling = true;
-    }
-  }, { passive: true });
-
-  container.addEventListener("touchmove", (e) => {
-    if (!isPulling) return;
-    const currentY = e.touches[0].clientY;
-    if (currentY - startY > 70) {
-      // Pull indicator
-    }
-  }, { passive: true });
-
-  container.addEventListener("touchend", () => {
-    if (isPulling) {
-      isPulling = false;
-      loadArticles(false);
-    }
-  });
-}

@@ -1129,6 +1129,10 @@ export function initReaderSelectionHandlers(): void {
       if (popover && popover.style.display !== "none") {
         closeHighlightPopover();
       }
+      const toolbar = document.getElementById("readerHighlightToolbar");
+      if (toolbar && toolbar.style.display !== "none") {
+        toolbar.style.display = "none";
+      }
     }, { passive: true });
   }
 }

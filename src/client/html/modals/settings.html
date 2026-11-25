@@ -1,5 +1,5 @@
 <!-- Modal: Unified Dual-Pane Settings Workspace -->
-  <div class="modal-backdrop settings-modal-backdrop" id="settingsModal" onclick="if(event.target === this) closeModal('settingsModal')">
+  <div class="modal-backdrop settings-modal-backdrop" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" onclick="if(event.target === this) closeModal('settingsModal')">
     <div class="modal settings-workspace-modal" style="max-width: 820px; width: 94vw; height: 580px; max-height: 88vh; padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-lg); clip-path: inset(0 round var(--radius-lg)); -webkit-mask-image: -webkit-radial-gradient(white, black); mask-image: radial-gradient(white, black);">
       <!-- Header -->
       <div class="modal-header settings-workspace-header" style="padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border-color); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);">

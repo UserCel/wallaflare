@@ -1,4 +1,5 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
+import { isEmptyOrStubContent, renderEmptyArticleFallback } from './reader/empty-fallback';
 import { showToast, hideToast } from './components/toast';
 import { openModal, closeModal } from './modals/manager';
 import {
@@ -541,7 +542,7 @@ import {
       }
       // Inspect header-reported web asset version and trigger background OTA if newer
       const webVer = response.headers.get('X-Wallaflare-Web-Version');
-      const minNative = response.headers.get('X-Wallaflare-Min-Native-Version');
+      const minNative = response.headers.get('X-Wallaflare-Min-Native') || response.headers.get('X-Wallaflare-Min-Native-Version');
       if (webVer) {
         checkCapacitorOtaFromVersion(webVer, minNative);
       }
@@ -753,7 +754,14 @@ import {
         }
       }
 
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      const isEditableFocused = () => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el) return false;
+        const tag = el.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+      };
+
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isEditableFocused()) {
         e.preventDefault();
         document.getElementById('searchInput')?.focus();
         return;
@@ -1115,9 +1123,8 @@ import {
 
       // 'e' or 'a' key for Archive
       if ((e.key === 'e' || e.key === 'a') &&
-          document.activeElement.tagName !== 'INPUT' &&
-          document.activeElement.tagName !== 'TEXTAREA' &&
-          !document.activeElement.isContentEditable) {
+          !e.ctrlKey && !e.metaKey && !e.altKey &&
+          !isEditableFocused()) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (!modalOpen) {
           if (isSelectionMode() && selectedArticleIds.size > 0) {
@@ -1132,9 +1139,8 @@ import {
 
       // 's' or 'l' key for Star / Like
       if ((e.key === 's' || e.key === 'l') &&
-          document.activeElement.tagName !== 'INPUT' &&
-          document.activeElement.tagName !== 'TEXTAREA' &&
-          !document.activeElement.isContentEditable) {
+          !e.ctrlKey && !e.metaKey && !e.altKey &&
+          !isEditableFocused()) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (!modalOpen) {
           if (isSelectionMode() && selectedArticleIds.size > 0) {
@@ -1149,9 +1155,8 @@ import {
 
       // 't' key for Tags Manager
       if (e.key === 't' &&
-          document.activeElement.tagName !== 'INPUT' &&
-          document.activeElement.tagName !== 'TEXTAREA' &&
-          !document.activeElement.isContentEditable) {
+          !e.ctrlKey && !e.metaKey && !e.altKey &&
+          !isEditableFocused()) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (!modalOpen) {
           if (isSelectionMode() && selectedArticleIds.size > 0) {
@@ -1164,11 +1169,10 @@ import {
         }
       }
 
-      // 'd' / Delete / Backspace key for Delete
-      if ((e.key === 'd' || e.key === 'Delete' || e.key === 'Backspace') &&
-          document.activeElement.tagName !== 'INPUT' &&
-          document.activeElement.tagName !== 'TEXTAREA' &&
-          !document.activeElement.isContentEditable) {
+      // 'd' / Delete key for Delete (avoid Backspace accidental delete)
+      if ((e.key === 'd' || e.key === 'Delete') &&
+          !e.ctrlKey && !e.metaKey && !e.altKey &&
+          !isEditableFocused()) {
         const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
         if (modalOpen) return;
 
@@ -1947,7 +1951,14 @@ import {
 
     function syncLocalEntriesCache(entries, tags, counts) {
       try {
-        if (entries !== undefined) localStorage.setItem('wf_cached_articles', JSON.stringify(entries || []));
+        if (entries !== undefined) {
+          const lightEntries = (entries || []).map((e: any) => {
+            if (!e) return e;
+            const { content: _c, text: _t, ...meta } = e;
+            return meta;
+          });
+          localStorage.setItem('wf_cached_articles', JSON.stringify(lightEntries));
+        }
         if (tags !== undefined) {
           localStorage.setItem('wf_cached_tags', JSON.stringify(tags || []));
           setCachedGlobalTags(tags || []);
@@ -2393,8 +2404,10 @@ import {
         (scrollEl as any)._resetOverscroll?.();
       }
 
-      // 3. Swap content
-      const rawContent = item.content || '<p>No content available.</p>';
+      // 3. Swap content (render actionable fallback if extraction failed / stubbed)
+      const rawContent = isEmptyOrStubContent(item.content, item.url)
+        ? renderEmptyArticleFallback(item)
+        : item.content;
       readerBodyEl.innerHTML = rawContent;
       (readerBodyEl as any)._rawCleanContent = rawContent;
       try {
@@ -3040,14 +3053,26 @@ import {
       const ids = Array.from(selectedArticleIds);
       if (ids.length === 0) return;
       showToast('Re-fetching ' + ids.length + ' articles...');
+      let succeeded = 0;
+      let failed = 0;
       for (const id of ids) {
         try {
-          await authFetch('/api/entries/' + id + '/reload.json', { method: 'PATCH' });
-        } catch (e) {}
+          const res = await authFetch('/api/entries/' + id + '/reload.json', { method: 'PATCH' });
+          if (res.ok) succeeded++;
+          else failed++;
+        } catch (e) {
+          failed++;
+        }
       }
       clearArticleSelection();
       await loadArticles(true);
-      showToast('Content re-fetched');
+      if (failed > 0 && succeeded === 0) {
+        showToast('Failed to re-fetch ' + failed + ' article(s)');
+      } else if (failed > 0) {
+        showToast('Re-fetched ' + succeeded + ' article(s) (' + failed + ' failed)');
+      } else {
+        showToast('Content re-fetched (' + succeeded + ')');
+      }
     }
 
     async function batchToggleStar() {
@@ -3057,11 +3082,22 @@ import {
       const allStarred = targetIds.every(id => allEntries.find(e => e.id === id)?.is_starred);
       const newStarVal = allStarred ? 0 : 1;
 
+      let starredDelta = 0;
       for (const id of targetIds) {
         const item = allEntries.find(e => e.id === id);
-        if (item) item.is_starred = newStarVal;
+        if (item) {
+          const wasStarred = item.is_starred ? 1 : 0;
+          if (wasStarred !== newStarVal) {
+            starredDelta += newStarVal ? 1 : -1;
+          }
+          item.is_starred = newStarVal;
+        }
+      }
+      if (serverLibraryCounts) {
+        serverLibraryCounts.starred = Math.max(0, (serverLibraryCounts.starred || 0) + starredDelta);
       }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      updateCounts();
       filterArticles();
       clearArticleSelection();
       showToast(newStarVal ? 'Starred ' + targetIds.length + ' articles' : 'Unstarred ' + targetIds.length + ' articles');
@@ -3075,11 +3111,23 @@ import {
       const allArchived = targetIds.every(id => allEntries.find(e => e.id === id)?.is_archived);
       const newArchiveVal = allArchived ? 0 : 1;
 
+      let archivedDelta = 0;
       for (const id of targetIds) {
         const item = allEntries.find(e => e.id === id);
-        if (item) item.is_archived = newArchiveVal;
+        if (item) {
+          const wasArchived = item.is_archived ? 1 : 0;
+          if (wasArchived !== newArchiveVal) {
+            archivedDelta += newArchiveVal ? 1 : -1;
+          }
+          item.is_archived = newArchiveVal;
+        }
+      }
+      if (serverLibraryCounts) {
+        serverLibraryCounts.archive = Math.max(0, (serverLibraryCounts.archive || 0) + archivedDelta);
+        serverLibraryCounts.unread = Math.max(0, (serverLibraryCounts.unread || 0) - archivedDelta);
       }
       syncLocalEntriesCache(allEntries, cachedGlobalTags, serverLibraryCounts);
+      updateCounts();
       filterArticles();
       clearArticleSelection();
       showToast(newArchiveVal ? 'Archived ' + targetIds.length + ' articles' : 'Moved ' + targetIds.length + ' articles to unread');
@@ -3846,7 +3894,10 @@ import {
         const deltaY = currentY - startY;
         const deltaX = currentX - startX;
 
-        if (Math.abs(deltaX) > Math.abs(deltaY) && deltaY < 15) return;
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10 && deltaY < 15) {
+          isPulling = false;
+          return;
+        }
 
         if (deltaY > 5 && scrollContainer.scrollTop <= 2) {
           if (e.cancelable) e.preventDefault();

@@ -106,7 +106,7 @@ export async function handleIngestUrl(e?: Event): Promise<void> {
 
     const w = typeof window !== "undefined" ? (window as any) : {};
     if (item && item.id) {
-      if (Array.isArray(w.allEntries)) {
+      if (Array.isArray(w.allEntries) && !result.alreadyExists) {
         w.allEntries.unshift(item);
       }
       if (typeof w.syncLocalEntriesCache === "function") {

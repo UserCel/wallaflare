@@ -1,8 +1,8 @@
 <!-- Modal: Add URL -->
-  <div class="modal-backdrop" id="addUrlModal">
+  <div class="modal-backdrop" id="addUrlModal" role="dialog" aria-modal="true" aria-labelledby="addUrlModalTitle">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Save Article from Web</h3>
+        <h3 class="modal-title" id="addUrlModalTitle">Save Article from Web</h3>
         <button class="close-btn" onclick="closeModal('addUrlModal')">&times;</button>
       </div>
       <form onsubmit="handleIngestUrl(event)" style="display: flex; flex-direction: column; gap: 0.95rem;">
