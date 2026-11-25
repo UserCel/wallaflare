@@ -104,6 +104,14 @@
                 </div>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.4rem 0 0 0;">Scales read-time estimates to your pace (synced across devices).</p>
               </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color);">
+                <div>
+                  <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Sync Reading Progress</h4>
+                  <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">When disabled, scroll progress stays 100% local to this device with zero server sync.</p>
+                </div>
+                <input type="checkbox" id="settingsProgressSyncToggle" onchange="toggleReadingProgressSync(this.checked)" style="width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0;" />
+              </div>
             </div>
           </div>
 

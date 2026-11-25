@@ -1,5 +1,6 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
 import { isEmptyOrStubContent, renderEmptyArticleFallback } from './reader/empty-fallback';
+import { getEffectiveRestoreProgress, syncReadingProgressIfEnabled, getCurrentReaderScrollRatio, initReadingProgressSyncListeners } from './reader/progress-sync';
 import { showToast, hideToast } from './components/toast';
 import { openModal, closeModal } from './modals/manager';
 import {
@@ -2497,7 +2498,7 @@ import {
         scrollEl.style.touchAction = 'pan-y';
         (scrollEl as any)._resetOverscroll?.();
 
-        const savedRatio = parseFloat(localStorage.getItem('wf_scroll_' + id) || '0');
+        const savedRatio = getEffectiveRestoreProgress(item);
         if (savedRatio > 0.005) {
           void scrollEl.offsetHeight; // force synchronous layout computation before first paint
           const total = scrollEl.scrollHeight - scrollEl.clientHeight;
@@ -2516,6 +2517,9 @@ import {
     }
 
     function closeReader(updateHistory = true) {
+      if (activeArticleId) {
+        syncReadingProgressIfEnabled(activeArticleId, getCurrentReaderScrollRatio());
+      }
       activeArticleId = null;
       setKeyboardPaneFocus("list");
       clearTimeout(readerTopBarAutoHideTimer);
@@ -4605,5 +4609,6 @@ if (typeof document !== "undefined") {
   initReaderSelectionHandlers();
   initCapacitorOtaUpdater();
   initPwa();
+  initReadingProgressSyncListeners();
   initAppScrollbars();
 }

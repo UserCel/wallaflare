@@ -5,6 +5,7 @@ import { showConfirmDialog } from "./confirm";
 import { showPromptDialog } from "./prompt";
 import { showCreatedTokenModal } from "./token-display";
 import { authFetch, apiJson, apiPost, setAuthToken, isCapacitorApp } from "../sync/api";
+import { isReadingProgressSyncEnabled, setReadingProgressSyncEnabled } from "../reader/progress-sync";
 import { clearIndexedDB } from "../storage/db";
 import { getParserMode, setParserMode, ParserMode } from "../extractor";
 import { escapeHtml } from "../utils/dom";
@@ -612,7 +613,21 @@ export async function setReadingWpmSetting(val: string | number): Promise<void> 
   showToast(`Reading speed set to ${clamped} WPM`);
 }
 
+export function updateReadingProgressSyncUI(): void {
+  const toggle = document.getElementById("settingsProgressSyncToggle") as HTMLInputElement | null;
+  if (toggle) {
+    toggle.checked = isReadingProgressSyncEnabled();
+  }
+}
+
+export function toggleReadingProgressSync(enabled: boolean): void {
+  setReadingProgressSyncEnabled(Boolean(enabled));
+  updateReadingProgressSyncUI();
+  showToast(enabled ? "Reading progress sync enabled" : "Reading progress sync disabled (local-only)");
+}
+
 export function openSettingsModal(initialTab: string | null = null): void {
+  updateReadingProgressSyncUI();
   const modal = document.getElementById("settingsModal");
   if (!modal) return;
 
@@ -945,4 +960,6 @@ if (typeof window !== "undefined") {
   w.handleCustomizeFeedToken = handleCustomizeFeedToken;
   w.handleRegenerateFeedToken = handleRegenerateFeedToken;
   w.handleChangeMasterPassword = handleChangeMasterPassword;
+  w.toggleReadingProgressSync = toggleReadingProgressSync;
+  w.updateReadingProgressSyncUI = updateReadingProgressSyncUI;
 }

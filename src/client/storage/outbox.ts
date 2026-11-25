@@ -36,7 +36,10 @@ export function savePendingMutations(mutations: any[]): void {
 }
 
 export function enqueueMutation(action: string, payload: any): any {
-  const mutations = getPendingMutations();
+  let mutations = getPendingMutations();
+  if (action === "set_reading_progress" && payload?.id) {
+    mutations = mutations.filter(m => !(m.action === "set_reading_progress" && m.payload?.id === payload.id));
+  }
   const mutation = {
     id: "mut_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6),
     action: action,
@@ -129,6 +132,13 @@ export async function processOutboxMutations(): Promise<void> {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ bookmark: mut.payload.bookmark ?? null })
+          });
+          handleResponseStatus(res);
+        } else if (mut.action === "set_reading_progress") {
+          const res = await authFetch("/api/entries/" + mut.payload.id + ".json", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reading_progress: mut.payload.reading_progress ?? 0 })
           });
           handleResponseStatus(res);
         } else if (mut.action === "add_tag") {

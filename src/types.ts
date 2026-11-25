@@ -49,6 +49,7 @@ export interface EntryRow {
   revision?: number;
   content_revision?: number;
   bookmark?: string | null;
+  reading_progress?: number;
 }
 
 export interface WallabagEntry {
@@ -81,6 +82,7 @@ export interface WallabagEntry {
   text?: string;
   annotations?: any[];
   bookmark?: ArticleBookmark | null;
+  reading_progress?: number;
   origin_url?: string | null;
   revision?: number;
 }

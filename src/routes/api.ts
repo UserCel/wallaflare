@@ -1596,6 +1596,12 @@ const patchEntryHandler = async (c: any) => {
   if (body.title !== undefined) updates.title = String(body.title);
   if (body.content !== undefined) updates.content = sanitizeHtmlFragment(String(body.content));
   if (body.tags !== undefined) updates.tags = body.tags;
+  if (body.reading_progress !== undefined) {
+    const p = Number(body.reading_progress);
+    if (!isNaN(p)) {
+      updates.reading_progress = Math.min(1, Math.max(0, p));
+    }
+  }
   if (body.bookmark !== undefined) {
     if (body.bookmark === null) {
       updates.bookmark = null;

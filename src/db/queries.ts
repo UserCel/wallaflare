@@ -128,6 +128,7 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
     }
 
     try { await db.prepare('ALTER TABLE sync_state ADD COLUMN instance_id INTEGER NOT NULL DEFAULT 1').run(); } catch {}
+    try { await db.prepare('ALTER TABLE entries ADD COLUMN reading_progress REAL DEFAULT 0').run(); } catch {}
     try { await db.prepare('ALTER TABLE entries ADD COLUMN revision INTEGER DEFAULT 1').run(); } catch {}
     try { await db.prepare('ALTER TABLE entries ADD COLUMN bookmark TEXT').run(); } catch {}
     try { await db.prepare('ALTER TABLE site_cookies ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch {}
@@ -329,6 +330,7 @@ export function entryRowToWallabag(
     text: plainText,
     annotations: entryAnnotations,
     bookmark: parsedBookmark,
+    reading_progress: Number(row?.reading_progress || 0),
     origin_url: row?.url || null,
   };
 }
@@ -1081,6 +1083,10 @@ export async function updateEntry(
   if (updates.bookmark !== undefined) {
     setClauses.push('bookmark = ?');
     params.push(updates.bookmark);
+  }
+  if (updates.reading_progress !== undefined) {
+    setClauses.push('reading_progress = ?');
+    params.push(Math.min(1, Math.max(0, Number(updates.reading_progress) || 0)));
   }
 
   params.push(id);

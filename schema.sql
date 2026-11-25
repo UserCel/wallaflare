@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS entries (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   revision INTEGER NOT NULL DEFAULT 1,
-  content_revision INTEGER NOT NULL DEFAULT 1
+  content_revision INTEGER NOT NULL DEFAULT 1,
+  reading_progress REAL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_url ON entries(url);

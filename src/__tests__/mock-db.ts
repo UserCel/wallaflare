@@ -493,6 +493,7 @@ export function createMockD1Database() {
                 else if (c.startsWith('reading_time = ?')) entry.reading_time = val;
                 else if (c.startsWith('revision = ?')) entry.revision = val;
                 else if (c.startsWith('bookmark = ?')) entry.bookmark = val;
+                else if (c.startsWith('reading_progress = ?')) (entry as any).reading_progress = val;
                 else if (c.startsWith('updated_at = ?')) entry.updated_at = val;
               }
               if (!clauses.some(c => c.startsWith('updated_at = ?'))) {
