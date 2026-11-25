@@ -18,12 +18,15 @@ CREATE TABLE IF NOT EXISTS entries (
   content_revision INTEGER NOT NULL DEFAULT 1
 );
 
+CREATE INDEX IF NOT EXISTS idx_entries_url ON entries(url);
+CREATE INDEX IF NOT EXISTS idx_entries_domain ON entries(domain_name);
 CREATE INDEX IF NOT EXISTS idx_entries_archived ON entries(is_archived);
 CREATE INDEX IF NOT EXISTS idx_entries_starred ON entries(is_starred);
 CREATE INDEX IF NOT EXISTS idx_entries_created ON entries(created_at);
 CREATE INDEX IF NOT EXISTS idx_entries_updated ON entries(updated_at);
 CREATE INDEX IF NOT EXISTS idx_entries_revision ON entries(revision);
 CREATE INDEX IF NOT EXISTS idx_entries_content_revision ON entries(content_revision);
+CREATE INDEX IF NOT EXISTS idx_deleted_entries_rev ON deleted_entries(revision);
 
 -- Tags System
 CREATE TABLE IF NOT EXISTS tags (

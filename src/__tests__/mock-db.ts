@@ -71,7 +71,7 @@ export function createMockD1Database() {
       { kind: 'revision_gt', re: /e?\.?revision\s*>\s*\?/g },
       { kind: 'id_in', re: /\b(?:e\.)?id\s+IN\s*\(\s*\?[\s,?]*\)/gi },
       { kind: 'tag_filter', re: /id\s+IN\s*\(\s*SELECT\s+et\.entry_id[\s\S]*?WHERE\s+t\.slug\s+IN\s*\(([^)]+)\)\s+OR\s+(?:LOWER\()?t\.label(?:\))?\s+IN\s*\(([^)]+)\)\s*\)/gi },
-      { kind: 'search_like', re: /\(\s*(?:e\.)?title\s+LIKE\s+\?(\s+ESCAPE\s+'\\\\')?\s+OR\s+(?:e\.)?content\s+LIKE\s+\?(\s+ESCAPE\s+'\\\\')?\s*\)/gi },
+      { kind: 'search_like', re: /\(\s*(?:e\.)?title\s+LIKE\s+\?(\s+ESCAPE\s+'\\')?\s+OR\s+(?:e\.)?content\s+LIKE\s+\?(\s+ESCAPE\s+'\\')?\s*\)/gi },
     ];
 
     for (const { kind, re } of scanRegexes) {

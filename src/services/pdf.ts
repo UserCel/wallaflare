@@ -55,24 +55,26 @@ export async function generatePdf(article: PdfArticleInput): Promise<Uint8Array>
           base64 += String.fromCharCode(bytes[i]);
         }
         base64 = (typeof btoa !== 'undefined') ? btoa(base64) : Buffer.from(imgBuffer).toString('base64');
-        const mime = imgRes.headers.get('content-type') || 'image/jpeg';
-        const format = mime.includes('png') ? 'PNG' : 'JPEG';
+        const mime = (imgRes.headers.get('content-type') || 'image/jpeg').toLowerCase();
+        const format = mime.includes('png') ? 'PNG' : (mime.includes('jpeg') || mime.includes('jpg')) ? 'JPEG' : null;
 
-        const maxImgWidth = contentWidth;
-        const maxImgHeight = pageHeight - (margin * 2) - 60;
+        if (format) {
+          const maxImgWidth = contentWidth;
+          const maxImgHeight = pageHeight - (margin * 2) - 60;
 
-        // Render Cover Image
-        doc.addImage(`data:${mime};base64,${base64}`, format, margin, margin + 20, maxImgWidth, maxImgHeight, undefined, 'FAST');
-        
-        // Cover bottom title label
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(110);
-        doc.text(normalizePdfText(article.domain_name || 'Wallaflare'), margin, pageHeight - 32);
+          // Render Cover Image
+          doc.addImage(`data:${mime};base64,${base64}`, format, margin, margin + 20, maxImgWidth, maxImgHeight, undefined, 'FAST');
+          
+          // Cover bottom title label
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.setTextColor(110);
+          doc.text(normalizePdfText(article.domain_name || 'Wallaflare'), margin, pageHeight - 32);
 
-        hasCoverPage = true;
-        doc.addPage();
-        currentPage++;
+          hasCoverPage = true;
+          doc.addPage();
+          currentPage++;
+        }
       }
     } catch (e) {
       console.warn('PDF Cover fetch failed:', e);
@@ -268,6 +270,7 @@ export async function generatePdf(article: PdfArticleInput): Promise<Uint8Array>
         }
         y += 6;
       } else if (tag === 'p') {
+        if (el.closest && el.closest('blockquote, li')) continue;
         renderBlockText(text, 'helvetica', 'normal', 10.5, 15.5, [33, 37, 41]);
         y += 8; // Paragraph bottom spacing
       }

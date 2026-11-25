@@ -205,11 +205,53 @@ export function resolveRelativeUrls(document: any, baseUrl: string): void {
   if (!baseUrl || !baseUrl.startsWith('http')) return;
 
   try {
-    const base = new URL(baseUrl);
+    const baseHref = document.querySelector('base[href]')?.getAttribute('href');
+    let base = new URL(baseUrl);
+    if (baseHref) {
+      try { base = new URL(baseHref, base); } catch {}
+    }
+
+    // Unwrap <noscript> elements that contain fallback <img> tags (e.g. Medium, WordPress, Substack)
+    document.querySelectorAll('noscript').forEach((ns: any) => {
+      try {
+        const inner = ns.innerHTML || ns.textContent || '';
+        if (!/<img\b/i.test(inner)) return;
+        const { document: fragDoc } = parseHtmlIsomorphic(`<!DOCTYPE html><html><body>${inner}</body></html>`);
+        const noscriptImg = fragDoc.querySelector('img');
+        if (!noscriptImg) return;
+        const imported = document.importNode ? document.importNode(noscriptImg, true) : noscriptImg;
+        const parent = ns.parentNode;
+        if (parent) {
+          parent.insertBefore(imported, ns);
+          ns.remove();
+        }
+      } catch {}
+    });
+
+    // Promote <picture><source srcset="..."> to child <img> if <img> lacks a real src
+    document.querySelectorAll('picture').forEach((pic: any) => {
+      try {
+        const img = pic.querySelector('img');
+        const source = pic.querySelector('source[srcset], source[data-srcset]');
+        if (!img || !source) return;
+        const imgSrc = img.getAttribute('src') || '';
+        if (!imgSrc || imgSrc.startsWith('data:') || imgSrc.includes('placeholder')) {
+          const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset') || '';
+          const firstUrl = srcset.split(',')[0]?.trim().split(/\s+/)[0];
+          if (firstUrl) img.setAttribute('src', firstUrl);
+        }
+      } catch {}
+    });
 
     // Resolve <img> and <source> src, srcset, and lazy-loaded attributes
     document.querySelectorAll('img, source').forEach((el: any) => {
-      const dataSrc = el.getAttribute('data-src') || el.getAttribute('data-original') || el.getAttribute('data-lazy-src') || el.getAttribute('data-url');
+      const dataSrc = el.getAttribute('data-src')
+        || el.getAttribute('data-original')
+        || el.getAttribute('data-lazy-src')
+        || el.getAttribute('data-actualsrc')
+        || el.getAttribute('data-lazy')
+        || el.getAttribute('data-hi-res-src')
+        || el.getAttribute('data-url');
       const src = el.getAttribute('src');
 
       if ((!src || src.startsWith('data:') || src.includes('placeholder')) && dataSrc) {
@@ -714,13 +756,36 @@ export function extractArticleFromHtml(html: string, originalUrl?: string): Extr
 const FETCH_TIMEOUT_MS = 15000;
 const MAX_ARTICLE_BYTES = 5 * 1024 * 1024; // 5 MB
 
+function detectCharsetFromHeadersOrBytes(response: Response, bytes: Uint8Array): string {
+  const ct = response.headers.get('content-type') || '';
+  const headerMatch = ct.match(/charset\s*=\s*["']?([a-zA-Z0-9._-]+)["']?/i);
+  if (headerMatch?.[1]) return headerMatch[1].trim();
+
+  const headSample = new TextDecoder('latin1').decode(bytes.subarray(0, Math.min(bytes.byteLength, 4096)));
+  const metaMatch =
+    headSample.match(/<meta[^>]+charset\s*=\s*["']?\s*([a-zA-Z0-9._-]+)\s*["']?/i) ||
+    headSample.match(/<meta[^>]+content\s*=\s*["'][^"']*charset\s*=\s*([a-zA-Z0-9._-]+)/i);
+  if (metaMatch?.[1]) return metaMatch[1].trim();
+  return 'utf-8';
+}
+
 async function readTextWithLimit(response: Response, maxBytes: number): Promise<string> {
   const declared = Number(response.headers.get('content-length') || 0);
   if (declared > maxBytes) {
     throw new Error(`Response too large (${declared} bytes, limit ${maxBytes})`);
   }
   if (!response.body) {
-    return await response.text();
+    const buf = await response.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    if (bytes.byteLength > maxBytes) {
+      throw new Error(`Response too large (limit ${maxBytes} bytes)`);
+    }
+    const charset = detectCharsetFromHeadersOrBytes(response, bytes);
+    try {
+      return new TextDecoder(charset, { fatal: false }).decode(bytes);
+    } catch {
+      return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    }
   }
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -741,7 +806,12 @@ async function readTextWithLimit(response: Response, maxBytes: number): Promise<
     merged.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return new TextDecoder('utf-8').decode(merged);
+  const charset = detectCharsetFromHeadersOrBytes(response, merged);
+  try {
+    return new TextDecoder(charset, { fatal: false }).decode(merged);
+  } catch {
+    return new TextDecoder('utf-8', { fatal: false }).decode(merged);
+  }
 }
 
 export async function extractArticleFromUrl(url: string, cookies?: string): Promise<ExtractedArticle> {
@@ -776,20 +846,28 @@ export async function extractArticleFromUrl(url: string, cookies?: string): Prom
   }
 
   const html = await readTextWithLimit(response, MAX_ARTICLE_BYTES);
-  return extractArticleFromHtml(html, url);
+  const finalUrl = response.url && response.url.startsWith('http') ? response.url : url;
+  return extractArticleFromHtml(html, finalUrl);
 }
 
 export async function extractCoverImageFromUrl(url: string): Promise<string | null> {
   try {
-    const res = await fetch(url, {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return null;
+    }
+    const res = await fetch(parsedUrl.toString(), {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       },
+      redirect: 'follow',
       signal: AbortSignal.timeout(3500)
     });
     if (!res.ok) return null;
-    const html = await res.text();
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct && !/(text\/html|application\/xhtml\+xml)/.test(ct)) return null;
+    const html = await readTextWithLimit(res, 256 * 1024);
     const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
                     html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||

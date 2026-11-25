@@ -1262,12 +1262,22 @@ const postEntryHandler = async (c: any) => {
         tags: rawTags,
       };
     } catch (err: any) {
+      let fallbackDomain = 'unknown';
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return c.json({ error: 'Invalid URL protocol' }, 400);
+        }
+        fallbackDomain = parsed.hostname;
+      } catch {
+        return c.json({ error: 'Invalid URL format' }, 400);
+      }
       console.warn(`[API:Ingest] ⚠️ Server scraping error for ${url}: ${err?.message}`);
       entryData = {
         url,
         title: title || url,
         content: `<p><a href="${escapeHtmlText(url)}">${escapeHtmlText(url)}</a></p>`,
-        domain_name: new URL(url).hostname,
+        domain_name: fallbackDomain,
         reading_time: 1,
         language: 'en',
         author: body.author ? String(body.author).trim() : null,

@@ -2162,4 +2162,13 @@ describe("Dual-Revision Sync & Content Revision Engine", () => {
     const updated2 = await patchRes2.json<any>();
     expect(updated2.content_revision).toBe(3);
   });
+
+  it("returns 400 instead of 500 when POST /api/entries receives a malformed URL", async () => {
+    const res = await app.request("/api/entries.json", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "not-a-valid-url" }),
+    }, { DB: mockDb, AUTH_TOKEN: SECRET });
+    expect(res.status).toBe(400);
+  });
 });

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { extractArticleFromHtml, calculateReadingTime, extractDomain } from '../services/extractor';
+import { describe, it, expect, vi } from 'vitest';
+import { extractArticleFromHtml, extractArticleFromUrl, calculateReadingTime, extractDomain } from '../services/extractor';
 
 describe('Article Extractor Service', () => {
   it('calculates reading time correctly', () => {
@@ -244,5 +244,53 @@ describe('Article Sanitization & XSS Defense', () => {
     expect(extracted.content).not.toContain('javascript:');
     expect(extracted.content).toContain('Safe Link');
     expect(extracted.content).toContain('https://example.com/image.jpg');
+  });
+
+  it('unwraps <noscript> fallback images and resolves relative URLs against response.url', async () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Redirected Page</title></head>
+        <body>
+          <article>
+            <h1>Article Heading</h1>
+            <p>Long enough body paragraph to ensure Readability keeps the article content intact and preserves images.</p>
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="placeholder">
+            <noscript><img src="/images/hero.jpg" alt="Hero"></noscript>
+          </article>
+        </body>
+      </html>
+    `;
+    const fakeRes = new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+    Object.defineProperty(fakeRes, 'url', { value: 'https://final-host.example.com/blog/post' });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(fakeRes);
+
+    try {
+      const extracted = await extractArticleFromUrl('https://short.example.com/r/1');
+      expect(extracted.content).toContain('https://final-host.example.com/images/hero.jpg');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('decodes non-UTF-8 charsets declared in Content-Type (windows-1255)', async () => {
+    // "שלום" in windows-1255: 0xF9 0xEC 0xE5 0xED
+    const prefix = new TextEncoder().encode('<!DOCTYPE html><html><head><title>Test</title></head><body><article><p>');
+    const hebrew = new Uint8Array([0xF9, 0xEC, 0xE5, 0xED]);
+    const suffix = new TextEncoder().encode(' world content for readability parsing.</p></article></body></html>');
+    const body = new Uint8Array(prefix.length + hebrew.length + suffix.length);
+    body.set(prefix, 0);
+    body.set(hebrew, prefix.length);
+    body.set(suffix, prefix.length + hebrew.length);
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(body, { headers: { 'content-type': 'text/html; charset=windows-1255' } })
+    );
+    try {
+      const extracted = await extractArticleFromUrl('https://example.com/heb');
+      expect(extracted.content).toContain('שלום');
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });

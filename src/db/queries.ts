@@ -1,4 +1,23 @@
 let schemaEnsured = false;
+
+function chunkArray<T>(arr: T[], size = 80): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function safeJsonParse<T>(raw: unknown, fallback: T): T {
+  if (raw === null || raw === undefined || raw === '') return fallback;
+  if (typeof raw !== 'string') return raw as T;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
   if (schemaEnsured || !db) return;
   try {
@@ -86,6 +105,12 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         revoked_at TEXT DEFAULT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)`,
+      `CREATE INDEX IF NOT EXISTS idx_entries_url ON entries(url)`,
+      `CREATE INDEX IF NOT EXISTS idx_entries_revision ON entries(revision)`,
+      `CREATE INDEX IF NOT EXISTS idx_entries_domain ON entries(domain_name)`,
+      `CREATE INDEX IF NOT EXISTS idx_annotations_entry ON annotations(entry_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_deleted_entries_rev ON deleted_entries(revision)`,
       `CREATE TABLE IF NOT EXISTS config (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
@@ -236,8 +261,8 @@ export function entryRowToWallabag(row: EntryRow, tags: TagItem[] = []): Wallaba
         quote: String(a.quote || ''),
         text: String(a.text || ''),
         color: String(a.color || 'yellow'),
-        ranges: typeof a.ranges === 'string' ? JSON.parse(a.ranges || '[]') : (a.ranges || []),
-        target: a.target ? (typeof a.target === 'string' ? JSON.parse(a.target) : a.target) : undefined,
+        ranges: safeJsonParse(a.ranges, []),
+        target: a.target ? safeJsonParse(a.target, undefined) : undefined,
         created_at: formatRfc3339(a.created_at),
         updated_at: formatRfc3339(a.updated_at),
         user: 'wallaflare'
@@ -355,8 +380,8 @@ export function formatAnnotationResponse(row: any): AnnotationItem {
     quote: String(row.quote || ''),
     text: String(row.text || ''),
     color: String(row.color || 'yellow'),
-    ranges: typeof row.ranges === 'string' ? JSON.parse(row.ranges || '[]') : (row.ranges || []),
-    target: row.target ? (typeof row.target === 'string' ? JSON.parse(row.target) : row.target) : undefined,
+    ranges: safeJsonParse(row.ranges, []),
+    target: row.target ? safeJsonParse(row.target, undefined) : undefined,
     created_at: formatRfc3339(row.created_at),
     updated_at: formatRfc3339(row.updated_at),
     user: row.user_id || 'wallaflare'
@@ -368,18 +393,20 @@ export async function getAllEntryAnnotationsBatch(db: D1Database, entryIds: numb
   if (entryIds.length === 0) return map;
 
   try {
-    const placeholders = entryIds.map(() => '?').join(',');
-    const query = `
-      SELECT id, entry_id, user_id, quote, text, color, ranges, target, created_at, updated_at
-      FROM annotations
-      WHERE entry_id IN (${placeholders})
-      ORDER BY id ASC
-    `;
-    const { results } = await db.prepare(query).bind(...entryIds).all<any>();
-    if (results) {
-      for (const r of results) {
-        if (!map.has(r.entry_id)) map.set(r.entry_id, []);
-        map.get(r.entry_id)!.push(formatAnnotationResponse(r));
+    for (const chunk of chunkArray(entryIds, 80)) {
+      const placeholders = chunk.map(() => '?').join(',');
+      const query = `
+        SELECT id, entry_id, user_id, quote, text, color, ranges, target, created_at, updated_at
+        FROM annotations
+        WHERE entry_id IN (${placeholders})
+        ORDER BY id ASC
+      `;
+      const { results } = await db.prepare(query).bind(...chunk).all<any>();
+      if (results) {
+        for (const r of results) {
+          if (!map.has(r.entry_id)) map.set(r.entry_id, []);
+          map.get(r.entry_id)!.push(formatAnnotationResponse(r));
+        }
       }
     }
   } catch {}
@@ -528,19 +555,21 @@ export async function getAllEntryTagsBatch(db: D1Database, entryIds: number[]): 
   if (entryIds.length === 0) return map;
 
   try {
-    const placeholders = entryIds.map(() => '?').join(',');
-    const query = `
-      SELECT et.entry_id, t.id, t.label, t.slug 
-      FROM tags t
-      JOIN entry_tags et ON t.id = et.tag_id
-      WHERE et.entry_id IN (${placeholders})
-      ORDER BY t.label ASC
-    `;
-    const { results } = await db.prepare(query).bind(...entryIds).all<{ entry_id: number; id: number; label: string; slug: string }>();
-    if (results) {
-      for (const r of results) {
-        if (!map.has(r.entry_id)) map.set(r.entry_id, []);
-        map.get(r.entry_id)!.push({ id: r.id, label: r.label, slug: r.slug });
+    for (const chunk of chunkArray(entryIds, 80)) {
+      const placeholders = chunk.map(() => '?').join(',');
+      const query = `
+        SELECT et.entry_id, t.id, t.label, t.slug 
+        FROM tags t
+        JOIN entry_tags et ON t.id = et.tag_id
+        WHERE et.entry_id IN (${placeholders})
+        ORDER BY t.label ASC
+      `;
+      const { results } = await db.prepare(query).bind(...chunk).all<{ entry_id: number; id: number; label: string; slug: string }>();
+      if (results) {
+        for (const r of results) {
+          if (!map.has(r.entry_id)) map.set(r.entry_id, []);
+          map.get(r.entry_id)!.push({ id: r.id, label: r.label, slug: r.slug });
+        }
       }
     }
   } catch {}
@@ -628,9 +657,23 @@ export async function deleteTag(db: D1Database, tagIdOrSlug: number | string): P
     if (tag) tagId = tag.id;
   }
   if (!tagId) return false;
+
+  const affectedRes = await db.prepare('SELECT entry_id FROM entry_tags WHERE tag_id = ?').bind(tagId).all<{ entry_id: number }>();
+  const affectedEntryIds = (affectedRes.results || []).map(r => r.entry_id);
+
   await db.prepare('DELETE FROM entry_tags WHERE tag_id = ?').bind(tagId).run();
   const res = await db.prepare('DELETE FROM tags WHERE id = ?').bind(tagId).run();
-  return (res.meta?.changes ?? 0) > 0;
+  const deleted = (res.meta?.changes ?? 0) > 0;
+
+  if (deleted && affectedEntryIds.length > 0) {
+    const newRev = await bumpSyncRevision(db);
+    const now = new Date().toISOString();
+    for (const chunk of chunkArray(affectedEntryIds, 80)) {
+      const placeholders = chunk.map(() => '?').join(',');
+      await db.prepare(`UPDATE entries SET updated_at = ?, revision = ? WHERE id IN (${placeholders})`).bind(now, newRev, ...chunk).run();
+    }
+  }
+  return deleted;
 }
 
 export async function getEntries(
@@ -692,9 +735,10 @@ export async function getEntries(
   }
 
   if (filter.search) {
-    conditions.push('(title LIKE ? OR content LIKE ?)');
-    params.push(`%${filter.search}%`);
-    params.push(`%${filter.search}%`);
+    const escapedSearch = String(filter.search).replace(/[\\%_]/g, '\\$&');
+    conditions.push("(title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')");
+    params.push(`%${escapedSearch}%`);
+    params.push(`%${escapedSearch}%`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -777,10 +821,13 @@ export async function getEntryById(db: D1Database, id: number): Promise<EntryRow
 export async function getEntriesByIds(db: D1Database, ids: number[]): Promise<EntryRow[]> {
   if (!ids || ids.length === 0) return [];
   const uniqueIds = Array.from(new Set(ids));
-  const placeholders = uniqueIds.map(() => '?').join(',');
-  const query = `SELECT * FROM entries WHERE id IN (${placeholders})`;
-  const res = await db.prepare(query).bind(...uniqueIds).all<EntryRow>();
-  const rows = res.results || [];
+  const rows: EntryRow[] = [];
+  for (const chunk of chunkArray(uniqueIds, 80)) {
+    const placeholders = chunk.map(() => '?').join(',');
+    const query = `SELECT * FROM entries WHERE id IN (${placeholders})`;
+    const res = await db.prepare(query).bind(...chunk).all<EntryRow>();
+    if (res.results) rows.push(...res.results);
+  }
   if (rows.length === 0) return [];
 
   const entryIds = rows.map(r => r.id);
@@ -998,9 +1045,9 @@ export async function updateEntry(
     setClauses.push('is_starred = ?');
     params.push(updates.is_starred);
   }
-  if (updates.author !== undefined) {
-    setClauses.push('author = ?');
-    params.push(updates.author);
+  if (updates.published_at !== undefined) {
+    setClauses.push('published_at = ?');
+    params.push(updates.published_at);
   }
   if (updates.reading_time !== undefined) {
     setClauses.push('reading_time = ?');
@@ -1037,50 +1084,110 @@ export async function updateEntry(
 export async function deleteEntriesBatch(db: D1Database, ids: number[]): Promise<number> {
   const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
   if (validIds.length === 0) return 0;
-  const placeholders = validIds.map(() => '?').join(',');
-  await db.prepare(`DELETE FROM entry_tags WHERE entry_id IN (${placeholders})`).bind(...validIds).run();
-  const res = await db.prepare(`DELETE FROM entries WHERE id IN (${placeholders})`).bind(...validIds).run();
+  let totalDeleted = 0;
+  for (const chunk of chunkArray(validIds, 80)) {
+    const placeholders = chunk.map(() => '?').join(',');
+    await db.prepare(`DELETE FROM entry_tags WHERE entry_id IN (${placeholders})`).bind(...chunk).run();
+    const res = await db.prepare(`DELETE FROM entries WHERE id IN (${placeholders})`).bind(...chunk).run();
+    totalDeleted += (res.meta?.changes ?? chunk.length);
+  }
   await recordDeletedEntriesBatch(db, validIds);
-  return res.meta?.changes ?? validIds.length;
+  return totalDeleted;
 }
 
 export async function updateEntriesBatch(db: D1Database, ids: number[], updates: { is_starred?: number; is_archived?: number }): Promise<number> {
   const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
   if (validIds.length === 0) return 0;
   const newRev = await bumpSyncRevision(db);
-  const setClauses: string[] = ['updated_at = ?', 'revision = ?'];
-  const params: any[] = [new Date().toISOString(), newRev];
+  const now = new Date().toISOString();
+  const baseClauses: string[] = ['updated_at = ?', 'revision = ?'];
+  const baseParams: any[] = [now, newRev];
 
   if (updates.is_starred !== undefined) {
-    setClauses.push('is_starred = ?');
-    params.push(updates.is_starred ? 1 : 0);
+    baseClauses.push('is_starred = ?');
+    baseParams.push(updates.is_starred ? 1 : 0);
   }
   if (updates.is_archived !== undefined) {
-    setClauses.push('is_archived = ?');
-    params.push(updates.is_archived ? 1 : 0);
+    baseClauses.push('is_archived = ?');
+    baseParams.push(updates.is_archived ? 1 : 0);
   }
 
-  const placeholders = validIds.map(() => '?').join(',');
-  params.push(...validIds);
-
-  const query = `UPDATE entries SET ${setClauses.join(', ')} WHERE id IN (${placeholders})`;
-  const res = await db.prepare(query).bind(...params).run();
-  return res.meta?.changes ?? validIds.length;
+  let totalUpdated = 0;
+  for (const chunk of chunkArray(validIds, 80)) {
+    const placeholders = chunk.map(() => '?').join(',');
+    const query = `UPDATE entries SET ${baseClauses.join(', ')} WHERE id IN (${placeholders})`;
+    const res = await db.prepare(query).bind(...baseParams, ...chunk).run();
+    totalUpdated += (res.meta?.changes ?? chunk.length);
+  }
+  return totalUpdated;
 }
 
 export async function addTagsToEntriesBatch(db: D1Database, ids: number[], rawTags: any): Promise<void> {
   const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
   if (validIds.length === 0) return;
-  for (const id of validIds) {
-    await addTagsToEntry(db, id, rawTags);
+  const tagsList = (Array.isArray(rawTags) ? rawTags : String(rawTags).split(','))
+    .map(t => t.trim())
+    .filter(Boolean);
+  if (tagsList.length === 0) return;
+
+  const tagIds: number[] = [];
+  for (const rawLabel of tagsList) {
+    const label = rawLabel.replace(/^#+/, '').trim();
+    if (!label) continue;
+    const slug = slugify(label);
+    if (!slug) continue;
+    let tag = await db.prepare('SELECT id FROM tags WHERE slug = ? OR label = ? LIMIT 1').bind(slug, label).first<{ id: number }>();
+    if (!tag) {
+      await db.prepare('INSERT OR IGNORE INTO tags (label, slug) VALUES (?, ?)').bind(label, slug).run();
+      tag = await db.prepare('SELECT id FROM tags WHERE slug = ? OR label = ? LIMIT 1').bind(slug, label).first<{ id: number }>();
+    }
+    if (tag) tagIds.push(tag.id);
+  }
+  if (tagIds.length === 0) return;
+
+  const insertStmts: D1PreparedStatement[] = [];
+  for (const entryId of validIds) {
+    for (const tagId of tagIds) {
+      insertStmts.push(db.prepare('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)').bind(entryId, tagId));
+    }
+  }
+  for (const stmtChunk of chunkArray(insertStmts, 80)) {
+    if (typeof (db as any).batch === 'function') {
+      await (db as any).batch(stmtChunk);
+    } else {
+      for (const s of stmtChunk) await s.run();
+    }
+  }
+
+  const newRev = await bumpSyncRevision(db);
+  const now = new Date().toISOString();
+  for (const idChunk of chunkArray(validIds, 80)) {
+    const placeholders = idChunk.map(() => '?').join(',');
+    await db.prepare(`UPDATE entries SET updated_at = ?, revision = ? WHERE id IN (${placeholders})`).bind(now, newRev, ...idChunk).run();
   }
 }
 
 export async function removeTagFromEntriesBatch(db: D1Database, ids: number[], tagParam: string | number): Promise<void> {
   const validIds = ids.filter(id => typeof id === 'number' && !isNaN(id) && id > 0);
   if (validIds.length === 0) return;
-  for (const id of validIds) {
-    await removeTagFromEntry(db, id, tagParam);
+
+  let tagId: number | null = null;
+  const num = Number(tagParam);
+  if (!isNaN(num) && num > 0) {
+    tagId = num;
+  } else {
+    const clean = String(tagParam).trim().toLowerCase().replace(/^#+/, '');
+    const tag = await db.prepare('SELECT id FROM tags WHERE slug = ? OR LOWER(label) = ? LIMIT 1').bind(slugify(clean), clean).first<{ id: number }>();
+    if (tag) tagId = tag.id;
+  }
+  if (!tagId) return;
+
+  const newRev = await bumpSyncRevision(db);
+  const now = new Date().toISOString();
+  for (const idChunk of chunkArray(validIds, 80)) {
+    const placeholders = idChunk.map(() => '?').join(',');
+    await db.prepare(`DELETE FROM entry_tags WHERE tag_id = ? AND entry_id IN (${placeholders})`).bind(tagId, ...idChunk).run();
+    await db.prepare(`UPDATE entries SET updated_at = ?, revision = ? WHERE id IN (${placeholders})`).bind(now, newRev, ...idChunk).run();
   }
 }
 
@@ -1385,13 +1492,20 @@ export async function recordDeletedEntriesBatch(db: D1Database, entryIds: number
   if (entryIds.length === 0) return await getCurrentSyncRevision(db);
   await ensureSyncRevisionTables(db);
   const newRev = await bumpSyncRevision(db);
-  for (const id of entryIds) {
+  const stmts = entryIds.map(id =>
+    db.prepare(`
+      INSERT OR REPLACE INTO deleted_entries (entry_id, revision, deleted_at) 
+      VALUES (?, ?, datetime('now'))
+    `).bind(id, newRev)
+  );
+  for (const chunk of chunkArray(stmts, 80)) {
     try {
-      await db.prepare(`
-        INSERT OR REPLACE INTO deleted_entries (entry_id, revision, deleted_at) 
-        VALUES (?, ?, datetime('now'))
-      `).bind(id, newRev).run();
-    } catch (e) {}
+      if (typeof (db as any).batch === 'function') {
+        await (db as any).batch(chunk);
+      } else {
+        for (const s of chunk) await s.run();
+      }
+    } catch {}
   }
   return newRev;
 }
