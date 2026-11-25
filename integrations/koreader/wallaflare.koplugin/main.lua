@@ -1124,29 +1124,44 @@ function Wallaflare:performSync()
     local remote_deleted_count = 0
     local remote_deleted_ann_count = 0
     if #outbox > 0 then
+        local failed_outbox = {}
         for _, item in ipairs(outbox) do
+            local ok = false
             if item.action == "archive" then
                 local res = Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { archive = 1 })
                 if res and type(res) == "table" then
                     remote_archived_count = remote_archived_count + 1
+                    ok = true
                 end
             elseif item.action == "delete" then
                 local res = Api.deleteEntry(self.settings.server_url, self.settings.auth_token, item.id)
                 if res and type(res) == "table" then
                     remote_deleted_count = remote_deleted_count + 1
+                    ok = true
                 end
             elseif item.action == "star" then
-                Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 1 })
+                local res = Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 1 })
+                if res and type(res) == "table" then ok = true end
             elseif item.action == "unstar" then
-                Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 0 })
+                local res = Api.sendPatch(self.settings.server_url, self.settings.auth_token, item.id, { starred = 0 })
+                if res and type(res) == "table" then ok = true end
             elseif item.action == "delete_annotation" then
                 local res = Api.deleteAnnotation(self.settings.server_url, self.settings.auth_token, item.id)
                 if res and type(res) == "table" then
                     remote_deleted_ann_count = remote_deleted_ann_count + 1
+                    ok = true
                 end
+            else
+                ok = true
+            end
+            if not ok then
+                table.insert(failed_outbox, item)
             end
         end
         Store:clearOutbox()
+        for _, item in ipairs(failed_outbox) do
+            Store:queueAction(item.action, item.id)
+        end
     end
 
     -- 1b. Upload local unsynced annotations across all downloaded EPUBs
@@ -1264,7 +1279,7 @@ function Wallaflare:performSync()
         end
     end
 
-    -- 2. Fetch delta sync from server
+    -- 2. Fetch delta/full sync from server across all pages before pruning or advancing sync_rev
     local since_rev = self.settings.sync_rev or 0
     local data, err = Api.fetchSync(
         self.settings.server_url,
@@ -1282,6 +1297,43 @@ function Wallaflare:performSync()
             timeout = 5,
         })
         return
+    end
+
+    local total_pages = tonumber(data.pages) or 1
+    if total_pages > 1 and not data.up_to_date then
+        data.entries = type(data.entries) == "table" and data.entries or {}
+        data.deleted_ids = type(data.deleted_ids) == "table" and data.deleted_ids or {}
+        for page = 2, total_pages do
+            local page_data, page_err = Api.fetchSync(
+                self.settings.server_url,
+                self.settings.auth_token,
+                since_rev,
+                self.settings.sync_filter,
+                page,
+                100,
+                self.settings.sync_tag
+            )
+            if not page_data or type(page_data) ~= "table" then
+                UIManager:show(InfoMessage:new{
+                    text = _("Wallaflare Sync Failed (page ") .. tostring(page) .. "): " .. (page_err or _("Unknown error")),
+                    timeout = 5,
+                })
+                return
+            end
+            if type(page_data.entries) == "table" then
+                for _, entry in ipairs(page_data.entries) do
+                    table.insert(data.entries, entry)
+                end
+            end
+            if type(page_data.deleted_ids) == "table" then
+                for _, del_id in ipairs(page_data.deleted_ids) do
+                    table.insert(data.deleted_ids, del_id)
+                end
+            end
+            if page_data.sync_rev then
+                data.sync_rev = page_data.sync_rev
+            end
+        end
     end
 
     -- 3. Database Epoch / Reset Watchdog

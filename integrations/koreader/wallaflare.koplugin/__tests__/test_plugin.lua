@@ -1998,6 +1998,58 @@ describe("10. Library Organization by Tag & Tag Sync Filter", function()
         local last_byte = found.filename:byte(#found.filename - 5) -- right before .epub
         assert_true(last_byte ~= 95, "Filename should not end with trailing underscore before extension")
     end)
+
+    it("converts local annotation datetime to UTC ISO instead of appending Z blindly", function()
+        local lfs = require("libs/libkoreader-lfs")
+        local Annotations = require("annotations")
+        local local_dt = "2026-05-01 12:00:00"
+        local ts = os.time({ year = 2026, month = 5, day = 1, hour = 12, min = 0, sec = 0 })
+        local expected_utc = os.date("!%Y-%m-%dT%H:%M:%SZ", ts)
+
+        local tmp_epub = test_sandbox_dir .. "/lww_tz_test.epub"
+        local f = io.open(tmp_epub, "wb")
+        if f then f:write("fake epub"); f:close() end
+        local sdr = tmp_epub:gsub("%.epub$", ".sdr")
+        lfs.mkdir(sdr)
+        local mf = io.open(sdr .. "/metadata.epub.lua", "wb")
+        if mf then
+            mf:write('return { ["annotations"] = { [1] = { ["text"] = "quote", ["note"] = "new note", ["last_synced_note"] = "old note", ["wallaflare_id"] = 42, ["datetime"] = "' .. local_dt .. '" } } }')
+            mf:close()
+        end
+
+        local _, updates = Annotations:getLocalUnsynced(tmp_epub)
+        assert_eq(#updates, 1, "Should produce 1 update")
+        assert_eq(updates[1].updated_at, expected_utc, "Should convert local datetime to true UTC ISO")
+    end)
+
+    it("retains failed outbox items when API sync call fails", function()
+        local Store = require("store")
+        local Api = require("api")
+        Store:clearOutbox()
+        Store:queueAction("archive", 101)
+        Store:queueAction("delete", 102)
+
+        local orig_patch = Api.sendPatch
+        local orig_del = Api.deleteEntry
+        Api.sendPatch = function() return nil, "timeout" end
+        Api.deleteEntry = function() return { ok = true } end
+
+        app.settings.server_url = "http://127.0.0.1:8787"
+        app.settings.auth_token = "tok"
+        app.settings.sync_rev = 0
+        local orig_fetch = Api.fetchSync
+        Api.fetchSync = function() return { up_to_date = true, sync_rev = 1 } end
+        app:performSync()
+
+        Api.sendPatch = orig_patch
+        Api.deleteEntry = orig_del
+        Api.fetchSync = orig_fetch
+
+        local remaining = Store:getOutbox()
+        assert_eq(#remaining, 1, "Failed archive action must remain in outbox")
+        assert_eq(remaining[1].id, 101, "Retained item must be the failed archive")
+        Store:clearOutbox()
+    end)
 end)
 
 -- Cleanup sandbox

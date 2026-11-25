@@ -398,7 +398,20 @@ function Annotations:getLocalUnsynced(doc_path, ui_document)
             if note_changed or color_changed or quote_changed or needs_pos or ann.local_modified then
                 local client_time = (note_changed or color_changed or quote_changed) and (ann.datetime_updated or ann.datetime) or os.date("!%Y-%m-%dT%H:%M:%SZ")
                 if client_time and not client_time:match("Z$") and not client_time:match("[%+%-]%d%d:?%d%d$") then
-                    client_time = client_time:gsub(" ", "T") .. "Z"
+                    local y, m, d, H, M, S = client_time:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)[T ](%d%d):(%d%d):(%d%d)")
+                    if y then
+                        local ts = os.time({
+                            year = tonumber(y),
+                            month = tonumber(m),
+                            day = tonumber(d),
+                            hour = tonumber(H),
+                            min = tonumber(M),
+                            sec = tonumber(S),
+                        })
+                        client_time = ts and os.date("!%Y-%m-%dT%H:%M:%SZ", ts) or os.date("!%Y-%m-%dT%H:%M:%SZ")
+                    else
+                        client_time = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                    end
                 end
                 client_time = client_time or os.date("!%Y-%m-%dT%H:%M:%SZ")
                 table.insert(resolved_updates, {

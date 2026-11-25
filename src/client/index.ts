@@ -1605,9 +1605,30 @@ import {
             return;
           }
 
-          if (data.sync_rev) {
-            currentSyncRev = data.sync_rev;
-            localStorage.setItem('wf_sync_rev', String(data.sync_rev));
+          // Fetch remaining delta/sync pages before advancing currentSyncRev so >50-item updates aren't truncated
+          const maxPages = Number(data.pages || 1);
+          const allDeletedIds = Array.isArray(data.deleted_ids) ? [...data.deleted_ids] : [];
+          let rawFreshEntries = Array.isArray(data.entries) ? [...data.entries] : (Array.isArray(data) ? [...data] : [...(data._embedded?.items || [])]);
+          let finalSyncRev = data.sync_rev;
+
+          if (maxPages > 1 && sinceParam) {
+            for (let p = 2; p <= maxPages; p++) {
+              try {
+                const pageRes = await authFetch('/api/sync.json?page=' + p + '&perPage=50&sort=' + encodeURIComponent(sortParam) + sinceParam + '&_t=' + Date.now());
+                if (!pageRes.ok) break;
+                const pageData = await pageRes.json();
+                if (Array.isArray(pageData.entries)) rawFreshEntries.push(...pageData.entries);
+                if (Array.isArray(pageData.deleted_ids)) allDeletedIds.push(...pageData.deleted_ids);
+                if (pageData.sync_rev) finalSyncRev = pageData.sync_rev;
+              } catch {
+                break;
+              }
+            }
+          }
+
+          if (finalSyncRev) {
+            currentSyncRev = finalSyncRev;
+            localStorage.setItem('wf_sync_rev', String(finalSyncRev));
           }
 
           if (Array.isArray(data.tags)) {
@@ -1637,10 +1658,10 @@ import {
           }
 
           // 1. Prune deleted items from local storage & IndexedDB
-          if (Array.isArray(data.deleted_ids) && data.deleted_ids.length > 0) {
-            const delSet = new Set(data.deleted_ids);
+          if (allDeletedIds.length > 0) {
+            const delSet = new Set(allDeletedIds);
             allEntries = allEntries.filter(e => !delSet.has(e.id));
-            for (const delId of data.deleted_ids) {
+            for (const delId of allDeletedIds) {
               deleteEntryFromIndexedDB(delId);
             }
             if (activeArticleId && delSet.has(activeArticleId)) {
@@ -1662,7 +1683,6 @@ import {
               showToast('Article not found (deleted on server)', 4000);
             }
           } else {
-            const rawFreshEntries = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : (data._embedded?.items || []));
             if (rawFreshEntries.length > 0) {
               const freshEntries = preservePendingAnnotationsInEntries(rawFreshEntries, allEntries);
               const freshMap = new Map(freshEntries.map(e => [e.id, e]));
