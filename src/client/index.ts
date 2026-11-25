@@ -1,6 +1,7 @@
 import { saveArticleWithFallback, setParserMode, getParserMode, clientExtractArticle, ParserMode } from './extractor';
 import { isEmptyOrStubContent, renderEmptyArticleFallback } from './reader/empty-fallback';
 import { getEffectiveRestoreProgress, syncReadingProgressIfEnabled, getCurrentReaderScrollRatio, initReadingProgressSyncListeners } from './reader/progress-sync';
+import { matchesArticleSearch } from './utils/search-filter';
 import './modals/import';
 import { showToast, hideToast } from './components/toast';
 import { openModal, closeModal } from './modals/manager';
@@ -1186,6 +1187,35 @@ import {
           deleteEntryAction(activeArticleId);
         }
       }
+
+      // Power-user shortcuts: v (open original), b (jump to bookmark), h (highlights), 1-4 (filters)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !isEditableFocused()) {
+        const modalOpen = document.querySelector('.modal-backdrop.open, .tag-modal-overlay.open');
+        if (!modalOpen) {
+          if (e.key === 'v' && activeArticleId) {
+            e.preventDefault();
+            openActiveOriginalLink();
+          } else if (e.key === 'b' && activeArticleId) {
+            e.preventDefault();
+            jumpToActiveBookmark();
+          } else if (e.key === 'h' && activeArticleId) {
+            e.preventDefault();
+            toggleReaderHighlightsModal();
+          } else if (e.key === '1') {
+            e.preventDefault();
+            setFilter('unread');
+          } else if (e.key === '2') {
+            e.preventDefault();
+            setFilter('starred');
+          } else if (e.key === '3') {
+            e.preventDefault();
+            setFilter('archive');
+          } else if (e.key === '4') {
+            e.preventDefault();
+            setFilter('all');
+          }
+        }
+      }
     });
 
     // Android Back Button Navigation
@@ -1996,11 +2026,7 @@ import {
       }
 
       if (search) {
-        filtered = filtered.filter(e =>
-          (e.title && e.title.toLowerCase().includes(search)) ||
-          (e.domain_name && e.domain_name.toLowerCase().includes(search)) ||
-          (e.text && e.text.toLowerCase().includes(search))
-        );
+        filtered = filtered.filter(e => matchesArticleSearch(e, search));
       }
 
       return sortEntries(filtered);
