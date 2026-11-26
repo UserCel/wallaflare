@@ -324,3 +324,201 @@ describe('Phase 1 P0 Security Hardening', () => {
     expect(out).toContain('<p>text</p>');
   });
 });
+
+describe('Route Security Audit: dynamic unauthenticated sweep across all Hono routes', () => {
+  // Intentionally public static assets, app-shell views (no user/DB data), and public metadata endpoints.
+  // Any NEW route not added here MUST enforce authentication (401 or 302 to /login), otherwise this test fails.
+  const PUBLIC_STATIC_OR_SHELL_ROUTES = new Set<string>([
+    'GET /',
+    'GET /unread',
+    'GET /starred',
+    'GET /archive',
+    'GET /all',
+    'GET /read/:id',
+    'GET /view/:id',
+    'GET /share-target',
+    'GET /login',
+    'GET /robots.txt',
+    'GET /sw.js',
+    'GET /manifest.webmanifest',
+    'GET /manifest.json',
+    'GET /favicon.ico',
+    'GET /favicon.svg',
+    'GET /img/logo-wallabag.svg',
+    'GET /img/icon-192.png',
+    'GET /img/icon-512.png',
+    'GET /img/icon-maskable-192.png',
+    'GET /img/icon-maskable-512.png',
+    'GET /download/wallaflare.koplugin.zip',
+    'GET /api/version',
+    'GET /api/version.json',
+    'GET /api/info',
+    'GET /api/info.json',
+    'GET /api/app/version',
+    'GET /api/app/version.json',
+    'GET /api/app/koplugin/version',
+    'GET /api/app/koplugin/version.json',
+    'GET /api/app/koplugin/files',
+    'GET /api/app/koplugin/files.json',
+    'GET /api/app/bundle.zip',
+  ]);
+
+  // Credential-exchange / login endpoints: must reject empty/unauthenticated payloads (never 200).
+  const PUBLIC_AUTH_ROUTES = new Set<string>([
+    'POST /login_check',
+    'POST /oauth/v2/token',
+    'POST /api/oauth/v2/token',
+    'POST /api/auth/token',
+    'POST /api/auth/verify',
+    'POST /api/admin/change-password',
+  ]);
+
+  // Protected web pages that redirect unauthenticated browsers to /login
+  const PROTECTED_WEB_REDIRECT_ROUTES = new Set<string>([
+    'GET /developer',
+    'GET /developer/client/create',
+    'POST /developer/client/create',
+    'GET /developer/client/delete/:id',
+    'POST /developer/client/delete/:id',
+    'GET /logout',
+  ]);
+
+  function concretizeRoutePath(path: string): string {
+    return path
+      .replace(':entryId', '1')
+      .replace(':id', '1')
+      .replace(':tag', 'tech')
+      .replace(':domain', 'example.com')
+      .replace(':user', 'wallaflare')
+      .replace(':token', 'invalid_feed_token');
+  }
+
+  function getUniqueRoutes() {
+    const seen = new Set<string>();
+    const list: Array<{ method: string; path: string; key: string }> = [];
+    for (const r of app.routes) {
+      if (r.method === 'ALL') continue;
+      const key = `${r.method} ${r.path}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      list.push({ method: r.method, path: r.path, key });
+    }
+    return list;
+  }
+
+  it('rejects unauthenticated requests on every non-public route (catches missing auth middleware)', async () => {
+    const auditSecret = 'audit-master-secret-999';
+    const mockDb = createMockD1Database();
+    // Seed a recognizable article title to ensure public shell routes never leak DB content
+    mockDb._entries.push({
+      id: 1,
+      title: 'CONFIDENTIAL_SEEDED_ARTICLE_TITLE',
+      url: 'https://private.example.com/secret',
+      domain_name: 'private.example.com',
+      content: '<p>Confidential body</p>',
+      is_archived: 0,
+      is_starred: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    const auditEnv = { DB: mockDb, AUTH_TOKEN: auditSecret, READ_TOKEN: 'audit_read_token_123' };
+
+    const routes = getUniqueRoutes();
+    expect(routes.length).toBeGreaterThan(50);
+
+    const unsecuredFindings: string[] = [];
+
+    for (let i = 0; i < routes.length; i++) {
+      const { method, path, key } = routes[i];
+      const concretePath = concretizeRoutePath(path);
+      // Unique IP per route so IP rate-limiters don't mask real auth responses with 429
+      const uniqueIp = `198.51.${Math.floor(i / 250) + 1}.${(i % 250) + 1}`;
+
+      const res = await app.request(concretePath, {
+        method,
+        headers: { 'CF-Connecting-IP': uniqueIp },
+      }, auditEnv);
+
+      if (PUBLIC_STATIC_OR_SHELL_ROUTES.has(key)) {
+        if (res.status !== 200) {
+          unsecuredFindings.push(`${key} -> expected 200 for public route, got ${res.status}`);
+          continue;
+        }
+        const ct = res.headers.get('Content-Type') || '';
+        if (ct.includes('text/html') || ct.includes('application/json')) {
+          const body = await res.text();
+          if (body.includes(auditSecret) || body.includes('CONFIDENTIAL_SEEDED_ARTICLE_TITLE')) {
+            unsecuredFindings.push(`${key} -> leaked sensitive data or secret while unauthenticated`);
+          }
+        }
+        continue;
+      }
+
+      if (PUBLIC_AUTH_ROUTES.has(key)) {
+        const expectedError = key === 'POST /login_check' ? res.status === 302 : (res.status === 400 || res.status === 401);
+        if (!expectedError) {
+          unsecuredFindings.push(`${key} -> public auth route returned unexpected status ${res.status} on empty request`);
+        }
+        continue;
+      }
+
+      if (PROTECTED_WEB_REDIRECT_ROUTES.has(key)) {
+        const loc = res.headers.get('Location') || '';
+        if (res.status !== 302 || !loc.includes('/login')) {
+          unsecuredFindings.push(`${key} -> expected 302 redirect to /login, got ${res.status} (Location: ${loc})`);
+        }
+        continue;
+      }
+
+      // Every other route (existing or newly added) MUST return 401 when unauthenticated
+      if (res.status !== 401) {
+        unsecuredFindings.push(`${key} -> UNSECURED or missing authMiddleware (returned ${res.status} instead of 401)`);
+      }
+    }
+
+    expect(unsecuredFindings).toEqual([]);
+  });
+
+  it('rejects bogus Bearer tokens and raw master password on all protected /api, /opds, and /feed routes', async () => {
+    const auditSecret = 'audit-master-secret-999';
+    const mockDb = createMockD1Database();
+    const auditEnv = { DB: mockDb, AUTH_TOKEN: auditSecret, READ_TOKEN: 'audit_read_token_123' };
+
+    const routes = getUniqueRoutes().filter(
+      ({ key }) => !PUBLIC_STATIC_OR_SHELL_ROUTES.has(key) && !PUBLIC_AUTH_ROUTES.has(key) && !PROTECTED_WEB_REDIRECT_ROUTES.has(key)
+    );
+
+    const bypassFindings: string[] = [];
+
+    for (let i = 0; i < routes.length; i++) {
+      const { method, path, key } = routes[i];
+      const concretePath = concretizeRoutePath(path);
+
+      // 1. Bogus Bearer token must still return 401
+      const bogusRes = await app.request(concretePath, {
+        method,
+        headers: {
+          Authorization: 'Bearer invalid_bogus_token_xyz',
+          'CF-Connecting-IP': `198.52.${Math.floor(i / 250) + 1}.${(i % 250) + 1}`,
+        },
+      }, auditEnv);
+      if (bogusRes.status !== 401) {
+        bypassFindings.push(`${key} (bogus Bearer) -> returned ${bogusRes.status} instead of 401`);
+      }
+
+      // 2. Raw master password used directly as Bearer token must return 401 (zero-trust token isolation)
+      const masterRes = await app.request(concretePath, {
+        method,
+        headers: {
+          Authorization: `Bearer ${auditSecret}`,
+          'CF-Connecting-IP': `198.53.${Math.floor(i / 250) + 1}.${(i % 250) + 1}`,
+        },
+      }, auditEnv);
+      if (masterRes.status !== 401) {
+        bypassFindings.push(`${key} (raw master password Bearer) -> returned ${masterRes.status} instead of 401`);
+      }
+    }
+
+    expect(bypassFindings).toEqual([]);
+  });
+});

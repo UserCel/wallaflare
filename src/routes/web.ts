@@ -640,7 +640,7 @@ webRouter.post('/login_check', async (c) => {
 });
 
 // Developer page (used by Wallabagger and Android app to auto-fetch Client ID / Secret)
-webRouter.get('/developer', async (c) => {
+async function redirectIfUnauthenticatedDeveloper(c: any): Promise<Response | null> {
   const isAuthed = await validateSessionToken(c, c.env);
   const ua = c.req.header('user-agent') || '';
   const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
@@ -649,6 +649,14 @@ webRouter.get('/developer', async (c) => {
     const origin = new URL(c.req.url).origin;
     return c.redirect(`${origin}/login`, 302);
   }
+  return null;
+}
+
+webRouter.get('/developer', async (c) => {
+  const redirectRes = await redirectIfUnauthenticatedDeveloper(c);
+  if (redirectRes) return redirectRes;
+  const ua = c.req.header('user-agent') || '';
+  const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
   const clientSecret = getClientSecret(c.env);
   let tokens: any[] = [];
   if (!isAppClient && c.env.DB) {
@@ -660,19 +668,15 @@ webRouter.get('/developer', async (c) => {
 });
 
 webRouter.get('/developer/client/create', async (c) => {
-  const isAuthed = await validateSessionToken(c, c.env);
-  const ua = c.req.header('user-agent') || '';
-  const isAppClient = /okhttp|wallabag|InThePoche|Dalvik/i.test(ua);
-  const isConfigured = await isMasterPasswordConfigured(c.env.DB, c.env);
-  if (!isAuthed && isConfigured && !isAppClient) {
-    const origin = new URL(c.req.url).origin;
-    return c.redirect(`${origin}/login`, 302);
-  }
+  const redirectRes = await redirectIfUnauthenticatedDeveloper(c);
+  if (redirectRes) return redirectRes;
   const clientSecret = getClientSecret(c.env);
   return c.html(renderWallabagDeveloperPage(c, c.env, clientSecret, true));
 });
 
 webRouter.post('/developer/client/create', async (c) => {
+  const redirectRes = await redirectIfUnauthenticatedDeveloper(c);
+  if (redirectRes) return redirectRes;
   const origin = new URL(c.req.url).origin;
   return c.redirect(`${origin}/developer`, 302);
 });
@@ -684,12 +688,16 @@ webRouter.get('/logout', (c) => {
 
 
 // Handle /developer/client/delete/:id gracefully
-webRouter.get('/developer/client/delete/:id', (c) => {
+webRouter.get('/developer/client/delete/:id', async (c) => {
+  const redirectRes = await redirectIfUnauthenticatedDeveloper(c);
+  if (redirectRes) return redirectRes;
   const origin = new URL(c.req.url).origin;
   return c.redirect(`${origin}/developer`, 302);
 });
 
-webRouter.post('/developer/client/delete/:id', (c) => {
+webRouter.post('/developer/client/delete/:id', async (c) => {
+  const redirectRes = await redirectIfUnauthenticatedDeveloper(c);
+  if (redirectRes) return redirectRes;
   const origin = new URL(c.req.url).origin;
   return c.redirect(`${origin}/developer`, 302);
 });

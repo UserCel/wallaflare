@@ -1168,7 +1168,7 @@ describe("Developer Page & OAuth Client Secret Security", () => {
     // 3. Submitting POST /developer/client/create redirects to /developer
     const postCreateRes = await app.request("/developer/client/create", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "okhttp/4.9.2" },
       body: "client%5Bname%5D=Android+app&client%5Bredirect_uris%5D%5B0%5D=http%3A%2F%2Flocalhost&client%5B_token%5D=wallaflare_client_token_999"
     }, {
       DB: mockDb,
